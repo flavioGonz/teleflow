@@ -1,0 +1,16 @@
+{
+  "name": "Teleflow Pro",
+  "short_name": "Teleflow",
+  "start_url": "/teleflow/",
+  "display": "standalone",
+  "background_color": "#030406",
+  "theme_color": "#8B5CF6",
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=TF&background=8B5CF6&color=fff&size=512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
