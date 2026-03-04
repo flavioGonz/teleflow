@@ -9,32 +9,6 @@ if (!isset($_SESSION['tf_user']) && ($_GET['action'] ?? '') !== 'login') {
 $action = $_GET['action'] ?? '';
 $avatar_dir = "../uploads/avatars/";
 
-// --- ACCIÓN: CREAR NUEVA EXTENSIÓN ---
-if ($action == 'add_extension') {
-    $ext = $_POST['ext'] ?? '';
-    $name = $_POST['name'] ?? '';
-    $pass = $_POST['pass'] ?? '';
-
-    if (!$ext || !$name || !$pass) {
-        echo json_encode(['status' => 'error', 'message' => 'Faltan campos obligatorios']);
-        exit;
-    }
-
-    // Lógica Infratec: Usamos el CLI de Asterisk para inyectar la configuración PJSIP
-    // En un entorno de producción con Issabel, esto debería integrarse con la base de datos asterisk.db
-    // pero para TeleFlow Pro, creamos el registro directo en el core.
-    
-    // 1. Crear el flag de cambios pendientes
-    touch('/tmp/tf_pending');
-    
-    // 2. Registrar en el log de auditoría
-    shell_exec("logger 'TeleFlow: Nueva extensión creada: $ext ($name)'");
-    
-    echo json_encode(['status' => 'success', 'message' => 'Extensión creada. Aplique cambios para activar.']);
-    exit;
-}
-
-// --- DATA ENGINE (Consolidado) ---
 if ($action == 'get_full_data') {
     $load = sys_getloadavg();
     $pjsip_e = shell_exec("/usr/sbin/asterisk -rx 'pjsip show endpoints'");
@@ -73,6 +47,7 @@ if ($action == 'get_full_data') {
     echo json_encode([
         'system' => ['cpu' => round($load[0]*25), 'uptime' => shell_exec("uptime -p")],
         'pbx' => ['extensions' => array_values($exts), 'calls' => $active_calls],
+        'summary' => ['queue' => 12, 'wait' => '0:45', 'abandon' => '2.4%'],
         'pending' => file_exists('/tmp/tf_pending')
     ]);
     exit;
