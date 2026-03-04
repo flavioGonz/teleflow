@@ -43,7 +43,7 @@
 
         .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid currentColor; }
         .online { color: #22c55e; } .busy { color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(210, 153, 34, 0); } }
     </style>
 </head>
 <body>
@@ -68,7 +68,7 @@
                 data.pbx.extensions.forEach((e,i) => {
                     const a = (i / (data.pbx.extensions.length || 1)) * 2 * Math.PI;
                     nodes.push({ id:e.ext, data:{label:e.ext}, position:{x:350*Math.cos(a),y:350*Math.sin(a)}, style:{background:e.status==='ONLINE'?'#238636':'#21262d',color:'#fff',fontSize:'9px',width:50,borderRadius:'8px'} });
-                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, animated:e.status!=='OFFLINE' });
+                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, type: 'straight', animated:e.status!=='OFFLINE' });
                 });
                 return { nodes, edges };
             }, [data.pbx.extensions]);
