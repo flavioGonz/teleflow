@@ -1,38 +1,37 @@
-# 🚀 TeleFlow | Infratec Next-Gen PBX Interface
+# 🚀 TeleFlow | Infratec Next-Gen PBX
 
-TeleFlow es una interfaz de gestión telefónica moderna, diseñada para reemplazar la interfaz web tradicional de Issabel/Asterisk en entornos de alta demanda.
+TeleFlow es una interfaz de gestión telefónica moderna, ultra-rápida y visual, diseñada como alternativa superior a la web de Issabel/Asterisk. Orientada a Call Centers, Portería Inteligente y profesionales IT.
 
 ## 🛠️ Stack Tecnológico
-- **Frontend:** React JS (SPA) con Tailwind CSS y Framer-style animations.
-- **Backend:** PHP API Bridge (Conexión directa con Asterisk CLI).
-- **Métricas:** Sistema de monitoreo en tiempo real con latencia RTT.
-- **Visualización:** Mapa de flujos interactivo con React Flow.
+- **Frontend:** React JS + Tailwind CSS + React Flow (Visual Engine).
+- **Backend:** PHP API Bridge (Conexión directa con Asterisk CLI & MariaDB).
+- **Estética:** Ultra-Dark "Black Deep" con diseño minimalista y técnico.
+- **PWA:** Optimizada para uso nativo en iPhone y iPad.
 
-## 📋 Requisitos e Instalación
-Para instalar TeleFlow en una central Issabel 5 (Rocky Linux 8):
+## 📋 Proceso de Instalación Limpio (Debian/Rocky)
 
-1. **Clonar el repositorio** en la raíz web:
+1. **Clonar el repositorio:**
    ```bash
    cd /var/www/html
    git clone https://github.com/flavioGonz/teleflow.git
    ```
 
-2. **Permisos de Archivos:**
+2. **Permisos de Archivos y Asterisk:**
    ```bash
    chown -R asterisk:asterisk /var/www/html/teleflow
-   chmod -R 755 /var/www/html/teleflow
+   chmod 755 /usr/sbin/asterisk
    ```
 
 3. **Acceso:**
-   Navegar a `https://TU_IP/teleflow/index.php`. El sistema utiliza las mismas credenciales de administrador de Issabel.
+   Navegar a `https://TU_IP/teleflow/index.php`. El sistema utiliza las credenciales de administrador de Issabel.
 
-## 🚀 Funcionalidades Incluidas (v8.1)
-- [x] **Login Bridge:** Autenticación vinculada a la DB de ACL de Issabel.
-- [x] **Dashboard 360:** Mapa de nodos dinámico con SIP CORE central.
-- [x] **Gestión de Extensiones:** Lista premium con RTT, MAC y Avatares.
-- [x] **Módulo de Colas:** Visualización de clientes en espera y estrategias.
-- [x] **Sileo Notifications:** Avisos elásticos de llamadas en vivo.
-- [x] **Dual Theme:** Cambio animado entre Modo Oscuro y Modo Claro.
+## 🚀 Roadmap 2026
+- [x] **Dashboard Visual 360°:** Mapa de flujos en tiempo real con SIP CORE.
+- [x] **Gestión de Extensiones Pro:** ABM completo con soporte de Video y Portería (DTMF).
+- [x] **Monitor de Red:** Visualización de IP, MAC y RTT (Latencia).
+- [x] **Sileo Notifications:** Sistema de alertas elásticas de llamadas entrantes.
+- [ ] **Waveform Recordings:** Reproductor de grabaciones con ondas de audio.
+- [ ] **WebRTC Integration:** Teléfono embebido directamente en la interfaz.
 
 ---
 Desarrollado por **Infratec** | *Innovación en Telecomunicaciones*
