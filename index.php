@@ -15,86 +15,103 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #030406; color: #f8fafc; margin: 0; overflow: hidden; }
-        .glass { background: rgba(13, 17, 23, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .page-wrapper { height: 100vh; overflow-y: auto; padding-bottom: 120px; }
-        .tab-bar { position: fixed; bottom: 20px; left: 15px; right: 15px; height: 75px; border-radius: 25px; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 15px 40px rgba(0,0,0,0.6); }
+        .glass { background: rgba(13, 17, 23, 0.7); backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .page-wrapper { height: 100vh; overflow-y: auto; padding-top: calc(env(safe-area-inset-top) + 20px); padding-bottom: 150px; }
+        .tab-bar { position: fixed; bottom: 25px; left: 20px; right: 20px; height: 75px; border-radius: 25px; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 15px 40px rgba(0,0,0,0.6); }
+        .tab-item { color: #8b949e; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; transition: 0.3s; }
+        .tab-item.active { color: #8B5CF6; }
+        .tab-item-center { background: #8B5CF6; color: white !important; width: 55px; height: 55px; border-radius: 20px; justify-content: center; transform: translateY(-5px); box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4); }
         .st-pill { padding: 4px 12px; border-radius: 20px; font-size: 9px; font-weight: 800; text-transform: uppercase; border: 1px solid currentColor; }
         .ONLINE { color: #22c55e; } .BUSY { color: #f59e0b; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        audio { height: 35px; border-radius: 10px; filter: invert(1) hue-rotate(180deg); width: 100%; opacity: 0.8; }
+        /* VIVO CARD ANIMATION */
+        .live-card { border-left: 4px solid #ef4444; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(13, 17, 23, 0.8) 100%); animation: liveGlow 3s infinite; }
+        @keyframes liveGlow { 0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.1); } 50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); } }
+        .live-dot { width: 10px; height: 10px; background: #ef4444; border-radius: 50%; box-shadow: 0 0 10px #ef4444; animation: ring 1.5s infinite; }
+        @keyframes ring { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body class="dark">
     <div id="root"></div>
     <script type="text/babel">
-        if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) { window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on = () => {}; window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = () => {}; }
         const { useState, useEffect, useMemo } = React;
         const { motion, AnimatePresence } = window.Motion;
         const RF = window.ReactFlow;
 
         function App() {
-            const [view, setView] = useState('dashboard');
-            const [isDark, setIsDark] = useState(true);
-            const [search, setSearch] = useState('');
-            const [selected, setSelected] = useState(null);
+            const [view, setView] = useState('extensiones');
             const [data, setData] = useState({ pbx: { extensions: [], calls: [], queues: [], recordings: [] }, system: {}, summary: {} });
 
             const refresh = () => fetch('api/index.php?action=get_full_data').then(r => r.json()).then(d => setData(d));
             useEffect(() => { refresh(); const i = setInterval(refresh, 3000); return () => clearInterval(i); }, []);
-            useEffect(() => { document.body.className = isDark ? 'dark' : 'light-mode bg-gray-50 text-slate-900'; }, [isDark]);
-
-            const flowData = useMemo(() => {
-                const nodes = [{ id:'core', data:{label:'SIP CORE'}, position:{x:0, y:0}, style:{background:'#714B67',color:'#fff',borderRadius:'50%',width:120,height:120,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,border:'3px solid #fff'} }];
-                const edges = [];
-                data.pbx.extensions.slice(0, 15).forEach((e,i) => {
-                    const a = (i/15)*2*Math.PI;
-                    nodes.push({ id:e.ext, data:{label:e.ext}, position:{x:450*Math.cos(a),y:350*Math.sin(a)}, style:{background:e.status==='ONLINE'?'#238636':'#21262d',color:'#fff',fontSize:'10px',width:60,borderRadius:'8px'} });
-                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, type:'straight', animated:e.status==='BUSY', style:{stroke: e.status==='ONLINE'?'#238636':'#30363d'} });
-                });
-                return { nodes, edges };
-            }, [data.pbx.extensions]);
 
             return (
-                <div className="flex h-screen w-screen overflow-hidden">
+                <div className="flex h-screen w-screen bg-[#030406] overflow-hidden">
                     <AnimatePresence mode="wait">
-                        <motion.main key={view} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="flex-1 page-wrapper px-8 pt-10">
+                        <motion.main key={view} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }} className="flex-1 page-wrapper px-6">
                             <header className="flex justify-between items-center mb-10">
-                                <div><h1 className="text-3xl font-black uppercase tracking-tighter">{view}</h1></div>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={()=>setIsDark(!isDark)} className="w-11 h-11 glass rounded-2xl flex items-center justify-center"><span className="material-icons">{isDark?'light_mode':'dark_mode'}</span></button>
-                                    <div className="bg-[#8B5CF6] text-white w-11 h-11 flex items-center justify-center rounded-xl font-black shadow-lg">FG</div>
-                                </div>
+                                <div><h1 className="text-3xl font-black uppercase text-white tracking-tighter">{view}</h1><p className="text-[10px] text-purple-400 font-black uppercase tracking-widest italic">Infratec Teleflow</p></div>
+                                <div className="w-11 h-11 bg-purple-600 rounded-2xl flex items-center justify-center font-black shadow-lg">FG</div>
                             </header>
 
-                            {view === 'dashboard' && (
-                                <div className="h-[650px] glass rounded-[30px] overflow-hidden shadow-2xl relative">
-                                    <RF.ReactFlow nodes={flowData.nodes} edges={flowData.edges} fitView><RF.Background color={isDark?"#111":"#eee"} /></RF.ReactFlow>
+                            {/* MÓDULO VIVO (REPARADO Y ESTILIZADO) */}
+                            {view === 'vivo' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="glass p-5 rounded-3xl text-center"><div className="text-[10px] font-black text-gray-500 mb-1">CONVERSACIONES</div><div className="text-4xl font-black text-purple-500">{data.pbx.calls.length}</div></div>
+                                        <div className="glass p-5 rounded-3xl text-center"><div className="text-[10px] font-black text-gray-500 mb-1">CANALES SIP</div><div className="text-4xl font-black text-white">{data.pbx.calls.length * 2}</div></div>
+                                    </div>
+                                    {data.pbx.calls.length === 0 ? (
+                                        <div className="glass p-20 rounded-[40px] text-center opacity-40">
+                                            <span className="material-icons text-5xl mb-4">sensors_off</span>
+                                            <p className="font-bold uppercase tracking-widest">Sin actividad en tiempo real</p>
+                                        </div>
+                                    ) : data.pbx.calls.map((c, i) => (
+                                        <motion.div key={i} initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="glass live-card rounded-2xl p-6 flex justify-between items-center">
+                                            <div className="flex items-center gap-6">
+                                                <div className="live-dot"></div>
+                                                <div>
+                                                    <div className="flex items-center gap-3"><b className="text-2xl tracking-tighter">#{c.from}</b><span className="material-icons text-gray-600 text-sm">arrow_forward</span><b className="text-2xl tracking-tighter">{c.to}</b></div>
+                                                    <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-1">Conexión SIP Activa</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-black text-purple-400 font-mono tracking-tighter">{c.duration}</div>
+                                                <div className="text-[8px] text-gray-600 font-black uppercase tracking-widest">Talk Time</div>
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                    }
                                 </div>
                             )}
 
+                            {/* MÓDULO EXTENSIONES */}
                             {view === 'extensiones' && (
                                 <div className="space-y-4">
-                                    <div className="flex justify-center mb-8"><input type="text" placeholder="🔍 Buscar..." className={`w-full max-w-xl py-3.5 px-6 rounded-2xl outline-none focus:ring-2 focus:ring-purple-600 ${isDark?'bg-[#161B22] text-white':'bg-white text-black border border-gray-200'}`} onChange={e=>setSearch(e.target.value)} /></div>
-                                    {data.pbx.extensions.filter(e=>e.ext.includes(search)||e.name.toLowerCase().includes(search.toLowerCase())).map(e => (
-                                        <div key={e.ext} className={`p-5 flex items-center justify-between rounded-2xl border ${isDark?'bg-[#161B22] border-[#21262d]':'bg-white border-gray-100 shadow-sm'} transition-all cursor-pointer`} onClick={()=>setSelected(e)}>
-                                            <div className="flex items-center gap-4"><img src={e.avatar} className="w-12 h-12 rounded-xl object-cover"/><div className="font-black text-lg">#{e.ext}<br/><span className="text-[10px] text-gray-500 uppercase">{e.name}</span></div></div>
-                                            <div className="text-right"><span className={`st-pill ${e.status} block mb-1`}>{e.status}</span><code className="text-[10px] text-purple-400 font-bold">{e.rtt}</code></div>
+                                    {data.pbx.extensions.map((e, idx) => (
+                                        <div key={e.ext} className={`glass border-l-4 ${e.status==='ONLINE'?'border-l-green-500':'border-l-gray-600'} rounded-2xl p-5 flex justify-between items-center`}>
+                                            <div className="flex items-center gap-5">
+                                                <img src={e.avatar} className="w-14 h-14 rounded-2xl object-cover"/><div className="font-black text-xl">#{e.ext}<br/><span className="text-[10px] text-gray-500 uppercase">{e.name}</span></div>
+                                            </div>
+                                            <div className="text-right"><span className={`st-pill ${e.status} block mb-1`}>{e.status}</span><code className="text-purple-400 font-bold">{e.rtt}</code></div>
                                         </div>
                                     ))}
                                 </div>
                             )}
 
+                            {/* MÓDULO CALLCENTER */}
                             {view === 'callcenter' && (
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-2 gap-4">
                                     {data.pbx.queues.map(q => (
-                                        <div key={q.name} className="glass p-8 rounded-3xl text-center border-t-4 border-t-purple-600">
-                                            <div className="text-[12px] font-black text-gray-500 mb-4 uppercase">{q.name}</div>
-                                            <div className="text-6xl font-black text-white">{q.waiting}</div>
+                                        <div key={q.name} className="glass p-6 rounded-3xl text-center border-t-4 border-t-purple-600">
+                                            <div className="text-[10px] font-black text-gray-500 uppercase">{q.name}</div>
+                                            <div className="text-5xl font-black text-white mt-2">{q.waiting}</div>
                                         </div>
                                     ))}
                                 </div>
                             )}
 
+                            {/* MÓDULO GRABACIONES */}
                             {view === 'grabaciones' && (
                                 <div className="space-y-4">
                                     {data.pbx.recordings.map((r, i) => (
@@ -111,36 +128,17 @@
                         </motion.main>
                     </AnimatePresence>
 
-                    <nav className={`tab-bar glass ${isDark?'':'bg-white/90 border-gray-200'}`}>
-                        <NavItem icon="grid_view" active={view==='dashboard'} onClick={()=>setView('dashboard')} />
-                        <NavItem icon="people" active={view==='extensiones'} onClick={()=>setView('extensiones')} />
-                        <div className="tab-item-center" onClick={()=>setView('vivo')}><span className="material-icons text-3xl">sensors</span></div>
-                        <NavItem icon="headset_mic" active={view==='callcenter'} onClick={()=>setView('callcenter')} />
-                        <NavItem icon="mic" active={view==='grabaciones'} onClick={()=>setView('grabaciones')} />
+                    {/* TAB BAR NAVEGACIÓN */}
+                    <nav className="tab-bar glass">
+                        <div className={`tab-item ${view==='dashboard'?'active':''}`} onClick={()=>setView('dashboard')}><span className="material-icons">grid_view</span></div>
+                        <div className={`tab-item ${view==='extensiones'?'active':''}`} onClick={()=>setView('extensiones')}><span className="material-icons">people</span></div>
+                        <div className={`tab-item tab-item-center ${view==='vivo'?'active':''}`} onClick={()=>setView('vivo')}><span className="material-icons text-3xl">sensors</span></div>
+                        <div className={`tab-item ${view==='callcenter'?'active':''}`} onClick={()=>setView('callcenter')}><span className="material-icons">headset_mic</span></div>
+                        <div className={`tab-item ${view==='grabaciones'?'active':''}`} onClick={()=>setView('grabaciones')}><span className="material-icons">mic</span></div>
                     </nav>
-
-                    {selected && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[2000] flex items-center justify-center" onClick={()=>setSelected(null)}>
-                            <div className={`w-[450px] p-10 rounded-2xl border ${isDark?'bg-[#161B22] border-[#30363d]':'bg-white border-gray-200 shadow-2xl'}`} onClick={e=>e.stopPropagation()}>
-                                <h2 className="text-2xl font-black mb-8 italic">Editar Extensión {selected.ext}</h2>
-                                <label className="text-[10px] font-black text-gray-500 uppercase mb-2 block">Nombre</label>
-                                <input type="text" className={`w-full p-3 rounded-xl mb-6 outline-none ${isDark?'bg-[#0B0E14] text-white border-gray-800':'bg-gray-50 text-black border-gray-200'}`} defaultValue={selected.name} />
-                                <button className="w-full bg-[#8B5CF6] text-white py-4 rounded-xl font-black shadow-xl" onClick={()=>setSelected(null)}>GUARDAR</button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
-
-        function NavItem({ icon, active, onClick }) {
-            return (
-                <div onClick={onClick} className={`tab-item ${active?'active':''}`}>
-                    <span className="material-icons text-2xl">{icon}</span>
-                </div>
-            );
-        }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
