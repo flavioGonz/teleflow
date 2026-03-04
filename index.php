@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Teleflow Pro v9.3</title>
+    <title>Teleflow Pro v9.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -14,151 +14,156 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #030406; color: #f8fafc; margin: 0; overflow: hidden; }
-        .sidebar { background-color: #0d1117; border-right: 1px solid #21262d; }
+        .sidebar { background-color: #0d1117; border-right: 1px solid #21262d; width: 260px; height: 100vh; position: fixed; z-index: 100; transition: 0.3s; }
+        .sidebar.collapsed { width: 80px; }
+        .main-content { margin-left: 260px; height: 100vh; transition: 0.3s; padding: 40px; overflow-y: auto; }
+        .sidebar.collapsed + .main-content { margin-left: 80px; }
         
-        /* REACT FLOW CUSTOM STYLES */
-        .react-flow__edge-path { stroke-width: 2; transition: stroke 0.5s ease, stroke-width 0.5s ease; }
-        
-        /* CORE NODE */
-        .node-core { background: #714B67; color: #fff; width: 140px; height: 140px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 60px rgba(113, 75, 103, 0.4); border: 4px solid #fff; position: relative; z-index: 10; }
-        .pulse-core { animation: p-core 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes p-core { 0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(113, 75, 103, 0.3); } 50% { transform: scale(1.08); box-shadow: 0 0 80px rgba(113, 75, 103, 0.6); } }
+        .nav-item { padding: 12px 16px; margin: 4px 12px; border-radius: 12px; cursor: pointer; color: #8b949e; display: flex; align-items: center; gap: 14px; transition: 0.2s; font-weight: 600; }
+        .nav-item.active { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); }
+        .nav-item:hover:not(.active) { background: rgba(255,255,255,0.03); color: #fff; }
 
-        /* EXTENSION NODE */
-        .node-ext { background: rgba(22, 27, 34, 0.85); border: 1px solid #30363d; border-radius: 14px; padding: 10px; width: 160px; color: #fff; backdrop-filter: blur(12px); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        .node-ext.busy { border-color: #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.2); }
-        .node-ext.online { border-color: #238636; }
-        
-        .glass-panel { background: rgba(13, 17, 23, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; }
-        
-        /* OVERRIDES REACT FLOW */
-        .react-flow__background { background: #030406; }
-        .react-flow__handle { opacity: 0; } /* Escondemos los puntos de conexión para un look más limpio */
+        /* TANK TABLE STYLE */
+        .tf-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .tr-pro { background: #0d1117; border: 1px solid #21262d; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .tr-pro:hover { transform: scale(1.005); border-color: #8b5cf6; background: #161b22; }
+        .tr-pro td { padding: 18px 24px; border-top: 1px solid #21262d; border-bottom: 1px solid #21262d; }
+        .tr-pro td:first-child { border-left: 1px solid #21262d; border-radius: 14px 0 0 14px; }
+        .tr-pro td:last-child { border-right: 1px solid #21262d; border-radius: 0 14px 14px 0; }
+
+        /* DRAWER APPLE STYLE */
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.4s; }
+        .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+        .drawer { position: fixed; top: 0; right: 0; width: 480px; height: 100vh; background: #0d1117; border-left: 1px solid #21262d; z-index: 2001; transform: translateX(100%); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 40px; }
+        .drawer.open { transform: translateX(0); box-shadow: -20px 0 60px rgba(0,0,0,0.5); }
+
+        .input-dark { width: 100%; padding: 12px 16px; border-radius: 10px; background: #030406; border: 1px solid #21262d; color: #fff; margin-bottom: 20px; outline: none; }
+        .input-dark:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); }
+        .switch-row { background: rgba(255,255,255,0.02); padding: 14px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border: 1px solid #21262d; }
+
+        .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid currentColor; }
+        .online { color: #22c55e; } .busy { color: #f59e0b; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const { ReactFlow, Background, Controls } = window.ReactFlow;
-
-        const CoreNode = () => (
-            <div className="node-core pulse-core">
-                <span className="material-icons text-4xl mb-1">dns</span>
-                <b className="text-xs font-black uppercase tracking-widest">SIP CORE</b>
-                <small className="text-[8px] opacity-60 font-bold">INFRATEC PBX</small>
-            </div>
-        );
-
-        const ExtensionNode = ({ data }) => (
-            <div className={`node-ext transition-all duration-500 ${data.status === 'BUSY' ? 'busy' : (data.status === 'ONLINE' ? 'online' : '')}`}>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <img src={data.avatar} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
-                        {data.status !== 'OFFLINE' && (
-                            <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#161B22] ${data.status === 'BUSY' ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></span>
-                        )}
-                    </div>
-                    <div className="leading-tight">
-                        <div className="text-sm font-black">#{data.ext}</div>
-                        <div className="text-[9px] text-gray-500 font-bold uppercase truncate w-24">{data.name}</div>
-                    </div>
-                </div>
-            </div>
-        );
-
-        const nodeTypes = { core: CoreNode, extension: ExtensionNode };
+        const { ReactFlow, Background } = window.ReactFlow;
 
         function App() {
             const [view, setView] = useState('dashboard');
-            const [data, setData] = useState({ system:{cpu:0, ram:0}, pbx:{extensions:[], calls:[], recordings:[]} });
+            const [collapsed, setCollapsed] = useState(false);
+            const [data, setData] = useState({ system:{}, pbx:{extensions:[], calls:[]} });
+            const [selected, setSelected] = useState(null);
+            const [search, setSearch] = useState('');
 
             const refresh = () => fetch('api/index.php?action=get_full_data').then(r=>r.json()).then(res=>setData(res));
             useEffect(() => { refresh(); const i = setInterval(refresh, 3000); return ()=>clearInterval(i); }, []);
 
             const flowElements = useMemo(() => {
-                const nodes = [{ id: 'core', type: 'core', position: { x: 0, y: 0 }, draggable: false }];
+                const nodes = [{ id:'core', data:{label:'SIP CORE'}, position:{x:0,y:0}, style:{background:'#714B67',color:'#fff',borderRadius:'50%',width:100,height:100,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,border:'2px solid #fff'} }];
                 const edges = [];
-                
-                if (!data.pbx.extensions) return { nodes, edges };
-
-                data.pbx.extensions.slice(0, 20).forEach((e, i) => {
-                    const angle = (i / (data.pbx.extensions.length || 1)) * 2 * Math.PI;
-                    const radius = 350;
-                    
-                    nodes.push({
-                        id: e.ext,
-                        type: 'extension',
-                        data: e,
-                        position: { x: radius * Math.cos(angle), y: radius * Math.sin(angle) }
-                    });
-
-                    edges.push({
-                        id: `e-${e.ext}`,
-                        source: 'core',
-                        target: e.ext,
-                        animated: e.status === 'BUSY', // Solo animamos el "vuelo de datos" en llamada
-                        style: { 
-                            stroke: e.status === 'BUSY' ? '#f59e0b' : (e.status === 'ONLINE' ? '#238636' : '#21262d'), 
-                            strokeWidth: e.status === 'BUSY' ? 3 : 1,
-                            opacity: e.status === 'OFFLINE' ? 0.3 : 1
-                        }
-                    });
+                data.pbx.extensions.forEach((e,i) => {
+                    const a = (i / (data.pbx.extensions.length || 1)) * 2 * Math.PI;
+                    nodes.push({ id:e.ext, data:{label:e.ext}, position:{x:350*Math.cos(a),y:350*Math.sin(a)}, style:{background:e.status==='ONLINE'?'#238636':'#21262d',color:'#fff',fontSize:'9px',width:50,borderRadius:'8px'} });
+                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, animated:e.status!=='OFFLINE' });
                 });
-
                 return { nodes, edges };
             }, [data.pbx.extensions]);
 
             return (
-                <div className="flex h-screen w-screen bg-[#030406]">
-                    <aside className="w-64 sidebar p-6 flex flex-col z-50">
-                        <div className="flex items-center gap-3 mb-12">
-                            <h2 className="text-2xl font-black text-[#8B5CF6] tracking-tighter">Teleflow</h2>
+                <div className="flex">
+                    <aside className={`sidebar ${collapsed?'collapsed':''}`}>
+                        <div className="p-8 mb-4">
+                            <div className="flex items-center gap-3">
+                                {!collapsed && <h2 className="text-2xl font-black text-[#8B5CF6] tracking-tighter">Teleflow</h2>}
+                                <div className="w-8 h-8 bg-[#8B5CF6] rounded-lg flex items-center justify-center shadow-lg"><i className="fa fa-wave-square text-white text-xs"></i></div>
+                            </div>
                         </div>
-                        <nav className="space-y-4">
-                            <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer transition-all ${view==='dashboard'?'bg-purple-500/10 text-purple-400 border border-purple-500/20':'text-gray-500'}`} onClick={()=>setView('dashboard')}>
-                                <span className="material-icons">dashboard</span><span className="text-sm font-black uppercase">Dashboard</span>
-                            </div>
-                            <div className="flex items-center gap-4 px-4 py-3 text-gray-700 cursor-not-allowed">
-                                <span className="material-icons">people</span><span className="text-sm font-black uppercase">Extensiones</span>
-                            </div>
+                        <nav>
+                            <NavItem icon="dashboard" label="Dashboard" active={view==='dashboard'} collapsed={collapsed} onClick={()=>setView('dashboard')} />
+                            <NavItem icon="people" label="Extensiones" active={view==='extensiones'} collapsed={collapsed} onClick={()=>setView('extensiones')} />
                         </nav>
                     </aside>
 
-                    <main className="flex-1 relative overflow-hidden">
-                        {view === 'dashboard' && (
-                            <div className="w-full h-full relative">
-                                {/* RECURSOS OVERLAY */}
-                                <div className="absolute top-10 left-10 z-10 space-y-6">
-                                    <div className="glass-panel p-6 w-72 shadow-2xl">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <b className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Estado del Servidor</b>
-                                            <span className="text-[8px] px-2 py-1 bg-green-500/10 text-green-500 rounded-full font-black uppercase">Live</span>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <div className="flex justify-between text-[10px] font-black mb-1"><span>PROCESADOR</span><span className="text-purple-400">{data.system.cpu}%</span></div>
-                                                <div className="h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-purple-500 transition-all duration-1000" style={{width: `${data.system.cpu}%`}}></div></div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between text-[10px] font-black mb-1"><span>MEMORIA RAM</span><span className="text-green-400">{data.system.ram}%</span></div>
-                                                <div className="h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-1000" style={{width: `${data.system.ram}%`}}></div></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="glass-panel p-5 w-72 shadow-2xl border-l-4 border-l-purple-500">
-                                        <div className="text-[10px] font-black text-gray-500 uppercase mb-2">Monitor de Red</div>
-                                        <div className="text-2xl font-black">{data.pbx.extensions.filter(x=>x.status==='ONLINE').length} <span className="text-xs text-gray-600">Internos Online</span></div>
-                                    </div>
-                                </div>
+                    <main className="main-content flex-1">
+                        <header className="flex justify-between items-center mb-12">
+                            <h1 className="text-3xl font-black uppercase tracking-tighter">{view}</h1>
+                            <div className="flex items-center gap-4">
+                                <div className="text-right"><div className="text-sm font-black">Flavio González</div><div className="text-[10px] text-gray-500 font-bold uppercase">Administrator</div></div>
+                                <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center font-black shadow-xl shadow-purple-500/20">FG</div>
+                            </div>
+                        </header>
 
-                                <ReactFlow nodes={flowElements.nodes} edges={flowElements.edges} nodeTypes={nodeTypes} fitView minZoom={0.2}>
-                                    <Background color="#111" gap={30} />
-                                </ReactFlow>
+                        {view === 'dashboard' ? (
+                            <div className="h-[650px] bg-black/40 rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
+                                <ReactFlow nodes={flowElements.nodes} edges={flowElements.edges} fitView><Background color="#111" gap={25}/></ReactFlow>
+                            </div>
+                        ) : (
+                            <div className="fade-in">
+                                <div className="flex justify-between mb-8">
+                                    <input type="text" placeholder="🔍 Buscar por interno o nombre..." className="w-1/2 bg-[#0d1117] border border-[#21262d] rounded-2xl p-4 text-sm outline-none focus:ring-2 focus:ring-purple-600" onChange={e=>setSearch(e.target.value)} />
+                                    <button className="bg-purple-600 text-white px-8 rounded-2xl font-black shadow-lg shadow-purple-500/10 hover:scale-105 transition-all">+ NUEVA EXTENSIÓN</button>
+                                </div>
+                                <table className="tf-table">
+                                    <thead><tr className="text-[10px] text-gray-500 font-black uppercase tracking-widest text-left"><th></th><th>Interno</th><th>Usuario</th><th>IP Origen</th><th>Latencia</th><th>Estado</th></tr></thead>
+                                    <tbody>
+                                        {data.pbx.extensions.filter(e=>e.ext.includes(search)||e.name.toLowerCase().includes(search.toLowerCase())).map(e => (
+                                            <tr key={e.ext} className="tr-pro" onClick={()=>setSelected(e)}>
+                                                <td className="w-16"><div className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center"><i className={`fa ${e.device_type==='softphone'?'fa-laptop-code':'fa-phone'} text-gray-600`}></i></div></td>
+                                                <td><b className="text-lg font-black">#{e.ext}</b></td>
+                                                <td><div className="flex items-center gap-3"><img src={e.avatar} className="w-8 h-8 rounded-full border border-white/10" /><b>{e.name}</b></div></td>
+                                                <td><code className="text-red-400/80 font-bold">{e.ip}</code></td>
+                                                <td><b className="text-purple-400">{e.rtt}</b></td>
+                                                <td><span className={`status-pill ${e.status}`}>{e.status}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </main>
+
+                    {/* DRAWER APPLE STYLE */}
+                    <div className={`drawer-overlay ${selected?'open':''}`} onClick={()=>setSelected(null)}></div>
+                    <div className={`drawer ${selected?'open':''}`}>
+                        {selected && (
+                            <div className="h-full flex flex-col">
+                                <div className="flex justify-between items-center mb-10">
+                                    <h2 className="text-2xl font-black tracking-tighter">Ficha Técnica</h2>
+                                    <span className="material-icons cursor-pointer text-gray-600 hover:text-white" onClick={()=>setSelected(null)}>close</span>
+                                </div>
+                                <div className="text-center mb-8">
+                                    <div className="relative inline-block group">
+                                        <img src={selected.avatar} className="w-24 h-24 rounded-[30px] border-4 border-purple-600 shadow-2xl transition-transform group-hover:scale-105" />
+                                        <label htmlFor="avatar-up" className="absolute bottom-0 right-0 bg-purple-600 p-2 rounded-xl shadow-lg cursor-pointer hover:scale-110"><span className="material-icons text-white text-sm">photo_camera</span></label>
+                                        <input type="file" id="avatar-up" hidden />
+                                    </div>
+                                    <h4 className="mt-4 font-black">Interno #{selected.ext}</h4>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{selected.name}</p>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase mb-2 block">Nombre de Mostrar</label>
+                                    <input type="text" className="input-dark" defaultValue={selected.name} />
+                                    <label className="text-[10px] font-black text-gray-500 uppercase mb-2 block">Password SIP (Secret)</label>
+                                    <input type="password" placeholder="••••••••" className="input-dark" />
+                                    <div className="switch-row"><b>Habilitar Video</b><input type="checkbox" defaultChecked={selected.use_video} className="w-5 h-5 accent-purple-600" /></div>
+                                    <div className="switch-row"><b>Apertura Puertas (DTMF)</b><input type="checkbox" defaultChecked={selected.open_doors} className="w-5 h-5 accent-purple-600" /></div>
+                                </div>
+                                <button className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-purple-500/20 hover:scale-[1.02] transition-transform" onClick={()=>setSelected(null)}>GUARDAR CAMBIOS</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function NavItem({ icon, label, active, collapsed, onClick }) {
+            return (
+                <div onClick={onClick} className={`nav-item ${active?'active':''}`}>
+                    <span className="material-icons">{icon}</span>{!collapsed && <span>{label}</span>}
                 </div>
             );
         }
