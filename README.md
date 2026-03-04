@@ -1,37 +1,22 @@
 # 🚀 TeleFlow | Infratec Next-Gen PBX
 
-TeleFlow es una interfaz de gestión telefónica moderna, ultra-rápida y visual, diseñada como alternativa superior a la web de Issabel/Asterisk. Orientada a Call Centers, Portería Inteligente y profesionales IT.
+TeleFlow es una interfaz de gestión telefónica moderna, ultra-rápida y visual, diseñada como alternativa superior a la web de Issabel/Asterisk.
 
 ## 🛠️ Stack Tecnológico
-- **Frontend:** React JS + Tailwind CSS + React Flow (Visual Engine).
-- **Backend:** PHP API Bridge (Conexión directa con Asterisk CLI & MariaDB).
+- **Frontend:** React JS + Tailwind CSS + React Flow (Turbo-Flow Engine).
+- **Backend:** PHP API Bridge (Conexión directa con Asterisk CLI & MySQL).
 - **Estética:** Ultra-Dark "Black Deep" con diseño minimalista y técnico.
-- **PWA:** Optimizada para uso nativo en iPhone y iPad.
 
-## 📋 Proceso de Instalación Limpio (Debian/Rocky)
+## 🚀 Funcionalidades Principales
+- **Dashboard Turbo-Flow:** Mapa de flujos inmersivo (Full Screen) con estilo Turbo-Flow, SIP CORE central y líneas rectas animadas.
+- **Gestión de Extensiones:** ABM completo con **Edición vía Side Drawer (Apple Style)**, soporte de Video y Portería (DTMF).
+- **Monitor de Red:** Visualización de IP, MAC y RTT (Latencia) en tiempo real.
+- **Sileo Notifications:** Sistema de alertas elásticas para eventos de telefonía.
 
-1. **Clonar el repositorio:**
-   ```bash
-   cd /var/www/html
-   git clone https://github.com/flavioGonz/teleflow.git
-   ```
-
-2. **Permisos de Archivos y Asterisk:**
-   ```bash
-   chown -R asterisk:asterisk /var/www/html/teleflow
-   chmod 755 /usr/sbin/asterisk
-   ```
-
-3. **Acceso:**
-   Navegar a `https://TU_IP/teleflow/index.php`. El sistema utiliza las credenciales de administrador de Issabel.
-
-## 🚀 Roadmap 2026
-- [x] **Dashboard Visual 360°:** Mapa de flujos en tiempo real con SIP CORE.
-- [x] **Gestión de Extensiones Pro:** ABM completo con soporte de Video y Portería (DTMF).
-- [x] **Monitor de Red:** Visualización de IP, MAC y RTT (Latencia).
-- [x] **Sileo Notifications:** Sistema de alertas elásticas de llamadas entrantes.
-- [ ] **Waveform Recordings:** Reproductor de grabaciones con ondas de audio.
-- [ ] **WebRTC Integration:** Teléfono embebido directamente en la interfaz.
+## 📋 Instalación
+1. Clonar en `/var/www/html/teleflow`.
+2. `chown -R asterisk:asterisk /var/www/html/teleflow`.
+3. `chmod 755 /usr/sbin/asterisk`.
 
 ---
 Desarrollado por **Infratec** | *Innovación en Telecomunicaciones*

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Teleflow Pro v9.4</title>
+    <title>Teleflow Pro v10</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -16,154 +16,144 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #030406; color: #f8fafc; margin: 0; overflow: hidden; }
         .sidebar { background-color: #0d1117; border-right: 1px solid #21262d; width: 260px; height: 100vh; position: fixed; z-index: 100; transition: 0.3s; }
         .sidebar.collapsed { width: 80px; }
-        .main-content { margin-left: 260px; height: 100vh; transition: 0.3s; padding: 40px; overflow-y: auto; }
+        .main-content { margin-left: 260px; height: 100vh; transition: 0.3s; position: relative; }
         .sidebar.collapsed + .main-content { margin-left: 80px; }
         
-        .nav-item { padding: 12px 16px; margin: 4px 12px; border-radius: 12px; cursor: pointer; color: #8b949e; display: flex; align-items: center; gap: 14px; transition: 0.2s; font-weight: 600; }
-        .nav-item.active { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); }
-        .nav-item:hover:not(.active) { background: rgba(255,255,255,0.03); color: #fff; }
-
-        /* TANK TABLE STYLE */
-        .tf-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
-        .tr-pro { background: #0d1117; border: 1px solid #21262d; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
-        .tr-pro:hover { transform: scale(1.005); border-color: #8b5cf6; background: #161b22; }
-        .tr-pro td { padding: 18px 24px; border-top: 1px solid #21262d; border-bottom: 1px solid #21262d; }
-        .tr-pro td:first-child { border-left: 1px solid #21262d; border-radius: 14px 0 0 14px; }
-        .tr-pro td:last-child { border-right: 1px solid #21262d; border-radius: 0 14px 14px 0; }
+        /* TURBO FLOW STYLES (REACT FLOW) */
+        .react-flow__edge-path { stroke: url(#edge-gradient); stroke-width: 2.5; stroke-opacity: 0.6; }
+        .react-flow__edge.animated path { stroke-dasharray: 8; animation: dash 1s linear infinite; stroke-opacity: 1; stroke-width: 3; }
+        @keyframes dash { from { stroke-dashoffset: 16; } to { stroke-dashoffset: 0; } }
+        
+        .node-turbo-core { background: #714B67; color: #fff; width: 140px; height: 140px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 80px rgba(113, 75, 103, 0.4); border: 4px solid #fff; position: relative; z-index: 10; }
+        .node-turbo-ext { background: rgba(22, 27, 34, 0.6); border: 1px solid #30363d; border-radius: 12px; padding: 12px; width: 180px; color: #fff; backdrop-filter: blur(15px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        .node-turbo-ext.active { border-color: #8b5cf6; box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
 
         /* DRAWER APPLE STYLE */
-        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.4s; }
-        .drawer-overlay.open { opacity: 1; pointer-events: auto; }
         .drawer { position: fixed; top: 0; right: 0; width: 480px; height: 100vh; background: #0d1117; border-left: 1px solid #21262d; z-index: 2001; transform: translateX(100%); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 40px; }
-        .drawer.open { transform: translateX(0); box-shadow: -20px 0 60px rgba(0,0,0,0.5); }
-
-        .input-dark { width: 100%; padding: 12px 16px; border-radius: 10px; background: #030406; border: 1px solid #21262d; color: #fff; margin-bottom: 20px; outline: none; }
-        .input-dark:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); }
-        .switch-row { background: rgba(255,255,255,0.02); padding: 14px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border: 1px solid #21262d; }
-
-        .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid currentColor; }
-        .online { color: #22c55e; } .busy { color: #f59e0b; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(210, 153, 34, 0); } }
+        .drawer.open { transform: translateX(0); box-shadow: -20px 0 80px rgba(0,0,0,0.6); }
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.4s; }
+        .drawer-overlay.open { opacity: 1; pointer-events: auto; }
     </style>
 </head>
-<body>
+<body class="dark">
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const { ReactFlow, Background } = window.ReactFlow;
+        const { ReactFlow, Background, Controls } = window.ReactFlow;
+
+        const CoreNode = () => (
+            <div className="node-turbo-core">
+                <span className="material-icons text-5xl mb-1">dns</span>
+                <b className="text-xs uppercase tracking-tighter">SIP CORE</b>
+            </div>
+        );
+
+        const ExtensionNode = ({ data }) => (
+            <div className={`node-turbo-ext ${data.status !== 'OFFLINE' ? 'active' : ''}`}>
+                <div className="flex items-center gap-3">
+                    <img src={data.avatar} className="w-10 h-10 rounded-xl object-cover border border-white/10" />
+                    <div>
+                        <div className="text-[13px] font-black leading-none">#{data.ext}</div>
+                        <div className="text-[9px] text-gray-500 font-bold uppercase truncate w-24 mt-1">{data.name}</div>
+                    </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-white/5 flex justify-between">
+                    <span className="text-[8px] font-mono text-purple-400">{data.ip}</span>
+                    <span className={`text-[8px] font-black ${data.status === 'ONLINE' ? 'text-green-500' : 'text-gray-600'}`}>{data.status}</span>
+                </div>
+            </div>
+        );
+
+        const nodeTypes = { core: CoreNode, extension: ExtensionNode };
 
         function App() {
             const [view, setView] = useState('dashboard');
-            const [collapsed, setCollapsed] = useState(false);
             const [data, setData] = useState({ system:{}, pbx:{extensions:[], calls:[]} });
-            const [selected, setSelected] = useState(null);
-            const [search, setSearch] = useState('');
+            const [selectedExt, setSelectedExt] = useState(null);
 
             const refresh = () => fetch('api/index.php?action=get_full_data').then(r=>r.json()).then(res=>setData(res));
             useEffect(() => { refresh(); const i = setInterval(refresh, 3000); return ()=>clearInterval(i); }, []);
 
             const flowElements = useMemo(() => {
-                const nodes = [{ id:'core', data:{label:'SIP CORE'}, position:{x:0,y:0}, style:{background:'#714B67',color:'#fff',borderRadius:'50%',width:100,height:100,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,border:'2px solid #fff'} }];
+                const nodes = [{ id:'core', type:'core', position:{x:0, y:0}, draggable: false }];
                 const edges = [];
                 data.pbx.extensions.forEach((e,i) => {
-                    const a = (i / (data.pbx.extensions.length || 1)) * 2 * Math.PI;
-                    nodes.push({ id:e.ext, data:{label:e.ext}, position:{x:350*Math.cos(a),y:350*Math.sin(a)}, style:{background:e.status==='ONLINE'?'#238636':'#21262d',color:'#fff',fontSize:'9px',width:50,borderRadius:'8px'} });
-                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, type: 'straight', animated:e.status!=='OFFLINE' });
+                    const angle = (i / (data.pbx.extensions.length || 1)) * 2 * Math.PI;
+                    nodes.push({ id:e.ext, type:'extension', data:e, position:{x:600*Math.cos(angle), y:450*Math.sin(angle)} });
+                    edges.push({ id:`e-${e.ext}`, source:'core', target:e.ext, type:'straight', animated:e.status==='BUSY', style:{ stroke: e.status==='ONLINE'?'#238636':(e.status==='BUSY'?'#f59e0b':'#21262d'), strokeWidth: e.status==='OFFLINE'?1:3 } });
                 });
                 return { nodes, edges };
             }, [data.pbx.extensions]);
 
             return (
-                <div className="flex">
-                    <aside className={`sidebar ${collapsed?'collapsed':''}`}>
-                        <div className="p-8 mb-4">
-                            <div className="flex items-center gap-3">
-                                {!collapsed && <h2 className="text-2xl font-black text-[#8B5CF6] tracking-tighter">Teleflow</h2>}
-                                <div className="w-8 h-8 bg-[#8B5CF6] rounded-lg flex items-center justify-center shadow-lg"><i className="fa fa-wave-square text-white text-xs"></i></div>
-                            </div>
-                        </div>
-                        <nav>
-                            <NavItem icon="dashboard" label="Dashboard" active={view==='dashboard'} collapsed={collapsed} onClick={()=>setView('dashboard')} />
-                            <NavItem icon="people" label="Extensiones" active={view==='extensiones'} collapsed={collapsed} onClick={()=>setView('extensiones')} />
+                <div className="flex h-screen w-screen overflow-hidden bg-[#030406]">
+                    <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+                        <defs>
+                            <linearGradient id="edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#714B67" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+
+                    <aside className="sidebar p-6 flex flex-col z-[100]">
+                        <div className="p-4 mb-10"><h2 className="text-2xl font-black text-[#8B5CF6] tracking-tighter">Teleflow</h2></div>
+                        <nav className="space-y-4">
+                            <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer ${view==='dashboard'?'bg-purple-500/10 text-purple-400':'text-gray-500'}`} onClick={()=>setView('dashboard')}><span className="material-icons">dashboard</span><b>DASHBOARD</b></div>
+                            <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer ${view==='extensiones'?'bg-purple-500/10 text-purple-400':'text-gray-500'}`} onClick={()=>setView('extensiones')}><span className="material-icons">people</span><b>EXTENSIONES</b></div>
+                            <div className={`flex items-center gap-4 px-4 py-3 rounded-2xl cursor-pointer ${view==='callcenter'?'bg-purple-500/10 text-purple-400':'text-gray-500'}`} onClick={()=>setView('callcenter')}><span className="material-icons">headset_mic</span><b>CALLCENTER</b></div>
                         </nav>
                     </aside>
 
-                    <main className="main-content flex-1">
-                        <header className="flex justify-between items-center mb-12">
-                            <h1 className="text-3xl font-black uppercase tracking-tighter">{view}</h1>
-                            <div className="flex items-center gap-4">
-                                <div className="text-right"><div className="text-sm font-black">Flavio González</div><div className="text-[10px] text-gray-500 font-bold uppercase">Administrator</div></div>
-                                <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center font-black shadow-xl shadow-purple-500/20">FG</div>
-                            </div>
-                        </header>
-
+                    <main className="main-content flex-1 bg-[#030406]">
                         {view === 'dashboard' ? (
-                            <div className="h-[650px] bg-black/40 rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
-                                <ReactFlow nodes={flowElements.nodes} edges={flowElements.edges} fitView><Background color="#111" gap={25}/></ReactFlow>
+                            <div className="w-full h-full relative">
+                                <div className="absolute top-10 left-10 z-10 bg-[#161B22]/70 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl">
+                                    <div className="flex gap-10">
+                                        <div><div className="text-2xl font-black">{data.system.cpu}%</div><div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">CPU LOAD</div></div>
+                                        <div><div className="text-2xl font-black">{data.system.ram}%</div><div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">RAM USAGE</div></div>
+                                    </div>
+                                </div>
+                                <ReactFlow nodes={flowElements.nodes} edges={flowElements.edges} nodeTypes={nodeTypes} fitView>
+                                    <Background color="#111" gap={30} />
+                                </ReactFlow>
                             </div>
                         ) : (
-                            <div className="fade-in">
-                                <div className="flex justify-between mb-8">
-                                    <input type="text" placeholder="🔍 Buscar por interno o nombre..." className="w-1/2 bg-[#0d1117] border border-[#21262d] rounded-2xl p-4 text-sm outline-none focus:ring-2 focus:ring-purple-600" onChange={e=>setSearch(e.target.value)} />
-                                    <button className="bg-purple-600 text-white px-8 rounded-2xl font-black shadow-lg shadow-purple-500/10 hover:scale-105 transition-all">+ NUEVA EXTENSIÓN</button>
+                            <div className="p-12">
+                                <h1 className="text-4xl font-black mb-12 uppercase tracking-tighter">Gestión de Extensiones</h1>
+                                <div className="space-y-3">
+                                    {data.pbx.extensions.map(e => (
+                                        <div key={e.ext} className="bg-[#0d1117] border border-[#21262d] rounded-2xl p-5 flex items-center justify-between hover:border-purple-500 transition-all cursor-pointer" onClick={()=>setSelectedExt(e)}>
+                                            <div className="flex items-center gap-6"><img src={e.avatar} className="w-12 h-12 rounded-xl object-cover border border-white/5"/><b className="text-xl font-black">#{e.ext}</b><span className="text-gray-400 font-semibold">{e.name}</span></div>
+                                            <div className="flex items-center gap-12"><span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${e.status==='ONLINE'?'bg-green-500/10 text-green-400':'bg-gray-500/10 text-gray-500'}`}>{e.status}</span><code className="text-purple-400/80 font-bold">{e.ip}</code></div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <table className="tf-table">
-                                    <thead><tr className="text-[10px] text-gray-500 font-black uppercase tracking-widest text-left"><th></th><th>Interno</th><th>Usuario</th><th>IP Origen</th><th>Latencia</th><th>Estado</th></tr></thead>
-                                    <tbody>
-                                        {data.pbx.extensions.filter(e=>e.ext.includes(search)||e.name.toLowerCase().includes(search.toLowerCase())).map(e => (
-                                            <tr key={e.ext} className="tr-pro" onClick={()=>setSelected(e)}>
-                                                <td className="w-16"><div className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center"><i className={`fa ${e.device_type==='softphone'?'fa-laptop-code':'fa-phone'} text-gray-600`}></i></div></td>
-                                                <td><b className="text-lg font-black">#{e.ext}</b></td>
-                                                <td><div className="flex items-center gap-3"><img src={e.avatar} className="w-8 h-8 rounded-full border border-white/10" /><b>{e.name}</b></div></td>
-                                                <td><code className="text-red-400/80 font-bold">{e.ip}</code></td>
-                                                <td><b className="text-purple-400">{e.rtt}</b></td>
-                                                <td><span className={`status-pill ${e.status}`}>{e.status}</span></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
                             </div>
                         )}
                     </main>
 
-                    {/* DRAWER APPLE STYLE */}
-                    <div className={`drawer-overlay ${selected?'open':''}`} onClick={()=>setSelected(null)}></div>
-                    <div className={`drawer ${selected?'open':''}`}>
-                        {selected && (
+                    {/* DRAWER EDICIÓN */}
+                    <div className={`drawer-overlay ${selectedExt?'open':''}`} onClick={()=>setSelectedExt(null)}></div>
+                    <div className={`drawer ${selectedExt?'open':''}`}>
+                        {selectedExt && (
                             <div className="h-full flex flex-col">
-                                <div className="flex justify-between items-center mb-10">
-                                    <h2 className="text-2xl font-black tracking-tighter">Ficha Técnica</h2>
-                                    <span className="material-icons cursor-pointer text-gray-600 hover:text-white" onClick={()=>setSelected(null)}>close</span>
+                                <div className="flex justify-between items-center mb-12">
+                                    <h2 className="text-3xl font-black tracking-tighter">Editar Extensión</h2>
+                                    <span className="material-icons cursor-pointer text-gray-600 hover:text-white" onClick={()=>setSelectedExt(null)}>close</span>
                                 </div>
-                                <div className="text-center mb-8">
-                                    <div className="relative inline-block group">
-                                        <img src={selected.avatar} className="w-24 h-24 rounded-[30px] border-4 border-purple-600 shadow-2xl transition-transform group-hover:scale-105" />
-                                        <label htmlFor="avatar-up" className="absolute bottom-0 right-0 bg-purple-600 p-2 rounded-xl shadow-lg cursor-pointer hover:scale-110"><span className="material-icons text-white text-sm">photo_camera</span></label>
-                                        <input type="file" id="avatar-up" hidden />
-                                    </div>
-                                    <h4 className="mt-4 font-black">Interno #{selected.ext}</h4>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{selected.name}</p>
+                                <div className="flex flex-col items-center mb-10">
+                                    <div className="relative group"><img src={selectedExt.avatar} className="w-28 h-28 rounded-[35px] border-4 border-purple-600 shadow-2xl transition-transform group-hover:scale-105"/><label className="absolute bottom-0 right-0 bg-purple-600 p-2.5 rounded-xl cursor-pointer shadow-lg"><span className="material-icons text-white text-sm">photo_camera</span><input type="file" className="hidden"/></label></div>
+                                    <h3 className="mt-5 font-black text-xl">#{selectedExt.ext}</h3>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-black text-gray-500 uppercase mb-2 block">Nombre de Mostrar</label>
-                                    <input type="text" className="input-dark" defaultValue={selected.name} />
-                                    <label className="text-[10px] font-black text-gray-500 uppercase mb-2 block">Password SIP (Secret)</label>
-                                    <input type="password" placeholder="••••••••" className="input-dark" />
-                                    <div className="switch-row"><b>Habilitar Video</b><input type="checkbox" defaultChecked={selected.use_video} className="w-5 h-5 accent-purple-600" /></div>
-                                    <div className="switch-row"><b>Apertura Puertas (DTMF)</b><input type="checkbox" defaultChecked={selected.open_doors} className="w-5 h-5 accent-purple-600" /></div>
+                                <div className="flex-1 space-y-6">
+                                    <div><label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Nombre de Mostrar</label><input type="text" className="w-full bg-[#030406] border border-[#21262d] rounded-xl p-4 text-sm outline-none focus:border-purple-600 transition-all" defaultValue={selectedExt.name}/></div>
+                                    <div><label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Password SIP (Secret)</label><input type="password" placeholder="••••••••" className="w-full bg-[#030406] border border-[#21262d] rounded-xl p-4 text-sm outline-none focus:border-purple-600 transition-all"/></div>
                                 </div>
-                                <button className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-purple-500/20 hover:scale-[1.02] transition-transform" onClick={()=>setSelected(null)}>GUARDAR CAMBIOS</button>
+                                <button className="w-full bg-purple-600 text-white py-5 rounded-2xl font-black shadow-2xl shadow-purple-500/20 hover:scale-[1.02] transition-transform" onClick={()=>setSelectedExt(null)}>GUARDAR CONFIGURACIÓN</button>
                             </div>
                         )}
                     </div>
-                </div>
-            );
-        }
-
-        function NavItem({ icon, label, active, collapsed, onClick }) {
-            return (
-                <div onClick={onClick} className={`nav-item ${active?'active':''}`}>
-                    <span className="material-icons">{icon}</span>{!collapsed && <span>{label}</span>}
                 </div>
             );
         }
