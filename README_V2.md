@@ -5,14 +5,13 @@
 **Teleflow Agent Monitoring v2.0** es un dashboard profesional en tiempo real para monitoreo de agentes de call center en **IISABEL 5 con Asterisk 16+**.
 
 ### Características Clave
-- ✅ Estado en vivo de todos los agentes (Online, Busy, Away, Offline)
-- ✅ Métricas de desempeño (llamadas, AHT, duración)
-- ✅ Notificaciones PWA nativas del navegador
-- ✅ Búsqueda y filtros avanzados
-- ✅ Interfaz moderna con tema claro/oscuro
-- ✅ **Auto-actualización cada 5 segundos**
-- ✅ SIN dependencias Node.js (puro PHP + polling)
-- ✅ 100% compatible con Apache + Asterisk
+- ✅ **Softphone WebRTC (Beta):** Teléfono incorporado estilo *Grandstream Wave* con soporte para Video.
+- ✅ **Badges en Tiempo Real:** Contadores dinámicos en el menú para Extensiones Online, Llamadas en Vivo y Colas.
+- ✅ **Gestión avanzada de Extensiones:** Edición de claves SIP, cambio de tipo de dispositivo y autoconfiguración DTLS/ICE.
+- ✅ **Persistencia de Sesión:** El softphone recuerda tu extensión y se auto-conecta al refrescar la página.
+- ✅ SIN dependencias Node.js (puro PHP + SIP.js + React)
+- ✅ 100% compatible con Apache + Asterisk PJSIP
+- ✅ **Seguridad:** Soporte completo para WSS (WebSocket Secure) a través de proxy.
 
 ## 🚀 Acceso Rápido
 
@@ -398,6 +397,14 @@ header('Access-Control-Allow-Origin: https://pbx01.infratec.com.uy');
 - Basado en arquitectura modular de Teleflow
 
 ## 📅 Changelog
+
+### v2.1 (2025-03-05 - Actualización Mayor)
+- ✨ **Módulo Softphone Rediseñado:** Interfaz profesional tipo Wave con panel de contactos integrado y soporte Video WebRTC.
+- ✨ **Badges Dinámicos:** El menú lateral ahora muestra contadores en vivo de extensiones online y llamadas activas.
+- ✨ **Persistencia SIP:** Implementado auto-login del softphone mediante localStorage (soporta F5).
+- ✨ **Mejoras en CRUD Extensiones:** Ahora permite ver/cambiar claves SIP y tipo de dispositivo (Audio/Video/WebRTC) con auto-aprovisionamiento.
+- 🐛 **Fix:** Corregido error de registro SIP "silencioso" con sistema de diagnóstico y toasts de error precisos.
+- 🐛 **Fix:** Sincronización forzada con Asterisk al crear/editar extensiones (retrieve_conf + restart PJSIP).
 
 ### v2.0 (2025-03-05)
 - ✨ **Rediseño completo sin dependencias Node.js**

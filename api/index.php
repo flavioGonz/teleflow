@@ -67,6 +67,70 @@ function reload_dialplan() {
     }
 }
 
+function apply_sip_settings($db, $ext, $name, $secret, $devType) {
+    if (!$devType) {
+         // Si no mandan devType, solo actualizamos secret y name si vienen
+         if ($secret) {
+             $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'secret', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")->execute([$ext, $secret]);
+         }
+         if ($name) {
+             $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'callerid', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")->execute([$ext, "$name <$ext>"]);
+         }
+         return;
+    }
+
+    $sip_data = [
+        'type'                            => 'friend',
+        'host'                            => 'dynamic',
+        'nat'                             => 'no',
+        'port'                            => '5060',
+        'qualify'                         => 'yes',
+        'qualifyfreq'                     => '60',
+        'dtmfmode'                        => 'rfc2833',
+        'disallow'                        => 'all',
+        'allow'                           => 'alaw,ulaw',
+        'dial'                            => "PJSIP/$ext",
+        'mailbox'                         => $ext,
+        'context'                         => 'from-internal',
+        'account'                         => $ext,
+        'direct_media'                    => 'no',
+        'max_contacts'                    => '1',
+        'ice_support'                     => 'no',
+        'media_encryption'                => 'no',
+        'dtls_verify'                     => 'no',
+        'dtls_setup'                      => 'actpass',
+        'media_use_received_transport'    => 'no',
+        'allow_subscribe'                 => 'yes',
+    ];
+
+    if ($secret) $sip_data['secret'] = $secret;
+    if ($name) $sip_data['callerid'] = "$name <$ext>";
+
+    if ($devType === 'webrtc') {
+        $sip_data['allow'] = 'alaw,ulaw,opus,vp8,h264';
+        $sip_data['webrtc'] = 'yes';
+        $sip_data['use_avpf'] = 'yes';
+        $sip_data['media_encryption'] = 'dtls';
+        $sip_data['dtls_verify'] = 'fingerprint';
+        $sip_data['dtls_setup'] = 'actpass';
+        $sip_data['ice_support'] = 'yes';
+        $sip_data['media_use_received_transport'] = 'yes';
+        $sip_data['rtcp_mux'] = 'yes';
+        $sip_data['rewrite_contact'] = 'yes';
+        $sip_data['rtp_symmetric'] = 'yes';
+        $sip_data['force_rport'] = 'yes';
+        $sip_data['transport'] = 'transport-wss';
+    } else if ($devType === 'video') {
+        $sip_data['allow'] = 'alaw,ulaw,h264,vp8';
+    }
+
+    $stmt = $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (:id, :kw, :data, 0)
+                          ON DUPLICATE KEY UPDATE data=VALUES(data)");
+    foreach ($sip_data as $kw => $val) {
+        $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
+    }
+}
+
 // ─── GET FULL DATA (dashboard + extensiones + grabaciones) ──────────────────
 if ($action === 'get_full_data') {
     $load   = sys_getloadavg();
@@ -113,7 +177,7 @@ if ($action === 'get_full_data') {
             }
         }
         // Recording config per extension
-        $rec_rows = $db2->query("SELECT id, data FROM callrecording WHERE keyword='all'")->fetchAll(PDO::FETCH_ASSOC);
+        $rec_rows = $db2->query("SELECT extension as id, recording as data FROM users")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rec_rows as $r) { if (isset($exts[$r['id']])) $exts[$r['id']]['recording'] = $r['data']; }
     } catch (Exception $e) {}
 
@@ -134,11 +198,17 @@ if ($action === 'get_full_data') {
         )->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {}
 
-    // Uptime
-    $uptime = trim(shell_exec('uptime -p 2>/dev/null') ?: '');
+    // System metrics
+    $uptime = str_replace('up ', '', trim(shell_exec('uptime -p 2>/dev/null') ?: ''));
+    $ram_raw = shell_exec("free -m | awk 'NR==2{print $3*100/$2 }'");
+    $ram = round((float)$ram_raw);
+    $disk_raw = shell_exec("df -h / | awk 'NR==2{print $5}'") ?: '0%';
+    $disk = (int)str_replace('%', '', trim($disk_raw));
+    $conn_raw = shell_exec("netstat -an | grep ESTABLISHED | wc -l");
+    $conn = (int)trim($conn_raw);
 
     echo json_encode([
-        'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime],
+        'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime, 'ram' => $ram, 'disk' => $disk, 'connections' => $conn],
         'pbx'    => ['extensions' => array_values($exts), 'recordings' => $recordings],
     ]);
     exit;
@@ -153,9 +223,20 @@ if ($action === 'get_extension') {
         $db   = mysql_pbx();
         $dev  = $db->query("SELECT * FROM devices WHERE id='$ext'")->fetch(PDO::FETCH_ASSOC);
         $usr  = $db->query("SELECT * FROM users WHERE extension='$ext'")->fetch(PDO::FETCH_ASSOC);
-        // Get secret from sip table
-        $sip  = $db->query("SELECT data FROM sip WHERE id='$ext' AND keyword='secret' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'device' => $dev, 'user' => $usr, 'secret' => $sip['data'] ?? '']);
+        
+        $sip    = $db->query("SELECT data FROM sip WHERE id='$ext' AND keyword='secret' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $transp = $db->query("SELECT data FROM sip WHERE id='$ext' AND keyword='transport' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        
+        $device_type = 'audio';
+        if ($transp && $transp['data'] === 'transport-wss') $device_type = 'webrtc';
+        
+        echo json_encode([
+            'success' => true, 
+            'device' => $dev, 
+            'user' => $usr, 
+            'secret' => $sip['data'] ?? '',
+            'device_type' => $device_type
+        ]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
@@ -192,49 +273,8 @@ if ($action === 'create_extension') {
         $db->prepare("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass) VALUES (?, ?, ?, 'novm', 0, '', '', '', 'default')")
            ->execute([$ext, $ext, $name]);
 
-        // 3. sip table (PJSIP settings via FreePBX sip table)
-        $sip_data = [
-            'secret'                          => $secret,
-            'type'                            => 'friend',
-            'host'                            => 'dynamic',
-            'nat'                             => 'no',
-            'port'                            => '5060',
-            'qualify'                         => 'yes',
-            'qualifyfreq'                     => '60',
-            'callgroup'                       => '',
-            'pickupgroup'                     => '',
-            'dtmfmode'                        => 'rfc2833',
-            'disallow'                        => '',
-            'allow'                           => '',
-            'dial'                            => "PJSIP/$ext",
-            'mailbox'                         => $ext,
-            'callerid'                        => "$name <$ext>",
-            'context'                         => 'from-internal',
-            'account'                         => $ext,
-            'accountcode'                     => '',
-            'deny'                            => '0.0.0.0/0.0.0.0',
-            'permit'                          => '0.0.0.0/0.0.0.0',
-            'direct_media'                    => 'no',
-            'max_contacts'                    => '1',
-            'message_context'                 => '',
-            'authenticate_qualify'            => 'no',
-            'outbound_proxy'                  => '',
-            'ice_support'                     => 'no',
-            'media_encryption'                => 'no',
-            'dtls_verify'                     => 'no',
-            'dtls_setup'                      => 'actpass',
-            'dtls_cert_file'                  => '',
-            'dtls_private_key'                => '',
-            'dtls_ca_file'                    => '',
-            'media_use_received_transport'    => 'no',
-            'allow_subscribe'                 => 'yes',
-            'qualify_timeout'                 => '3.0',
-        ];
-        $stmt = $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (:id, :kw, :data, 0)
-                              ON DUPLICATE KEY UPDATE data=VALUES(data)");
-        foreach ($sip_data as $kw => $val) {
-            $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
-        }
+        // settings helper logic here now integrated into update too
+        apply_sip_settings($db, $ext, $name, $secret, $_POST['device_type'] ?? 'webrtc');
 
         // 4. Reload dialplan
         reload_dialplan();
@@ -259,17 +299,11 @@ if ($action === 'update_extension') {
         if ($name) {
             $db->prepare("UPDATE devices SET description=? WHERE id=?")->execute([$name,$ext]);
             $db->prepare("UPDATE users SET name=? WHERE extension=?")->execute([$name,$ext]);
-            $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='callerid'")->execute(["$name <$ext>",$ext]);
         }
-        if ($secret) {
-            $cnt = $db->prepare("SELECT COUNT(*) FROM sip WHERE id=? AND keyword='secret'");
-            $cnt->execute([$ext]);
-            if ($cnt->fetchColumn() > 0) {
-                $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='secret'")->execute([$secret,$ext]);
-            } else {
-                $db->prepare("INSERT INTO sip (id,keyword,data,flags) VALUES (?,?,?,0)")->execute([$ext,'secret',$secret]);
-            }
-        }
+        
+        $devType = $_POST['device_type'] ?? '';
+        apply_sip_settings($db, $ext, $name, $secret, $devType);
+
         reload_dialplan();
         echo json_encode(['success' => true, 'message' => "Extensión $ext actualizada"]);
     } catch (Exception $e) {
@@ -287,7 +321,6 @@ if ($action === 'delete_extension') {
         $db->prepare("DELETE FROM devices WHERE id=?")->execute([$ext]);
         $db->prepare("DELETE FROM users WHERE extension=?")->execute([$ext]);
         $db->prepare("DELETE FROM sip WHERE id=?")->execute([$ext]);
-        $db->prepare("DELETE FROM callrecording WHERE id=?")->execute([$ext]);
         @unlink($GLOBALS['avatar_dir'] . "$ext.jpg");
         reload_dialplan();
         echo json_encode(['success' => true, 'message' => "Extensión $ext eliminada"]);
@@ -304,19 +337,11 @@ if ($action === 'set_recording') {
     if (!$ext) { echo json_encode(['success'=>false,'error'=>'Interno inválido']); exit; }
     try {
         $db = mysql_pbx();
-        foreach (['all','inbound','outbound','intracompany'] as $kw) {
-            $chk = $db->prepare("SELECT COUNT(*) FROM callrecording WHERE id=? AND keyword=?");
-            $chk->execute([$ext,$kw]);
-            if ($chk->fetchColumn() > 0) {
-                $db->prepare("UPDATE callrecording SET data=? WHERE id=? AND keyword=?")->execute([$mode,$ext,$kw]);
-            } else {
-                $db->prepare("INSERT INTO callrecording (id,keyword,data,flags) VALUES (?,?,?,0)")->execute([$ext,$kw,$mode]);
-            }
-        }
+        $db->prepare("UPDATE users SET recording=? WHERE extension=?")->execute([$mode,$ext]);
         reload_dialplan();
-        echo json_encode(['success'=>true,'message'=>"Grabación '$mode' activada en #$ext"]);
+        echo json_encode(['success'=>true, 'message'=>"Grabación $mode configurada para $ext"]);
     } catch (Exception $e) {
-        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     exit;
 }
@@ -467,6 +492,194 @@ if ($action === 'list_extensions_db') {
         echo json_encode(['success' => true, 'extensions' => $rows]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── QUEUE CRUD ──────────────────────────────────────────────────────────────
+if ($action === 'create_queue') {
+    $id = $_POST['extension'] ?? '';
+    $descr = $_POST['descr'] ?? '';
+    $strategy = $_POST['strategy'] ?? 'ringall';
+    $timeout = $_POST['timeout'] ?? 15;
+    $wrapuptime = $_POST['wrapuptime'] ?? 5;
+    $members = explode(',', $_POST['members'] ?? '');
+    
+    try {
+        $db = mysql_pbx();
+        $db->beginTransaction();
+        $db->query("INSERT IGNORE INTO queues_config (extension, descr) VALUES ('$id', '$descr')");
+        $db->query("DELETE FROM queues_details WHERE id = '$id'");
+        $details = [
+            ['timeout', $timeout, 0],
+            ['wrapuptime', $wrapuptime, 0],
+            ['strategy', $strategy, 0],
+            ['joinempty', 'yes', 0],
+            ['leavewhenempty', 'no', 0],
+            ['ringinuse', 'no', 0],
+        ];
+        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, ?)");
+        foreach($details as $d) $stmt->execute([$id, $d[0], $d[1], $d[2]]);
+        foreach($members as $m) {
+            $m = trim($m);
+            if(empty($m)) continue;
+            $db->query("INSERT INTO queues_details (id, keyword, data, flags) VALUES ('$id', 'member', 'Local/$m@from-queue/n,0', 0)");
+        }
+        $db->commit();
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Cola $id creada"]);
+    } catch(Exception $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'update_queue') {
+    $id = $_POST['extension'] ?? '';
+    $descr = $_POST['descr'] ?? '';
+    $strategy = $_POST['strategy'] ?? 'ringall';
+    $timeout = $_POST['timeout'] ?? 15;
+    $wrapuptime = $_POST['wrapuptime'] ?? 5;
+    $members = explode(',', $_POST['members'] ?? '');
+    
+    try {
+        $db = mysql_pbx();
+        $db->beginTransaction();
+        $db->query("UPDATE queues_config SET descr='$descr' WHERE extension='$id'");
+        $db->query("DELETE FROM queues_details WHERE id = '$id'");
+        $details = [
+            ['timeout', $timeout, 0],
+            ['wrapuptime', $wrapuptime, 0],
+            ['strategy', $strategy, 0],
+            ['joinempty', 'yes', 0],
+            ['leavewhenempty', 'no', 0],
+            ['ringinuse', 'no', 0],
+        ];
+        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, ?)");
+        foreach($details as $d) $stmt->execute([$id, $d[0], $d[1], $d[2]]);
+        foreach($members as $m) {
+            $m = trim($m);
+            if(empty($m)) continue;
+            // Also accept direct extension format depending on system, but Local/... is typical for FreePBX
+            $db->query("INSERT INTO queues_details (id, keyword, data, flags) VALUES ('$id', 'member', 'Local/$m@from-queue/n,0', 0)");
+        }
+        $db->commit();
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Cola $id actualizada"]);
+    } catch(Exception $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_queue') {
+    $id = $_POST['extension'] ?? '';
+    try {
+        $db = mysql_pbx();
+        $db->query("DELETE FROM queues_config WHERE extension='$id'");
+        $db->query("DELETE FROM queues_details WHERE id='$id'");
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Cola $id eliminada"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── RING GROUP CRUD ─────────────────────────────────────────────────────────
+if ($action === 'create_ring_group') {
+    $grpnum = $_POST['grpnum'] ?? '';
+    $desc = $_POST['description'] ?? '';
+    $strat = $_POST['strategy'] ?? 'ringall';
+    $time = $_POST['grptime'] ?? 20;
+    $list = $_POST['grplist'] ?? '';
+    
+    try {
+        $db = mysql_pbx();
+        $stmt = $db->prepare("INSERT INTO ringgroups (grpnum, description, strategy, grptime, grplist, recording) VALUES (?, ?, ?, ?, ?, 'dontcare')");
+        $stmt->execute([$grpnum, $desc, $strat, $time, $list]);
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Grupo $grpnum creado"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'update_ring_group') {
+    $grpnum = $_POST['grpnum'] ?? '';
+    $desc = $_POST['description'] ?? '';
+    $strat = $_POST['strategy'] ?? 'ringall';
+    $time = $_POST['grptime'] ?? 20;
+    $list = $_POST['grplist'] ?? '';
+    
+    try {
+        $db = mysql_pbx();
+        $stmt = $db->prepare("UPDATE ringgroups SET description=?, strategy=?, grptime=?, grplist=? WHERE grpnum=?");
+        $stmt->execute([$desc, $strat, $time, $list, $grpnum]);
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Grupo $grpnum actualizado"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_ring_group') {
+    $grpnum = $_POST['grpnum'] ?? '';
+    try {
+        $db = mysql_pbx();
+        $stmt = $db->prepare("DELETE FROM ringgroups WHERE grpnum=?");
+        $stmt->execute([$grpnum]);
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Grupo $grpnum eliminado"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+
+// ─── REPORTES ───────────────────────────────────────────────────────────────
+if ($action === 'get_reports') {
+    $start = $_GET['start'] ?? date('Y-m-d', strtotime('-7 days'));
+    $end = $_GET['end'] ?? date('Y-m-d');
+    
+    try {
+        $db = mysql_pbx('asteriskcdrdb');
+        
+        // General stats
+        $stmtStats = $db->prepare("SELECT COUNT(*) as total, SUM(CASE WHEN disposition='ANSWERED' THEN 1 ELSE 0 END) as answered, SUM(CASE WHEN disposition='FAILED' THEN 1 ELSE 0 END) as failed, SUM(CASE WHEN disposition='NO ANSWER' THEN 1 ELSE 0 END) as no_answer, SUM(CASE WHEN disposition='BUSY' THEN 1 ELSE 0 END) as busy, AVG(billsec) as avg_duration FROM cdr WHERE DATE(calldate) BETWEEN ? AND ?");
+        $stmtStats->execute([$start, $end]);
+        $stats = $stmtStats->fetch(PDO::FETCH_ASSOC);
+
+        // Daily trend
+        $stmtTrend = $db->prepare("SELECT DATE(calldate) as date, disposition, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY date, disposition ORDER BY date ASC");
+        $stmtTrend->execute([$start, $end]);
+        $trendRaw = $stmtTrend->fetchAll(PDO::FETCH_ASSOC);
+        
+        $trend = [];
+        foreach($trendRaw as $r) {
+            $d = $r['date'];
+            if(!isset($trend[$d])) $trend[$d] = ['ANSWERED'=>0,'NO ANSWER'=>0,'BUSY'=>0,'FAILED'=>0];
+            $trend[$d][$r['disposition']] = $r['count'];
+        }
+
+        // Top origins
+        $stmtOrigins = $db->prepare("SELECT src, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY src ORDER BY count DESC LIMIT 5");
+        $stmtOrigins->execute([$start, $end]);
+        $origins = $stmtOrigins->fetchAll(PDO::FETCH_ASSOC);
+
+        // Top dests
+        $stmtDests = $db->prepare("SELECT dst, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY dst ORDER BY count DESC LIMIT 5");
+        $stmtDests->execute([$start, $end]);
+        $dests = $stmtDests->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success'=>true, 'stats'=>$stats, 'trend'=>$trend, 'origins'=>$origins, 'dests'=>$dests]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false, 'error'=>$e->getMessage()]);
     }
     exit;
 }

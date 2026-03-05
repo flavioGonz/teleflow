@@ -12,6 +12,10 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/reactflow@11.10.1/dist/style.css">
+    <script src="https://unpkg.com/reactflow@11.10.1/dist/umd/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <style>
         :root {
             --bg: #07070d;
@@ -70,6 +74,8 @@
         }
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+        @keyframes callActive { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes toastIn { from{opacity:0;transform:translateY(20px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
         .anim-fadeup { animation: fadeUp 0.7s ease both; }
         .anim-fadeup-2 { animation: fadeUp 0.7s ease 0.15s both; }
         .anim-fadeup-3 { animation: fadeUp 0.7s ease 0.3s both; }
@@ -402,30 +408,55 @@ function Login({ onLogin }) {
 }
 
 // ─────────────────────────────────────────────
-// TOAST
+// SILEO TOAST (notificaciones premium)
 // ─────────────────────────────────────────────
-let _toastFn = null;
-function useToast() { return _toastFn; }
+const SID = {success:{bg:'linear-gradient(135deg,#052e16,#14532d)',border:'#166534',ic:'check_circle',color:'#4ade80'},error:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#991b1b',ic:'cancel',color:'#f87171'},warning:{bg:'linear-gradient(135deg,#431407,#7c2d12)',border:'#9a3412',ic:'warning',color:'#fb923c'},info:{bg:'linear-gradient(135deg,#0c1445,#1e1b4b)',border:'#3730a3',ic:'info',color:'#a5b4fc'},call:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#dc2626',ic:'call',color:'#fca5a5'}};
 function Toast({ toasts, remove }) {
-    return <div className="toast-container">{toasts.map(t=><div key={t.id} className={`toast toast-${t.type}`}><span className="material-icons-round" style={{fontSize:18}}>{t.type==='success'?'check_circle':t.type==='error'?'error':t.type==='warning'?'warning':'info'}</span>{t.msg}<button onClick={()=>remove(t.id)} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'inherit',padding:0}}><span className="material-icons-round" style={{fontSize:16}}>close</span></button></div>)}</div>;
+    return (
+        <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,display:'flex',flexDirection:'column-reverse',gap:8,maxWidth:340}}>
+            {toasts.map(t=>{
+                const s=SID[t.type]||SID.info;
+                return(
+                    <div key={t.id} style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:16,padding:'14px 16px',display:'flex',alignItems:'flex-start',gap:12,boxShadow:'0 20px 60px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.05)',animation:'toastIn .35s cubic-bezier(.175,.885,.32,1.275)',minWidth:280,backdropFilter:'blur(20px)'}}>
+                        <div style={{width:36,height:36,borderRadius:10,background:`${s.color}20`,border:`1px solid ${s.color}40`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                            <span className="material-icons-round" style={{fontSize:20,color:s.color}}>{s.ic}</span>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{t.type==='call'?'📞 Llamada Entrante':t.type==='success'?'✔ Éxito':t.type==='error'?'✖ Error':t.type==='warning'?'⚡ Aviso':'ℹ Info'}</div>
+                            <div style={{fontSize:13,color:'rgba(255,255,255,.85)',lineHeight:1.4,wordBreak:'break-word'}}>{t.msg}</div>
+                            {t.sub&&<div style={{fontSize:11,color:'rgba(255,255,255,.45)',marginTop:4}}>{t.sub}</div>}
+                        </div>
+                        <button onClick={()=>remove(t.id)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.35)',padding:0,flexShrink:0,transition:'color .2s'}} onMouseEnter={e=>e.target.style.color='white'} onMouseLeave={e=>e.target.style.color='rgba(255,255,255,.35)'}>
+                            <span className="material-icons-round" style={{fontSize:18}}>close</span>
+                        </button>
+                    </div>
+                );
+            })}
+        </div>
+    );
 }
 
 // ─────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────
-function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkMode, setDarkMode }) {
+function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkMode, setDarkMode, data, activeCalls }) {
+    const extsOnline = data?.pbx?.extensions?.filter(e=>e.status==='ONLINE')?.length || 0;
+    const qWaiting = data?.pbx?.queues?.reduce((acc, q) => acc + (q.calls_waiting || 0), 0) || 0;
+
     const nav = [
         { section: 'Principal' },
         { id:'dashboard', icon:'grid_view', label:'Dashboard' },
-        { id:'extensiones', icon:'group', label:'Extensiones' },
+        { id:'extensiones', icon:'group', label:'Extensiones', badge: extsOnline, badgeColor: '#22c55e' },
         { section: 'Call Center' },
         { id:'agentes', icon:'support_agent', label:'Agentes' },
-        { id:'vivo', icon:'sensors', label:'Vivo' },
-        { id:'colas', icon:'queue', label:'Colas' },
+        { id:'vivo', icon:'sensors', label:'Vivo', badge: activeCalls, badgeColor: '#ef4444' },
+        { id:'colas', icon:'queue', label:'Colas', badge: qWaiting, badgeColor: '#f59e0b' },
         { id:'grupos', icon:'ring_volume', label:'Grupos' },
+        { id:'ivr', icon:'account_tree', label:'IVR' },
+        { id:'webphone', icon:'phone_in_talk', label:'Softphone' },
         { section: 'Registros' },
-        { id:'grabaciones', icon:'mic', label:'Grabaciones' },
         { id:'cdr', icon:'history', label:'CDR' },
+        { id:'reportes', icon:'bar_chart', label:'Reportes' },
     ];
     return (
         <div className={`sidebar${collapsed?' collapsed':''}`}>
@@ -438,9 +469,25 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
             <div className="sidebar-nav">
                 {nav.map((item,i)=> item.section
                     ? (!collapsed&&<div key={i} className="nav-section">{item.section}</div>)
-                    : <div key={item.id} className={`nav-item${view===item.id?' active':''}`} onClick={()=>setView(item.id)} title={item.label}>
+                    : <div key={item.id} className={`nav-item${view===item.id?' active':''}`} onClick={()=>setView(item.id)} title={item.label} style={{position:'relative'}}>
                         <span className="material-icons-round">{item.icon}</span>
-                        {!collapsed&&<span className="nav-label">{item.label}</span>}
+                        {!collapsed&&<span className="nav-label" style={{flex:1}}>{item.label}</span>}
+                        {item.badge > 0 && (
+                            <div style={{
+                                background: item.badgeColor || 'var(--accent)',
+                                color: 'white',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                padding: '2px 6px',
+                                borderRadius: '10px',
+                                minWidth: '18px',
+                                textAlign: 'center',
+                                boxShadow: `0 0 10px ${item.badgeColor}40`,
+                                animation: 'viewIn .3s ease'
+                            }}>
+                                {item.badge}
+                            </div>
+                        )}
                       </div>
                 )}
             </div>
@@ -503,18 +550,29 @@ function ViewDashboard({ data }) {
     const busy = exts.filter(e=>e.status==='BUSY').length;
     const recs = data?.pbx?.recordings || [];
     const cpu = data?.system?.cpu || 0;
+    const ram = data?.system?.ram || 0;
+    const disk = data?.system?.disk || 0;
+    const conn = data?.system?.connections || 0;
+    const uptime = data?.system?.uptime || 'Desconocido';
 
-    const stats = [
+    const mainStats = [
         { label:'Extensiones Online', val:`${online}/${exts.length}`, icon:'group', color:'#22c55e', bg:'rgba(34,197,94,0.12)' },
         { label:'En Llamada', val:busy, icon:'call', color:'#f59e0b', bg:'rgba(245,158,11,0.12)' },
         { label:'Grabaciones Hoy', val:recs.length, icon:'mic', color:'#8b5cf6', bg:'rgba(139,92,246,0.12)' },
+    ];
+
+    const systemStats = [
         { label:'CPU PBX', val:`${cpu}%`, icon:'memory', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+        { label:'RAM PBX', val:`${ram}%`, icon:'memory', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+        { label:'Disco', val:`${disk}%`, icon:'storage', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+        { label:'Conexiones', val:conn, icon:'router', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
     ];
 
     return (
         <div className="content-area">
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
-                {stats.map(s=>(
+            {/* Main Stats PBX */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:16}}>
+                {mainStats.map(s=>(
                     <div key={s.label} className="glass stat-card glass-hover">
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                             <div className="stat-label">{s.label}</div>
@@ -525,6 +583,32 @@ function ViewDashboard({ data }) {
                         <div className="stat-val" style={{color:s.color}}>{s.val}</div>
                     </div>
                 ))}
+            </div>
+            
+            {/* System Status */}
+            <div className="glass" style={{padding:'20px', marginBottom:24}}>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#3b82f6'}}>dns</span>
+                        Signos Vitales del Servidor PBX
+                    </div>
+                    <div style={{fontSize:12,color:'#6b7280',backgroundColor:'var(--surface)',padding:'4px 12px',borderRadius:20,border:'1px solid var(--border)'}}>
+                        Uptime: {uptime}
+                    </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+                    {systemStats.map(s=>(
+                        <div key={s.label} style={{display:'flex',alignItems:'center',gap:14}}>
+                            <div style={{width:40,height:40,borderRadius:12,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:20,color:s.color}}>{s.icon}</span>
+                            </div>
+                            <div>
+                                <div style={{fontSize:11,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.05em',fontWeight:700}}>{s.label}</div>
+                                <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>{s.val}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:16}}>
@@ -583,12 +667,26 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '' });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
+    const [devType, setDevType] = useState('webrtc');
+    const [showPass, setShowPass] = useState(false);
+
+    useEffect(() => {
+        if (!isNew && ext.ext) {
+            // Fetch the current secret to show it
+            fetch(`api/index.php?action=get_extension&ext=${ext.ext}`)
+                .then(r=>r.json())
+                .then(d=>{
+                    if(d.success) setForm(f=>({...f, secret: d.secret||''}));
+                });
+        }
+    }, [ext, isNew]);
     const [saving, setSaving] = useState(false);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
     const save = async () => {
         setSaving(true);
         const fd = new FormData();
         Object.entries(form).forEach(([k,v])=>fd.append(k,v));
+        fd.append('device_type', devType);
         const action = isNew ? 'create_extension' : 'update_extension';
         const r = await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd});
         const d = await r.json();
@@ -630,8 +728,13 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
                 <div className="drawer-body">
                     <F label="Número de Interno" k="ext" placeholder="Ej: 1005" readOnly={!isNew} />
                     <F label="Nombre Completo" k="name" placeholder="Juan Pérez" />
-                    <F label="Contraseña SIP" k="secret" type="password" placeholder={isNew?'Min. 6 caracteres':'Dejar vacío para no cambiar'} />
-                    <F label="Email (opcional)" k="email" type="email" placeholder="usuario@empresa.com" />
+                    <div style={{position:'relative'}}>
+                        <F label="Contraseña SIP (Secret)" k="secret" type={showPass?'text':'password'} placeholder="Min. 6 caracteres" />
+                        <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:32,background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+                        </button>
+                    </div>
+                    <F label="Email (occional)" k="email" type="email" placeholder="usuario@empresa.com" />
 
                     {/* Grabación */}
                     <div style={{marginBottom:16}}>
@@ -640,6 +743,19 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
                             {recOptions.map(o=>(
                                 <button key={o.v} onClick={()=>setRecording(o.v)} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1px solid ${recording===o.v?o.c:'var(--border)'}`,background:recording===o.v?`${o.c}18`:'var(--surface2)',color:recording===o.v?o.c:'#6b7280',fontWeight:700,fontSize:10,cursor:'pointer',transition:'all .2s',textAlign:'center'}}>
                                     <span className="material-icons-round" style={{fontSize:16,display:'block',marginBottom:2}}>{o.v==='always'?'fiber_manual_record':o.v==='never'?'not_interested':'radio_button_unchecked'}</span>
+                                    {o.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tipo de Dispositivo */}
+                    <div style={{marginBottom:16}}>
+                        <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:10}}>Tipo de Dispositivo</label>
+                        <div style={{display:'flex',gap:6}}>
+                            {[{v:'audio',l:'Solo Audio',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}].map(o=>(
+                                <button key={o.v} onClick={()=>setDevType(o.v)} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1px solid ${devType===o.v?'#8b5cf6':'var(--border)'}`,background:devType===o.v?'rgba(139,92,246,0.15)':'var(--surface2)',color:devType===o.v?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:10,cursor:'pointer',transition:'all .2s',textAlign:'center'}}>
+                                    <span className="material-icons-round" style={{fontSize:16,display:'block',marginBottom:2}}>{o.i}</span>
                                     {o.l}
                                 </button>
                             ))}
@@ -753,28 +869,41 @@ function ViewExtensiones({ data, toast }) {
 }
 
 // ─────────────────────────────────────────────
-// VISTA: AGENTES (dashboard.html integrado)
+// VISTA: AGENTES (con timer llamada activa + llamante remoto)
 // ─────────────────────────────────────────────
+function AgentCallTimer({ seconds }) {
+    const [elapsed, setElapsed] = useState(seconds||0);
+    useEffect(()=>{ setElapsed(seconds||0); const t=setInterval(()=>setElapsed(s=>s+1),1000); return()=>clearInterval(t); },[seconds]);
+    const fmt=s=>{const m=Math.floor(s/60),ss=s%60;return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;}
+    return <span style={{fontFamily:'monospace',fontWeight:800,color:'#f59e0b',fontSize:13}}>{fmt(elapsed)}</span>;
+}
+
 function ViewAgentes() {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [selected, setSelected] = useState(null);
+    const [activeCalls, setActiveCalls] = useState([]);
 
     const load = useCallback(async () => {
         try {
-            const r = await fetch('api/agents.php?action=get_agents_data');
-            const d = await r.json();
-            if (d.success) setAgents(d.agents);
+            const [ar, cr] = await Promise.all([
+                fetch('api/agents.php?action=get_agents_data').then(r=>r.json()).catch(()=>({success:false})),
+                fetch('api/index.php?action=get_active_calls').then(r=>r.json()).catch(()=>({success:false}))
+            ]);
+            if (ar.success) setAgents(ar.agents);
+            if (cr.success) setActiveCalls(cr.calls||[]);
         } catch {}
         setLoading(false);
     }, []);
 
-    useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
+    useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
+
+    const getCallInfo = (ext) => activeCalls.find(c => c.ext === String(ext));
 
     const filtered = agents.filter(a =>
-        (a.name.toLowerCase().includes(search.toLowerCase()) || a.ext?.includes(search)) &&
+        (a.name.toLowerCase().includes(search.toLowerCase()) || String(a.ext).includes(search)) &&
         (!statusFilter || a.status === statusFilter)
     );
     const online = agents.filter(a=>a.status==='ONLINE').length;
@@ -782,18 +911,23 @@ function ViewAgentes() {
     const calls  = agents.reduce((s,a)=>s+(a.total_calls||0),0);
 
     return (
-        <div className="content-area">
-            {/* Stats rápidas */}
+        <div className="content-area view-enter">
+            {/* Stats ​*/}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
                 {[
-                    {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e'},
-                    {l:'En Llamada',v:busy,c:'#f59e0b'},
-                    {l:'Total Llamadas',v:calls,c:'#8b5cf6'},
-                    {l:'Offline',v:agents.length-online-busy,c:'#6b7280'},
+                    {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors'},
+                    {l:'En Llamada',v:busy,c:'#f59e0b',ic:'call'},
+                    {l:'Total Llamadas',v:calls,c:'#8b5cf6',ic:'bar_chart'},
+                    {l:'Offline',v:agents.length-online-busy,c:'#6b7280',ic:'do_not_disturb'},
                 ].map(s=>(
-                    <div key={s.l} className="glass" style={{padding:'14px 16px'}}>
-                        <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
-                        <div style={{fontSize:28,fontWeight:800,color:s.c,marginTop:4,lineHeight:1}}>{s.v}</div>
+                    <div key={s.l} className="glass" style={{padding:'16px'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                            <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
+                            <div style={{width:32,height:32,borderRadius:9,background:`${s.c}18`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:16,color:s.c}}>{s.ic}</span>
+                            </div>
+                        </div>
+                        <div style={{fontSize:28,fontWeight:800,color:s.c,marginTop:6,lineHeight:1}}>{s.v}</div>
                     </div>
                 ))}
             </div>
@@ -804,12 +938,7 @@ function ViewAgentes() {
                     <span className="material-icons-round" style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:17,color:'#6b7280'}}>search</span>
                     <input className="input-tf py-2 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar agente..." value={search} onChange={e=>setSearch(e.target.value)} />
                 </div>
-                <select
-                    className="input-tf py-2 px-4 rounded-xl text-sm"
-                    style={{width:'auto'}}
-                    value={statusFilter}
-                    onChange={e=>setStatusFilter(e.target.value)}
-                >
+                <select className="input-tf py-2 px-4 rounded-xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
                     <option value="">Todos</option>
                     <option value="ONLINE">Online</option>
                     <option value="BUSY">En Llamada</option>
@@ -817,51 +946,65 @@ function ViewAgentes() {
                 </select>
             </div>
 
-            {/* Header tabla */}
-            <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 1.2fr 1.5fr 1.5fr',padding:'8px 18px',fontSize:10,fontWeight:700,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>
-                <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>En Llamada</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
+            {/* Header */}
+            <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr',padding:'8px 18px',fontSize:10,fontWeight:700,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>
+                <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada Activa</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
             </div>
 
             {loading
                 ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
                 : filtered.length === 0
-                    ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes</div>
-                    : filtered.map(agent=>(
-                        <div key={agent.ext} className="agent-row" onClick={()=>setSelected(agent)}>
+                    ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes que coincidan</div>
+                    : filtered.map(agent => {
+                        const callInfo = getCallInfo(agent.ext);
+                        const isBusy = agent.status==='BUSY' || !!callInfo;
+                        return(
+                        <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
                             <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`}>{initials(agent.name)}</div>
+                                <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
+                                    {initials(agent.name)}
+                                    {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
+                                </div>
                                 <div>
-                                    <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{agent.ext}</div>
+                                    <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
                                     <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
                                 </div>
                             </div>
                             <div style={{textAlign:'center'}}>
                                 <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
                                     <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                    {agent.status}
+                                    {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
                                 </span>
                             </div>
                             <div style={{textAlign:'center'}}>
-                                {(agent.in_call||0)>0
-                                    ? <span style={{fontSize:12,fontWeight:700,color:'#f59e0b'}}>{fmtTime(agent.in_call)}</span>
-                                    : <span style={{fontSize:12,color:'#6b7280'}}>—</span>}
+                                {callInfo
+                                    ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                                        <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
+                                        <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
+                                            ← {callInfo.dest||callInfo.channel||'—'}
+                                        </div>
+                                      </div>
+                                    : (agent.in_call||0)>0
+                                        ? <AgentCallTimer seconds={agent.in_call||0} />
+                                        : <span style={{fontSize:12,color:'#6b7280'}}>—</span>
+                                }
                             </div>
-                            <div style={{textAlign:'center',display:'flex',gap:16,justifyContent:'center'}}>
+                            <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
                                 <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:13,fontWeight:700,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
+                                    <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
                                     <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
                                 </div>
                                 <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:13,fontWeight:700,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
+                                    <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
                                     <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
                                 </div>
                             </div>
                             <div style={{textAlign:'right'}}>
                                 <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
-                                <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.mac}</div>
+                                <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
                             </div>
-                        </div>
-                    ))
+                        </div>);
+                    })
             }
 
             {/* Modal agente */}
@@ -872,7 +1015,7 @@ function ViewAgentes() {
                             <div style={{display:'flex',gap:12,alignItems:'center'}}>
                                 <div className={`agent-avatar bg-gradient-to-br ${getColor(selected.name)}`} style={{width:48,height:48,borderRadius:12,fontSize:15}}>{initials(selected.name)}</div>
                                 <div>
-                                    <div style={{fontSize:18,fontWeight:800,color:'white'}}>#{selected.ext} — {selected.name}</div>
+                                    <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>#{selected.ext} — {selected.name}</div>
                                     <span className={`badge ${selected.status==='ONLINE'?'badge-online':selected.status==='BUSY'?'badge-busy':'badge-offline'}`}>
                                         <span className={`badge-dot ${selected.status==='ONLINE'?'dot-online':selected.status==='BUSY'?'dot-busy':'dot-offline'}`} />
                                         {selected.status}
@@ -979,184 +1122,472 @@ function ViewGrabaciones({ data }) {
 }
 
 // ─────────────────────────────────────────────
-// VISTA: CDR
+// VISTA: CDR — Impresionante con iconos + export CSV
 // ─────────────────────────────────────────────
+const DISP_CFG = {
+    'ANSWERED': {label:'Contestada',color:'#4ade80',bg:'rgba(34,197,94,0.12)',border:'rgba(34,197,94,0.25)',icon:'call'},
+    'NO ANSWER': {label:'Sin Respuesta',color:'#9ca3af',bg:'rgba(107,114,128,0.12)',border:'rgba(107,114,128,0.25)',icon:'phone_missed'},
+    'BUSY':      {label:'Comunicando',color:'#fbbf24',bg:'rgba(245,158,11,0.12)',border:'rgba(245,158,11,0.25)',icon:'phone_in_talk'},
+    'FAILED':    {label:'Fallida',color:'#f87171',bg:'rgba(239,68,68,0.12)',border:'rgba(239,68,68,0.25)',icon:'phone_disabled'},
+};
+
 function ViewCDR() {
     const today = new Date().toISOString().slice(0,10);
-    const [from,setFrom]=useState(new Date(Date.now()-7*86400000).toISOString().slice(0,10));
-    const [to,setTo]=useState(today);
-    const [src,setSrc]=useState('');
-    const [disp,setDisp]=useState('');
-    const [rows,setRows]=useState([]);
-    const [stats,setStats]=useState({});
-    const [total,setTotal]=useState(0);
-    const [loading,setLoading]=useState(false);
-    const load=async()=>{
+    const [from,setFrom]  = useState(new Date(Date.now()-7*86400000).toISOString().slice(0,10));
+    const [to,setTo]      = useState(today);
+    const [src,setSrc]    = useState('');
+    const [disp,setDisp]  = useState('');
+    const [rows,setRows]  = useState([]);
+    const [stats,setStats]= useState({});
+    const [total,setTotal]= useState(0);
+    const [loading,setLoading] = useState(false);
+    const [expanded,setExpanded] = useState(null);
+
+    const load = async () => {
         setLoading(true);
-        try{
-            const p=new URLSearchParams({action:'get_cdr',from,to,src,disp,limit:200});
-            const r=await fetch('api/index.php?'+p);
-            const d=await r.json();
-            if(d.success){setRows(d.rows);setStats(d.stats);setTotal(d.total);}
-        }catch{}setLoading(false);
+        try {
+            const p = new URLSearchParams({action:'get_cdr',from,to,src,disp,limit:500});
+            const d = await (await fetch('api/index.php?'+p)).json();
+            if(d.success){ setRows(d.rows); setStats(d.stats); setTotal(d.total); }
+        } catch{} setLoading(false);
     };
-    useEffect(()=>{load();},[]);
-    const dispColor={'ANSWERED':'cdr-answered','NO ANSWER':'cdr-noanswer','BUSY':'cdr-busy','FAILED':'cdr-failed'};
-    const fmtSec=s=>s?`${Math.floor(s/60)}m ${s%60}s`:'—';
+    useEffect(()=>{ load(); },[]);
+
+    const fmtSec = s => {
+        if(!s||s===0) return '—';
+        const m=Math.floor(s/60), ss=s%60;
+        return m>0?`${m}m ${String(ss).padStart(2,'0')}s`:`${ss}s`;
+    };
+    const fmtDate = d => {
+        if(!d) return '—';
+        const dt=new Date(d);
+        return dt.toLocaleString('es-UY',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    };
+
+    const exportCSV = () => {
+        if(!rows.length) return;
+        const cols=['Fecha','CID','Origen','Destino','Dur. Total','Dur. Facturada','Estado','Grabación'];
+        const lines=[cols.join(';'),...rows.map(r=>[r.calldate,r.clid,r.src,r.dst,r.duration,r.billsec,r.disposition,r.recordingfile||''].join(';'))];
+        const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+        const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+        a.download=`CDR_${from}_${to}.csv`; a.click();
+    };
+
+    const statCards = [
+        {l:'Llamadas Totales',v:stats.total||0,c:'#c4b5fd',bg:'rgba(139,92,246,0.12)',ic:'list_alt'},
+        {l:'Contestadas',v:stats.answered||0,c:'#4ade80',bg:'rgba(34,197,94,0.12)',ic:'call'},
+        {l:'Sin Respuesta',v:stats.no_answer||0,c:'#9ca3af',bg:'rgba(107,114,128,0.15)',ic:'phone_missed'},
+        {l:'En Ocupado',v:stats.busy||0,c:'#fbbf24',bg:'rgba(245,158,11,0.12)',ic:'phone_in_talk'},
+        {l:'Fallidas',v:stats.failed||0,c:'#f87171',bg:'rgba(239,68,68,0.12)',ic:'phone_disabled'},
+        {l:'Dur. Promedio',v:fmtSec(Math.round(stats.avg_duration)||0),c:'#60a5fa',bg:'rgba(59,130,246,0.12)',ic:'timer'},
+    ];
+
     return(
         <div className="content-area view-enter">
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
-                {[{l:'Total',v:stats.total||0,c:'#c4b5fd'},{l:'Contestadas',v:stats.answered||0,c:'#4ade80'},{l:'Perdidas',v:stats.no_answer||0,c:'#9ca3af'},{l:'Duración Prom.',v:fmtSec(Math.round(stats.avg_duration)||0),c:'#f59e0b'}].map(s=>(
-                    <div key={s.l} className="glass" style={{padding:'14px 16px'}}>
-                        <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
-                        <div style={{fontSize:26,fontWeight:800,color:s.c,marginTop:4,lineHeight:1}}>{s.v}</div>
+            {/* Stats */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:10,marginBottom:20}}>
+                {statCards.map(s=>(
+                    <div key={s.l} className="glass" style={{padding:'14px 16px',borderTop:`2px solid ${s.c}`}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                            <div style={{fontSize:9,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
+                            <div style={{width:26,height:26,borderRadius:7,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:14,color:s.c}}>{s.ic}</span>
+                            </div>
+                        </div>
+                        <div style={{fontSize:22,fontWeight:800,color:s.c,lineHeight:1}}>{s.v}</div>
                     </div>
                 ))}
             </div>
-            <div className="glass" style={{padding:20}}>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
-                    <input className="input-tf py-2 px-3 rounded-xl text-xs" type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:140}} />
-                    <input className="input-tf py-2 px-3 rounded-xl text-xs" type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:140}} />
-                    <input className="input-tf py-2 px-3 rounded-xl text-xs" placeholder="Origen/Destino" value={src} onChange={e=>setSrc(e.target.value)} style={{width:140}} />
-                    <select className="input-tf py-2 px-3 rounded-xl text-xs" value={disp} onChange={e=>setDisp(e.target.value)} style={{width:140}}>
-                        <option value="">Todos</option>
-                        <option value="ANSWERED">ANSWERED</option>
-                        <option value="NO ANSWER">NO ANSWER</option>
-                        <option value="BUSY">BUSY</option>
-                        <option value="FAILED">FAILED</option>
+
+            {/* Filtros */}
+            <div className="glass" style={{padding:16,marginBottom:16}}>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flex:'none'}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#6b7280'}}>calendar_today</span>
+                        <span style={{fontSize:11,color:'#6b7280',fontWeight:600}}>Desde</span>
+                        <input className="input-tf py-1.5 px-3 rounded-lg text-xs" type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:135}} />
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flex:'none'}}>
+                        <span style={{fontSize:11,color:'#6b7280',fontWeight:600}}>Hasta</span>
+                        <input className="input-tf py-1.5 px-3 rounded-lg text-xs" type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:135}} />
+                    </div>
+                    <div style={{position:'relative',flex:1,minWidth:120}}>
+                        <span className="material-icons-round" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#6b7280'}}>search</span>
+                        <input className="input-tf py-1.5 pl-8 pr-3 rounded-lg text-xs" placeholder="Número origen/destino..." value={src} onChange={e=>setSrc(e.target.value)} />
+                    </div>
+                    <select className="input-tf py-1.5 px-3 rounded-lg text-xs" value={disp} onChange={e=>setDisp(e.target.value)} style={{width:150}}>
+                        <option value="">Todos los estados</option>
+                        <option value="ANSWERED">Contestadas</option>
+                        <option value="NO ANSWER">Sin Respuesta</option>
+                        <option value="BUSY">Comunicando</option>
+                        <option value="FAILED">Fallidas</option>
                     </select>
-                    <button className="btn-primary px-4 py-2 rounded-xl text-xs" onClick={load}>{loading?'Cargando...':'Buscar'}</button>
-                    <span style={{fontSize:11,color:'#6b7280',marginLeft:'auto',alignSelf:'center'}}>{total} registros</span>
+                    <button className="btn-primary" style={{padding:'7px 16px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={load}>
+                        <span className="material-icons-round" style={{fontSize:16}}>{loading?'hourglass_top':'search'}</span>
+                        {loading?'Buscando...':'Buscar'}
+                    </button>
+                    <button onClick={exportCSV} style={{padding:'7px 14px',borderRadius:10,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.3)',color:'#4ade80',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>download</span>
+                        Exportar CSV
+                    </button>
+                    <span style={{fontSize:11,color:'#6b7280',marginLeft:'auto',fontWeight:600}}>{total.toLocaleString()} registros</span>
                 </div>
-                <div style={{overflowX:'auto'}}>
-                    <table className="tf-table">
-                        <thead><tr><th>Fecha</th><th>Origen</th><th>Destino</th><th>Duración</th><th>Estado</th><th>Grabación</th></tr></thead>
-                        <tbody>
-                            {rows.map((r,i)=>(
-                                <tr key={i}>
-                                    <td style={{fontFamily:'monospace',fontSize:11}}>{r.calldate}</td>
-                                    <td style={{fontWeight:600}}>{r.src}</td>
-                                    <td>{r.dst}</td>
-                                    <td style={{fontFamily:'monospace'}}>{fmtSec(r.billsec)}</td>
-                                    <td><span className={dispColor[r.disposition]||''}style={{fontWeight:700,fontSize:11}}>{r.disposition}</span></td>
-                                    <td>{r.recordingfile?<audio controls src={`/monitor/${r.recordingfile}`} style={{height:28,width:160}} />:'—'}</td>
-                                </tr>
-                            ))}
-                            {!loading&&rows.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'#6b7280',padding:30}}>Sin registros</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
+            </div>
+
+            {/* Tabla */}
+            <div className="glass" style={{overflow:'hidden'}}>
+                <table className="tf-table">
+                    <thead>
+                        <tr style={{background:'rgba(139,92,246,0.05)'}}>
+                            <th style={{padding:'12px 16px'}}><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>schedule</span>Fecha y Hora</th>
+                            <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_made</span>Origen</th>
+                            <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_received</span>Destino</th>
+                            <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>timer</span>Duración</th>
+                            <th>Estado</th>
+                            <th>Grabación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((r,i)=>{
+                            const cfg=DISP_CFG[r.disposition]||{label:r.disposition,color:'#9ca3af',bg:'rgba(107,114,128,0.12)',border:'rgba(107,114,128,0.25)',icon:'phone'};
+                            const isExp=expanded===i;
+                            return(
+                                <React.Fragment key={i}>
+                                    <tr style={{cursor:'pointer',transition:'background .15s'}} onClick={()=>setExpanded(isExp?null:i)}>
+                                        <td style={{fontFamily:'monospace',fontSize:11,padding:'10px 16px'}}>
+                                            <div style={{fontWeight:600,color:'var(--text)'}}>{fmtDate(r.calldate)}</div>
+                                            <div style={{fontSize:10,color:'#6b7280',marginTop:1}}>{r.calldate?.slice(0,10)}</div>
+                                        </td>
+                                        <td>
+                                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                <div style={{width:28,height:28,borderRadius:8,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                    <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>call_made</span>
+                                                </div>
+                                                <div>
+                                                    <div style={{fontWeight:700,fontSize:13}}>{r.src}</div>
+                                                    {r.clid&&r.clid!==r.src&&<div style={{fontSize:10,color:'#6b7280'}}>{r.clid.replace(/<[^>]+>/g,'').trim()}</div>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                <div style={{width:28,height:28,borderRadius:8,background:'rgba(59,130,246,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                    <span className="material-icons-round" style={{fontSize:14,color:'#60a5fa'}}>call_received</span>
+                                                </div>
+                                                <span style={{fontWeight:700,fontSize:13}}>{r.dst}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{fontFamily:'monospace',fontWeight:600,color:'var(--text)',fontSize:12}}>{fmtSec(r.billsec)}</div>
+                                            {r.duration!==r.billsec&&<div style={{fontSize:10,color:'#6b7280'}}>Total: {fmtSec(r.duration)}</div>}
+                                        </td>
+                                        <td>
+                                            <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:20,background:cfg.bg,border:`1px solid ${cfg.border}`,fontSize:11,fontWeight:700,color:cfg.color}}>
+                                                <span className="material-icons-round" style={{fontSize:13}}>{cfg.icon}</span>
+                                                {cfg.label}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {r.recordingfile
+                                                ?<div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                    <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
+                                                    <span style={{fontSize:10,color:'#c4b5fd',fontWeight:600}}>Ver ↓</span>
+                                                  </div>
+                                                :<span style={{color:'#374151',fontSize:12}}>—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    {isExp&&r.recordingfile&&(
+                                        <tr><td colSpan={6} style={{padding:'8px 16px 12px',background:'rgba(139,92,246,0.04)',borderTop:'none'}}>
+                                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>mic</span>
+                                                <audio controls src={`/monitor/${r.recordingfile}`} style={{flex:1,height:32}} />
+                                                <span style={{fontSize:10,color:'#6b7280',fontFamily:'monospace'}}>{r.recordingfile}</span>
+                                            </div>
+                                        </td></tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                        {!loading&&rows.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'#6b7280',padding:40}}>
+                            <span className="material-icons-round" style={{fontSize:40,display:'block',marginBottom:10,color:'#374151'}}>history</span>
+                            Sin registros para los filtros seleccionados
+                        </td></tr>}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
 }
 
 // ─────────────────────────────────────────────
-// VISTA: COLAS
+// VISTA: COLAS (con CRUD + numero + animación activa)
 // ─────────────────────────────────────────────
-function ViewColas() {
+const STRAT_OPTS = [
+    {v:'ringall',l:'Timbre simultáneo'},
+    {v:'rrmemory',l:'Round Robin memoria'},
+    {v:'leastrecent',l:'Menos reciente'},
+    {v:'fewestcalls',l:'Menos llamadas'},
+    {v:'random',l:'Aleatorio'},
+    {v:'linear',l:'Lineal'},
+];
+
+function QueueDrawer({ queue, onClose, onSaved, toast }) {
+    const isNew = !queue;
+    const [form, setForm] = useState({
+        extension: queue?.id||'',
+        descr: queue?.name||'',
+        strategy: queue?.strategy||'ringall',
+        timeout: queue?.timeout||15,
+        wrapuptime: queue?.wrapuptime||5,
+        members: (queue?.members||[]).map(m=>m.ext).join(','),
+    });
+    const [saving, setSaving] = useState(false);
+    const set = (k,v) => setForm(f=>({...f,[k]:v}));
+    const save = async () => {
+        setSaving(true);
+        const fd=new FormData(); Object.entries(form).forEach(([k,v])=>fd.append(k,v));
+        const action = isNew ? 'create_queue' : 'update_queue';
+        const d = await (await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
+        setSaving(false);
+        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+    };
+    const del = async () => {
+        if(!confirm(`¿Eliminar cola ${queue?.id}?`)) return;
+        const fd=new FormData();fd.append('extension',queue.id);
+        const d=await(await fetch('api/index.php?action=delete_queue',{method:'POST',body:fd})).json();
+        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+    };
+    const FI = ({label,k,type='text',ph='',readOnly=false}) => (
+        <div style={{marginBottom:14}}>
+            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>{label}</label>
+            <input className="input-tf py-2 px-3 rounded-xl text-sm" type={type} placeholder={ph} value={form[k]} onChange={e=>set(k,e.target.value)} readOnly={readOnly} style={readOnly?{opacity:.6}:{}} />
+        </div>
+    );
+    return(
+        <><div className="drawer-backdrop" onClick={onClose}/>
+        <div className="drawer">
+            <div className="drawer-header">
+                <div><div style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{isNew?'Nueva Cola':queue.name}</div><div style={{fontSize:11,color:'#6b7280',marginTop:2}}>Cola #{isNew?'nueva':queue.id}</div></div>
+                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:22}}>close</span></button>
+            </div>
+            <div className="drawer-body">
+                <FI label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
+                <FI label="Nombre" k="descr" ph="Soporte Técnico" />
+                <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Estrategia</label>
+                    <select className="input-tf py-2 px-3 rounded-xl text-sm" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
+                        {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                    </select>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                    <div><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Timeout (seg)</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} /></div>
+                    <div><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Wrapup (seg)</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} /></div>
+                </div>
+                <FI label="Internos miembros (separar con comas)" k="members" ph="1001,1002,1005" />
+            </div>
+            <div className="drawer-footer" style={{display:'flex',gap:8}}>
+                {!isNew&&<button onClick={del} style={{padding:'10px 14px',borderRadius:10,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,.3)',color:'#f87171',fontWeight:700,cursor:'pointer',fontSize:13}}>Eliminar</button>}
+                <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:600,cursor:'pointer',fontSize:13}}>Cancelar</button>
+                <button onClick={save} disabled={saving} className="btn-primary" style={{flex:2,padding:'10px',borderRadius:10,fontSize:13}}>{saving?'Guardando...':isNew?'Crear Cola':'Guardar'}</button>
+            </div>
+        </div></>
+    );
+}
+
+function ViewColas({ toast }) {
     const [queues,setQueues]=useState([]);
+    const [drawer,setDrawer]=useState(null);
     const load=async()=>{
-        try{const r=await fetch('api/index.php?action=get_queues');const d=await r.json();if(d.success)setQueues(d.queues);}catch{}
+        try{const d=await(await fetch('api/index.php?action=get_queues')).json();if(d.success)setQueues(d.queues);}catch{}
     };
     useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
+    const stratLabel={ringall:'Simultáneo',rrmemory:'Round Robin',leastrecent:'Menos reciente',fewestcalls:'Menos llamadas',random:'Aleatorio',linear:'Lineal'};
     return(
         <div className="content-area view-enter">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                <div style={{fontSize:11,color:'#6b7280'}}>{queues.length} colas configuradas</div>
+                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
+                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva Cola
+                </button>
+            </div>
             {queues.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
                 <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>queue</span>
-                Cargando colas o no hay colas configuradas
+                No hay colas configuradas
             </div>}
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                {queues.map((q,i)=>(
-                    <div key={i} className="glass" style={{padding:20}}>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {queues.map((q,i)=>{
+                    const isActive = (q.calls_waiting||0) > 0;
+                    return(
+                    <div key={i} className="glass" style={{padding:20,borderLeft:`3px solid ${isActive?'#f59e0b':'#374151'}`,transition:'border-color .3s',position:'relative',overflow:'hidden'}}>
+                        {isActive&&<div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#f59e0b,#ef4444,#f59e0b)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
                             <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <div style={{width:36,height:36,borderRadius:10,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                    <span className="material-icons-round" style={{fontSize:18,color:'#c4b5fd'}}>queue</span>
+                                <div style={{width:44,height:44,borderRadius:12,background:isActive?'rgba(245,158,11,0.15)':'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',transition:'background .3s'}}>
+                                    <span className="material-icons-round" style={{fontSize:22,color:isActive?'#f59e0b':'#c4b5fd',animation:isActive?'blink 1s infinite':'none'}}>queue</span>
                                 </div>
                                 <div>
-                                    <div style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>{q.name}</div>
-                                    <div style={{fontSize:11,color:'#6b7280'}}>{q.strategy} · {q.calls_processed||0} llamadas procesadas</div>
+                                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                        <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,.3)',fontSize:10,fontWeight:800,color:'#c4b5fd',fontFamily:'monospace'}}>#{q.id}</div>
+                                        <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{q.name}</div>
+                                    </div>
+                                    <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{stratLabel[q.strategy]||q.strategy} · {q.calls_processed||0} procesadas · {q.timeout}s timeout</div>
                                 </div>
                             </div>
-                            <div style={{display:'flex',gap:12}}>
+                            <div style={{display:'flex',alignItems:'center',gap:16}}>
                                 <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:24,fontWeight:800,color:q.calls_waiting>0?'#f59e0b':'#4ade80'}}>{q.calls_waiting}</div>
-                                    <div style={{fontSize:10,color:'#6b7280'}}>ESPERANDO</div>
+                                    <div style={{fontSize:28,fontWeight:800,color:isActive?'#f59e0b':'#4ade80',lineHeight:1}}>{q.calls_waiting||0}</div>
+                                    <div style={{fontSize:9,color:'#6b7280',textTransform:'uppercase'}}>Esperando</div>
                                 </div>
+                                <button onClick={()=>setDrawer(q)} style={{padding:'7px 12px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',gap:4}}>
+                                    <span className="material-icons-round" style={{fontSize:15}}>edit</span>Editar
+                                </button>
                             </div>
                         </div>
                         {q.members&&q.members.length>0&&(
-                            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                                 {q.members.map((m,j)=>(
-                                    <div key={j} style={{padding:'6px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,display:'flex',alignItems:'center',gap:6}}>
-                                        <span style={{width:6,height:6,borderRadius:'50%',background:m.status.includes('use')?'#f59e0b':'#22c55e'}} />
-                                        {m.tech}/{m.ext}
+                                    <div key={j} style={{padding:'5px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,display:'flex',alignItems:'center',gap:6,fontWeight:600}}>
+                                        <span style={{width:7,height:7,borderRadius:'50%',background:m.status&&m.status.includes('use')?'#f59e0b':'#22c55e',flexShrink:0}} />
+                                        #{m.ext} {m.name&&<span style={{color:'#6b7280',fontWeight:400}}>· {m.name}</span>}
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </div>
-                ))}
+                    </div>);
+                })}
             </div>
+            {drawer&&<QueueDrawer queue={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);load();}} toast={toast||((m,t)=>alert(m))} />}
         </div>
     );
 }
 
 // ─────────────────────────────────────────────
-// VISTA: GRUPOS DE TIMBRADO
+// VISTA: GRUPOS DE TIMBRADO (con CRUD + numero + animación)
 // ─────────────────────────────────────────────
-function ViewGrupos() {
-    const [groups,setGroups]=useState([]);
-    const load=async()=>{
-        try{const r=await fetch('api/index.php?action=get_ring_groups');const d=await r.json();if(d.success)setGroups(d.groups);}catch{}
+const RG_STRATEGIES = [
+    {v:'ringall',l:'Timbre simultáneo'},
+    {v:'hunt',l:'Secuencial (Hunt)'},
+    {v:'memoryhunt',l:'Memoria secuencial'},
+    {v:'firstavailable',l:'Primero disponible'},
+];
+
+function GroupDrawer({ group, onClose, onSaved, toast }) {
+    const isNew = !group;
+    const [form, setForm] = useState({
+        grpnum: group?.grpnum||'',
+        description: group?.description||'',
+        strategy: group?.strategy||'ringall',
+        grptime: group?.grptime||20,
+        grplist: (group?.members||[]).join('-'),
+    });
+    const [saving, setSaving] = useState(false);
+    const set = (k,v) => setForm(f=>({...f,[k]:v}));
+    const save = async () => {
+        setSaving(true);
+        const fd=new FormData();Object.entries(form).forEach(([k,v])=>fd.append(k,v));
+        const action = isNew?'create_ring_group':'update_ring_group';
+        const d=await(await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
+        setSaving(false);
+        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
     };
-    useEffect(()=>{load();},[]);
-    const strategyLabel={ringall:'Timbre simultáneo',hunt:'Secuencial',memoryhunt:'Memoria secuencial',firstavailable:'Primero disponible'};
-    const recIco={always:'fiber_manual_record',dontcare:'mic_off',never:'mic_none'};
+    const del = async () => {
+        if(!confirm(`¿Eliminar grupo ${group?.grpnum}?`)) return;
+        const fd=new FormData();fd.append('grpnum',group.grpnum);
+        const d=await(await fetch('api/index.php?action=delete_ring_group',{method:'POST',body:fd})).json();
+        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+    };
+    return(
+        <><div className="drawer-backdrop" onClick={onClose}/>
+        <div className="drawer">
+            <div className="drawer-header">
+                <div><div style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{isNew?'Nuevo Grupo':'Editar Grupo '+group.grpnum}</div>
+                <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>Grupos de timbrado</div></div>
+                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:22}}>close</span></button>
+            </div>
+            <div className="drawer-body">
+                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Número del Grupo</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="Ej: 700" value={form.grpnum} onChange={e=>set('grpnum',e.target.value)} readOnly={!isNew} style={!isNew?{opacity:.6}:{}} /></div>
+                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Descripción</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="Soporte General" value={form.description} onChange={e=>set('description',e.target.value)} /></div>
+                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Estrategia</label>
+                    <select className="input-tf py-2 px-3 rounded-xl text-sm" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
+                        {RG_STRATEGIES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                    </select></div>
+                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Tiempo de timbre (seg)</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.grptime} onChange={e=>set('grptime',e.target.value)} /></div>
+                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Internos (separar con guión)</label>
+                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="1001-1002-1005" value={form.grplist} onChange={e=>set('grplist',e.target.value)} />
+                    <div style={{fontSize:10,color:'#6b7280',marginTop:4}}>Ejemplo: 1001-1002-1005</div></div>
+            </div>
+            <div className="drawer-footer" style={{display:'flex',gap:8}}>
+                {!isNew&&<button onClick={del} style={{padding:'10px 14px',borderRadius:10,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,.3)',color:'#f87171',fontWeight:700,cursor:'pointer',fontSize:13}}>Eliminar</button>}
+                <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:600,cursor:'pointer',fontSize:13}}>Cancelar</button>
+                <button onClick={save} disabled={saving} className="btn-primary" style={{flex:2,padding:'10px',borderRadius:10,fontSize:13}}>{saving?'Guardando...':isNew?'Crear Grupo':'Guardar'}</button>
+            </div>
+        </div></>
+    );
+}
+
+function ViewGrupos({ toast }) {
+    const [groups,setGroups]=useState([]);
+    const [drawer,setDrawer]=useState(null);
+    const [activeCalls,setActiveCalls]=useState([]);
+    const load=async()=>{
+        try{const d=await(await fetch('api/index.php?action=get_ring_groups')).json();if(d.success)setGroups(d.groups);}catch{}
+        try{const d=await(await fetch('api/index.php?action=get_active_calls')).json();if(d.success)setActiveCalls(d.calls||[]);}catch{}
+    };
+    useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
+    const strategyLabel={ringall:'Simultáneo',hunt:'Secuencial',memoryhunt:'Mem. secuencial',firstavailable:'1ro disponible'};
+    const isGroupActive=(g)=>g.members?.some(m=>activeCalls.some(c=>c.ext===m));
     return(
         <div className="content-area view-enter">
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
                 <div style={{fontSize:11,color:'#6b7280'}}>{groups.length} grupos configurados</div>
+                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
+                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nuevo Grupo
+                </button>
             </div>
             {groups.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
                 <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>ring_volume</span>
                 Sin grupos de timbrado configurados
             </div>}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14}}>
-                {groups.map((g,i)=>(
-                    <div key={i} className="glass glass-hover" style={{padding:20}}>
-                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                            <div style={{width:40,height:40,borderRadius:12,background:'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                <span className="material-icons-round" style={{fontSize:20,color:'#60a5fa'}}>ring_volume</span>
+                {groups.map((g,i)=>{
+                    const active = isGroupActive(g);
+                    return(
+                    <div key={i} className="glass" style={{padding:20,borderTop:`2px solid ${active?'#ef4444':'#374151'}`,transition:'border-color .3s',position:'relative',overflow:'hidden'}}>
+                        {active&&<div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
+                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+                            <div style={{width:40,height:40,borderRadius:12,background:active?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .3s'}}>
+                                <span className="material-icons-round" style={{fontSize:20,color:active?'#f87171':'#60a5fa',animation:active?'blink 1s infinite':'none'}}>ring_volume</span>
                             </div>
                             <div style={{flex:1}}>
-                                <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>Grupo {g.grpnum}</div>
-                                <div style={{fontSize:11,color:'#9ca3af'}}>{g.description}</div>
-                            </div>
-                            <div style={{padding:'4px 10px',borderRadius:8,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:700,color:'#60a5fa'}}>{g.grpnum}</div>
-                        </div>
-                        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-                            <span style={{padding:'3px 10px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,color:'#c4b5fd'}}>
-                                <span className="material-icons-round" style={{fontSize:12,verticalAlign:'middle',marginRight:3}}>shuffle</span>
-                                {strategyLabel[g.strategy]||g.strategy}
-                            </span>
-                            <span style={{padding:'3px 10px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,color:'#9ca3af'}}>
-                                <span className="material-icons-round" style={{fontSize:12,verticalAlign:'middle',marginRight:3}}>timer</span>
-                                {g.grptime}s
-                            </span>
-                        </div>
-                        <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Internos</div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                            {(g.members||[]).map((m,j)=>(
-                                <div key={j} style={{padding:'4px 12px',borderRadius:8,background:'rgba(139,92,246,0.1)',border:'1px solid rgba(139,92,246,.2)',fontSize:11,fontWeight:700,color:'#c4b5fd'}}>
-                                    #{m}
+                                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                    <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
+                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
                                 </div>
-                            ))}
+                                <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s</div>
+                            </div>
+                            <button onClick={()=>setDrawer(g)} style={{padding:'6px 10px',borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',gap:3}}>
+                                <span className="material-icons-round" style={{fontSize:14}}>edit</span>Editar
+                            </button>
                         </div>
-                    </div>
-                ))}
+                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                            {(g.members||[]).map((m,j)=>{
+                                const onCall=activeCalls.some(c=>c.ext===m);
+                                return(<div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
+                                    {onCall&&<span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
+                                    #{m}
+                                </div>);
+                            })}
+                        </div>
+                    </div>);
+                })}
             </div>
+            {drawer&&<GroupDrawer group={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);load();}} toast={toast||((m,t)=>alert(m))} />}
         </div>
     );
 }
@@ -1164,7 +1595,7 @@ function ViewGrupos() {
 // ─────────────────────────────────────────────
 // VISTA: VIVO (con timers animados)
 // ─────────────────────────────────────────────
-function LiveCallCard({ call }) {
+function LiveCallCard({ call, data }) {
     const [elapsed,setElapsed]=useState(0);
     useEffect(()=>{
         // Parse HH:MM:SS or MM:SS from call.duration
@@ -1176,25 +1607,40 @@ function LiveCallCard({ call }) {
     },[call.channel]);
     const fmt=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`;}
     const isLong=elapsed>180;
+    
+    // Enrich with data
+    const extInfo = data?.pbx?.extensions?.find(e=>e.ext===call.ext) || {};
+    const name = extInfo.name || 'Desconocido';
+    const ip = extInfo.ip && extInfo.ip!=='—'? extInfo.ip : '';
+    const cleanDest = call.dest?.startsWith('from-internal') ? 'Interno' : call.dest;
+
     return(
-        <div className="live-call-card" style={{marginBottom:10}}>
+        <div className="live-call-card" style={{marginBottom:10,background:'var(--surface2)',padding:'12px 16px',borderRadius:12,border:'1px solid var(--border)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div style={{display:'flex',gap:14,alignItems:'center'}}>
                     <div className="live-pulse" style={{width:40,height:40,borderRadius:12,background:'rgba(239,68,68,0.15)',border:'2px solid rgba(239,68,68,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{fontSize:20,color:'#f87171'}}>call</span>
                     </div>
                     <div>
-                        <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{call.channel}</div>
-                        <div style={{fontSize:11,color:'#9ca3af'}}>{call.dest} · {call.state}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <span style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>Ext {call.ext}</span>
+                            <span style={{fontSize:12,color:'#9ca3af',fontWeight:600}}>{name}</span>
+                        </div>
+                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                            <span style={{color:'#c4b5fd',fontWeight:700}}>{cleanDest}</span>
+                            <span>•</span>
+                            <span style={{textTransform:'uppercase',letterSpacing:'.05em'}}>{call.state}</span>
+                            {ip && <><span>•</span><span style={{fontFamily:'monospace',fontSize:10}}>{ip}</span></>}
+                        </div>
                     </div>
                 </div>
-                <div className="call-timer" style={{color:isLong?'#f87171':'#f59e0b'}}>{fmt(elapsed)}</div>
+                <div className="call-timer" style={{color:isLong?'#f87171':'#f59e0b',fontSize:20,fontWeight:800,fontFamily:'monospace'}}>{fmt(elapsed)}</div>
             </div>
         </div>
     );
 }
 
-function ViewVivo2() {
+function ViewVivo2({ data }) {
     const [calls,setCalls]=useState([]);
     const [prev,setPrev]=useState([]);
     const load=async()=>{
@@ -1227,8 +1673,549 @@ function ViewVivo2() {
                     <span className="material-icons-round" style={{fontSize:52,display:'block',marginBottom:12,color:'#374151'}}>phone_disabled</span>
                     <div style={{fontSize:14,color:'#6b7280'}}>Sin llamadas activas</div>
                   </div>
-                :calls.map((c,i)=><LiveCallCard key={c.channel||i} call={c} />)
+                :calls.map((c,i)=><LiveCallCard key={c.channel||i} call={c} data={data} />)
             }
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: REPORTES AVANZADOS
+// ─────────────────────────────────────────────
+function ViewReportes({ toast }) {
+    const d=new Date(); d.setDate(d.getDate()-7);
+    const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
+    const [end, setEnd] = useState(() => new Date().toISOString().split('T')[0]);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const chartRef = useRef(null);
+    const chartInst = useRef(null);
+
+    const load = async () => {
+        setLoading(true);
+        try {
+            const r = await fetch(`api/index.php?action=get_reports&start=${start}&end=${end}`);
+            const d = await r.json();
+            if(d.success) setStats(d);
+            else toast(d.error||'Error al cargar reportes','error');
+        } catch { toast('Error de red al obtener reportes','error'); }
+        setLoading(false);
+    };
+
+    useEffect(() => { load(); }, []);
+
+    useEffect(() => {
+        if (!stats || !chartRef.current || !window.Chart) return;
+        if (chartInst.current) chartInst.current.destroy();
+        
+        const labels = Object.keys(stats.trend);
+        const answered = labels.map(l => stats.trend[l].ANSWERED || 0);
+        const failed = labels.map(l => (stats.trend[l].FAILED || 0) + (stats.trend[l]['NO ANSWER'] || 0) + (stats.trend[l].BUSY || 0));
+        
+        chartInst.current = new window.Chart(chartRef.current, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Contestadas', data: answered, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.2)', fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: '#22c55e', pointBorderColor: '#fff', pointRadius: 4, pointHoverRadius: 6 },
+                    { label: 'Otras/Fallidas', data: failed, borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: true, tension: 0.4, borderWidth: 2, pointBackgroundColor: '#ef4444', pointBorderColor: '#fff', pointRadius: 3, pointHoverRadius: 5 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#9ca3af', font: { family: 'Inter', weight: 600 } } },
+                    tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', borderColor:'rgba(139,92,246,0.3)', borderWidth:1, padding:12, boxPadding:6, usePointStyle:true }
+                },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } }, beginAtZero: true },
+                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } } }
+                }
+            }
+        });
+    }, [stats]);
+
+    const Card = ({ title, value, sub, icon, color, bg }) => (
+        <div className="glass" style={{padding:20,display:'flex',alignItems:'center',gap:16}}>
+            <div style={{width:50,height:50,borderRadius:16,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 8px 24px ${bg}`}}>
+                <span className="material-icons-round" style={{fontSize:24,color:color}}>{icon}</span>
+            </div>
+            <div>
+                <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>{title}</div>
+                <div style={{fontSize:28,fontWeight:900,color:'var(--text)',lineHeight:1}}>{value}</div>
+                <div style={{fontSize:11,color:'#6b7280',marginTop:6,fontWeight:600}}>{sub}</div>
+            </div>
+        </div>
+    );
+
+    return(
+        <div className="content-area view-enter">
+            {/* Header + Filtros */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,flexWrap:'wrap',gap:16}}>
+                <div>
+                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Reportes Analíticos</h2>
+                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Métricas y gráficas de la actividad de llamadas</p>
+                </div>
+                <div className="glass" style={{display:'flex',alignItems:'center',gap:10,padding:'8px 16px',borderRadius:14}}>
+                    <input type="date" value={start} onChange={e=>setStart(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
+                    <span style={{color:'#6b7280',fontSize:12,fontWeight:800}}>HASTA</span>
+                    <input type="date" value={end} onChange={e=>setEnd(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
+                    <button className="btn-primary" style={{padding:'7px 16px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={load} disabled={loading}>
+                        <span className="material-icons-round" style={{fontSize:16}}>{loading?'hourglass_top':'sync'}</span> Actualizar
+                    </button>
+                </div>
+            </div>
+
+            {loading && !stats && <div style={{textAlign:'center',padding:40,color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:40,animation:'spin-slow 2s linear infinite'}}>refresh</span><div style={{marginTop:10}}>Generando reporte...</div></div>}
+
+            {stats && (
+                <>
+                    {/* KPIs */}
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginBottom:24}} className="anim-fadeup">
+                        <Card title="Total Procesadas" value={stats.stats.total?.toLocaleString()||0} sub="Todas las disposiciones" icon="functions" color="#c4b5fd" bg="rgba(139,92,246,0.15)" />
+                        <Card title="Contestadas" value={stats.stats.answered?.toLocaleString()||0} sub={`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% de efectividad`} icon="check_circle" color="#4ade80" bg="rgba(34,197,94,0.15)" />
+                        <Card title="Abandonadas/Fallidas" value={parseInt(stats.stats.failed||0)+parseInt(stats.stats.no_answer||0)+parseInt(stats.stats.busy||0)} sub="Busy, No Answer, Failed" icon="cancel" color="#f87171" bg="rgba(239,68,68,0.15)" />
+                        <Card title="Duración Promedio" value={fmtTime(Math.round(stats.stats.avg_duration||0))} sub="Tiempo de habla (billsec)" icon="timer" color="#f59e0b" bg="rgba(245,158,11,0.15)" />
+                    </div>
+
+                    {/* Gráfica principal */}
+                    <div className="glass anim-fadeup-2" style={{padding:24,marginBottom:24,height:340,display:'flex',flexDirection:'column'}}>
+                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em'}}>Tendencia de Llamadas por Día</div>
+                        <div style={{flex:1,position:'relative',minHeight:0}}>
+                            <canvas ref={chartRef} />
+                        </div>
+                    </div>
+
+                    {/* Tops */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}} className="anim-fadeup-3">
+                        <div className="glass" style={{padding:24}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span> Top Orígenes Activos
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                {stats.origins?.map((o,i)=>(
+                                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                            <div style={{width:24,height:24,borderRadius:6,background:'rgba(139,92,246,0.1)',color:'#c4b5fd',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800}}>{i+1}</div>
+                                            <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{o.src}</span>
+                                        </div>
+                                        <div style={{fontSize:12,fontWeight:800,color:'#4ade80'}}>{o.count} calls</div>
+                                    </div>
+                                ))}
+                                {!stats.origins?.length && <div style={{color:'#6b7280',fontSize:12,textAlign:'center'}}>Sin datos</div>}
+                            </div>
+                        </div>
+                        <div className="glass" style={{padding:24}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>call_received</span> Top Destinos Alcanzados
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                {stats.dests?.map((d,i)=>(
+                                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                            <div style={{width:24,height:24,borderRadius:6,background:'rgba(59,130,246,0.1)',color:'#60a5fa',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800}}>{i+1}</div>
+                                            <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{d.dst}</span>
+                                        </div>
+                                        <div style={{fontSize:12,fontWeight:800,color:'#f59e0b'}}>{d.count} calls</div>
+                                    </div>
+                                ))}
+                                {!stats.dests?.length && <div style={{color:'#6b7280',fontSize:12,textAlign:'center'}}>Sin datos</div>}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: SOFT PHONE (WEBRTC)
+// ─────────────────────────────────────────────
+function ViewWebPhone({ data, toast }) {
+    const [ext, setExt] = useState(() => localStorage.getItem('tf_sip_ext') || '');
+    const [pass, setPass] = useState(() => localStorage.getItem('tf_sip_pass') || '');
+    const [status, setStatus] = useState('Desconectado');
+    const [dest, setDest] = useState('');
+    const [simpleUser, setSimpleUser] = useState(null);
+    const audioRef = useRef(null);
+    const localVideoRef = useRef(null);
+    const remoteVideoRef = useRef(null);
+    const [isVideo, setIsVideo] = useState(false);
+    const [activeTab, setActiveTab] = useState('dialpad'); // dialpad, contacts, history
+    const [history, setHistory] = useState([]);
+    const [search, setSearch] = useState('');
+
+    useEffect(() => {
+        // Stop videos when disconnected
+        if (status === 'Desconectado' && localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+        }
+    }, [status]);
+
+    // Auto-connect on mount if credentials cached
+    useEffect(() => {
+        const cachedExt = localStorage.getItem('tf_sip_ext');
+        const cachedPass = localStorage.getItem('tf_sip_pass');
+        if (cachedExt && cachedPass && status === 'Desconectado') {
+            // Give a tiny delay for window.SIP and DOM refs
+            setTimeout(() => {
+                connect();
+            }, 500);
+        }
+    }, []);
+
+    const connect = () => {
+        if(!ext || !pass) return toast('Falta extensión o clave SIP','error');
+        if(!window.SIP) return toast('Cargando SIP.js...','warning');
+        
+        try {
+            const server = 'wss://' + window.location.host + '/ws';
+            const aor = 'sip:' + ext + '@' + window.location.hostname;
+            console.log('SIP WSS server:', server);
+
+            const mediaConfig = {
+                remote: { audio: audioRef.current }
+            };
+            // Activar video pasándole los refs
+            if (isVideo) {
+                mediaConfig.local = { video: localVideoRef.current };
+                mediaConfig.remote = { audio: audioRef.current, video: remoteVideoRef.current };
+            }
+
+            const su = new window.SIP.Web.SimpleUser(server, {
+                aor,
+                media: mediaConfig
+            });
+            su.userAgentOptions = su.userAgentOptions || {};
+            su.userAgentOptions.authorizationUsername = ext;
+            su.userAgentOptions.authorizationPassword = pass;
+            su.userAgentOptions.transportOptions = { server: server, traceSip: true };
+            su.delegate = {
+                onCallReceived: () => { 
+                    toast('¡Llamada entrante!','call'); 
+                    setStatus('Llamada Entrante'); 
+                    setActiveTab('dialpad');
+                },
+                onCallHangup: () => { 
+                    toast('Llamada finalizada','info'); 
+                    setStatus('Registrado (Libre)'); 
+                },
+                onCallAnswered: () => { setStatus('Llamada en Curso'); },
+                onRegistered: () => { 
+                    setStatus('Registrado (Libre)'); 
+                    toast(`Extensión ${ext} registrada!`,'success'); 
+                    localStorage.setItem('tf_sip_ext', ext);
+                    localStorage.setItem('tf_sip_pass', pass);
+                },
+                onUnregistered: () => {
+                    setStatus('No registrado');
+                    console.warn('SIP: Unregistered from server');
+                },
+                onServerDisconnect: (e) => { 
+                    console.error('SIP WSS Disconnected:', e);
+                    const code = e?.code || 'UNK';
+                    const reason = e?.reason || 'Error de socket/proxy';
+                    setStatus('Error de Red'); 
+                    toast(`WSS Desconectado (${code}): ${reason}`,'error'); 
+                    // No borramos localStorage aquí por si es temporal
+                },
+                onRegisterFailed: (e) => {
+                    console.error('SIP Register Failed:', e);
+                    setStatus('Error Autenticación');
+                    toast('Fallo de registro: Verifique extensión/clave.','error');
+                    localStorage.removeItem('tf_sip_ext'); // Borramos solo si falla auth
+                    localStorage.removeItem('tf_sip_pass');
+                }
+            };
+
+            console.log('SIP: Attempting connection to', server);
+            setStatus('Registrando...');
+            su.connect()
+                .then(() => {
+                    console.log('SIP: WSS Connected, registering...');
+                    return su.register();
+                })
+                .catch(e => {
+                    console.error('SIP: Connection/Register exception:', e);
+                    setStatus('Error Conexión');
+                    toast('SIP: ' + (e.message || 'Error desconocido'),'error');
+                });
+            setSimpleUser(su);
+        } catch(e) {
+            toast('Error SIP: ' + e.message, 'error');
+        }
+    };
+
+    const call = () => {
+        if(!simpleUser || status==='Desconectado' || status==='Error Conexión') return toast('No estás registrado','error');
+        if(!dest) return toast('Ingrese número','warning');
+        
+        // Determinar constraints (si activó video)
+        const opts = isVideo ? { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: true } } } : {};
+        
+        simpleUser.call('sip:'+dest+'@'+window.location.hostname, opts)
+          .then(()=>{
+              setStatus('Llamando...');
+              setHistory(h => [{ dest, time: new Date().toLocaleTimeString(), dir:'out' }, ...h]);
+          })
+          .catch(e => toast('No se pudo establecer llamada','error'));
+    };
+    
+    const answer = () => {
+        if(!simpleUser) return;
+        const opts = isVideo ? { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: true } } } : {};
+        simpleUser.answer(opts).then(() => setStatus('Llamada en Curso')).catch(e => toast('Error al contestar','error'));
+    };
+
+    const hangup = () => {
+        if(simpleUser) {
+            simpleUser.hangup().catch(e=>console.log(e));
+            setStatus('Registrado (Libre)');
+        }
+    };
+
+    const exts = (data?.extensions || []).filter(e => e.ext.includes(search) || e.name.toLowerCase().includes(search.toLowerCase()));
+
+    const isCalling = status.includes('Llamando') || status.includes('Curso') || status.includes('Entrante');
+
+    return (
+        <div className="content-area view-enter" style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 80px)'}}>
+            <div className="glass" style={{width:850,height:580,padding:0,borderRadius:24,boxShadow:'0 30px 60px rgba(0,0,0,0.6)',border:'1px solid var(--border)',overflow:'hidden',background:'var(--surface)',display:'flex'}}>
+                
+                {/* ─── SIDEBAR (CONTACTOS / HISTORIAL / NAVEGACIÓN) ─── */}
+                <div style={{width: 320, background:'rgba(0,0,0,0.2)', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column'}}>
+                    <div style={{padding:'20px 20px 10px 20px', display:'flex', alignItems:'center', gap:12}}>
+                        <div style={{width:45,height:45,borderRadius:'50%',background:'var(--surface2)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid '+ (status.includes('Registrado')?'#10b981':'#ef4444')}}>
+                            <span className="material-icons-round" style={{color:status.includes('Registrado')?'#10b981':'#ef4444'}}>{status.includes('Registrado')?'perm_identity':'person_off'}</span>
+                        </div>
+                        <div>
+                            <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{ext ? `Interno ${ext}` : 'Teleflow WebRTC'}</div>
+                            <div style={{fontSize:11,color:status.includes('Error')?'#ef4444':status.includes('Registrado')?'#10b981':'#9ca3af',fontWeight:600}}>{status}</div>
+                        </div>
+                    </div>
+
+                    <div style={{display:'flex', borderBottom:'1px solid var(--border)', margin:'10px 0'}}>
+                        <button onClick={()=>setActiveTab('dialpad')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='dialpad'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='dialpad'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Teclado</button>
+                        <button onClick={()=>setActiveTab('contacts')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='contacts'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='contacts'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Contactos</button>
+                        <button onClick={()=>setActiveTab('history')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='history'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='history'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Historial</button>
+                    </div>
+
+                    <div style={{flex:1, overflowY:'auto', padding:'0 15px'}}>
+                        {activeTab === 'contacts' && (
+                            <>
+                                <input type="text" placeholder="Buscar interno..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:'10px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',color:'white',marginBottom:10}} />
+                                {exts.map(e => (
+                                    <div key={e.ext} onClick={()=>{setDest(e.ext);setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:12,cursor:'pointer',borderBottom:'1px solid var(--border)'}} onMouseOver={ev=>ev.currentTarget.style.background='var(--surface2)'} onMouseOut={ev=>ev.currentTarget.style.background='transparent'}>
+                                        <div style={{width:35,height:35,borderRadius:'50%',background:'rgba(139,92,246,0.1)',color:'#8b5cf6',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{e.ext.substring(0,2)}</div>
+                                        <div style={{flex:1}}>
+                                            <div style={{color:'white',fontWeight:600,fontSize:13}}>{e.name}</div>
+                                            <div style={{color:'#9ca3af',fontSize:11}}>Ext: {e.ext}</div>
+                                        </div>
+                                        <div style={{width:10,height:10,borderRadius:'50%',background:e.status==='ONLINE'?'#10b981':'#4b5563'}} title={e.status}></div>
+                                    </div>
+                                ))}
+                                {!exts.length && <div style={{textAlign:'center',padding:20,color:'#6b7280',fontSize:12}}>No se encontraron contactos</div>}
+                            </>
+                        )}
+                        {activeTab === 'history' && (
+                            <>
+                                {history.map((h,i) => (
+                                    <div key={i} onClick={()=>{setDest(h.dest);setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:12,cursor:'pointer',borderBottom:'1px solid var(--border)'}} onMouseOver={ev=>ev.currentTarget.style.background='var(--surface2)'} onMouseOut={ev=>ev.currentTarget.style.background='transparent'}>
+                                        <span className="material-icons-round" style={{color:h.dir==='out'?'#3b82f6':'#10b981'}}>{h.dir==='out'?'call_made':'call_received'}</span>
+                                        <div style={{flex:1}}>
+                                            <div style={{color:'white',fontWeight:600,fontSize:14}}>{h.dest}</div>
+                                            <div style={{color:'#9ca3af',fontSize:11}}>{h.time}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {!history.length && <div style={{textAlign:'center',padding:20,color:'#6b7280',fontSize:12}}>Historial vacío</div>}
+                            </>
+                        )}
+                        {activeTab === 'dialpad' && (
+                            <div style={{textAlign:'center',paddingTop:20,color:'#9ca3af',fontSize:13}}>
+                                Use el teclado principal para llamar.
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ─── MAIN AREA (DIALER / CALL SCREEN) ─── */}
+                <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg, rgba(30,30,40,0.8), rgba(20,20,30,0.9))', padding:30}}>
+                    
+                    {status === 'Desconectado' || status.includes('Error') || status === 'No registrado' ? (
+                        <div style={{width:'100%',maxWidth:320,animation:'fade-in 0.4s',textAlign:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:60,color:'#c4b5fd',marginBottom:20}}>phonelink_ring</span>
+                            <h3 style={{color:'white',fontWeight:800,marginBottom:20}}>Inicio de Sesión SIP</h3>
+                            
+                            <input type="text" className="input-tf p-3 rounded-2xl w-full" style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,marginBottom:15,color:'white'}} value={ext} onChange={e=>setExt(e.target.value)} placeholder="Extensión (Ej. 1005)" />
+                            <input type="password" className="input-tf p-3 rounded-2xl w-full" style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,marginBottom:20,color:'white'}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Secret PJSIP" />
+                            
+                            <label style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,color:'#9ca3af',fontSize:12,marginBottom:20,cursor:'pointer'}}>
+                                <input type="checkbox" checked={isVideo} onChange={e=>setIsVideo(e.target.checked)} style={{cursor:'pointer'}} />
+                                Habilitar WebRTC Video (Beta)
+                            </label>
+
+                            <button className="btn-primary" style={{padding:'14px',borderRadius:16,width:'100%',fontSize:14,fontWeight:800,boxShadow:'0 10px 20px rgba(139,92,246,0.3)'}} onClick={connect}>Registrar Softphone</button>
+                        </div>
+                    ) : status === 'Registrando...' ? (
+                        <div style={{position:'absolute',inset:0,background:'rgba(10,10,15,0.95)',zIndex:100,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.3s',backdropFilter:'blur(10px)'}}>
+                             <div style={{position:'relative',width:100,height:100,marginBottom:30}}>
+                                <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderTopColor:'#8b5cf6',animation:'spin 1s linear infinite'}}></div>
+                                <div style={{position:'absolute',inset:15,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderBottomColor:'#8b5cf6',animation:'spin 1.5s linear reverse infinite'}}></div>
+                                <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    <span className="material-icons-round" style={{fontSize:32,color:'#8b5cf6',animation:'blink 1s infinite'}}>vpn_lock</span>
+                                </div>
+                             </div>
+                             <h2 style={{color:'white',fontWeight:900,fontSize:22,letterSpacing:'2px',textTransform:'uppercase',marginBottom:10}}>Registrando</h2>
+                             <div style={{color:'#9ca3af',fontSize:12,fontWeight:600,letterSpacing:'1px'}}>Sincronizando con PBX Cloud...</div>
+                             <div style={{marginTop:30,width:150,height:2,background:'rgba(255,255,255,0.05)',borderRadius:1,overflow:'hidden'}}>
+                                <div style={{width:'60%',height:'100%',background:'linear-gradient(90deg,transparent,#8b5cf6,transparent)',animation:'callActive 1s linear infinite'}}></div>
+                             </div>
+                        </div>
+                    ) : (
+                        <div style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.4s'}}>
+                            
+                            {isCalling ? (
+                                <div style={{flex:1,width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                                    <div style={{color:'white',fontSize:24,fontWeight:300,marginBottom:10}}>{status.includes('Entrante') ? 'Llamada Entrante de...' : 'Llamando a...'}</div>
+                                    <div style={{color:'#8b5cf6',fontSize:48,fontWeight:800,marginBottom:30}}>{dest}</div>
+                                    
+                                    {/* CONTENEDOR DE VIDEO */}
+                                    {isVideo && (
+                                        <div style={{display:'flex',gap:16,marginBottom:30,position:'relative'}}>
+                                            <div style={{width: 320, height: 240, background:'#000', borderRadius:16, overflow:'hidden', border:'2px solid var(--border)', position:'relative'}}>
+                                                <video ref={remoteVideoRef} autoPlay playsInline style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                                                <div style={{position:'absolute',bottom:8,left:8,background:'rgba(0,0,0,0.5)',color:'white',padding:'2px 8px',borderRadius:10,fontSize:10}}>Remoto</div>
+                                            </div>
+                                            <div style={{width: 100, height: 140, background:'#000', borderRadius:12, overflow:'hidden', border:'2px solid #8b5cf6', position:'absolute', bottom:-10, right:-40, boxShadow:'0 10px 20px rgba(0,0,0,0.5)'}}>
+                                                <video ref={localVideoRef} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:'cover',transform:'scaleX(-1)'}} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* ANIMACION DE PULSO SI ES SOLO AUDIO */}
+                                    {!isVideo && (
+                                        <div style={{position:'relative',width:120,height:120,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:40}}>
+                                            <div style={{position:'absolute',width:'100%',height:'100%',borderRadius:'50%',background:'rgba(139,92,246,0.2)',animation:'blink 1.5s infinite'}}></div>
+                                            <div style={{width:80,height:80,borderRadius:'50%',background:'rgba(139,92,246,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                                <span className="material-icons-round" style={{fontSize:40,color:'#c4b5fd'}}>record_voice_over</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div style={{display:'flex',gap:20}}>
+                                        {status.includes('Entrante') && (
+                                            <button onClick={answer} style={{width:65,height:65,borderRadius:'50%',background:'#10b981',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(16,185,129,0.4)'}}>
+                                                <span className="material-icons-round" style={{fontSize:32}}>call</span>
+                                            </button>
+                                        )}
+                                        <button onClick={hangup} style={{width:65,height:65,borderRadius:'50%',background:'#ef4444',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(239,68,68,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:32}}>call_end</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{width:260}}>
+                                    <input type="text" style={{width:'100%',background:'transparent',border:'none',color:'var(--text)',fontSize:36,fontWeight:300,textAlign:'center',padding:'10px',marginBottom:10,letterSpacing:'2px'}} value={dest} onChange={e=>setDest(e.target.value)} placeholder="0" />
+                                    
+                                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,width:'100%',marginBottom:30}}>
+                                        {[{n:'1',l:''},{n:'2',l:'ABC'},{n:'3',l:'DEF'},{n:'4',l:'GHI'},{n:'5',l:'JKL'},{n:'6',l:'MNO'},{n:'7',l:'PQRS'},{n:'8',l:'TUV'},{n:'9',l:'WXYZ'},{n:'*',l:''},{n:'0',l:'+'},{n:'#',l:''}].map(k=>(
+                                            <button key={k.n} onClick={()=>setDest(d=>d+k.n)} style={{background:'var(--surface2)',border:'none',color:'white',width:65,height:65,borderRadius:'50%',margin:'auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 4px 10px rgba(0,0,0,0.3)'}} onMouseDown={e=>e.currentTarget.style.transform='scale(0.92)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
+                                                <span style={{fontSize:24,fontWeight:500,lineHeight:1}}>{k.n}</span>
+                                                {k.l && <span style={{fontSize:9,color:'#9ca3af',fontWeight:700,letterSpacing:'1px',marginTop:2}}>{k.l}</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div style={{display:'flex',justifyContent:'space-evenly',width:'100%',alignItems:'center'}}>
+                                        <button onClick={()=>setDest(d=>d.slice(0,-1))} style={{width:50,height:50,background:'transparent',border:'none',color:'#9ca3af',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                            <span className="material-icons-round" style={{fontSize:24}}>{dest?'backspace':''}</span>
+                                        </button>
+                                        
+                                        <button onClick={call} style={{width:75,height:75,borderRadius:'50%',background:'linear-gradient(135deg, #10b981, #059669)',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(16,185,129,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:36}}>{isVideo ? 'videocam' : 'call'}</span>
+                                        </button>
+
+                                        <button onClick={()=>{
+                                            if(simpleUser) simpleUser.unregister().then(()=>simpleUser.disconnect()); 
+                                            setStatus('Desconectado'); 
+                                            setDest('');
+                                            localStorage.removeItem('tf_sip_ext');
+                                            localStorage.removeItem('tf_sip_pass');
+                                        }} style={{width:50,height:50,background:'transparent',border:'none',color:'#ef4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}} title="Cerrar Sesión SIP">
+                                            <span className="material-icons-round" style={{fontSize:24}}>power_settings_new</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                
+                {/* Oculto, usado por SIP.js para el canal de voz/ring */}
+                <audio ref={audioRef} autoPlay />
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: IVR (REACT FLOW)
+// ─────────────────────────────────────────────
+function ViewIVR({ toast }) {
+    const ReactFlow = window.ReactFlow?.default || window.ReactFlow?.ReactFlow || (() => React.createElement('div'));
+    const Background = window.ReactFlow?.Background || (() => React.createElement('div'));
+    const Controls = window.ReactFlow?.Controls || (() => React.createElement('div'));
+
+    const initialNodes = [
+        { id: '1', type: 'input', data: { label: 'Inicio (Llamada Entrante)' }, position: { x: 250, y: 5 }, style:{background:'#3b82f6',color:'white',border:'none',borderRadius:8,fontWeight:700} },
+        { id: '2', data: { label: 'Reproducir Audio: Bienvenida' }, position: { x: 250, y: 100 }, style:{background:'var(--surface2)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:8} },
+        { id: '3', data: { label: 'Menú IVR (Opción 1 y 2)' }, position: { x: 250, y: 190 }, style:{background:'var(--surface2)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:8} },
+        { id: '4', data: { label: 'Cola: Soporte Técnico' }, position: { x: 100, y: 300 }, style:{background:'rgba(245,158,11,0.2)',color:'#f59e0b',border:'1px solid rgba(245,158,11,0.4)',borderRadius:8,fontWeight:700} },
+        { id: '5', data: { label: 'Extensión: Recepción' }, position: { x: 400, y: 300 }, style:{background:'rgba(34,197,94,0.2)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',borderRadius:8,fontWeight:700} },
+    ];
+
+    const initialEdges = [
+        { id: 'e1-2', source: '1', target: '2', animated: true, style:{stroke:'#3b82f6',strokeWidth:2} },
+        { id: 'e2-3', source: '2', target: '3', style:{stroke:'#9ca3af',strokeWidth:2} },
+        { id: 'e3-4', source: '3', target: '4', label: 'Si presiona 1', style:{stroke:'#9ca3af',strokeWidth:2} },
+        { id: 'e3-5', source: '3', target: '5', label: 'Si presiona 2', style:{stroke:'#9ca3af',strokeWidth:2} },
+    ];
+
+    const [nodes, setNodes] = useState(initialNodes);
+    const [edges, setEdges] = useState(initialEdges);
+
+    if (!window.ReactFlow) {
+        return (
+            <div className="content-area view-enter" style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:500}}>
+                <div style={{textAlign:'center',color:'#f87171'}}>
+                    <span className="material-icons-round" style={{fontSize:48,marginBottom:16}}>error_outline</span>
+                    <div>Error cargando librería ReactFlow. Revise su conexión o módulos CDN.</div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="content-area view-enter" style={{display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Gestor Visual de IVR</h2>
+                <div style={{display:'flex',gap:10}}>
+                    <button className="btn-primary" style={{padding:'8px 16px',borderRadius:10,background:'var(--surface)',border:'1px solid var(--border)',color:'var(--text)'}} onClick={()=>toast('Modo desarrollador activado','info')}>
+                        <span className="material-icons-round" style={{fontSize:16,marginRight:6,verticalAlign:'middle'}}>add_circle</span>Nuevo Nodo
+                    </button>
+                    <button className="btn-primary" style={{padding:'8px 24px',borderRadius:10}} onClick={()=>toast('Flujo IVR guardado con éxito!','success')}>Guardar Flujo</button>
+                </div>
+            </div>
+            
+            <div className="glass" style={{flex:1,borderRadius:16,overflow:'hidden',minHeight:500,position:'relative'}}>
+                <ReactFlow nodes={nodes} edges={edges} fitView>
+                    <Background color="rgba(139,92,246,0.1)" gap={16} />
+                    <Controls style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}} />
+                </ReactFlow>
+            </div>
         </div>
     );
 }
@@ -1325,18 +2312,20 @@ function App() {
             case 'dashboard':   return <ViewDashboard data={data} key={view} />;
             case 'extensiones': return <ViewExtensiones data={data} toast={toast} key={view} />;
             case 'agentes':     return <ViewAgentes key={view} />;
-            case 'vivo':        return <ViewVivo2 key={view} />;
-            case 'grabaciones': return <ViewGrabaciones data={data} key={view} />;
+            case 'vivo':        return <ViewVivo2 data={data} key={view} />;
             case 'cdr':         return <ViewCDR key={view} />;
-            case 'colas':       return <ViewColas key={view} />;
-            case 'grupos':      return <ViewGrupos key={view} />;
+            case 'reportes':    return <ViewReportes toast={toast} key={view} />;
+            case 'colas':       return <ViewColas toast={toast} key={view} />;
+            case 'grupos':      return <ViewGrupos toast={toast} key={view} />;
+            case 'ivr':         return <ViewIVR toast={toast} key={view} />;
+            case 'webphone':    return <ViewWebPhone data={data} toast={toast} key={view} />;
             default:            return <div className="content-area" key={view} />;
         }
     };
 
     return (
         <div id="app">
-            <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} collapsed={collapsed} setCollapsed={setCollapsed} darkMode={darkMode} setDarkMode={setDarkMode} />
+            <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} collapsed={collapsed} setCollapsed={setCollapsed} darkMode={darkMode} setDarkMode={setDarkMode} data={data} activeCalls={activeCalls} />
             <div className="main-content">
                 <Topbar view={view} data={data} onRefresh={refresh} activeCalls={activeCalls} />
                 {renderView()}
