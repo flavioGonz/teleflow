@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Teleflow - Manual de Usuario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .toc { position: sticky; top: 20px; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; }
+        .step-box { border-left: 4px solid #8b5cf6; }
+    </style>
+</head>
+<body class="bg-slate-50">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8 p-8 max-w-7xl mx-auto">
+    
+    <!-- SIDEBAR ÍNDICE -->
+    <div class="lg:col-span-1">
+        <div class="toc bg-white rounded-lg p-6 shadow">
+            <h3 class="font-bold text-lg mb-4">📑 Contenido</h3>
+            <nav class="space-y-2 text-sm">
+                <a href="#inicio" class="block text-purple-600 hover:text-purple-800 font-medium">🎯 Inicio Rápido</a>
+                <a href="#acceso" class="block text-slate-700 hover:text-purple-600">🔐 Acceso al Dashboard</a>
+                <a href="#interfaz" class="block text-slate-700 hover:text-purple-600">📊 Entender la Interfaz</a>
+                <a href="#busqueda" class="block text-slate-700 hover:text-purple-600">🔍 Búsqueda y Filtros</a>
+                <a href="#detalles" class="block text-slate-700 hover:text-purple-600">ℹ️ Ver Detalles de Agente</a>
+                <a href="#notificaciones" class="block text-slate-700 hover:text-purple-600">🔔 Notificaciones PWA</a>
+                <a href="#configuracion" class="block text-slate-700 hover:text-purple-600">⚙️ Configuración</a>
+                <a href="#troubleshooting" class="block text-slate-700 hover:text-purple-600">🛠️ Solucionar Problemas</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="lg:col-span-3 space-y-8">
+        
+        <!-- ENCABEZADO -->
+        <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg p-8 shadow-lg">
+            <h1 class="text-4xl font-bold mb-2">📊 Teleflow Agent Monitoring</h1>
+            <p class="text-purple-100 text-lg">Manual Completo de Usuario - IISABEL 5</p>
+            <p class="text-purple-200 mt-4">v2.0 • Dashboard en tiempo real • 5 segundos de actualización</p>
+        </div>
+
+        <!-- INICIO RÁPIDO -->
+        <section id="inicio" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">flash_on</span>
+                Inicio Rápido
+            </h2>
+            <ol class="space-y-4 list-decimal list-inside">
+                <li class="step-box pl-4 py-2">
+                    <strong>Abre el dashboard:</strong> 
+                    <code>https://pbx01.infratec.com.uy/teleflow/dashboard.html</code>
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Verás automáticamente:</strong> Lista de todos los agentes con estado en vivo
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Haz clic en un agente</strong> para ver sus detalles y métricas
+                </li>
+                <li class="step-box pl-4 py-2 mb-4">
+                    <strong>Configura notificaciones:</strong> Haz clic el ⚙️ en la esquina superior derecha
+                </li>
+            </ol>
+            <div class="mt-6 bg-blue-50 border border-blue-300 rounded-lg p-4">
+                <p class="text-blue-900"><strong>💡 Consejo:</strong> El dashboard se actualiza automáticamente cada 5 segundos. No necesitas refrescarlo manualmente.</p>
+            </div>
+        </section>
+
+        <!-- ACCESO AL DASHBOARD -->
+        <section id="acceso" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">lock</span>
+                Acceso al Dashboard
+            </h2>
+            
+            <h3 class="text-xl font-semibold mt-6 mb-3">Opción 1: Desde el Navegador (Recomendado)</h3>
+            <div class="bg-slate-100 p-4 rounded family-mono text-sm overflow-x-auto">
+https://pbx01.infratec.com.uy/teleflow/dashboard.html
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Opción 2: Desde Red Local</h3>
+            <div class="bg-slate-100 p-4 rounded family-mono text-sm overflow-x-auto">
+https://[IP-DEL-SERVIDOR]/teleflow/dashboard.html
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Opción 3: Desde IISABEL 5</h3>
+            <p class="text-slate-700 mb-3">Si quieres acceder desde el menú de IISABEL, pide al administrador que agregue un enlace en el portal principal.</p>
+
+            <div class="mt-6 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                <p class="text-yellow-900"><strong>⚠️ Nota:</strong> Debes estar conectado a la red corporativa o usar VPN para acceder.</p>
+            </div>
+        </section>
+
+        <!-- ENTENDER LA INTERFAZ -->
+        <section id="interfaz" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">dashboard</span>
+                Entender la Interfaz
+            </h2>
+            
+            <div class="space-y-6 mt-6">
+                <!-- Tabla de elementos -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 border-b">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-bold">Elemento</th>
+                                <th class="px-4 py-2 text-left font-bold">Qué Significa</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><strong>#1001</strong></td>
+                                <td class="px-4 py-3">Número de interno del agente</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">● ONLINE</span></td>
+                                <td class="px-4 py-3">Agente está disponible y listo para llamadas</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">● BUSY</span></td>
+                                <td class="px-4 py-3">Agente está en una llamada (con pulso rojo)</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">● OFFLINE</span></td>
+                                <td class="px-4 py-3">Agente no está conectado</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><strong>2:45</strong> (con punto rojo)</td>
+                                <td class="px-4 py-3">Duración de la llamada actual en minutos:segundos</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><strong>24</strong> en azul</td>
+                                <td class="px-4 py-3">Total de llamadas manejadas hoy</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><strong>5:32</strong> en azul</td>
+                                <td class="px-4 py-3">AHT = Tiempo Promedio de Manejo de Llamadas (minutos:segundos)</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3"><code>192.168.1.120</code></td>
+                                <td class="px-4 py-3">Dirección IP de origen del agente</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- TARJETAS DE RESUMEN -->
+                <h3 class="text-xl font-semibold mt-8 mb-3">Tarjetas de Resumen (Abajo de la Lista)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-slate-200 rounded-lg p-4">
+                        <div class="text-slate-600 text-sm font-bold">Agentes Online</div>
+                        <div class="text-4xl font-bold text-green-600 mt-2">15/20</div>
+                        <p class="text-xs text-slate-500 mt-1">Cuántos agentes están disponibles</p>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg p-4">
+                        <div class="text-slate-600 text-sm font-bold">En Llamada</div>
+                        <div class="text-4xl font-bold text-yellow-600 mt-2">8</div>
+                        <p class="text-xs text-slate-500 mt-1">Agentes hablando en este momento</p>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg p-4">
+                        <div class="text-slate-600 text-sm font-bold">Total Llamadas</div>
+                        <div class="text-4xl font-bold text-purple-600 mt-2">247</div>
+                        <p class="text-xs text-slate-500 mt-1">Llamadas manejadas por todos hoy</p>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg p-4">
+                        <div class="text-slate-600 text-sm font-bold">AHT Promedio</div>
+                        <div class="text-4xl font-bold text-blue-600 mt-2">5:28</div>
+                        <p class="text-xs text-slate-500 mt-1">Tiempo promedio de todas las llamadas</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BÚSQUEDA Y FILTROS -->
+        <section id="busqueda" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">filter_list</span>
+                Búsqueda y Filtros
+            </h2>
+            
+            <h3 class="text-xl font-semibold mt-6 mb-3">1. Buscar por Nombre o Interno</h3>
+            <p class="text-slate-700 mb-4">En el campo de búsqueda, escribe:</p>
+            <ul class="space-y-2 list-disc list-inside text-slate-700">
+                <li><code>1001</code> - Para encontrar el agente del interno 1001</li>
+                <li><code>Juan</code> - Para encontrar al agente llamado Juan</li>
+                <li><code>192.168</code> - Para encontrar agentes con esa IP</li>
+            </ul>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">2. Filtrar por Estado</h3>
+            <p class="text-slate-700 mb-4">Usa el dropdown desplegable:</p>
+            <ul class="space-y-2 list-disc list-inside text-slate-700">
+                <li><strong>Todos los Estados</strong> - Muestra todos los agentes</li>
+                <li><strong>Online</strong> - Solo agentes disponibles</li>
+                <li><strong>En Llamada</strong> - Solo los que están hablando ahora</li>
+                <li><strong>Offline</strong> - Solo los desconectados</li>
+            </ul>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">3. Actualizar Manualmente</h3>
+            <p class="text-slate-700">Haz clic en el botón <strong>🔄 Actualizar</strong> para refrescar los datos al instante.</p>
+
+            <div class="mt-6 bg-green-50 border border-green-300 rounded-lg p-4">
+                <p class="text-green-900"><strong>✓ Sabías que:</strong> El dashboard se actualiza automáticamente cada 5 segundos. El botón de actualizar es para cuando necesitas ver cambios inmediatos.</p>
+            </div>
+        </section>
+
+        <!-- VER DETALLES DE AGENTE -->
+        <section id="detalles" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">person</span>
+                Ver Detalles de Agente
+            </h2>
+            
+            <p class="text-slate-700 mb-6">Haz clic en cualquier fila de agente para abrir un modal con información detallada.</p>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Información que Verás:</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-bold mb-3 text-slate-900">Información Técnica</h4>
+                    <ul class="space-y-2 text-sm text-slate-700">
+                        <li><strong>Nombre:</strong> Del agente</li>
+                        <li><strong>Estado:</strong> Actual (Online, Busy, etc.)</li>
+                        <li><strong>IP Origen:</strong> De donde se conecta</li>
+                        <li><strong>MAC:</strong> Dirección MAC del dispositivo</li>
+                        <li><strong>RTT:</strong> Latencia de red</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-3 text-slate-900">Métricas del Día</h4>
+                    <ul class="space-y-2 text-sm text-slate-700">
+                        <li><strong>Llamadas Manejadas:</strong> Total del día</li>
+                        <li><strong>AHT Promedio:</strong> Tiempo por llamada</li>
+                        <li><strong>ACW Promedio:</strong> After Call Work (trabajo después)</li>
+                        <li><strong>En Llamada:</strong> Si está hablando, duración</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Acciones desde el Detalle:</h3>
+            <button class="w-full md:w-auto bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition">
+                📤 Enviar Notificación de Prueba
+            </button>
+            <p class="text-sm text-slate-600 mt-2">Esto envía una notification de prueba a tu navegador para verificar que las notificaciones funcionan.</p>
+        </section>
+
+        <!-- NOTIFICACIONES PWA -->
+        <section id="notificaciones" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">notifications_active</span>
+                Notificaciones PWA
+            </h2>
+            
+            <p class="text-slate-700 mb-6">Las notificaciones te alertan cuando ocurren eventos importantes sin necesidad de tener el dashboard abierto.</p>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Pasos para Habilitar Notificaciones:</h3>
+            <ol class="space-y-4 list-decimal list-inside">
+                <li class="step-box pl-4 py-2">
+                    <strong>Haz clic en el icono ⚙️</strong> (arriba a la derecha del dashboard)
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Verás el panel "Configuración"</strong> con varios toggles
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Activa los tipos de notificaciones</strong> que deseas recibir:
+                    <ul class="list-disc list-inside mt-2 ml-4 space-y-1 text-slate-700">
+                        <li>🔓 Agente Conectado</li>
+                        <li>🔒 Agente Desconectado</li>
+                        <li>🔄 Cambio de Estado</li>
+                        <li>📞 Llamada Recibida</li>
+                        <li>❌ Llamada Perdida</li>
+                        <li>⚠️ Alerta de Cola</li>
+                        <li>☕ Agente en Break</li>
+                    </ul>
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Haz clic en "🔔 Habilitar Notificaciones"</strong>
+                </li>
+                <li class="step-box pl-4 py-2">
+                    <strong>Autoriza en el popup del navegador</strong> que aparecerá
+                </li>
+            </ol>
+
+            <div class="mt-6 bg-blue-50 border border-blue-300 rounded-lg p-4">
+                <p class="text-blue-900"><strong>ℹ️ Importante:</strong> Las notificaciones requieren HTTPS (protocolo seguro). Si accedes por HTTP, las notificaciones no funcionarán.</p>
+            </div>
+
+            <div class="mt-4 bg-green-50 border border-green-300 rounded-lg p-4">
+                <p class="text-green-900"><strong>✓ Notificaciones Guardadas:</strong> Tus preferencias se guardan automáticamente en el navegador. La próxima vez que abras el dashboard, tendrás la misma configuración.</p>
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Tipos de Notificaciones:</h3>
+            <div class="space-y-3 mt-4">
+                <div class="border-l-4 border-green-500 pl-4 py-2">
+                    <strong class="text-green-900">Agente Conectado:</strong>
+                    <p class="text-sm text-slate-600">Se recibe cuando un agente se conecta a su estación</p>
+                </div>
+                <div class="border-l-4 border-red-500 pl-4 py-2">
+                    <strong class="text-red-900">Agente Desconectado:</strong>
+                    <p class="text-sm text-slate-600">Se recibe cuando un agente cierra su sesión</p>
+                </div>
+                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                    <strong class="text-blue-900">Cambio de Estado:</strong>
+                    <p class="text-sm text-slate-600">Cuando pasa de disponible a busy, en break, etc.</p>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4 py-2">
+                    <strong class="text-purple-900">Llamada Recibida:</strong>
+                    <p class="text-sm text-slate-600">Cuando un agente recibe una llamada entrante</p>
+                </div>
+                <div class="border-l-4 border-yellow-500 pl-4 py-2">
+                    <strong class="text-yellow-900">Alerta de Cola:</strong>
+                    <p class="text-sm text-slate-600">Cuando hay demasiadas llamadas esperando</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONFIGURACIÓN -->
+        <section id="configuracion" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">settings</span>
+                Configuración
+            </h2>
+            
+            <p class="text-slate-700 mb-6">Haz clic en el botón ⚙️ para acceder a las configuraciones del dashboard.</p>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Sección: Notificaciones de PWA</h3>
+            <p class="text-slate-700 mb-3">Aquí puedes activar/desactivar cada tipo de notificación con los toggles.</p>
+            <button class="bg-purple-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-purple-700 transition">
+                🔔 Habilitar Notificaciones
+            </button>
+            <p class="text-sm text-slate-600 mt-2">Solicita permiso al navegador para enviar notificaciones.</p>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3">Sección: Sistema</h3>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
+                    <label class="font-medium">🌙 Tema Oscuro</label>
+                    <input type="checkbox" class="w-5 h-5 cursor-pointer"/>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
+                    <label class="font-medium">🔄 Auto-actualizar</label>
+                    <span class="text-sm text-slate-600">Cada 5 seg</span>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                <p class="text-yellow-900"><strong>💡 Tema Oscuro:</strong> Activar el tema oscuro puede reducir la fatiga visual si pasas muchas horas en el dashboard.</p>
+            </div>
+        </section>
+
+        <!-- SOLUCIONAR PROBLEMAS -->
+        <section id="troubleshooting" class="bg-white rounded-lg p-8 shadow">
+            <h2 class="text-3xl font-bold mb-4 flex items-center gap-3">
+                <span class="material-icons text-4xl text-purple-600">build</span>
+                Solucionar Problemas
+            </h2>
+            
+            <div class="space-y-6">
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-600 mb-2">❌ No puedo acceder al dashboard</h3>
+                    <p class="text-slate-700 mb-3">Posibles causas:</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                        <li>No estás conectado a la red corporativa (usa VPN)</li>
+                        <li>El servidor está caído (contacta al administrador)</li>
+                        <li>La URL tiene un error tipográfico</li>
+                    </ul>
+                    <p class="text-sm text-slate-600 mt-3">Solución: Prueba con <code>https://pbx01.infratec.com.uy</code> primero.</p>
+                </div>
+
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-600 mb-2">❌ No veo agentes en la lista</h3>
+                    <p class="text-slate-700 mb-3">Posibles causas:</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                        <li>Los agentes aún no se han conectado hoy</li>
+                        <li>Hay un problema con Asterisk</li>
+                        <li>Filtros aplicados muy restrictivos</li>
+                    </ul>
+                    <p class="text-sm text-slate-600 mt-3">Solución: Limpia los filtros y haz clic en "🔄 Actualizar".</p>
+                </div>
+
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-600 mb-2">❌ Las notificaciones no funcionan</h3>
+                    <p class="text-slate-700 mb-3">Requisitos:</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                        <li>✓ Debes estar en HTTPS (no HTTP)</li>
+                        <li>✓ Has hecho clic en "🔔 Habilitar Notificaciones"</li>
+                        <li>✓ Permitiste notificaciones en el navegador</li>
+                        <li>✓ El toggle de tipo está activado</li>
+                    </ul>
+                    <p class="text-sm text-slate-600 mt-3">Solución: Revisa cada uno de estos puntos en orden.</p>
+                </div>
+
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-600 mb-2">❌ Los datos se ven antiguos</h3>
+                    <p class="text-slate-700 mb-3">El dashboard actualiza cada 5 segundos, pero a veces:</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                        <li>Tu navegador está cacheando (borra caché)</li>
+                        <li>La conexión de red es lenta</li>
+                        <li>El servidor está sobrecargado</li>
+                    </ul>
+                    <p class="text-sm text-slate-600 mt-3">Solución: Haz clic en "🔄 Actualizar" para refrescar inmediatamente.</p>
+                </div>
+
+                <div class="border border-slate-200 rounded-lg p-4">
+                    <h3 class="font-bold text-red-600 mb-2">❌ Las métricas (AHT, Llamadas) son 00:00</h3>
+                    <p class="text-slate-700 mb-3">Esto puede significa que:</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700">
+                        <li>Asterisk aún no ha registrado datos del agente</li>
+                        <li>La base de datos de Asterisk está vacía</li>
+                        <li>El agente es nuevo</li>
+                    </ul>
+                    <p class="text-sm text-slate-600 mt-3">Solución: Los datos aparecerán cuando el agente termine una llamada.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-blue-50 border border-blue-300 rounded-lg p-4">
+                <p class="text-blue-900"><strong>👨‍💼 Contactar Soporte:</strong> Si el problema persiste, reporta a tu administrador de IISABEL con:</p>
+                <ul class="list-disc list-inside mt-2 text-blue-900 space-y-1">
+                    <li>Horario exacto del problema</li>
+                    <li>URL que usaste</li>
+                    <li>Captura de pantalla del error</li>
+                    <li>Tu navegador y versión</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <section class="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-lg p-8 shadow-lg">
+            <h2 class="text-2xl font-bold mb-4">📚 Más Información</h2>
+            <ul class="space-y-2">
+                <li>📖 <strong>Documentación Técnica:</strong> <code>/teleflow/agents.md</code></li>
+                <li>⚙️ <strong>Configuración de Sistema:</strong> <code>/teleflow/SETUP.md</code></li>
+                <li>🔧 <strong>Guía de Implementación:</strong> <code>/teleflow/IMPLEMENTATION.md</code></li>
+                <li>💻 <strong>Versión:</strong> Dashboard v2.0 para IISABEL 5</li>
+                <li>📅 <strong>Actualizado:</strong> Marzo 2025</li>
+            </ul>
+            <p class="mt-6 text-slate-300">Para contribuciones o reportes de bugs, contacta al equipo de desarrollo de Teleflow.</p>
+        </section>
+
+    </div>
+
+</div>
+</body>
+</html>
