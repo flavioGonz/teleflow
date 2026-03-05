@@ -54,7 +54,17 @@ function ami_cmd($cmd) {
 }
 
 function reload_dialplan() {
-    shell_exec('/usr/sbin/fwconsole reload --quiet >/dev/null 2>&1 &');
+    // Find fwconsole in common locations
+    $paths = ['/var/lib/asterisk/bin/fwconsole','/usr/sbin/fwconsole','/usr/local/sbin/fwconsole'];
+    $fw = '';
+    foreach ($paths as $p) { if (file_exists($p)) { $fw=$p; break; } }
+    if ($fw) {
+        shell_exec("$fw reload --quiet >/dev/null 2>&1 &");
+    } else {
+        shell_exec("/usr/sbin/asterisk -rx 'dialplan reload' >/dev/null 2>&1");
+        shell_exec("/usr/sbin/asterisk -rx 'module reload res_pjsip.so' >/dev/null 2>&1");
+        shell_exec("/usr/sbin/asterisk -rx 'module reload app_queue.so' >/dev/null 2>&1");
+    }
 }
 
 // ─── GET FULL DATA (dashboard + extensiones + grabaciones) ──────────────────
@@ -64,26 +74,53 @@ if ($action === 'get_full_data') {
     $pjsip_c = ami_cmd('pjsip show contacts');
 
     $exts = [];
-    preg_match_all('/Endpoint:\s+([\w]+)\/(.*?)\s+(.*?)\s+(\d+)\s+of/', $pjsip_e, $m_e, PREG_SET_ORDER);
-    foreach ($m_e as $m) {
-        $ext    = $m[1];
-        $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($m[2]) . '&background=714B67&color=fff&size=80';
-        if (file_exists($avatar_dir . $ext . '.jpg')) $avatar = "uploads/avatars/$ext.jpg?" . time();
-        $exts[$ext] = ['ext' => $ext, 'name' => trim($m[2]), 'status' => 'OFFLINE', 'ip' => '—', 'rtt' => '—', 'mac' => '—', 'avatar' => $avatar];
+    // Real format: " Endpoint:  1001/1001                                            Not in use    0 of inf"
+    foreach (explode("\n", $pjsip_e) as $line) {
+        if (preg_match('/^\s+Endpoint:\s+(\d+)\/(.+?)\s+(Not in use|Unavailable|In use|Busy|Ringing)\s+(\d+)/i', $line, $m)) {
+            $ext  = $m[1];
+            $name = trim($m[2]);
+            $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($name ?: $ext) . '&background=714B67&color=fff&size=80';
+            if (file_exists($avatar_dir . $ext . '.jpg')) $avatar = "uploads/avatars/$ext.jpg?" . time();
+            $st = strtoupper(trim($m[3]));
+            $status = ($st==='NOT IN USE')?'ONLINE':($st==='UNAVAILABLE'?'OFFLINE':'BUSY');
+            $exts[$ext] = ['ext'=>$ext,'name'=>$name,'status'=>$status,'ip'=>'—','rtt'=>'—','mac'=>'—','avatar'=>$avatar,'recording'=>'dontcare'];
+        }
     }
-    preg_match_all('/Contact:\s+([\w]+)\/sip:.*?@([\d\.]+):(\d+).*?Avail\s+([\d\.]+)/', $pjsip_c, $m_c, PREG_SET_ORDER);
-    foreach ($m_c as $m) {
-        if (isset($exts[$m[1]])) {
-            $exts[$m[1]]['status'] = 'ONLINE';
-            $exts[$m[1]]['ip']     = $m[2];
-            $exts[$m[1]]['rtt']    = round($m[4]) . 'ms';
+    // Parse contacts for IP+RTT from pjsip show contacts
+    foreach (explode("\n", $pjsip_c) as $line) {
+        // "      Contact:  1001/sip:1001@192.168.1.120:63899;ob       9f160908de Avail         1.979"
+        if (preg_match('/Contact:\s+(\d+)\/sip:\S+@([\d\.]+):(\d+)\S*\s+\S+\s+Avail\s+([\d\.]+)/i', $line, $m)) {
+            $ext = $m[1];
+            if (isset($exts[$ext])) {
+                if ($exts[$ext]['status'] !== 'BUSY') $exts[$ext]['status'] = 'ONLINE';
+                $exts[$ext]['ip']  = $m[2];
+                $exts[$ext]['rtt'] = round((float)$m[4]) . 'ms';
+            }
         }
     }
 
+    // DB fallback: include extensions from DB that aren't registered yet
+    try {
+        $db2 = mysql_pbx();
+        $db_devs = $db2->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($db_devs as $dev) {
+            if (!isset($exts[$dev['ext']])) {
+                $n = $dev['name'] ?: $dev['ext'];
+                $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($n) . '&background=714B67&color=fff&size=80';
+                $exts[$dev['ext']] = ['ext'=>$dev['ext'],'name'=>$n,'status'=>'OFFLINE','ip'=>'—','rtt'=>'—','mac'=>'—','avatar'=>$avatar,'recording'=>'dontcare'];
+            } elseif (empty(trim($exts[$dev['ext']]['name'])) || $exts[$dev['ext']]['name'] === $dev['ext']) {
+                $exts[$dev['ext']]['name'] = $dev['name'] ?: $exts[$dev['ext']]['name'];
+            }
+        }
+        // Recording config per extension
+        $rec_rows = $db2->query("SELECT id, data FROM callrecording WHERE keyword='all'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rec_rows as $r) { if (isset($exts[$r['id']])) $exts[$r['id']]['recording'] = $r['data']; }
+    } catch (Exception $e) {}
+
     // Active calls → mark BUSY
     $ch_raw = ami_cmd('core show channels verbose');
-    preg_match_all('/PJSIP\/([\d]+)-/', $ch_raw, $mc);
-    foreach (($mc[1] ?? []) as $busy_ext) {
+    preg_match_all('/^(PJSIP|SIP)\/((\d+)-\w+)/m', $ch_raw, $mc);
+    foreach (($mc[3] ?? []) as $busy_ext) {
         if (isset($exts[$busy_ext])) $exts[$busy_ext]['status'] = 'BUSY';
     }
 
@@ -101,11 +138,12 @@ if ($action === 'get_full_data') {
     $uptime = trim(shell_exec('uptime -p 2>/dev/null') ?: '');
 
     echo json_encode([
-        'system' => ['cpu' => round($load[0] * 25), 'mem' => round(trim(shell_exec('free | awk \'/Mem/{printf "%.0f", $3/$2*100}\''))), 'uptime' => $uptime],
+        'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime],
         'pbx'    => ['extensions' => array_values($exts), 'recordings' => $recordings],
     ]);
     exit;
 }
+
 
 // ─── EXTENSIONES: GET DETAIL ─────────────────────────────────────────────────
 if ($action === 'get_extension') {
@@ -142,16 +180,17 @@ if ($action === 'create_extension') {
         $db = mysql_pbx();
 
         // Check if already exists
-        $exists = $db->query("SELECT id FROM devices WHERE id='$ext'")->fetch();
-        if ($exists) { echo json_encode(['success' => false, 'error' => "El interno $ext ya existe"]); exit; }
+        $chk = $db->prepare("SELECT id FROM devices WHERE id=?");
+        $chk->execute([$ext]);
+        if ($chk->fetch()) { echo json_encode(['success' => false, 'error' => "El interno $ext ya existe"]); exit; }
 
         // 1. devices table
-        $db->exec("INSERT INTO devices (id, tech, dial, devicetype, user, description, emergency_cid)
-                   VALUES ('$ext','pjsip','PJSIP/$ext','fixed','$ext'," . $db->quote($name) . ",'')");
+        $db->prepare("INSERT INTO devices (id, tech, dial, devicetype, user, description, emergency_cid) VALUES (?, ?, ?, 'fixed', ?, ?, '')")
+           ->execute([$ext, 'pjsip', "PJSIP/$ext", $ext, $name]);
 
         // 2. users table
-        $db->exec("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass)
-                   VALUES ('$ext','$ext'," . $db->quote($name) . ",'novm',0,'','','','default')");
+        $db->prepare("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass) VALUES (?, ?, ?, 'novm', 0, '', '', '', 'default')")
+           ->execute([$ext, $ext, $name]);
 
         // 3. sip table (PJSIP settings via FreePBX sip table)
         $sip_data = [
@@ -218,14 +257,17 @@ if ($action === 'update_extension') {
     try {
         $db = mysql_pbx();
         if ($name) {
-            $db->exec("UPDATE devices SET description=" . $db->quote($name) . " WHERE id='$ext'");
-            $db->exec("UPDATE users SET name=" . $db->quote($name) . " WHERE extension='$ext'");
-            $db->exec("UPDATE sip SET data=" . $db->quote("$name <$ext>") . " WHERE id='$ext' AND keyword='callerid'");
+            $db->prepare("UPDATE devices SET description=? WHERE id=?")->execute([$name,$ext]);
+            $db->prepare("UPDATE users SET name=? WHERE extension=?")->execute([$name,$ext]);
+            $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='callerid'")->execute(["$name <$ext>",$ext]);
         }
         if ($secret) {
-            $db->exec("UPDATE sip SET data=" . $db->quote($secret) . " WHERE id='$ext' AND keyword='secret'");
-            if ($db->query("SELECT COUNT(*) FROM sip WHERE id='$ext' AND keyword='secret'")->fetchColumn() == 0) {
-                $db->exec("INSERT INTO sip (id,keyword,data,flags) VALUES ('$ext','secret'," . $db->quote($secret) . ",0)");
+            $cnt = $db->prepare("SELECT COUNT(*) FROM sip WHERE id=? AND keyword='secret'");
+            $cnt->execute([$ext]);
+            if ($cnt->fetchColumn() > 0) {
+                $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='secret'")->execute([$secret,$ext]);
+            } else {
+                $db->prepare("INSERT INTO sip (id,keyword,data,flags) VALUES (?,?,?,0)")->execute([$ext,'secret',$secret]);
             }
         }
         reload_dialplan();
@@ -242,15 +284,39 @@ if ($action === 'delete_extension') {
     if (!$ext) { echo json_encode(['success' => false, 'error' => 'Interno inválido']); exit; }
     try {
         $db = mysql_pbx();
-        $db->exec("DELETE FROM devices WHERE id='$ext'");
-        $db->exec("DELETE FROM users WHERE extension='$ext'");
-        $db->exec("DELETE FROM sip WHERE id='$ext'");
-        // Remove avatar
+        $db->prepare("DELETE FROM devices WHERE id=?")->execute([$ext]);
+        $db->prepare("DELETE FROM users WHERE extension=?")->execute([$ext]);
+        $db->prepare("DELETE FROM sip WHERE id=?")->execute([$ext]);
+        $db->prepare("DELETE FROM callrecording WHERE id=?")->execute([$ext]);
         @unlink($GLOBALS['avatar_dir'] . "$ext.jpg");
         reload_dialplan();
         echo json_encode(['success' => true, 'message' => "Extensión $ext eliminada"]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── GRABACIONES TOGGLE ───────────────────────────────────────────────────────
+if ($action === 'set_recording') {
+    $ext  = preg_replace('/\D/', '', $_POST['ext'] ?? '');
+    $mode = in_array($_POST['mode']??'', ['always','dontcare','never']) ? $_POST['mode'] : 'dontcare';
+    if (!$ext) { echo json_encode(['success'=>false,'error'=>'Interno inválido']); exit; }
+    try {
+        $db = mysql_pbx();
+        foreach (['all','inbound','outbound','intracompany'] as $kw) {
+            $chk = $db->prepare("SELECT COUNT(*) FROM callrecording WHERE id=? AND keyword=?");
+            $chk->execute([$ext,$kw]);
+            if ($chk->fetchColumn() > 0) {
+                $db->prepare("UPDATE callrecording SET data=? WHERE id=? AND keyword=?")->execute([$mode,$ext,$kw]);
+            } else {
+                $db->prepare("INSERT INTO callrecording (id,keyword,data,flags) VALUES (?,?,?,0)")->execute([$ext,$kw,$mode]);
+            }
+        }
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Grabación '$mode' activada en #$ext"]);
+    } catch (Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
     }
     exit;
 }
@@ -280,33 +346,14 @@ if ($action === 'get_cdr') {
 
     try {
         $db = mysql_pbx('asteriskcdrdb');
-
         $where = ["calldate BETWEEN '$from 00:00:00' AND '$to 23:59:59'"];
-        if ($src)  $where[] = "src LIKE '%$src%'";
-        if ($dst)  $where[] = "dst LIKE '%$dst%'";
-        if ($disp) $where[] = "disposition='$disp'";
+        if ($src)  $where[] = "(src LIKE '%$src%' OR dst LIKE '%$src%')";
+        if ($disp) $where[] = "disposition=" . $db->quote($disp);
         $w = 'WHERE ' . implode(' AND ', $where);
 
         $total = $db->query("SELECT COUNT(*) FROM cdr $w")->fetchColumn();
-
-        $rows = $db->query(
-            "SELECT calldate,clid,src,dst,duration,billsec,disposition,recordingfile,channel,dstchannel
-             FROM cdr $w ORDER BY calldate DESC LIMIT $limit OFFSET " . ($page * $limit)
-        )->fetchAll(PDO::FETCH_ASSOC);
-
-        // Stats
-        $stats = $db->query(
-            "SELECT
-                COUNT(*) as total,
-                SUM(disposition='ANSWERED') as answered,
-                SUM(disposition='NO ANSWER') as no_answer,
-                SUM(disposition='BUSY') as busy,
-                SUM(disposition='FAILED') as failed,
-                AVG(CASE WHEN disposition='ANSWERED' THEN billsec ELSE NULL END) as avg_duration,
-                SUM(billsec) as total_seconds
-             FROM cdr $w"
-        )->fetch(PDO::FETCH_ASSOC);
-
+        $rows  = $db->query("SELECT calldate,clid,src,dst,duration,billsec,disposition,recordingfile,channel,dstchannel FROM cdr $w ORDER BY calldate DESC LIMIT $limit OFFSET " . ($page * $limit))->fetchAll(PDO::FETCH_ASSOC);
+        $stats = $db->query("SELECT COUNT(*) as total, SUM(disposition='ANSWERED') as answered, SUM(disposition='NO ANSWER') as no_answer, SUM(disposition='BUSY') as busy, SUM(disposition='FAILED') as failed, AVG(CASE WHEN disposition='ANSWERED' THEN billsec ELSE NULL END) as avg_duration, SUM(billsec) as total_seconds FROM cdr $w")->fetch(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'total' => $total, 'rows' => $rows, 'stats' => $stats]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -314,76 +361,109 @@ if ($action === 'get_cdr') {
     exit;
 }
 
-// ─── QUEUES ───────────────────────────────────────────────────────────────────
+// ─── QUEUES (desde MySQL + estado en vivo AMI) ────────────────────────────────
 if ($action === 'get_queues') {
-    $raw = ami_cmd('queue show');
     $queues = [];
-    $current = null;
-
-    foreach (explode("\n", $raw) as $line) {
-        // Queue header: "support has 2 calls (max unlimited) in 'ringall' strategy...
-        if (preg_match('/^(\S+)\s+has\s+(\d+)\s+call.*?strategy\s+\((\d+) calls processed\)/', $line, $m)) {
-            if ($current) $queues[] = $current;
-            $current = ['name' => $m[1], 'calls_waiting' => intval($m[2]), 'calls_processed' => intval($m[3]), 'strategy' => '', 'members' => []];
-            // strategy from raw
-            if (preg_match("/in '(\\S+)' strategy/", $line, $ms)) $current['strategy'] = $ms[1];
-            if (preg_match('/\((\d+)s holdtime.*?(\d+)s talktime/', $line, $mh)) {
-                $current['holdtime'] = intval($mh[1]);
-                $current['talktime'] = intval($mh[2]);
-            }
-        }
-        // Queue header v2: "support has 1 calls (max unlimited) in 'ringall' strategy, holdtime 0s, talktime 0s, processed 5 calls"
-        if (preg_match('/^(\S+)\s+has\s+(\d+)\s+calls.*in\s+\'(\S+)\'\s+strategy.*processed\s+(\d+)/', $line, $m2) && !$current) {
-            $current = ['name' => $m2[1], 'calls_waiting' => intval($m2[2]), 'strategy' => $m2[3], 'calls_processed' => intval($m2[4]), 'members' => []];
-        }
-        // Members: "   SIP/1001 (Local Agent) (Not in use) (ringinuse enabled) (skills: ) has taken 12 calls"
-        if ($current && preg_match('/\s+(PJSIP|SIP)\/(\S+)\s+\((.+?)\)\s+\((.*?)\)/', $line, $mm)) {
-            $current['members'][] = [
-                'tech'   => $mm[1],
-                'ext'    => rtrim($mm[2], ')'),
-                'name'   => $mm[3],
-                'status' => $mm[4],
-            ];
-        }
-    }
-    if ($current) $queues[] = $current;
-
-    // También consultar desde MySQL para info extra
     try {
         $db = mysql_pbx();
-        $q_config = $db->query("SELECT extension, descr FROM queues_config")->fetchAll(PDO::FETCH_KEY_PAIR);
-    } catch (Exception $e) { $q_config = []; }
+        $q_rows = $db->query("SELECT extension, descr FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($q_rows as $q) {
+            $qid   = $q['extension'];
+            $det   = $db->prepare("SELECT keyword, data FROM queues_details WHERE id=? ORDER BY keyword");
+            $det->execute([$qid]);
+            $details = [];
+            foreach ($det->fetchAll(PDO::FETCH_ASSOC) as $d) $details[$d['keyword']][] = $d['data'];
 
+            $members = [];
+            foreach (($details['member']??[]) as $m) {
+                $parts = explode(',', $m);
+                $ch = explode('/', $parts[0]);
+                $members[] = ['tech'=>$ch[0]??'PJSIP','ext'=>$ch[1]??$m,'name'=>$parts[2]??'','status'=>'idle'];
+            }
+
+            // Live status from AMI
+            $qa      = ami_cmd("queue show $qid");
+            $waiting = 0;
+            if (preg_match('/(\d+) calls waiting/i', $qa, $wm)) $waiting = intval($wm[1]);
+            $processed = 0;
+            if (preg_match('/processed (\d+)/i', $qa, $pm)) $processed = intval($pm[1]);
+
+            $queues[] = [
+                'id'            => $qid,
+                'name'          => $q['descr'],
+                'strategy'      => $details['strategy'][0] ?? 'ringall',
+                'timeout'       => $details['timeout'][0]  ?? 15,
+                'wrapuptime'    => $details['wrapuptime'][0] ?? 0,
+                'calls_waiting' => $waiting,
+                'calls_processed' => $processed,
+                'members'       => $members,
+            ];
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]); exit;
+    }
     echo json_encode(['success' => true, 'queues' => $queues]);
     exit;
 }
 
 // ─── ACTIVE CALLS (VIVO) ─────────────────────────────────────────────────────
 if ($action === 'get_active_calls') {
-    $raw  = ami_cmd('core show channels verbose');
+    // Use core show channels to get all active channels
+    $raw   = ami_cmd('core show channels verbose');
     $calls = [];
-    foreach (explode("\n", $raw) as $line) {
-        // PJSIP/1001-00000001  s@from-internal  Up  AppDial  (Outgoing Line)  0:00:42
-        if (preg_match('/^(PJSIP|SIP)\/(\S+)\s+(\S+)\s+(\w+)\s+(.+?)\s+(\d+:\d+:\d+|\d+:\d+)/', $line, $m)) {
+    $lines = explode("\n", $raw);
+    foreach ($lines as $line) {
+        $line = rtrim($line);
+        if (empty($line)) continue;
+        // Skip header lines
+        if (strpos($line,'Channel') !== false && strpos($line,'Context') !== false) continue;
+        if (preg_match('/^0 active|^\d+ active calls|^\d+ calls processed/', $line)) continue;
+        // Try to match any PJSIP or SIP channel line
+        // Format varies by Asterisk version but channel is always first
+        if (preg_match('/^((?:PJSIP|SIP)\/[\w\-]+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\w+)/', $line, $m)) {
+            $chan    = $m[1];
+            $ext_num = preg_replace('/^(?:PJSIP|SIP)\/(\d+)-.*$/', '$1', $chan);
+            // Duration: find HH:MM:SS or MM:SS pattern anywhere in line
+            $dur = '0:00';
+            if (preg_match('/\b(\d+:\d{2}:\d{2}|\d+:\d{2})\b/', $line, $dm)) $dur = $dm[1];
+            $state = $m[5];
+            if (!in_array($state, ['Up','Ring','Ringing','Down'])) continue;
+            if ($state === 'Down') continue;
             $calls[] = [
-                'channel'  => $m[1] . '/' . $m[2],
-                'ext'      => preg_replace('/-.*/', '', $m[2]),
-                'dest'     => $m[3],
-                'state'    => $m[4],
-                'app'      => trim($m[5]),
-                'duration' => $m[6],
+                'channel'  => $chan,
+                'ext'      => $ext_num,
+                'dest'     => $m[2],
+                'state'    => $state,
+                'app'      => $m[4],
+                'duration' => $dur,
             ];
         }
     }
+    $calls = array_values(array_unique($calls, SORT_REGULAR));
     echo json_encode(['success' => true, 'calls' => $calls, 'count' => count($calls)]);
     exit;
 }
 
-// ─── EXTENSIONES: SEARCH (para autocompletar) ────────────────────────────────
+// ─── RING GROUPS ─────────────────────────────────────────────────────────────
+if ($action === 'get_ring_groups') {
+    try {
+        $db   = mysql_pbx();
+        $rows = $db->query("SELECT grpnum, description, strategy, grptime, grplist, recording FROM ringgroups ORDER BY CAST(grpnum AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['members'] = array_values(array_filter(explode('-', $r['grplist']), fn($x) => trim($x) !== ''));
+        }
+        echo json_encode(['success' => true, 'groups' => $rows]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── LIST EXTENSIONS ─────────────────────────────────────────────────────────
 if ($action === 'list_extensions_db') {
     try {
         $db   = mysql_pbx();
-        $rows = $db->query("SELECT d.id as ext, d.description as name, u.extension FROM devices d LEFT JOIN users u ON d.id=u.extension WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $db->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'extensions' => $rows]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);

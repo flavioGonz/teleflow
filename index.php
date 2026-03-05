@@ -74,18 +74,25 @@
         .anim-fadeup-2 { animation: fadeUp 0.7s ease 0.15s both; }
         .anim-fadeup-3 { animation: fadeUp 0.7s ease 0.3s both; }
         .input-tf {
-            background: rgba(0,0,0,0.35);
+            background: rgba(255,255,255,0.06);
             border: 1px solid var(--border);
             color: var(--text);
             outline: none;
             transition: border-color .25s, box-shadow .25s;
             width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
         }
         .input-tf:focus {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
         }
-        .input-tf::placeholder { color: #4b5563; }
+        .input-tf::placeholder { color: #6b7280; }
+        /* Light mode inputs */
+        body.light .input-tf { background: rgba(0,0,0,0.05); color: #111827; }
+        body.light .input-tf::placeholder { color: #9ca3af; }
+        /* Selects same as inputs */
+        select.input-tf option { background: var(--surface); color: var(--text); }
         .btn-primary {
             background: linear-gradient(135deg, #8b5cf6, #6d28d9);
             color: white;
@@ -415,6 +422,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         { id:'agentes', icon:'support_agent', label:'Agentes' },
         { id:'vivo', icon:'sensors', label:'Vivo' },
         { id:'colas', icon:'queue', label:'Colas' },
+        { id:'grupos', icon:'ring_volume', label:'Grupos' },
         { section: 'Registros' },
         { id:'grabaciones', icon:'mic', label:'Grabaciones' },
         { id:'cdr', icon:'history', label:'CDR' },
@@ -574,6 +582,7 @@ function ViewDashboard({ data }) {
 function ExtDrawer({ ext, onClose, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '' });
+    const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [saving, setSaving] = useState(false);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
     const save = async () => {
@@ -583,9 +592,15 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
         const action = isNew ? 'create_extension' : 'update_extension';
         const r = await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd});
         const d = await r.json();
+        if (d.success) {
+            // Set recording mode
+            if (!isNew) {
+                const fd2=new FormData(); fd2.append('ext',form.ext); fd2.append('mode',recording);
+                await fetch('api/index.php?action=set_recording',{method:'POST',body:fd2});
+            }
+            toast(d.message,'success'); onSaved();
+        } else toast(d.error||'Error al guardar','error');
         setSaving(false);
-        if (d.success) { toast(d.message,'success'); onSaved(); }
-        else toast(d.error||'Error al guardar','error');
     };
     const del = async () => {
         if(!confirm(`¿Eliminar extensión #${form.ext}?`)) return;
@@ -600,6 +615,7 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
             <input className="input-tf py-2.5 px-3 rounded-xl text-sm" type={type} placeholder={placeholder} value={form[k]} onChange={e=>set(k,e.target.value)} readOnly={readOnly} style={readOnly?{opacity:.6}:{}} />
         </div>
     );
+    const recOptions=[{v:'always',l:'Siempre grabar',c:'#4ade80'},{v:'dontcare',l:'Sin preferencia',c:'#9ca3af'},{v:'never',l:'Nunca grabar',c:'#f87171'}];
     return (
         <>
             <div className="drawer-backdrop" onClick={onClose} />
@@ -616,8 +632,22 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
                     <F label="Nombre Completo" k="name" placeholder="Juan Pérez" />
                     <F label="Contraseña SIP" k="secret" type="password" placeholder={isNew?'Min. 6 caracteres':'Dejar vacío para no cambiar'} />
                     <F label="Email (opcional)" k="email" type="email" placeholder="usuario@empresa.com" />
+
+                    {/* Grabación */}
+                    <div style={{marginBottom:16}}>
+                        <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:10}}>Grabación de llamadas</label>
+                        <div style={{display:'flex',gap:6}}>
+                            {recOptions.map(o=>(
+                                <button key={o.v} onClick={()=>setRecording(o.v)} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1px solid ${recording===o.v?o.c:'var(--border)'}`,background:recording===o.v?`${o.c}18`:'var(--surface2)',color:recording===o.v?o.c:'#6b7280',fontWeight:700,fontSize:10,cursor:'pointer',transition:'all .2s',textAlign:'center'}}>
+                                    <span className="material-icons-round" style={{fontSize:16,display:'block',marginBottom:2}}>{o.v==='always'?'fiber_manual_record':o.v==='never'?'not_interested':'radio_button_unchecked'}</span>
+                                    {o.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {!isNew && <div style={{background:'rgba(139,92,246,0.08)',border:'1px solid rgba(139,92,246,.2)',borderRadius:12,padding:'12px 16px',fontSize:12,color:'#c4b5fd'}}>
-                        <b>Nota:</b> Al guardar se recargará el dialplan de Asterisk automáticamente (fwconsole reload).
+                        <b>Nota:</b> Los cambios cargarán el dialplan de Asterisk automáticamente.
                     </div>}
                 </div>
                 <div className="drawer-footer" style={{display:'flex',gap:8}}>
@@ -1074,6 +1104,64 @@ function ViewColas() {
 }
 
 // ─────────────────────────────────────────────
+// VISTA: GRUPOS DE TIMBRADO
+// ─────────────────────────────────────────────
+function ViewGrupos() {
+    const [groups,setGroups]=useState([]);
+    const load=async()=>{
+        try{const r=await fetch('api/index.php?action=get_ring_groups');const d=await r.json();if(d.success)setGroups(d.groups);}catch{}
+    };
+    useEffect(()=>{load();},[]);
+    const strategyLabel={ringall:'Timbre simultáneo',hunt:'Secuencial',memoryhunt:'Memoria secuencial',firstavailable:'Primero disponible'};
+    const recIco={always:'fiber_manual_record',dontcare:'mic_off',never:'mic_none'};
+    return(
+        <div className="content-area view-enter">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+                <div style={{fontSize:11,color:'#6b7280'}}>{groups.length} grupos configurados</div>
+            </div>
+            {groups.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
+                <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>ring_volume</span>
+                Sin grupos de timbrado configurados
+            </div>}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14}}>
+                {groups.map((g,i)=>(
+                    <div key={i} className="glass glass-hover" style={{padding:20}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                            <div style={{width:40,height:40,borderRadius:12,background:'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                <span className="material-icons-round" style={{fontSize:20,color:'#60a5fa'}}>ring_volume</span>
+                            </div>
+                            <div style={{flex:1}}>
+                                <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>Grupo {g.grpnum}</div>
+                                <div style={{fontSize:11,color:'#9ca3af'}}>{g.description}</div>
+                            </div>
+                            <div style={{padding:'4px 10px',borderRadius:8,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:700,color:'#60a5fa'}}>{g.grpnum}</div>
+                        </div>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                            <span style={{padding:'3px 10px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,color:'#c4b5fd'}}>
+                                <span className="material-icons-round" style={{fontSize:12,verticalAlign:'middle',marginRight:3}}>shuffle</span>
+                                {strategyLabel[g.strategy]||g.strategy}
+                            </span>
+                            <span style={{padding:'3px 10px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,color:'#9ca3af'}}>
+                                <span className="material-icons-round" style={{fontSize:12,verticalAlign:'middle',marginRight:3}}>timer</span>
+                                {g.grptime}s
+                            </span>
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:8}}>Internos</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                            {(g.members||[]).map((m,j)=>(
+                                <div key={j} style={{padding:'4px 12px',borderRadius:8,background:'rgba(139,92,246,0.1)',border:'1px solid rgba(139,92,246,.2)',fontSize:11,fontWeight:700,color:'#c4b5fd'}}>
+                                    #{m}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // VISTA: VIVO (con timers animados)
 // ─────────────────────────────────────────────
 function LiveCallCard({ call }) {
@@ -1241,6 +1329,7 @@ function App() {
             case 'grabaciones': return <ViewGrabaciones data={data} key={view} />;
             case 'cdr':         return <ViewCDR key={view} />;
             case 'colas':       return <ViewColas key={view} />;
+            case 'grupos':      return <ViewGrupos key={view} />;
             default:            return <div className="content-area" key={view} />;
         }
     };
