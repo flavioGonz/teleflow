@@ -4,6 +4,6 @@ $content = "";
 foreach($exts as $i) {
     $content .= "[$i](+)\nidentify_by=username,auth_username\n\n";
 }
-file_put_contents('/etc/asterisk/pjsip.endpoint_custom_post.conf', $content);
+file_put_contents('/etc/asterisk/pjsip_custom_post.conf', $content);
 echo "Custom configs applied to endpoints.\n";
 shell_exec("asterisk -rx 'pjsip reload'");
