@@ -428,11 +428,17 @@
                             setCallStatus('in-call'); 
                             setStatus('En Llamada');
                             setElapsed(0);
+                            if(timerRef.current) clearInterval(timerRef.current);
                             timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
                             
                             // Save to history
                             const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
                             saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
+                            
+                            // Video attachment if needed
+                            if (videoActive) {
+                                setTimeout(() => setupVideoTracks(su.session), 500);
+                            }
                         },
                         onCallHold: (session, hold) => {
                             setIsHeld(hold);
@@ -455,21 +461,6 @@
                         onServerDisconnect: (e) => { 
                             setStatus('Error de Red');
                             showToast('Protocol Error o WSS Caído','error');
-                        },
-                        onCallAnswered: () => { 
-                            setCallStatus('in-call'); 
-                            setStatus('En Llamada');
-                            setElapsed(0);
-                            timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                            
-                            // Save to history
-                            const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
-                            saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
-                            
-                            // Video attachment if needed (SimpleUser does some automatically but we ensure it)
-                            if (videoActive) {
-                                setTimeout(() => setupVideoTracks(su.session), 500);
-                            }
                         }
                     };
 
@@ -481,15 +472,7 @@
                           showToast('No se alcanzó el WSS proxy','error');
                       });
 
-                    su.delegate.onCallAnswered = () => {
-                        setCallStatus('in-call'); 
-                        setStatus('En Llamada');
-                        setElapsed(0);
-                        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                        
-                        // Video attachment if needed
-                        setTimeout(() => setupVideoTracks(su.session), 500);
-                    };
+
 
                     setSimpleUser(su);
                 } catch(e) {
@@ -558,17 +541,7 @@
                 }).catch(e => showToast('Falló al contestar','error'));
             };
 
-            const toggleVideo = () => {
-                if (!simpleUser || !simpleUser.session) return;
-                // Simplified toggle for SIP.js v0.20
-                if (videoActive) {
-                    setVideoActive(false);
-                    // could use session.sessionDescriptionHandler.peerConnection here but let's keep it simple for now
-                } else {
-                    setVideoActive(true);
-                    // re-invite or upgrade logic would go here
-                }
-            };
+
 
             const hangupCall = () => {
                 if(simpleUser) {
