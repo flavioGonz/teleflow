@@ -79,6 +79,22 @@
         .anim-fadeup { animation: fadeUp 0.7s ease both; }
         .anim-fadeup-2 { animation: fadeUp 0.7s ease 0.15s both; }
         .anim-fadeup-3 { animation: fadeUp 0.7s ease 0.3s both; }
+        
+        /* ── NOTIFICATIONS SILEO ── */
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px) scale(0.9); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+        @keyframes callPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .call-pulse { animation: callPulse 1.2s infinite; }
         .input-tf {
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--border);
@@ -513,7 +529,52 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
 }
 
 // ─────────────────────────────────────────────
-// TOPBAR
+// COMPONENTE: NOTIFICACIONES SLEEK (SILEO)
+// ─────────────────────────────────────────────
+function LiveCallNotifications({ calls, extensions }) {
+    const [notifs, setNotifs] = useState([]);
+    const prevCalls = useRef([]);
+
+    useEffect(() => {
+        const newCalls = calls.filter(c => !prevCalls.current.some(pc => pc.ext === c.ext));
+        if (newCalls.length > 0) {
+            newCalls.forEach(c => {
+                const extInfo = extensions.find(e => e.ext === c.ext);
+                const id = Date.now() + Math.random();
+                setNotifs(n => [...n, { id, ext: c.ext, name: extInfo?.name || 'Desconocido', avatar: extInfo?.avatar }]);
+                setTimeout(() => setNotifs(n => n.filter(x => x.id !== id)), 5000);
+            });
+        }
+        prevCalls.current = calls;
+    }, [calls, extensions]);
+
+    return (
+        <div style={{position:'fixed', top:20, right:20, zIndex:9999, display:'flex', flexDirection:'column', gap:10}}>
+            {notifs.map(n => (
+                <div key={n.id} className="glass glass-hover" style={{
+                    width:280, padding:14, borderRadius:18, display:'flex', alignItems:'center', gap:12, 
+                    border:'1px solid rgba(139,92,246,0.3)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
+                    animation:'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards'
+                }}>
+                    <div style={{position:'relative'}}>
+                        <img src={n.avatar} style={{width:40,height:40,borderRadius:12,objectFit:'cover'}} />
+                        <div style={{position:'absolute',bottom:-4,right:-4,width:18,height:18,background:'#ef4444',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #0f0f19'}}>
+                             <span className="material-icons-round" style={{fontSize:10,color:'white'}}>call</span>
+                        </div>
+                    </div>
+                    <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:800,color:'white'}}>{n.name}</div>
+                        <div style={{fontSize:10,color:'#3b82f6',fontWeight:700,letterSpacing:'0.5px'}}>LLAMADA EN VIVO • #{n.ext}</div>
+                    </div>
+                    <div className="call-pulse" style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444'}} />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// COMPONENTE: TOPBAR (PARA REFERENCIA, PERO ELIMINADO DEL LAYOUT)
 // ─────────────────────────────────────────────
 function Topbar({ view, data, onRefresh, activeCalls }) {
     const titles = { dashboard:'Dashboard', extensiones:'Extensiones', agentes:'Monitor de Agentes', vivo:'Llamadas en Vivo', colas:'Colas', grabaciones:'Grabaciones', cdr:'CDR' };
@@ -526,10 +587,6 @@ function Topbar({ view, data, onRefresh, activeCalls }) {
                 <div style={{fontSize:11,color:'#6b7280',marginTop:1}}>{time.toLocaleDateString('es-UY',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-                {activeCalls>0&&<div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:8,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',fontSize:11,fontWeight:700,color:'#f87171'}}>
-                    <span style={{width:7,height:7,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 6px #ef4444',animation:'blink 1s infinite'}} />
-                    {activeCalls} VIVO
-                </div>}
                 <div style={{fontSize:11,padding:'5px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontFamily:'monospace',color:'#c4b5fd',fontWeight:600}}>{time.toLocaleTimeString('es-UY')}</div>
                 <button onClick={onRefresh} style={{width:34,height:34,borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#9ca3af',transition:'all .2s'}}
                     onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(139,92,246,.4)';e.currentTarget.style.color='var(--text)'}}
@@ -791,29 +848,30 @@ function ViewExtensiones({ data, toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* Toolbar */}
-            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:20,flexWrap:'wrap'}}>
-                <div style={{position:'relative',flex:1,maxWidth:340}}>
+            {/* Toolbar & Stats */}
+            <div style={{display:'flex', gap:10, alignItems:'center', justifyContent:'flex-end', marginBottom:20, flexWrap:'wrap'}}>
+                <div style={{position:'relative', width:280}}>
                     <span className="material-icons-round" style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:17,color:'#6b7280'}}>search</span>
-                    <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión o nombre..." value={search} onChange={e=>setSearch(e.target.value)} />
+                    <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
                 </div>
+                
+                {/* Stats mini */}
+                <div style={{display:'flex', gap:8, fontSize:11}}>
+                    <div style={{padding:'6px 12px',borderRadius:8,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,.2)',color:'#4ade80',fontWeight:700,whiteSpace:'nowrap'}}>{online} Online</div>
+                    <div style={{padding:'6px 12px',borderRadius:8,background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,.2)',color:'#fbbf24',fontWeight:700,whiteSpace:'nowrap'}}>{busy} En Llamada</div>
+                    <div style={{padding:'6px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:700,whiteSpace:'nowrap'}}>{exts.length-online-busy} Offline</div>
+                </div>
+
                 <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
                     {['grid','table'].map(m=>(
-                        <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 12px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
+                        <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
                             <span className="material-icons-round" style={{fontSize:18,display:'block'}}>{m==='grid'?'grid_view':'table_rows'}</span>
                         </button>
                     ))}
                 </div>
                 <button className="btn-primary" style={{padding:'10px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
-                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva Extensión
+                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva
                 </button>
-            </div>
-
-            {/* Stats mini */}
-            <div style={{display:'flex',gap:10,marginBottom:16,fontSize:12}}>
-                <div style={{padding:'6px 14px',borderRadius:8,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,.2)',color:'#4ade80',fontWeight:700}}>{online} Online</div>
-                <div style={{padding:'6px 14px',borderRadius:8,background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,.2)',color:'#fbbf24',fontWeight:700}}>{busy} En Llamada</div>
-                <div style={{padding:'6px 14px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:700}}>{exts.length-online-busy} Offline</div>
             </div>
 
             {/* GRID */}
@@ -825,7 +883,10 @@ function ViewExtensiones({ data, toast }) {
                                 <img src={e.avatar} style={{width:44,height:44,borderRadius:12,objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{ ev.target.style.display='none'; ev.target.nextSibling.style.display='flex'; }} />
                                 <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'none'}}>{initials(e.name)}</div>
                                 <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>#{e.ext}</div>
+                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)',display:'flex',alignItems:'center',gap:6}}>
+                                        #{e.ext}
+                                        {e.recording === 'always' && <span className="material-icons-round" style={{fontSize:14,color:'#ef4444'}}>fiber_manual_record</span>}
+                                    </div>
                                     <div style={{fontSize:11,color:'#9ca3af',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.name}</div>
                                 </div>
                                 <span className={`badge ${badgeCls(e.status)}`}><span className={`badge-dot ${dotCls(e.status)}`} />{e.status}</span>
@@ -848,7 +909,12 @@ function ViewExtensiones({ data, toast }) {
                         <tbody>
                             {exts.map(e=>(
                                 <tr key={e.ext} style={{cursor:'pointer'}} onClick={()=>setDrawer(e)}>
-                                    <td><span style={{fontFamily:'monospace',fontWeight:800,color:'#c4b5fd'}}>#{e.ext}</span></td>
+                                    <td>
+                                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                            <span style={{fontFamily:'monospace',fontWeight:800,color:'#c4b5fd'}}>#{e.ext}</span>
+                                            {e.recording === 'always' && <span className="material-icons-round" style={{fontSize:12,color:'#ef4444'}}>fiber_manual_record</span>}
+                                        </div>
+                                    </td>
                                     <td style={{fontWeight:600}}>{e.name}</td>
                                     <td><span className={`badge ${badgeCls(e.status)}`}><span className={`badge-dot ${dotCls(e.status)}`}/>{e.status}</span></td>
                                     <td><code style={{fontSize:11,color:'#ec4899'}}>{e.ip}</code></td>
@@ -1835,18 +1901,22 @@ function ViewReportes({ toast }) {
 // VISTA: SOFT PHONE (WEBRTC)
 // ─────────────────────────────────────────────
 function ViewWebPhone({ data, toast }) {
+    console.log('Teleflow WebPhone v2.5 Loaded');
     const [ext, setExt] = useState(() => localStorage.getItem('tf_sip_ext') || '');
-    const [pass, setPass] = useState(() => localStorage.getItem('tf_sip_pass') || '');
+    const [pass, setPass] = useState(() => 'teleflow123');
     const [status, setStatus] = useState('Desconectado');
     const [dest, setDest] = useState('');
     const [simpleUser, setSimpleUser] = useState(null);
     const audioRef = useRef(null);
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
-    const [isVideo, setIsVideo] = useState(false);
-    const [activeTab, setActiveTab] = useState('dialpad'); // dialpad, contacts, history
+    const [isVideo, setIsVideo] = useState(true);
+    const [showPass, setShowPass] = useState(false);
+    const [activeTab, setActiveTab] = useState('dialpad'); 
     const [history, setHistory] = useState([]);
     const [search, setSearch] = useState('');
+    const [lastError, setLastError] = useState('');
+    const registerTimer = useRef(null);
 
     useEffect(() => {
         // Stop videos when disconnected
@@ -1892,6 +1962,7 @@ function ViewWebPhone({ data, toast }) {
             su.userAgentOptions = su.userAgentOptions || {};
             su.userAgentOptions.authorizationUsername = ext;
             su.userAgentOptions.authorizationPassword = pass;
+            su.userAgentOptions.authenticationRealm = 'asterisk';
             su.userAgentOptions.transportOptions = { server: server, traceSip: true };
             su.delegate = {
                 onCallReceived: () => { 
@@ -1905,46 +1976,82 @@ function ViewWebPhone({ data, toast }) {
                 },
                 onCallAnswered: () => { setStatus('Llamada en Curso'); },
                 onRegistered: () => { 
+                    console.log('SIP EVENT: onRegistered');
+                    if (registerTimer.current) clearTimeout(registerTimer.current);
                     setStatus('Registrado (Libre)'); 
                     toast(`Extensión ${ext} registrada!`,'success'); 
                     localStorage.setItem('tf_sip_ext', ext);
                     localStorage.setItem('tf_sip_pass', pass);
                 },
                 onUnregistered: () => {
-                    setStatus('No registrado');
                     console.warn('SIP: Unregistered from server');
+                    setStatus(prev => {
+                        // Si estábamos registrando y nos llega esto, es que falló (403/401 final)
+                        if (prev === 'Registrando...') {
+                            if (registerTimer.current) clearTimeout(registerTimer.current);
+                            setLastError('SIP 403: Prohibido / Clave incorrecta');
+                            toast('Fallo de registro: 403 Forbidden','error');
+                            return 'Error Autenticación';
+                        }
+                        if (prev.includes('Error')) return prev;
+                        return 'No registrado';
+                    });
                 },
                 onServerDisconnect: (e) => { 
                     console.error('SIP WSS Disconnected:', e);
                     const code = e?.code || 'UNK';
                     const reason = e?.reason || 'Error de socket/proxy';
-                    setStatus('Error de Red'); 
-                    toast(`WSS Desconectado (${code}): ${reason}`,'error'); 
-                    // No borramos localStorage aquí por si es temporal
-                },
-                onRegisterFailed: (e) => {
-                    console.error('SIP Register Failed:', e);
-                    setStatus('Error Autenticación');
-                    toast('Fallo de registro: Verifique extensión/clave.','error');
-                    localStorage.removeItem('tf_sip_ext'); // Borramos solo si falla auth
-                    localStorage.removeItem('tf_sip_pass');
+                    setStatus(prev => {
+                        if (prev === 'Error Autenticación') return prev;
+                        setLastError(`Socket cerrado (${code}): ${reason}`);
+                        return 'Error de Red';
+                    });
                 }
             };
 
-            console.log('SIP: Attempting connection to', server);
+            console.log('SIP DEBUG:', { 
+                server, 
+                aor, 
+                ext, 
+                passLength: pass.length,
+                isVideo 
+            });
+
             setStatus('Registrando...');
+            setLastError('');
+
+            // Safety timeout: 15 seconds to give up
+            if(registerTimer.current) clearTimeout(registerTimer.current);
+            registerTimer.current = setTimeout(() => {
+                setStatus(prev => {
+                    if (prev === 'Registrando...') {
+                        setLastError('Timeout: El servidor no respondió en 15s. Revise Proxy WSS.');
+                        toast('Timeout de registro SIP','error');
+                        return 'Error Timeout';
+                    }
+                    return prev;
+                });
+            }, 15000);
+            
+            console.log('SIP: Starting su.connect()...');
             su.connect()
                 .then(() => {
-                    console.log('SIP: WSS Connected, registering...');
+                    console.log('SIP: WSS Link established. Calling su.register()...');
                     return su.register();
                 })
+                .then(() => {
+                    console.log('SIP: register() promise resolved.');
+                })
                 .catch(e => {
-                    console.error('SIP: Connection/Register exception:', e);
+                    console.error('SIP: Connection/Register CRASH:', e);
+                    if (registerTimer.current) clearTimeout(registerTimer.current);
                     setStatus('Error Conexión');
-                    toast('SIP: ' + (e.message || 'Error desconocido'),'error');
+                    setLastError(e.message || 'Error de red/socket');
+                    toast('Error SIP: ' + (e.message || 'Error de red/socket'),'error');
                 });
             setSimpleUser(su);
         } catch(e) {
+            console.error('SIP Global Catch:', e);
             toast('Error SIP: ' + e.message, 'error');
         }
     };
@@ -2045,35 +2152,66 @@ function ViewWebPhone({ data, toast }) {
                 {/* ─── MAIN AREA (DIALER / CALL SCREEN) ─── */}
                 <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg, rgba(30,30,40,0.8), rgba(20,20,30,0.9))', padding:30}}>
                     
-                    {status === 'Desconectado' || status.includes('Error') || status === 'No registrado' ? (
+                    {status === 'Desconectado' || status === 'No registrado' ? (
                         <div style={{width:'100%',maxWidth:320,animation:'fade-in 0.4s',textAlign:'center'}}>
                             <span className="material-icons-round" style={{fontSize:60,color:'#c4b5fd',marginBottom:20}}>phonelink_ring</span>
                             <h3 style={{color:'white',fontWeight:800,marginBottom:20}}>Inicio de Sesión SIP</h3>
                             
                             <input type="text" className="input-tf p-3 rounded-2xl w-full" style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,marginBottom:15,color:'white'}} value={ext} onChange={e=>setExt(e.target.value)} placeholder="Extensión (Ej. 1005)" />
-                            <input type="password" className="input-tf p-3 rounded-2xl w-full" style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,marginBottom:20,color:'white'}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Secret PJSIP" />
                             
-                            <label style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,color:'#9ca3af',fontSize:12,marginBottom:20,cursor:'pointer'}}>
-                                <input type="checkbox" checked={isVideo} onChange={e=>setIsVideo(e.target.checked)} style={{cursor:'pointer'}} />
-                                Habilitar WebRTC Video (Beta)
-                            </label>
+                            <div style={{position:'relative', marginBottom:25}}>
+                                <input type={showPass?'text':'password'} className="input-tf p-3 rounded-2xl w-full" 
+                                    style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,color:'white'}} 
+                                    value={pass} onChange={e=>setPass(e.target.value)} placeholder="Secret PJSIP" />
+                                <button type="button" onClick={()=>setShowPass(!showPass)} 
+                                    style={{position:'absolute',right:15,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>
+                                    <span className="material-icons-round" style={{fontSize:20}}>{showPass?'visibility_off':'visibility'}</span>
+                                </button>
+                            </div>
+                            
+                            <div style={{marginBottom:25}}>
+                                <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:12}}>Modo de Llamada</label>
+                                <div style={{display:'flex',gap:10,background:'var(--surface2)',padding:4,borderRadius:14}}>
+                                    <button onClick={()=>setIsVideo(false)} style={{flex:1,padding:'10px',borderRadius:12,border:'none',background:!isVideo?'rgba(139,92,246,0.2)':'transparent',color:!isVideo?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:12,cursor:'pointer',transition:'all .3s',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                                        <span className="material-icons-round" style={{fontSize:18}}>call</span> Audio
+                                    </button>
+                                    <button onClick={()=>setIsVideo(true)} style={{flex:1,padding:'10px',borderRadius:12,border:'none',background:isVideo?'rgba(139,92,246,0.2)':'transparent',color:isVideo?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:12,cursor:'pointer',transition:'all .3s',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                                        <span className="material-icons-round" style={{fontSize:18}}>videocam</span> Video
+                                    </button>
+                                </div>
+                            </div>
 
                             <button className="btn-primary" style={{padding:'14px',borderRadius:16,width:'100%',fontSize:14,fontWeight:800,boxShadow:'0 10px 20px rgba(139,92,246,0.3)'}} onClick={connect}>Registrar Softphone</button>
                         </div>
-                    ) : status === 'Registrando...' ? (
+                    ) : status === 'Registrando...' || status.includes('Error') ? (
                         <div style={{position:'absolute',inset:0,background:'rgba(10,10,15,0.95)',zIndex:100,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.3s',backdropFilter:'blur(10px)'}}>
                              <div style={{position:'relative',width:100,height:100,marginBottom:30}}>
-                                <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderTopColor:'#8b5cf6',animation:'spin 1s linear infinite'}}></div>
-                                <div style={{position:'absolute',inset:15,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderBottomColor:'#8b5cf6',animation:'spin 1.5s linear reverse infinite'}}></div>
-                                <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                    <span className="material-icons-round" style={{fontSize:32,color:'#8b5cf6',animation:'blink 1s infinite'}}>vpn_lock</span>
+                                {status.includes('Error') ? (
+                                    <div style={{width:'100%',height:'100%',borderRadius:'50%',background:'rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #ef4444'}}>
+                                        <span className="material-icons-round" style={{fontSize:48,color:'#ef4444'}}>error_outline</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderTopColor:'#8b5cf6',animation:'spin 1s linear infinite'}}></div>
+                                        <div style={{position:'absolute',inset:15,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderBottomColor:'#8b5cf6',animation:'spin 1.5s linear reverse infinite'}}></div>
+                                        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                            <span className="material-icons-round" style={{fontSize:32,color:'#8b5cf6',animation:'blink 1s infinite'}}>vpn_lock</span>
+                                        </div>
+                                    </>
+                                )}
+                             </div>
+                             <h2 style={{color:status.includes('Error')?'#ef4444':'white',fontWeight:900,fontSize:22,letterSpacing:'2px',textTransform:'uppercase',marginBottom:10}}>{status.includes('Error')?'Fallo':'Registrando'}</h2>
+                             <div style={{color:'#9ca3af',fontSize:12,fontWeight:600,letterSpacing:'1px',textAlign:'center',maxWidth:250}}>
+                                {status.includes('Error') ? (lastError || 'Error de autenticación o red. Verifique su clave SIP y configuración de Proxy.') : 'Sincronizando con PBX Cloud...'}
+                             </div>
+                             {status.includes('Error') && (
+                                <button className="btn-primary" style={{marginTop:30,padding:'10px 20px',borderRadius:12}} onClick={()=>{ setStatus('Desconectado'); setLastError(''); }}>Reintentar</button>
+                             )}
+                             {!status.includes('Error') && (
+                                <div style={{marginTop:30,width:150,height:2,background:'rgba(255,255,255,0.05)',borderRadius:1,overflow:'hidden'}}>
+                                    <div style={{width:'60%',height:'100%',background:'linear-gradient(90deg,transparent,#8b5cf6,transparent)',animation:'callActive 1s linear infinite'}}></div>
                                 </div>
-                             </div>
-                             <h2 style={{color:'white',fontWeight:900,fontSize:22,letterSpacing:'2px',textTransform:'uppercase',marginBottom:10}}>Registrando</h2>
-                             <div style={{color:'#9ca3af',fontSize:12,fontWeight:600,letterSpacing:'1px'}}>Sincronizando con PBX Cloud...</div>
-                             <div style={{marginTop:30,width:150,height:2,background:'rgba(255,255,255,0.05)',borderRadius:1,overflow:'hidden'}}>
-                                <div style={{width:'60%',height:'100%',background:'linear-gradient(90deg,transparent,#8b5cf6,transparent)',animation:'callActive 1s linear infinite'}}></div>
-                             </div>
+                             )}
                         </div>
                     ) : (
                         <div style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.4s'}}>
@@ -2327,10 +2465,10 @@ function App() {
         <div id="app">
             <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} collapsed={collapsed} setCollapsed={setCollapsed} darkMode={darkMode} setDarkMode={setDarkMode} data={data} activeCalls={activeCalls} />
             <div className="main-content">
-                <Topbar view={view} data={data} onRefresh={refresh} activeCalls={activeCalls} />
                 {renderView()}
             </div>
             <Toast toasts={toasts} remove={id=>setToasts(t=>t.filter(x=>x.id!==id))} />
+            <LiveCallNotifications calls={data.pbx.live_calls || []} extensions={data.pbx.extensions || []} />
         </div>
     );
 }

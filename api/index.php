@@ -207,9 +207,20 @@ if ($action === 'get_full_data') {
     $conn_raw = shell_exec("netstat -an | grep ESTABLISHED | wc -l");
     $conn = (int)trim($conn_raw);
 
+    // Active calls detail
+    $live_calls = [];
+    $ch_raw = ami_cmd('core show channels verbose');
+    $lines = explode("\n", $ch_raw);
+    foreach($lines as $line) {
+        // Example: PJSIP/1001-00000001  (None)  Up  AppDial  (Outgoing Line)
+        if (preg_match('/^(PJSIP|SIP)\/(\d+)-\w+\s+\S+\s+(\S+)\s+(\S+)/i', $line, $m)) {
+             $live_calls[] = ['ext' => $m[2], 'state' => $m[3], 'app' => $m[4]];
+        }
+    }
+
     echo json_encode([
         'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime, 'ram' => $ram, 'disk' => $disk, 'connections' => $conn],
-        'pbx'    => ['extensions' => array_values($exts), 'recordings' => $recordings],
+        'pbx'    => ['extensions' => array_values($exts), 'recordings' => $recordings, 'live_calls' => $live_calls],
     ]);
     exit;
 }
