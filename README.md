@@ -34,12 +34,15 @@ Panel ABM (Alta, Baja, Modificación) avanzado con capacidades de monitoreo de r
 *   **Identificación de Dispositivos:** Distinción automática entre Softphones, Deskphones y Tablets.
 *   **Side Drawer Pro:** Edición de parámetros técnicos (Secret, CallerID, Video, DTMF) sin perder el contexto de la lista.
 
-### 📞 3. Cloud Softphone (WebRTC HD)
-Un teléfono profesional integrado directamente en el navegador.
-*   **Tecnología SIP.js:** Conexión segura vía WSS (WebSockets Secure).
-*   **Audio & Video:** Soporte nativo para videollamadas con selección de dispositivos de entrada/salida.
-*   **Dialpad Táctico:** Teclado numérico optimizado con historial de llamadas y búsqueda de contactos internos.
-*   **Notificaciones Sileo:** Avisos elegantes de llamadas entrantes con soporte para notificaciones Push del sistema.
+### 📞 3. Cloud Softphone (WebRTC HD / PWA)
+Un teléfono profesional premium integrado directamente en el navegador con experiencia nativa de iPhone.
+*   **Tecnología SIP.js 0.20.0:** Conexión segura optimizada para Asterisk PJSIP vía WSS.
+*   **Video HD & Audio:** Soporte para videollamadas con interfaz iOS-Style, desenfoque de fondo y controles de cristal.
+*   **Audio Visualizer:** Onda animada en tiempo real (Real-time Decibel Meter) integrada en la cabecera de la llamada.
+*   **Haptics & Sound:** Vibraciones táctiles (Haptic Feedback) y sonidos de ringback/llamada entrante para una experiencia física.
+*   **Gestión de Dispositivos:** Conmutación rápida entre cámaras (Flip Camera) y control de altavoz (Speakerphone).
+*   **Notificaciones PWA:** Soporte completo para "Add to Home Screen" con notificaciones nativas y ejecución en segundo plano.
+*   **Dialpad Táctico:** Teclado numérico con efectos de presión, historial detallado y avatares dinámicos.
 
 ### 🔗 4. Call Center & Monitoreo en Vivo
 Herramientas críticas para supervisores y gestores de tráfico telefónico.

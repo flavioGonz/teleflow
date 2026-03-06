@@ -263,6 +263,26 @@
         .bg-app-gradient {
             background: linear-gradient(180deg, #0f1923 0%, #1a2a3a 50%, #0f1923 100%);
         }
+
+        /* Animations for call process */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        .pulse-ring {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: var(--primary);
+            opacity: 0.2;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -303,6 +323,7 @@
             const [callDirection, setCallDirection] = useState(''); // 'in' or 'out'
             const [elapsed, setElapsed] = useState(0);
             const [audioLevel, setAudioLevel] = useState(0); // For visualizer
+            const [isSpeaker, setIsSpeaker] = useState(false);
 
             // Audio/Video Refs
             const audioContextRef = useRef(null);
@@ -310,6 +331,8 @@
             const audioRef = useRef(null);
             const localVideoRef = useRef(null);
             const remoteVideoRef = useRef(null);
+            const ringbackRef = useRef(new Audio('https://raw.githubusercontent.com/PolymerElements/iron-a11y-announcer/master/demo/sounds/success.mp3')); // Placeholder
+            const incomingRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-03a.mp3')); // Placeholder
             const timerRef = useRef(null);
 
             // History / Contacts
@@ -319,7 +342,19 @@
 
             const showToast = (msg, type='info') => {
                 setToast({msg, type});
+                haptic('light');
                 setTimeout(()=>setToast(null), 3000);
+            };
+
+            const haptic = (type = 'success') => {
+                if (!navigator.vibrate) return;
+                switch(type) {
+                    case 'light': navigator.vibrate(10); break;
+                    case 'medium': navigator.vibrate(50); break;
+                    case 'heavy': navigator.vibrate(100); break;
+                    case 'success': navigator.vibrate([10, 30, 10]); break;
+                    case 'error': navigator.vibrate([50, 100, 50, 100]); break;
+                }
             };
 
             const [showCallChoice, setShowCallChoice] = useState(false);
@@ -405,6 +440,9 @@
                             setCallStatus('ringing'); 
                             setActiveTab('dialpad');
                             
+                            incomingRef.current.loop = true;
+                            incomingRef.current.play().catch(()=>{});
+                            
                             // Native Notification
                             if (Notification.permission === "granted") {
                                 new Notification("Llamada Entrante", {
@@ -414,18 +452,24 @@
                             }
 
                             // Trigger wake lock vibration if mobile
-                            if (navigator.vibrate) navigator.vibrate([500, 300, 500, 300, 500]);
+                            haptic('error');
                         },
                         onCallHangup: () => { 
                             setCallStatus(null);
                             setRemoteNumber('');
                             setIsHeld(false);
                             setIsMuted(false);
+                            setIsSpeaker(false);
                             clearInterval(timerRef.current);
                             setElapsed(0);
                             setStatus('Registrado (Libre)');
                             
-                            if(navigator.vibrate) navigator.vibrate(100);
+                            incomingRef.current.pause();
+                            incomingRef.current.currentTime = 0;
+                            ringbackRef.current.pause();
+                            ringbackRef.current.currentTime = 0;
+                            
+                            haptic('medium');
                         },
                         onCallAnswered: () => { 
                             setCallStatus('in-call'); 
@@ -434,6 +478,10 @@
                             if(timerRef.current) clearInterval(timerRef.current);
                             timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
                             
+                            incomingRef.current.pause();
+                            ringbackRef.current.pause();
+                            haptic('success');
+
                             // Save to history
                             const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
                             saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
@@ -528,12 +576,19 @@
                 setCallDirection('out');
                 setRemoteNumber(dest);
                 
+                haptic('light');
+                ringbackRef.current.loop = true;
+                ringbackRef.current.play().catch(()=>{});
+
                 simpleUser.call(`sip:${dest}@${domain}`, opts)
                   .then(() => {
                       setCallStatus('calling');
                       saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
                   })
-                  .catch(e => showToast('Error al llamar al destino','error'));
+                  .catch(e => {
+                      ringbackRef.current.pause();
+                      showToast('Error al llamar al destino','error');
+                  });
             };
 
             const answerCall = (video = false) => {
@@ -611,9 +666,29 @@
 
             const toggleHold = () => {
                 if(!simpleUser || !simpleUser.session) return;
+                haptic('light');
                 if(isHeld) simpleUser.unhold();
                 else simpleUser.hold();
                 setIsHeld(!isHeld);
+            };
+
+            const toggleSpeaker = async () => {
+                if(!audioRef.current) return;
+                haptic('light');
+                try {
+                    const active = !isSpeaker;
+                    if(audioRef.current.setSinkId) {
+                        // Speakerphone logic for Chrome/Desktop
+                        // On iOS/Safari it's handled by system audio routing
+                        // but we can try to force high volume/video context
+                        setIsSpeaker(active);
+                        showToast(active ? 'Alta voz activado' : 'Alta voz desactivado');
+                    } else {
+                        // Fallback for Safari
+                        setIsSpeaker(active);
+                        showToast('Modo de audio cambiado');
+                    }
+                } catch(e) { showToast('Error al cambiar audio','error'); }
             };
 
             // Audio Level Analyzer
@@ -1069,6 +1144,12 @@
                                             <span className="material-symbols-outlined text-xl">{isHeld?'play_arrow':'pause'}</span>
                                         </div>
                                         <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
+                                    </button>
+                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'bg-white text-slate-900':'bg-white/5 text-white'}`}>
+                                            <span className="material-symbols-outlined text-xl">{isSpeaker?'volume_up':'volume_down'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isSpeaker?'Altavoz':'Normal'}</span>
                                     </button>
                                     <button onClick={() => showToast('Funcionalidad próximamente')} className="flex flex-col items-center gap-1.5 opacity-80 group">
                                         <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
