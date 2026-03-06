@@ -319,12 +319,41 @@
         .modal-box { background: var(--surface); border: 1px solid rgba(139,92,246,.25); border-radius: 20px; padding: 28px; max-width: 520px; width: 100%; box-shadow: 0 40px 80px rgba(0,0,0,.6); }
 
         /* ── DRAWER ── */
-        .drawer-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);z-index:300; }
-        .drawer { position:fixed;right:0;top:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid rgba(139,92,246,.2);z-index:301;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.5); animation:slideInRight .25s ease; }
-        @keyframes slideInRight { from{transform:translateX(100%)} to{transform:translateY(0)} }
-        .drawer-header { padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
-        .drawer-body { flex:1;overflow-y:auto;padding:24px; }
-        .drawer-footer { padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0; }
+        .drawer-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);z-index:300; }
+        .drawer {
+            position:fixed;right:0;top:0;bottom:0;
+            width:100%; max-width:440px;
+            background:var(--surface);
+            border-left:1px solid rgba(139,92,246,.25);
+            z-index:301;
+            display:flex; flex-direction:column;
+            overflow:hidden;
+            box-shadow:-25px 0 80px rgba(0,0,0,.7);
+            animation:slideInDrawer .35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideInDrawer { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        .drawer-header {
+            padding:20px 24px;
+            border-bottom:1px solid var(--border);
+            display:flex;align-items:center;justify-content:space-between;
+            flex:0 0 auto;
+        }
+        .drawer-body {
+            flex:1 1 auto;
+            min-height:0;
+            overflow-y:auto;
+            overflow-x:hidden;
+            padding:24px;
+            -webkit-overflow-scrolling:touch;
+        }
+        .drawer-body::-webkit-scrollbar { width:4px; }
+        .drawer-body::-webkit-scrollbar-thumb { background:rgba(139,92,246,.3); border-radius:4px; }
+        .drawer-footer {
+            flex:0 0 auto;
+            padding:16px 24px;
+            border-top:1px solid var(--border);
+            background:rgba(0,0,0,0.2);
+        }
 
         /* ── LIVE CALL ANIM ── */
         @keyframes callPulse { 0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)} 70%{box-shadow:0 0 0 12px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
@@ -565,48 +594,74 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
             </div>
 
             <div className="sidebar-bottom">
+                {/* System Stats (only when expanded) */}
+                {!collapsed && data?.system && (
+                    <div className="mb-4 px-2 anim-fadeup" style={{animationDelay:'0.4s'}}>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PBX Status</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] anim-blink" />
+                                <span className="text-[10px] text-green-500 font-bold uppercase">Online</span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+                                <div className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">CPU Load</div>
+                                <div className="text-xs font-black text-purple-400">{data?.system?.cpu}%</div>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+                                <div className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">Uptime</div>
+                                <div className="text-xs font-black text-blue-400">{data?.system?.uptime?.split(' ')[0]}d</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Context Menu */}
                 {showUserMenu && (
                     <div className="context-menu" style={{ left: collapsed ? '65px' : '10px', bottom: '60px' }}>
+                        <div className="context-menu-title" style={{padding:'8px 12px', fontSize:10, fontWeight:800, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.1em'}}>Cuenta</div>
                         <div className="context-menu-item" onClick={() => { setView('configuracion'); setShowUserMenu(false); }}>
                             <span className="material-icons-round">settings</span>Configuración
                         </div>
-                        <div className="context-menu-item" onClick={() => { /* Opción de cambiar clave */ setShowUserMenu(false); }}>
+                        <div className="context-menu-item" onClick={() => { toggleTheme(); setShowUserMenu(false); }}>
+                            <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>Modo {darkMode?'Claro':'Oscuro'}
+                        </div>
+                        <div className="context-menu-item" onClick={() => { setShowUserMenu(false); }}>
                             <span className="material-icons-round">vpn_key</span>Cambiar Clave
                         </div>
+                        <div style={{height:1, background:'var(--border)', margin:'4px 8px'}} />
                         <div className="context-menu-item danger" onClick={onLogout}>
                             <span className="material-icons-round">logout</span>Cerrar Sesión
                         </div>
                     </div>
                 )}
 
-                <div style={{display:'flex',alignItems:'center',gap:collapsed?0:10,padding:'8px',borderRadius:12,background:'rgba(139,92,246,0.06)',justifyContent:collapsed?'center':'flex-start', position:'relative'}}>
+                <div 
+                    className="flex items-center p-2 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-purple-500/20 group relative cursor-pointer" 
+                    style={{gap:collapsed?0:10, justifyContent:collapsed?'center':'flex-start'}}
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                >
                     <div 
-                        onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="glass-hover"
-                        style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'white',flexShrink:0, cursor:'pointer'}}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-lg shadow-purple-500/20 transform group-hover:scale-105 transition-transform"
+                        style={{background:'linear-gradient(135deg,#8b5cf6,#6d28d9)', flexShrink:0}}
                     >
                         {initials(user)}
                     </div>
                     
                     {!collapsed && (
-                        <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12,fontWeight:700,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user}</div>
-                            <div style={{fontSize:9,color:'#22c55e',display:'flex',alignItems:'center',gap:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px'}}>
-                                <span style={{width:4,height:4,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Online
+                        <div style={{flex:1, minWidth:0}}>
+                            <div style={{fontSize:13, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{user}</div>
+                            <div style={{fontSize:9, color:'#22c55e', display:'flex', alignItems:'center', gap:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                                <span style={{width:4,height:4,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Conectado
                             </div>
                         </div>
                     )}
 
-                    <button className="glass-hover" onClick={toggleTheme} style={{background:'none', border:'none', padding:6, borderRadius:8, cursor:'pointer', color: 'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                        <span className="material-icons-round" style={{fontSize:18, color: darkMode ? '#fbbf24' : '#6366f1'}}>{darkMode?'light_mode':'dark_mode'}</span>
-                    </button>
-                    
-                    {/* Botón de cerrar sidebar en móvil */}
-                    {window.innerWidth < 768 && (
-                        <button className="glass-hover" onClick={() => setCollapsed(true)} style={{background:'none', border:'none', padding:4, marginLeft:4, color: 'var(--muted)'}}>
-                            <span className="material-icons-round">chevron_left</span>
-                        </button>
+                    {!collapsed && (
+                        <div className="text-gray-500 group-hover:text-white transition-colors">
+                            <span className="material-icons-round">unfold_more</span>
+                        </div>
                     )}
                 </div>
             </div>
@@ -868,68 +923,93 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
         else toast(d.error||'Error','error');
     };
     const F = ({label,k,type='text',placeholder='',readOnly=false}) => (
-        <div style={{marginBottom:16}}>
-            <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:6}}>{label}</label>
-            <input className="input-tf py-2.5 px-3 rounded-xl text-sm" type={type} placeholder={placeholder} value={form[k]} onChange={e=>set(k,e.target.value)} readOnly={readOnly} style={readOnly?{opacity:.6}:{}} />
+        <div className="mb-5">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">{label}</label>
+            <div className="relative group">
+                <input 
+                    className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'group-hover:border-purple-500/40'}`} 
+                    type={type} 
+                    placeholder={placeholder} 
+                    value={form[k]} 
+                    onChange={e=>set(k,e.target.value)} 
+                    readOnly={readOnly} 
+                />
+            </div>
         </div>
     );
-    const recOptions=[{v:'always',l:'Siempre grabar',c:'#4ade80'},{v:'dontcare',l:'Sin preferencia',c:'#9ca3af'},{v:'never',l:'Nunca grabar',c:'#f87171'}];
+    const recOptions=[{v:'always',l:'Siempre',c:'#4ade80',i:'fiber_manual_record'},{v:'dontcare',l:'Opcional',c:'#9ca3af',i:'radio_button_unchecked'},{v:'never',l:'Nunca',c:'#f87171',i:'not_interested'}];
     return (
         <>
             <div className="drawer-backdrop" onClick={onClose} />
-            <div className="drawer">
+            <div className="drawer theme-transition">
                 <div className="drawer-header">
                     <div>
-                        <div style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{isNew?'Nueva Extensión':`Editar #${ext.ext}`}</div>
-                        <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{isNew?'Crear extensión SIP/PJSIP':'Modificar datos de la extensión'}</div>
+                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nueva Extensión':`Editar Interno #${ext.ext}`}</div>
+                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>{isNew?'Configura los parámetros del nuevo interno':'Actualiza la configuración de esta extensión'}</div>
                     </div>
-                    <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:22}}>close</span></button>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
+                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
+                    </button>
                 </div>
                 <div className="drawer-body">
                     <F label="Número de Interno" k="ext" placeholder="Ej: 1005" readOnly={!isNew} />
-                    <F label="Nombre Completo" k="name" placeholder="Juan Pérez" />
-                    <div style={{position:'relative'}}>
-                        <F label="Contraseña SIP (Secret)" k="secret" type={showPass?'text':'password'} placeholder="Min. 6 caracteres" />
-                        <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:32,background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
-                        </button>
+                    <F label="Nombre o Alias" k="name" placeholder="Juan Pérez" />
+                    
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Contraseña SIP (Secret)</label>
+                        <div className="relative group">
+                            <input 
+                                className="input-tf p-3.5 pr-12 rounded-2xl text-sm group-hover:border-purple-500/40" 
+                                type={showPass?'text':'password'} 
+                                placeholder="Mínimo 6 caracteres" 
+                                value={form.secret} 
+                                onChange={e=>set('secret',e.target.value)} 
+                            />
+                            <button type="button" onClick={()=>setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white transition-colors">
+                                <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+                            </button>
+                        </div>
                     </div>
-                    <F label="Email (occional)" k="email" type="email" placeholder="usuario@empresa.com" />
 
-                    {/* Grabación */}
-                    <div style={{marginBottom:16}}>
-                        <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:10}}>Grabación de llamadas</label>
-                        <div style={{display:'flex',gap:6}}>
+                    <F label="Correo Electrónico" k="email" type="email" placeholder="usuario@empresa.com" />
+
+                    <div className="mb-6">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Grabación de llamadas</label>
+                        <div className="grid grid-cols-3 gap-3">
                             {recOptions.map(o=>(
-                                <button key={o.v} onClick={()=>setRecording(o.v)} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1px solid ${recording===o.v?o.c:'var(--border)'}`,background:recording===o.v?`${o.c}18`:'var(--surface2)',color:recording===o.v?o.c:'#6b7280',fontWeight:700,fontSize:10,cursor:'pointer',transition:'all .2s',textAlign:'center'}}>
-                                    <span className="material-icons-round" style={{fontSize:16,display:'block',marginBottom:2}}>{o.v==='always'?'fiber_manual_record':o.v==='never'?'not_interested':'radio_button_unchecked'}</span>
-                                    {o.l}
+                                <button key={o.v} onClick={()=>setRecording(o.v)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5 ${recording===o.v ? 'bg-purple-500/10 border-purple-500/50 text-white' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
+                                    <span className="material-icons-round" style={{fontSize:18, color: recording===o.v ? o.c : 'inherit'}}>{o.i}</span>
+                                    <span className="text-[10px] font-bold uppercase">{o.l}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Tipo de Dispositivo */}
-                    <div style={{marginBottom:16}}>
-                        <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:10}}>Tipo de Dispositivo</label>
-                        <div style={{display:'flex',gap:6}}>
-                            {[{v:'audio',l:'Solo Audio',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}].map(o=>(
-                                <button key={o.v} onClick={()=>setDevType(o.v)} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1px solid ${devType===o.v?'#8b5cf6':'var(--border)'}`,background:devType===o.v?'rgba(139,92,246,0.15)':'var(--surface2)',color:devType===o.v?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:10,cursor:'pointer',transition:'all .2s',textAlign:'center'}}>
-                                    <span className="material-icons-round" style={{fontSize:16,display:'block',marginBottom:2}}>{o.i}</span>
-                                    {o.l}
+                    <div className="mb-6">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Tecnología de Dispositivo</label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {[{v:'audio',l:'SIP Fijo',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}].map(o=>(
+                                <button key={o.v} onClick={()=>setDevType(o.v)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5 ${devType===o.v ? 'bg-purple-500/10 border-purple-500/50 text-white' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
+                                    <span className="material-icons-round" style={{fontSize:18, color: devType===o.v ? '#8b5cf6' : 'inherit'}}>{o.i}</span>
+                                    <span className="text-[10px] font-bold uppercase">{o.l}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {!isNew && <div style={{background:'rgba(139,92,246,0.08)',border:'1px solid rgba(139,92,246,.2)',borderRadius:12,padding:'12px 16px',fontSize:12,color:'#c4b5fd'}}>
-                        <b>Nota:</b> Los cambios cargarán el dialplan de Asterisk automáticamente.
+                    {!isNew && <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 text-xs text-purple-300/80 leading-relaxed shadow-lg">
+                        <div className="flex gap-3">
+                            <span className="material-icons-round text-purple-400 text-sm">info</span>
+                            <span>Los cambios aplicarán automáticamente el <b>core reload</b> en Asterisk para sincronizar los parámetros SIP y el dialplan.</span>
+                        </div>
                     </div>}
                 </div>
-                <div className="drawer-footer" style={{display:'flex',gap:8}}>
-                    {!isNew&&<button onClick={del} style={{padding:'10px 16px',borderRadius:10,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,.3)',color:'#f87171',fontWeight:700,cursor:'pointer',fontSize:13}}>Eliminar</button>}
-                    <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:600,cursor:'pointer',fontSize:13}}>Cancelar</button>
-                    <button onClick={save} disabled={saving} className="btn-primary" style={{flex:2,padding:'10px',borderRadius:10,fontSize:13}}>{saving?'Guardando...':isNew?'Crear Extensión':'Guardar Cambios'}</button>
+                <div className="drawer-footer" style={{display:'flex', gap:10}}>
+                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
+                        <span className="material-icons-round">delete_outline</span>
+                    </button>}
+                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
+                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Interno':'Guardar Cambios'}</button>
                 </div>
             </div>
         </>
@@ -1552,41 +1632,73 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
         if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
     };
     const FI = ({label,k,type='text',ph='',readOnly=false}) => (
-        <div style={{marginBottom:14}}>
-            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>{label}</label>
-            <input className="input-tf py-2 px-3 rounded-xl text-sm" type={type} placeholder={ph} value={form[k]} onChange={e=>set(k,e.target.value)} readOnly={readOnly} style={readOnly?{opacity:.6}:{}} />
+        <div className="mb-5">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">{label}</label>
+            <input 
+                className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-500/40'}`} 
+                type={type} 
+                placeholder={ph} 
+                value={form[k]} 
+                onChange={e=>set(k,e.target.value)} 
+                readOnly={readOnly} 
+            />
         </div>
     );
     return(
-        <><div className="drawer-backdrop" onClick={onClose}/>
-        <div className="drawer">
-            <div className="drawer-header">
-                <div><div style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{isNew?'Nueva Cola':queue.name}</div><div style={{fontSize:11,color:'#6b7280',marginTop:2}}>Cola #{isNew?'nueva':queue.id}</div></div>
-                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:22}}>close</span></button>
-            </div>
-            <div className="drawer-body">
-                <FI label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
-                <FI label="Nombre" k="descr" ph="Soporte Técnico" />
-                <div style={{marginBottom:14}}>
-                    <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Estrategia</label>
-                    <select className="input-tf py-2 px-3 rounded-xl text-sm" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
-                        {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-                    </select>
+        <>
+            <div className="drawer-backdrop" onClick={onClose}/>
+            <div className="drawer theme-transition">
+                <div className="drawer-header">
+                    <div>
+                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nueva Cola':`Cola: ${queue.name}`}</div>
+                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>ID de Cola: #{isNew?'por asignar':queue.id}</div>
+                    </div>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
+                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
+                    </button>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-                    <div><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Timeout (seg)</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} /></div>
-                    <div><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Wrapup (seg)</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} /></div>
+                <div className="drawer-body">
+                    <FI label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
+                    <FI label="Nombre descriptivo" k="descr" ph="Soporte Técnico" />
+                    
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Distribución</label>
+                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
+                            {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-5">
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Timeout (seg)</label>
+                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Wrapup (seg)</label>
+                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div className="mb-6">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Internos miembros (separar con comas)</label>
+                        <textarea 
+                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40 min-h-[100px] leading-relaxed" 
+                            placeholder="Ej: 1001, 1002, 1005" 
+                            value={form.members} 
+                            onChange={e=>set('members',e.target.value)}
+                        />
+                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Miembros estáticos que recibirán llamadas de esta cola.</div>
+                    </div>
                 </div>
-                <FI label="Internos miembros (separar con comas)" k="members" ph="1001,1002,1005" />
+                <div className="drawer-footer" style={{display:'flex', gap:10}}>
+                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
+                        <span className="material-icons-round">delete_outline</span>
+                    </button>}
+                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
+                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Cola':'Guardar Cambios'}</button>
+                </div>
             </div>
-            <div className="drawer-footer" style={{display:'flex',gap:8}}>
-                {!isNew&&<button onClick={del} style={{padding:'10px 14px',borderRadius:10,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,.3)',color:'#f87171',fontWeight:700,cursor:'pointer',fontSize:13}}>Eliminar</button>}
-                <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:600,cursor:'pointer',fontSize:13}}>Cancelar</button>
-                <button onClick={save} disabled={saving} className="btn-primary" style={{flex:2,padding:'10px',borderRadius:10,fontSize:13}}>{saving?'Guardando...':isNew?'Crear Cola':'Guardar'}</button>
-            </div>
-        </div></>
+        </>
     );
 }
 
@@ -1693,34 +1805,61 @@ function GroupDrawer({ group, onClose, onSaved, toast }) {
         if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
     };
     return(
-        <><div className="drawer-backdrop" onClick={onClose}/>
-        <div className="drawer">
-            <div className="drawer-header">
-                <div><div style={{fontSize:16,fontWeight:800,color:'var(--text)'}}>{isNew?'Nuevo Grupo':'Editar Grupo '+group.grpnum}</div>
-                <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>Grupos de timbrado</div></div>
-                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:22}}>close</span></button>
+        <>
+            <div className="drawer-backdrop" onClick={onClose}/>
+            <div className="drawer theme-transition">
+                <div className="drawer-header">
+                    <div>
+                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nuevo Grupo':`Grupo de Timbrado #${group.grpnum}`}</div>
+                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>Configuracion de timbrado paralelo/serial</div>
+                    </div>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
+                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
+                    </button>
+                </div>
+                <div className="drawer-body">
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Numero del Grupo</label>
+                        <input className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${!isNew ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-500/40'}`} placeholder="Ej: 700" value={form.grpnum} onChange={e=>set('grpnum',e.target.value)} readOnly={!isNew} />
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Descripcion o Nombre</label>
+                        <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" placeholder="Escriba el nombre del grupo..." value={form.description} onChange={e=>set('description',e.target.value)} />
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Timbrado</label>
+                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
+                            {RG_STRATEGIES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Tiempo de timbrado (segundos)</label>
+                        <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.grptime} onChange={e=>set('grptime',e.target.value)} />
+                    </div>
+
+                    <div className="mb-6">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Lista de Internos (separados por guion)</label>
+                        <textarea 
+                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40 min-h-[100px] leading-relaxed" 
+                            placeholder="Ej: 1001-1002-1005" 
+                            value={form.grplist} 
+                            onChange={e=>set('grplist',e.target.value)} 
+                        />
+                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Los internos que timbrarán cuando se llame a este grupo.</div>
+                    </div>
+                </div>
+                <div className="drawer-footer" style={{display:'flex', gap:10}}>
+                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
+                        <span className="material-icons-round">delete_outline</span>
+                    </button>}
+                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
+                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Grupo':'Guardar Cambios'}</button>
+                </div>
             </div>
-            <div className="drawer-body">
-                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Número del Grupo</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="Ej: 700" value={form.grpnum} onChange={e=>set('grpnum',e.target.value)} readOnly={!isNew} style={!isNew?{opacity:.6}:{}} /></div>
-                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Descripción</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="Soporte General" value={form.description} onChange={e=>set('description',e.target.value)} /></div>
-                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Estrategia</label>
-                    <select className="input-tf py-2 px-3 rounded-xl text-sm" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
-                        {RG_STRATEGIES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-                    </select></div>
-                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Tiempo de timbre (seg)</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" type="number" value={form.grptime} onChange={e=>set('grptime',e.target.value)} /></div>
-                <div style={{marginBottom:14}}><label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:5}}>Internos (separar con guión)</label>
-                    <input className="input-tf py-2 px-3 rounded-xl text-sm" placeholder="1001-1002-1005" value={form.grplist} onChange={e=>set('grplist',e.target.value)} />
-                    <div style={{fontSize:10,color:'#6b7280',marginTop:4}}>Ejemplo: 1001-1002-1005</div></div>
-            </div>
-            <div className="drawer-footer" style={{display:'flex',gap:8}}>
-                {!isNew&&<button onClick={del} style={{padding:'10px 14px',borderRadius:10,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,.3)',color:'#f87171',fontWeight:700,cursor:'pointer',fontSize:13}}>Eliminar</button>}
-                <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:600,cursor:'pointer',fontSize:13}}>Cancelar</button>
-                <button onClick={save} disabled={saving} className="btn-primary" style={{flex:2,padding:'10px',borderRadius:10,fontSize:13}}>{saving?'Guardando...':isNew?'Crear Grupo':'Guardar'}</button>
-            </div>
-        </div></>
+        </>
     );
 }
 
