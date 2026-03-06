@@ -42,11 +42,37 @@
             --muted: #6b7280;
         }
         body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f1f3f9; }
-        body.light .login-card { background:rgba(255,255,255,0.85); border:1px solid rgba(139,92,246,0.15); }
-        body.light .topbar { background:rgba(241,243,249,0.92); }
-        body.light audio { filter:none; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; transition: background 0.4s ease, color 0.4s ease; }
+        .theme-transition * { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease !important; }
+        
+        /* ── CONTEXT MENU ── */
+        .context-menu {
+            position: absolute;
+            bottom: 70px;
+            left: 10px;
+            width: 200px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            z-index: 1000;
+            padding: 8px;
+            animation: viewIn 0.2s ease;
+        }
+        .context-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .context-menu-item:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+        .context-menu-item.danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
 
         /* ── LOGIN ── */
         .login-bg {
@@ -456,32 +482,41 @@ function Toast({ toasts, remove }) {
 // SIDEBAR
 // ─────────────────────────────────────────────
 function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkMode, setDarkMode, data, activeCalls }) {
+    const [showUserMenu, setShowUserMenu] = useState(false);
     const extsOnline = data?.pbx?.extensions?.filter(e=>e.status==='ONLINE')?.length || 0;
     const qWaiting = data?.pbx?.queues?.reduce((acc, q) => acc + (q.calls_waiting || 0), 0) || 0;
+
+    const toggleTheme = () => {
+        document.body.classList.add('theme-transition');
+        setDarkMode(!darkMode);
+        setTimeout(() => document.body.classList.remove('theme-transition'), 500);
+    };
 
     const nav = [
         { section: 'Principal' },
         { id:'dashboard', icon:'grid_view', label:'Dashboard' },
         { id:'extensiones', icon:'group', label:'Extensiones', badge: extsOnline, badgeColor: '#22c55e' },
-        { section: 'Call Center' },
         { id:'agentes', icon:'support_agent', label:'Agentes' },
-        { id:'vivo', icon:'sensors', label:'Vivo', badge: activeCalls, badgeColor: '#ef4444' },
+        { section: 'Call Center' },
+        { id:'vivo', icon:'sensors', label:'Llamas en Vivo', badge: activeCalls, badgeColor: '#ef4444' },
         { id:'colas', icon:'queue', label:'Colas', badge: qWaiting, badgeColor: '#f59e0b' },
         { id:'grupos', icon:'ring_volume', label:'Grupos' },
         { id:'ivr', icon:'account_tree', label:'IVR' },
+        { section: 'Herramientas' },
         { id:'webphone', icon:'phone_in_talk', label:'Softphone' },
-        { section: 'Registros' },
         { id:'cdr', icon:'history', label:'CDR' },
         { id:'reportes', icon:'bar_chart', label:'Reportes' },
     ];
+
     return (
-        <div className={`sidebar${collapsed?' collapsed':''}`}>
+        <div className={`sidebar${collapsed?' collapsed':''}`} style={{ position: 'relative' }}>
             <div className="sidebar-logo" style={{display:'flex',alignItems:'center',gap:10,padding:collapsed?'18px 0':'20px 14px 14px',justifyContent:collapsed?'center':'flex-start'}}>
                 <div style={{width:32,height:32,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}} onClick={()=>setCollapsed(!collapsed)}>
                     <span className="material-icons-round" style={{fontSize:16,color:'white'}}>{collapsed?'chevron_right':'sensors'}</span>
                 </div>
                 {!collapsed&&<div className="sidebar-logo-text"><div style={{fontSize:14,fontWeight:800,color:'var(--text)',letterSpacing:-0.5,fontStyle:'italic'}}>TeleFlow</div><div style={{fontSize:9,fontWeight:600,color:'#6b7280',letterSpacing:'0.1em',textTransform:'uppercase'}}>PBX Control</div></div>}
             </div>
+            
             <div className="sidebar-nav">
                 {nav.map((item,i)=> item.section
                     ? (!collapsed&&<div key={i} className="nav-section">{item.section}</div>)
@@ -507,22 +542,55 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                       </div>
                 )}
             </div>
+
             <div className="sidebar-bottom">
-                {!collapsed&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:10,background:'rgba(139,92,246,0.08)',marginBottom:8}}>
-                    <div style={{width:26,height:26,borderRadius:7,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,color:'white',flexShrink:0}}>{initials(user)}</div>
-                    <div className="sidebar-bottom-text" style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user}</div>
-                        <div style={{fontSize:10,color:'#22c55e',display:'flex',alignItems:'center',gap:3}}><span style={{width:5,height:5,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Conectado</div>
+                {/* Context Menu */}
+                {showUserMenu && (
+                    <div className="context-menu" style={{ left: collapsed ? '65px' : '10px', bottom: '60px' }}>
+                        <div className="context-menu-item" onClick={() => { setDarkMode(!darkMode); setShowUserMenu(false); }}>
+                            <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
+                            {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
+                        </div>
+                        <div className="context-menu-item" onClick={() => { setView('reportes'); setShowUserMenu(false); }}>
+                            <span className="material-icons-round">vpn_key</span>Cambiar Clave
+                        </div>
+                        <div className="context-menu-item danger" onClick={onLogout}>
+                            <span className="material-icons-round">logout</span>Cerrar Sesión
+                        </div>
                     </div>
-                </div>}
-                <div className="nav-item" title="Modo claro/oscuro" onClick={()=>setDarkMode(!darkMode)}>
-                    <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
-                    {!collapsed&&<span className="nav-label">{darkMode?'Modo Claro':'Modo Oscuro'}</span>}
+                )}
+
+                <div style={{display:'flex',alignItems:'center',gap:collapsed?0:10,padding:'8px',borderRadius:12,background:'rgba(139,92,246,0.06)',justifyContent:collapsed?'center':'flex-start', position:'relative'}}>
+                    <div 
+                        onClick={() => setShowUserMenu(!showUserMenu)}
+                        className="glass-hover"
+                        style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'white',flexShrink:0, cursor:'pointer'}}
+                    >
+                        {initials(user)}
+                    </div>
+                    
+                    {!collapsed && (
+                        <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:700,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user}</div>
+                            <div style={{fontSize:9,color:'#22c55e',display:'flex',alignItems:'center',gap:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                                <span style={{width:4,height:4,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Online
+                            </div>
+                        </div>
+                    )}
+
+                    {!collapsed && (
+                        <button className="glass-hover" onClick={() => setView('reportes')} style={{background:'none', border:'none', padding:4, cursor:'pointer', color: 'var(--muted)'}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>settings</span>
+                        </button>
+                    )}
                 </div>
-                <div className="nav-item" title="Cerrar sesión" onClick={onLogout} style={{color:'#ef4444'}}>
-                    <span className="material-icons-round" style={{color:'#ef4444'}}>logout</span>
-                    {!collapsed&&<span className="nav-label">Cerrar Sesión</span>}
-                </div>
+                
+                {data?.system && !collapsed && (
+                    <div style={{marginTop:8, padding:'0 8px', fontSize:9, color:'var(--muted)', fontWeight:600, display:'flex', justifyContent:'space-between'}}>
+                         <span>CPU: {data.system.cpu}%</span>
+                         <span>RAM: {data.system.ram}%</span>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -835,16 +903,40 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
 
 function ViewExtensiones({ data, toast }) {
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState(''); // '' | 'ONLINE' | 'BUSY' | 'OFFLINE'
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [drawer, setDrawer] = useState(null); // null | 'new' | ext object
     const [saved, setSaved] = useState(0);
-    const exts = (data?.pbx?.extensions||[]).filter(e=>
-        e.ext.includes(search) || e.name.toLowerCase().includes(search.toLowerCase())
-    );
-    const online = exts.filter(e=>e.status==='ONLINE').length;
-    const busy   = exts.filter(e=>e.status==='BUSY').length;
+
+    const allExts = data?.pbx?.extensions || [];
+    const onlineTotal = allExts.filter(e=>e.status==='ONLINE').length;
+    const busyTotal   = allExts.filter(e=>e.status==='BUSY').length;
+    const offlineTotal = allExts.length - onlineTotal - busyTotal;
+
+    const exts = allExts.filter(e => {
+        const matchesSearch = e.ext.includes(search) || e.name.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = !statusFilter || e.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
     const badgeCls = s => s==='ONLINE'?'badge-online':s==='BUSY'?'badge-busy':'badge-offline';
     const dotCls   = s => s==='ONLINE'?'dot-online':s==='BUSY'?'dot-busy':'dot-offline';
+
+    const Chip = ({ label, count, status, color, bg }) => (
+        <div 
+            onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+            style={{
+                padding:'6px 12px', borderRadius:8, background: statusFilter === status ? bg : 'rgba(255,255,255,0.03)',
+                border:`1px solid ${statusFilter === status ? color : 'var(--border)'}`,
+                color: statusFilter === status ? color : 'var(--muted)',
+                fontWeight:700, whiteSpace:'nowrap', cursor:'pointer', fontSize:11, transition:'all 0.2s',
+                display:'flex', alignItems:'center', gap:6
+            }}
+        >
+            <span style={{ width:6, height:6, borderRadius:'50%', background:color }} />
+            {count} {label}
+        </div>
+    );
 
     return (
         <div className="content-area view-enter">
@@ -855,11 +947,11 @@ function ViewExtensiones({ data, toast }) {
                     <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
                 </div>
                 
-                {/* Stats mini */}
-                <div style={{display:'flex', gap:8, fontSize:11}}>
-                    <div style={{padding:'6px 12px',borderRadius:8,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,.2)',color:'#4ade80',fontWeight:700,whiteSpace:'nowrap'}}>{online} Online</div>
-                    <div style={{padding:'6px 12px',borderRadius:8,background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,.2)',color:'#fbbf24',fontWeight:700,whiteSpace:'nowrap'}}>{busy} En Llamada</div>
-                    <div style={{padding:'6px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',fontWeight:700,whiteSpace:'nowrap'}}>{exts.length-online-busy} Offline</div>
+                {/* Status Chips Filter */}
+                <div style={{display:'flex', gap:6}}>
+                    <Chip label="Online" count={onlineTotal} status="ONLINE" color="#4ade80" bg="rgba(34,197,94,0.1)" />
+                    <Chip label="En Llamada" count={busyTotal} status="BUSY" color="#fbbf24" bg="rgba(245,158,11,0.1)" />
+                    <Chip label="Offline" count={offlineTotal} status="OFFLINE" color="#9ca3af" bg="rgba(107,114,128,0.1)" />
                 </div>
 
                 <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
