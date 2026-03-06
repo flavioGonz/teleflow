@@ -2611,13 +2611,13 @@ function ViewWebPhone({ data, toast }) {
 
             const su = new window.SIP.Web.SimpleUser(server, {
                 aor,
-                media: mediaConfig
+                media: mediaConfig,
+                userAgentOptions: {
+                    authorizationUsername: ext.trim(),
+                    authorizationPassword: pass.trim(),
+                    transportOptions: { server: server, traceSip: true }
+                }
             });
-            su.userAgentOptions = su.userAgentOptions || {};
-            su.userAgentOptions.authorizationUsername = ext.trim();
-            su.userAgentOptions.authorizationPassword = pass.trim();
-            // Eliminamos authenticationRealm = 'asterisk' para que responda a cualquier realm dinámico que pida PJSIP
-            su.userAgentOptions.transportOptions = { server: server, traceSip: true };
             su.delegate = {
                 onCallReceived: () => { 
                     toast('¡Llamada entrante!','call'); 
