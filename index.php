@@ -6,8 +6,14 @@
     <meta name="theme-color" content="#0a0a0f">
     <title>TeleFlow · Next-Gen PBX Control</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📞</text></svg>'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script>
+        if (typeof window !== 'undefined' && window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+            window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on = window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on || function() {};
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>

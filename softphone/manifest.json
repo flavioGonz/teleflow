@@ -9,15 +9,10 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "https://fonts.gstatic.com/s/i/materialiconsround/phonelink_ring/v14/192px.svg",
-      "sizes": "192x192",
+      "src": "icon-192.svg",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
-    },
-    {
-      "src": "https://fonts.gstatic.com/s/i/materialiconsround/phonelink_ring/v14/512px.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
     }
   ]
 }
