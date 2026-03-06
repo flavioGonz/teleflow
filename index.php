@@ -206,6 +206,26 @@
             flex-shrink: 0;
         }
 
+        /* ── RESPONSIVE / PWA ── */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0; top: 0; bottom: 0;
+                z-index: 1000;
+                transform: translateX(-100%);
+                box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+            }
+            .sidebar.mobile-open { transform: translateX(0); }
+            .sidebar.collapsed { display: none; }
+            .content-area { padding: 16px; }
+            .topbar { padding: 12px 16px; }
+            .sidebar-overlay {
+                position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 999;
+                display: none;
+            }
+            .sidebar-overlay.active { display: block; }
+        }
+
         /* ── MAIN ── */
         .main-content {
             flex: 1;
@@ -486,7 +506,8 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
     const extsOnline = data?.pbx?.extensions?.filter(e=>e.status==='ONLINE')?.length || 0;
     const qWaiting = data?.pbx?.queues?.reduce((acc, q) => acc + (q.calls_waiting || 0), 0) || 0;
 
-    const toggleTheme = () => {
+    const toggleTheme = (e) => {
+        e.stopPropagation();
         document.body.classList.add('theme-transition');
         setDarkMode(!darkMode);
         setTimeout(() => document.body.classList.remove('theme-transition'), 500);
@@ -505,11 +526,11 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         { section: 'Herramientas' },
         { id:'webphone', icon:'phone_in_talk', label:'Softphone' },
         { id:'cdr', icon:'history', label:'CDR' },
-        { id:'reportes', icon:'bar_chart', label:'Reportes' },
+        { id:'configuracion', icon:'settings', label:'Configuración' },
     ];
 
     return (
-        <div className={`sidebar${collapsed?' collapsed':''}`} style={{ position: 'relative' }}>
+        <div className={`sidebar${collapsed?' collapsed':''} ${!collapsed && window.innerWidth < 768 ? 'mobile-open' : ''}`} style={{ position: 'relative' }}>
             <div className="sidebar-logo" style={{display:'flex',alignItems:'center',gap:10,padding:collapsed?'18px 0':'20px 14px 14px',justifyContent:collapsed?'center':'flex-start'}}>
                 <div style={{width:32,height:32,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}} onClick={()=>setCollapsed(!collapsed)}>
                     <span className="material-icons-round" style={{fontSize:16,color:'white'}}>{collapsed?'chevron_right':'sensors'}</span>
@@ -547,11 +568,10 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                 {/* Context Menu */}
                 {showUserMenu && (
                     <div className="context-menu" style={{ left: collapsed ? '65px' : '10px', bottom: '60px' }}>
-                        <div className="context-menu-item" onClick={() => { setDarkMode(!darkMode); setShowUserMenu(false); }}>
-                            <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
-                            {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
+                        <div className="context-menu-item" onClick={() => { setView('configuracion'); setShowUserMenu(false); }}>
+                            <span className="material-icons-round">settings</span>Configuración
                         </div>
-                        <div className="context-menu-item" onClick={() => { setView('reportes'); setShowUserMenu(false); }}>
+                        <div className="context-menu-item" onClick={() => { /* Opción de cambiar clave */ setShowUserMenu(false); }}>
                             <span className="material-icons-round">vpn_key</span>Cambiar Clave
                         </div>
                         <div className="context-menu-item danger" onClick={onLogout}>
@@ -578,19 +598,10 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                         </div>
                     )}
 
-                    {!collapsed && (
-                        <button className="glass-hover" onClick={() => setView('reportes')} style={{background:'none', border:'none', padding:4, cursor:'pointer', color: 'var(--muted)'}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>settings</span>
-                        </button>
-                    )}
+                    <button className="glass-hover" onClick={toggleTheme} style={{background:'none', border:'none', padding:6, borderRadius:8, cursor:'pointer', color: 'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{fontSize:18, color: darkMode ? '#fbbf24' : '#6366f1'}}>{darkMode?'light_mode':'dark_mode'}</span>
+                    </button>
                 </div>
-                
-                {data?.system && !collapsed && (
-                    <div style={{marginTop:8, padding:'0 8px', fontSize:9, color:'var(--muted)', fontWeight:600, display:'flex', justifyContent:'space-between'}}>
-                         <span>CPU: {data.system.cpu}%</span>
-                         <span>RAM: {data.system.ram}%</span>
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -2453,114 +2464,205 @@ function ViewIVR({ toast }) {
 // ─────────────────────────────────────────────
 // APP PRINCIPAL
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN
+// ─────────────────────────────────────────────
+function ViewConfiguracion() {
+    const [activeTab, setActiveTab] = useState('notificaciones');
+    const [sipLog, setSipLog] = useState('');
+    const [loadingSip, setLoadingSip] = useState(false);
+
+    const loadSipDebug = async () => {
+        setLoadingSip(true);
+        try {
+            const r = await fetch('api/index.php?action=get_sip_debug');
+            const d = await r.json();
+            if (d.success) setSipLog(d.log || 'No hay eventos recientes.');
+        } catch(e) { setSipLog('Error al conectar con el servidor.'); }
+        setLoadingSip(false);
+    };
+
+    useEffect(() => {
+        if (activeTab === 'debug_sip') {
+            loadSipDebug();
+            const t = setInterval(loadSipDebug, 3000);
+            return () => clearInterval(t);
+        }
+    }, [activeTab]);
+
+    return (
+        <div className="content-area view-enter">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
+                <div>
+                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Configuración del Sistema</h2>
+                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Personalización de la plataforma y diagnóstico</p>
+                </div>
+            </div>
+
+            <div className="glass" style={{display:'flex', padding:4, borderRadius:16, marginBottom:24, background:'var(--surface2)', width:'fit-content'}}>
+                <button onClick={()=>setActiveTab('notificaciones')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='notificaciones'?'var(--surface)':'transparent', color:activeTab==='notificaciones'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>notifications</span>Notificaciones
+                </button>
+                <button onClick={()=>setActiveTab('debug_sip')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='debug_sip'?'var(--surface)':'transparent', color:activeTab==='debug_sip'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>terminal</span>Debug SIP
+                </button>
+            </div>
+
+            {activeTab === 'notificaciones' && (
+                <div className="anim-fadeup">
+                    <div className="glass" style={{padding:24}}>
+                        <h4 style={{fontSize:15, fontWeight:800, color:'var(--text)', marginBottom:20}}>Alertas del Navegador</h4>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0', borderBottom:'1px solid var(--border)'}}>
+                            <div>
+                                <div style={{fontSize:14, fontWeight:600, color:'var(--text)'}}>Notificaciones Push</div>
+                                <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>Recibe avisos de llamadas en vivo incluso si la pestaña está cerrada.</div>
+                            </div>
+                            <button className="btn-primary" style={{padding:'8px 16px', borderRadius:10, fontSize:12}} onClick={()=>Notification.requestPermission()}>Solicitar Permiso</button>
+                        </div>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0'}}>
+                            <div>
+                                <div style={{fontSize:14, fontWeight:600, color:'var(--text)'}}>Alertas Sonoras</div>
+                                <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>Reproducir ringtone al recibir llamadas en el Softphone.</div>
+                            </div>
+                            <div style={{width:40, height:20, background:'var(--accent)', borderRadius:10, position:'relative', cursor:'pointer'}}>
+                                <div style={{position:'absolute', right:2, top:2, width:16, height:16, background:'white', borderRadius:'50%'}}></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'debug_sip' && (
+                <div className="anim-fadeup">
+                    <div className="glass" style={{padding:24, background:'#0a0a0f', border:'1px solid #1a1a2e'}}>
+                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+                            <h4 style={{fontSize:15, fontWeight:800, color:'#8b5cf6', display:'flex', alignItems:'center', gap:8}}>
+                                <span className="material-icons-round" style={{fontSize:20}}>developer_board</span> PJSIP Logger Console
+                            </h4>
+                            <div style={{display:'flex', alignItems:'center', gap:10}}>
+                                {loadingSip && <span className="material-icons-round" style={{fontSize:16, color:'#8b5cf6', animation:'spin-slow 1s linear infinite'}}>sync</span>}
+                                <button className="btn-primary" style={{background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#c4b5fd', padding:'4px 12px', borderRadius:8, fontSize:11}} onClick={loadSipDebug}>Limpiar & Refrescar</button>
+                            </div>
+                        </div>
+                        <pre style={{
+                            fontSize:11, 
+                            fontFamily:'"Fira Code", monospace', 
+                            color:'#a5b4fc', 
+                            background:'rgba(0,0,0,0.3)', 
+                            padding:16, 
+                            borderRadius:12, 
+                            maxHeight:400, 
+                            overflowY:'auto', 
+                            whiteSpace:'pre-wrap',
+                            lineHeight:'1.6',
+                            border:'1px solid rgba(255,255,255,0.03)'
+                        }}>
+                            {sipLog || 'Conectando al stream de Asterisk...'}
+                        </pre>
+                        <div style={{marginTop:12, fontSize:10, color:'#4b5563', display:'flex', alignItems:'center', gap:6}}>
+                            <span style={{width:6, height:6, borderRadius:'50%', background:'#22c55e'}}></span> Mostrando últimos eventos de registro y autenticación en tiempo real.
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// APP PRINCIPAL
+// ─────────────────────────────────────────────
 function App() {
-    const [isLogged, setIsLogged] = useState(null); // null=checking
-    const [user, setUser] = useState('');
+    const [user, setUser] = useState(null); 
     const [view, setView] = useState('dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(false);
     const [darkMode, setDarkMode] = useState(true);
-    const [toasts, setToasts] = useState([]);
+    const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
 
     // Dark/light toggle
     useEffect(()=>{ document.body.classList.toggle('light',!darkMode); },[darkMode]);
 
     // Toast helper
-    const toast = (msg, type='info') => {
-        const id = Date.now();
-        setToasts(t=>[...t,{id,msg,type}]);
-        setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4000);
+    const showToast = (msg, type='info') => {
+        setToast({msg,type});
+        setTimeout(()=>setToast(null),4000);
     };
 
-    // Check session on mount (F5)
-    useEffect(()=>{
-        fetch('api/index.php?action=get_full_data')
-            .then(async r=>{
-                if(r.status===403){setIsLogged(false);return;}
-                const d=await r.json();
-                if(d&&d.pbx){setData(d);setIsLogged(true);}
-                else setIsLogged(false);
-            })
-            .catch(()=>setIsLogged(false));
-    },[]);
-
-    const refresh = useCallback(async () => {
+    // Load data
+    const load = useCallback(async () => {
         try {
-            const r = await fetch('api/index.php?action=get_full_data');
-            if (r.status === 403) { setIsLogged(false); return; }
-            const d = await r.json();
-            if (d) setData(d);
-        } catch {}
+            const res = await fetch('api/index.php?action=get_full_data');
+            const d = await res.json();
+            if (d.status === 'error' && d.message === 'No autorizado') {
+                setUser(null);
+            } else {
+                setData(d);
+                if (d.user) setUser(d.user);
+            }
+        } catch(e) {}
     }, []);
 
-    // Poll active calls for topbar indicator
+    // Check session on mount
     useEffect(()=>{
-        if(!isLogged) return;
-        const poll=async()=>{
-            try{const r=await fetch('api/index.php?action=get_active_calls');const d=await r.json();if(d.success)setActiveCalls(d.count||0);}catch{}
-        };
-        poll();const t=setInterval(poll,5000);return()=>clearInterval(t);
-    },[isLogged]);
-
-    useEffect(() => {
-        if (!isLogged) return;
-        refresh();
-        const t = setInterval(refresh, 4000);
+        load();
+        const t = setInterval(load, 5000);
         return () => clearInterval(t);
-    }, [isLogged, refresh]);
+    }, [load]);
 
     // Register SW
     useEffect(()=>{
         if('serviceWorker' in navigator){
-            navigator.serviceWorker.register('/teleflow/sw.js').catch(()=>{});
-            Notification.requestPermission().catch(()=>{});
+            navigator.serviceWorker.register('sw.js').catch(()=>{});
         }
     },[]);
 
-    const onLogin = (u) => { setUser(u); setIsLogged(true); };
-    const onLogout = async () => {
-        await fetch('api/index.php?action=logout');
-        setIsLogged(false); setUser('');
-    };
-
-    if (isLogged === null) return (
-        <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}>
-            <div style={{textAlign:'center'}}>
-                <div style={{width:48,height:48,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
-                    <span className="material-icons-round" style={{fontSize:24,color:'white',animation:'spin-slow 1s linear infinite'}}>refresh</span>
-                </div>
-                <div style={{fontSize:13,color:'#6b7280'}}>Verificando sesión...</div>
-            </div>
-        </div>
-    );
-
-    if (!isLogged) return <Login onLogin={onLogin} />;
+    if (user === null) return <Login onLogin={u => { setUser(u); load(); }} />;
 
     const renderView = () => {
         switch(view) {
-            case 'dashboard':   return <ViewDashboard data={data} key={view} />;
-            case 'extensiones': return <ViewExtensiones data={data} toast={toast} key={view} />;
-            case 'agentes':     return <ViewAgentes key={view} />;
-            case 'vivo':        return <ViewVivo2 data={data} key={view} />;
-            case 'cdr':         return <ViewCDR key={view} />;
-            case 'reportes':    return <ViewReportes toast={toast} key={view} />;
-            case 'colas':       return <ViewColas toast={toast} key={view} />;
-            case 'grupos':      return <ViewGrupos toast={toast} key={view} />;
-            case 'ivr':         return <ViewIVR toast={toast} key={view} />;
-            case 'webphone':    return <ViewWebPhone data={data} toast={toast} key={view} />;
-            default:            return <div className="content-area" key={view} />;
+            case 'dashboard':   return <ViewDashboard data={data} />;
+            case 'extensiones': return <ViewExtensiones data={data} toast={showToast} />;
+            case 'agentes':     return <ViewAgentes />;
+            case 'vivo':        return <ViewVivo2 data={data} />;
+            case 'cdr':         return <ViewCDR toast={showToast} />;
+            case 'reportes':    return <ViewReportes toast={showToast} />;
+            case 'colas':       return <ViewColas toast={showToast} />;
+            case 'grupos':      return <ViewGrupos toast={showToast} />;
+            case 'ivr':         return <ViewIVR toast={showToast} />;
+            case 'webphone':    return <ViewWebPhone data={data} toast={showToast} />;
+            case 'configuracion': return <ViewConfiguracion />;
+            default:            return <div className="content-area">Vista no implementada</div>;
         }
     };
 
     return (
         <div id="app">
-            <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} collapsed={collapsed} setCollapsed={setCollapsed} darkMode={darkMode} setDarkMode={setDarkMode} data={data} activeCalls={activeCalls} />
-            <div className="main-content">
-                {renderView()}
-            </div>
-            <Toast toasts={toasts} remove={id=>setToasts(t=>t.filter(x=>x.id!==id))} />
-            <LiveCallNotifications calls={data.pbx.live_calls || []} extensions={data.pbx.extensions || []} />
+            <div className={`sidebar-overlay ${!collapsed && window.innerWidth < 768 ? 'active' : ''}`} onClick={() => setCollapsed(true)} />
+            <Sidebar 
+                view={view} setView={setView} user={user} 
+                onLogout={async () => { await fetch('api/index.php?action=logout'); setUser(null); }} 
+                collapsed={collapsed} setCollapsed={setCollapsed}
+                darkMode={darkMode} setDarkMode={setDarkMode}
+                data={data}
+                activeCalls={data?.pbx?.live_calls?.length || 0}
+            />
+            <main className="main-content">
+                <Topbar view={view} data={data} onRefresh={load} />
+                <div style={{flex:1, overflowY:'auto'}}>
+                    {renderView()}
+                </div>
+            </main>
+
+            {toast && (
+                <div className="toast-container">
+                    <div className={`toast toast-${toast.type || 'info'}`}>
+                        <span className="material-icons-round">{toast.type==='success'?'check_circle':toast.type==='error'?'error':'info'}</span>
+                        {toast.msg}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

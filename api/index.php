@@ -42,6 +42,26 @@ if (!isset($_SESSION['tf_user'])) {
     exit;
 }
 
+if ($action === 'get_sip_debug') {
+    // Intentamos leer el log de asterisk. En Issabel suele ser /var/log/asterisk/full
+    // Filtramos por pjsip o errores de registro
+    $log_path = '/var/log/asterisk/full';
+    if (!file_exists($log_path)) {
+        echo json_encode(['success' => true, 'log' => "Archivo de log no encontrado en $log_path\nVerifique permisos o ruta."]);
+        exit;
+    }
+    
+    // Leemos las últimas 500 líneas y filtramos
+    $cmd = "tail -n 500 $log_path | grep -iE 'pjsip|sip|reg|auth|fail' | tail -n 80";
+    $output = shell_exec($cmd);
+    
+    echo json_encode([
+        'success' => true, 
+        'log' => $output ?: "No se detectaron eventos SIP/PJSIP recientes en el log."
+    ]);
+    exit;
+}
+
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 function mysql_pbx($db = 'asterisk') {
     global $DB_PASS;
