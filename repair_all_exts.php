@@ -1,7 +1,8 @@
 <?php
+include 'config.php';
 $exts = ['2002', '2003', '2004'];
 try {
-    $db = new PDO('mysql:host=localhost;dbname=asterisk', 'root', 'Sildan.1329');
+    $db = new PDO('mysql:host=localhost;dbname=asterisk', $DB_USER, $DB_PASS);
     foreach($exts as $ext) {
         $flags = [
             'webrtc' => 'yes',
@@ -22,3 +23,4 @@ try {
     shell_exec("asterisk -rx 'module reload res_pjsip.so'");
     echo "Sincronización con Asterisk completada.\n";
 } catch (Exception $e) { echo "Error: ".$e->getMessage(); }
+

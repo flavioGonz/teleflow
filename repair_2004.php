@@ -1,8 +1,9 @@
 <?php
+include 'config.php';
 $ext = '2004';
 $pass = 'Teleflow2024*';
 try {
-    $db = new PDO('mysql:host=localhost;dbname=asterisk', 'root', 'Sildan.1329');
+    $db = new PDO('mysql:host=localhost;dbname=asterisk', $DB_USER, $DB_PASS);
     // Update secret
     $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='secret'")->execute([$pass, $ext]);
     
@@ -37,3 +38,4 @@ try {
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";
 }
+

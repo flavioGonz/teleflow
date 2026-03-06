@@ -5,7 +5,11 @@ header('Access-Control-Allow-Origin: *');
 
 $action     = $_GET['action'] ?? '';
 $avatar_dir = '../uploads/avatars/';
-$DB_PASS    = 'Sildan.1329';
+if (file_exists(__DIR__ . '/../config.php')) {
+    include __DIR__ . '/../config.php';
+} else {
+    $DB_PASS = ''; // Fallback if config.php is missing
+}
 
 // ─── AUTH ───────────────────────────────────────────────────────────────────
 if ($action === 'login') {

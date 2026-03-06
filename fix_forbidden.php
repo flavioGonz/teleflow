@@ -1,8 +1,9 @@
 <?php
+include 'config.php';
 $exts = ['2002', '2003', '2004'];
 $pass = 'Teleflow2024'; // Nueva clave sin caracteres especiales
 try {
-    $db = new PDO('mysql:host=localhost;dbname=asterisk', 'root', 'Sildan.1329');
+    $db = new PDO('mysql:host=localhost;dbname=asterisk', $DB_USER, $DB_PASS);
     foreach($exts as $ext) {
         $db->prepare("UPDATE sip SET data=? WHERE id=? AND keyword='secret'")->execute([$pass, $ext]);
         // Asegurar que rewrite_contact y force_rport estén en YES en la DB para que Issabel no los pise
@@ -18,3 +19,4 @@ try {
     shell_exec("asterisk -rx 'module reload res_pjsip.so'");
     echo "Asterisk recargado.\n";
 } catch (Exception $e) { echo $e->getMessage(); }
+

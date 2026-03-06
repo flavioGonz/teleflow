@@ -1,10 +1,11 @@
 <?php
+include 'config.php';
 $exts = ['2004', '2002', '2003'];
 $cert = '/etc/asterisk/keys/asterisk.pem';
 $pass = 'Teleflow2024';
 
 try {
-    $db = new PDO('mysql:host=localhost;dbname=asterisk', 'root', 'Sildan.1329');
+    $db = new PDO('mysql:host=localhost;dbname=asterisk', $DB_USER, $DB_PASS);
 
     // 1. Ensure cert bundle exists or use httpd certs if missing
     if (!file_exists($cert)) {
@@ -46,3 +47,4 @@ try {
     echo "Asterisk recargado con éxito.\n";
 
 } catch (Exception $e) { echo "Error: " . $e->getMessage(); }
+
