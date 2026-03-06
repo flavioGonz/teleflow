@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -878,25 +878,31 @@ function ViewDashboard({ data }) {
 // ─────────────────────────────────────────────
 // VISTA: EXTENSIONES (CRUD + grid/tabla)
 // ─────────────────────────────────────────────
-function ExtDrawer({ ext, onClose, onSaved, toast }) {
+// No longer used as a floating drawer - ExtEditPage is now a full-page view
+// ExtDrawer left as dead code for reference, replaced by ExtEditPage below
+
+// ─────────────────────────────────────────────
+// FICHA DEL INTERNO — Página dedicada (no modal)
+// ─────────────────────────────────────────────
+function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '' });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
     const [showPass, setShowPass] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         if (!isNew && ext.ext) {
-            // Fetch the current secret to show it
             fetch(`api/index.php?action=get_extension&ext=${ext.ext}`)
                 .then(r=>r.json())
-                .then(d=>{
-                    if(d.success) setForm(f=>({...f, secret: d.secret||''}));
-                });
+                .then(d=>{ if(d.success) setForm(f=>({...f, secret: d.secret||''})); });
         }
     }, [ext, isNew]);
-    const [saving, setSaving] = useState(false);
+
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
     const save = async () => {
         setSaving(true);
         const fd = new FormData();
@@ -906,7 +912,6 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
         const r = await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd});
         const d = await r.json();
         if (d.success) {
-            // Set recording mode
             if (!isNew) {
                 const fd2=new FormData(); fd2.append('ext',form.ext); fd2.append('mode',recording);
                 await fetch('api/index.php?action=set_recording',{method:'POST',body:fd2});
@@ -915,112 +920,261 @@ function ExtDrawer({ ext, onClose, onSaved, toast }) {
         } else toast(d.error||'Error al guardar','error');
         setSaving(false);
     };
+
     const del = async () => {
         if(!confirm(`¿Eliminar extensión #${form.ext}?`)) return;
+        setDeleting(true);
         const fd=new FormData(); fd.append('ext',form.ext);
         const d=await(await fetch('api/index.php?action=delete_extension',{method:'POST',body:fd})).json();
         if(d.success){toast(d.message,'success');onSaved();}
-        else toast(d.error||'Error','error');
+        else { toast(d.error||'Error','error'); setDeleting(false); }
     };
-    const F = ({label,k,type='text',placeholder='',readOnly=false}) => (
-        <div className="mb-5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">{label}</label>
-            <div className="relative group">
-                <input 
-                    className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'group-hover:border-purple-500/40'}`} 
-                    type={type} 
-                    placeholder={placeholder} 
-                    value={form[k]} 
-                    onChange={e=>set(k,e.target.value)} 
-                    readOnly={readOnly} 
-                />
+
+    const recOptions=[{v:'always',l:'Siempre',c:'#4ade80',i:'fiber_manual_record'},{v:'dontcare',l:'Opcional',c:'#9ca3af',i:'radio_button_unchecked'},{v:'never',l:'Nunca',c:'#f87171',i:'not_interested'}];
+    const devOptions=[{v:'audio',l:'SIP Fijo',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}];
+
+    const ini = form.name ? form.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : (form.ext || '?');
+    const statusColor = ext?.status === 'ONLINE' ? '#22c55e' : ext?.status === 'BUSY' ? '#f59e0b' : '#6b7280';
+
+    return (
+        <div className="content-area view-enter">
+            {/* Breadcrumb header */}
+            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:24}}>
+                <button
+                    onClick={onBack}
+                    style={{
+                        width:38, height:38, borderRadius:12,
+                        background:'var(--surface)', border:'1px solid var(--border)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        cursor:'pointer', color:'var(--muted)', transition:'all .2s'
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
+                    onMouseLeave={e=>e.currentTarget.style.color='var(--muted)'}
+                >
+                    <span className="material-icons-round" style={{fontSize:20}}>arrow_back</span>
+                </button>
+                <div style={{display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--muted)'}}>
+                    <span style={{cursor:'pointer', fontWeight:600}} onClick={onBack}>Extensiones</span>
+                    <span className="material-icons-round" style={{fontSize:14}}>chevron_right</span>
+                    <span style={{color:'var(--text)', fontWeight:700}}>
+                        {isNew ? 'Nueva Extensión' : `Interno #${ext.ext}`}
+                    </span>
+                </div>
+                <div style={{flex:1}} />
+                {!isNew && (
+                    <button
+                        onClick={del}
+                        disabled={deleting}
+                        style={{
+                            padding:'8px 16px', borderRadius:10, fontSize:12, fontWeight:700,
+                            background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)',
+                            color:'#f87171', cursor:'pointer', display:'flex', alignItems:'center', gap:6,
+                            transition:'all .2s'
+                        }}
+                    >
+                        <span className="material-icons-round" style={{fontSize:16}}>{deleting?'hourglass_top':'delete_outline'}</span>
+                        {deleting ? 'Eliminando...' : 'Eliminar Interno'}
+                    </button>
+                )}
+            </div>
+
+            {/* Main two-column layout */}
+            <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:24, alignItems:'start'}}>
+
+                {/* LEFT — Avatar / Info card */}
+                <div style={{display:'flex', flexDirection:'column', gap:16}}>
+                    {/* Avatar big */}
+                    <div className="glass" style={{padding:28, textAlign:'center', borderRadius:20}}>
+                        <div style={{
+                            width:80, height:80, borderRadius:22, margin:'0 auto 16px',
+                            background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:28, fontWeight:900, color:'white',
+                            boxShadow:'0 8px 32px rgba(139,92,246,0.45)'
+                        }}>{ini}</div>
+                        <div style={{fontSize:18, fontWeight:900, color:'var(--text)'}}>{form.name || 'Sin nombre'}</div>
+                        <div style={{fontFamily:'monospace', fontSize:13, color:'#c4b5fd', fontWeight:700, marginTop:4}}>#{form.ext || '—'}</div>
+                        {ext?.status && (
+                            <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'center', marginTop:12}}>
+                                <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 8px ${statusColor}`}} />
+                                <span style={{fontSize:11, fontWeight:700, color:statusColor}}>{ext.status}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Network info */}
+                    {ext && (
+                        <div className="glass" style={{padding:16, borderRadius:16}}>
+                            <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Información de Red</div>
+                            {[
+                                {l:'IP', v: ext.ip, c:'#ec4899'},
+                                {l:'RTT', v: ext.rtt, c:'#c4b5fd'},
+                                {l:'MAC', v: ext.mac, c:'#6b7280'},
+                            ].map(({l,v}) => v && v!=='—' ? (
+                                <div key={l} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                                    <span style={{fontSize:11, color:'#6b7280', fontWeight:600}}>{l}</span>
+                                    <code style={{fontSize:11, color:'#ec4899', fontFamily:'monospace'}}>{v}</code>
+                                </div>
+                            ) : null)}
+                        </div>
+                    )}
+
+                    {/* Asterisk tip */}
+                    {!isNew && (
+                        <div style={{
+                            padding:14, borderRadius:14,
+                            background:'rgba(139,92,246,0.06)',
+                            border:'1px solid rgba(139,92,246,0.2)'
+                        }}>
+                            <div style={{display:'flex', gap:10, alignItems:'flex-start'}}>
+                                <span className="material-icons-round" style={{fontSize:15, color:'#8b5cf6', marginTop:1}}>info</span>
+                                <span style={{fontSize:11, color:'#a78bfa', lineHeight:1.5}}>Los cambios aplicarán un <b>core reload</b> automático en Asterisk para sincronizar SIP y dialplan.</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* RIGHT — Form */}
+                <div className="glass" style={{padding:28, borderRadius:20}}>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
+                        {/* Ext number */}
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Número de Interno</label>
+                            <input
+                                className="input-tf"
+                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, fontWeight:700, width:'100%', boxSizing:'border-box', opacity: isNew ? 1 : 0.7}}
+                                placeholder="Ej: 1005"
+                                value={form.ext}
+                                onChange={e=>set('ext',e.target.value)}
+                                readOnly={!isNew}
+                            />
+                        </div>
+                        {/* Name */}
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Nombre o Alias</label>
+                            <input
+                                className="input-tf"
+                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
+                                placeholder="Ej: Juan Pérez"
+                                value={form.name}
+                                onChange={e=>set('name',e.target.value)}
+                            />
+                        </div>
+                        {/* Email */}
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Correo Electrónico</label>
+                            <input
+                                className="input-tf"
+                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
+                                placeholder="usuario@empresa.com"
+                                type="email"
+                                value={form.email}
+                                onChange={e=>set('email',e.target.value)}
+                            />
+                        </div>
+                        {/* Password */}
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Contraseña SIP (Secret)</label>
+                            <div style={{position:'relative'}}>
+                                <input
+                                    className="input-tf"
+                                    style={{padding:'12px 48px 12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
+                                    type={showPass?'text':'password'}
+                                    placeholder="Mínimo 6 caracteres"
+                                    value={form.secret}
+                                    onChange={e=>set('secret',e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={()=>setShowPass(!showPass)}
+                                    style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#6b7280',display:'flex',padding:4}}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recording */}
+                    <div style={{marginBottom:20}}>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Grabación de Llamadas</label>
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
+                            {recOptions.map(o=>(
+                                <button
+                                    key={o.v}
+                                    onClick={()=>setRecording(o.v)}
+                                    style={{
+                                        padding:'14px 10px', borderRadius:14, cursor:'pointer',
+                                        border: recording===o.v ? `1px solid ${o.c}40` : '1px solid var(--border)',
+                                        background: recording===o.v ? `${o.c}12` : 'var(--surface2)',
+                                        color: recording===o.v ? o.c : 'var(--muted)',
+                                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+                                        transition:'all .2s', fontWeight:700, fontSize:11
+                                    }}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:22, color:recording===o.v?o.c:'var(--muted)'}}>{o.i}</span>
+                                    {o.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Device type */}
+                    <div style={{marginBottom:28}}>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Tecnología de Dispositivo</label>
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
+                            {devOptions.map(o=>(
+                                <button
+                                    key={o.v}
+                                    onClick={()=>setDevType(o.v)}
+                                    style={{
+                                        padding:'14px 10px', borderRadius:14, cursor:'pointer',
+                                        border: devType===o.v ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border)',
+                                        background: devType===o.v ? 'rgba(139,92,246,0.12)' : 'var(--surface2)',
+                                        color: devType===o.v ? '#c4b5fd' : 'var(--muted)',
+                                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+                                        transition:'all .2s', fontWeight:700, fontSize:11
+                                    }}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:22, color:devType===o.v?'#8b5cf6':'var(--muted)'}}>{o.i}</span>
+                                    {o.l}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{display:'flex', gap:12, justifyContent:'flex-end', paddingTop:20, borderTop:'1px solid var(--border)'}}>
+                        <button
+                            onClick={onBack}
+                            style={{
+                                padding:'12px 24px', borderRadius:14, fontWeight:700, fontSize:13,
+                                background:'var(--surface2)', border:'1px solid var(--border)',
+                                color:'var(--muted)', cursor:'pointer', transition:'all .2s'
+                            }}
+                        >Cancelar</button>
+                        <button
+                            onClick={save}
+                            disabled={saving}
+                            className="btn-primary"
+                            style={{padding:'12px 32px', borderRadius:14, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}
+                        >
+                            <span className="material-icons-round" style={{fontSize:18}}>{saving?'hourglass_top':'save'}</span>
+                            {saving ? 'Guardando...' : isNew ? 'Crear Interno' : 'Guardar Cambios'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
-    const recOptions=[{v:'always',l:'Siempre',c:'#4ade80',i:'fiber_manual_record'},{v:'dontcare',l:'Opcional',c:'#9ca3af',i:'radio_button_unchecked'},{v:'never',l:'Nunca',c:'#f87171',i:'not_interested'}];
-    return (
-        <>
-            <div className="drawer-backdrop" onClick={onClose} />
-            <div className="drawer theme-transition">
-                <div className="drawer-header">
-                    <div>
-                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nueva Extensión':`Editar Interno #${ext.ext}`}</div>
-                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>{isNew?'Configura los parámetros del nuevo interno':'Actualiza la configuración de esta extensión'}</div>
-                    </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
-                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
-                    </button>
-                </div>
-                <div className="drawer-body">
-                    <F label="Número de Interno" k="ext" placeholder="Ej: 1005" readOnly={!isNew} />
-                    <F label="Nombre o Alias" k="name" placeholder="Juan Pérez" />
-                    
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Contraseña SIP (Secret)</label>
-                        <div className="relative group">
-                            <input 
-                                className="input-tf p-3.5 pr-12 rounded-2xl text-sm group-hover:border-purple-500/40" 
-                                type={showPass?'text':'password'} 
-                                placeholder="Mínimo 6 caracteres" 
-                                value={form.secret} 
-                                onChange={e=>set('secret',e.target.value)} 
-                            />
-                            <button type="button" onClick={()=>setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white transition-colors">
-                                <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <F label="Correo Electrónico" k="email" type="email" placeholder="usuario@empresa.com" />
-
-                    <div className="mb-6">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Grabación de llamadas</label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {recOptions.map(o=>(
-                                <button key={o.v} onClick={()=>setRecording(o.v)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5 ${recording===o.v ? 'bg-purple-500/10 border-purple-500/50 text-white' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
-                                    <span className="material-icons-round" style={{fontSize:18, color: recording===o.v ? o.c : 'inherit'}}>{o.i}</span>
-                                    <span className="text-[10px] font-bold uppercase">{o.l}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="mb-6">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Tecnología de Dispositivo</label>
-                        <div className="grid grid-cols-3 gap-3">
-                            {[{v:'audio',l:'SIP Fijo',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}].map(o=>(
-                                <button key={o.v} onClick={()=>setDevType(o.v)} className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-1.5 ${devType===o.v ? 'bg-purple-500/10 border-purple-500/50 text-white' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10'}`}>
-                                    <span className="material-icons-round" style={{fontSize:18, color: devType===o.v ? '#8b5cf6' : 'inherit'}}>{o.i}</span>
-                                    <span className="text-[10px] font-bold uppercase">{o.l}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {!isNew && <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 text-xs text-purple-300/80 leading-relaxed shadow-lg">
-                        <div className="flex gap-3">
-                            <span className="material-icons-round text-purple-400 text-sm">info</span>
-                            <span>Los cambios aplicarán automáticamente el <b>core reload</b> en Asterisk para sincronizar los parámetros SIP y el dialplan.</span>
-                        </div>
-                    </div>}
-                </div>
-                <div className="drawer-footer" style={{display:'flex', gap:10}}>
-                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
-                        <span className="material-icons-round">delete_outline</span>
-                    </button>}
-                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
-                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Interno':'Guardar Cambios'}</button>
-                </div>
-            </div>
-        </>
-    );
 }
+
 
 function ViewExtensiones({ data, toast }) {
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState(''); // '' | 'ONLINE' | 'BUSY' | 'OFFLINE'
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
-    const [drawer, setDrawer] = useState(null); // null | 'new' | ext object
+    const [statusFilter, setStatusFilter] = useState('');
+    const [viewMode, setViewMode] = useState('grid');
+    const [editing, setEditing] = useState(null); // null | 'new' | ext object
     const [saved, setSaved] = useState(0);
 
     const allExts = data?.pbx?.extensions || [];
@@ -1036,6 +1190,18 @@ function ViewExtensiones({ data, toast }) {
 
     const badgeCls = s => s==='ONLINE'?'badge-online':s==='BUSY'?'badge-busy':'badge-offline';
     const dotCls   = s => s==='ONLINE'?'dot-online':s==='BUSY'?'dot-busy':'dot-offline';
+
+    // Si está editando, mostrar página de edición en lugar de la lista
+    if (editing) {
+        return (
+            <ExtEditPage
+                ext={editing === 'new' ? null : editing}
+                onBack={() => setEditing(null)}
+                onSaved={() => { setEditing(null); setSaved(s=>s+1); }}
+                toast={toast}
+            />
+        );
+    }
 
     const Chip = ({ label, count, status, color, bg }) => (
         <div 
@@ -1069,14 +1235,14 @@ function ViewExtensiones({ data, toast }) {
                     <Chip label="Offline" count={offlineTotal} status="OFFLINE" color="#9ca3af" bg="rgba(107,114,128,0.1)" />
                 </div>
 
-                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
+                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>  
                     {['grid','table'].map(m=>(
                         <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
                             <span className="material-icons-round" style={{fontSize:18,display:'block'}}>{m==='grid'?'grid_view':'table_rows'}</span>
                         </button>
                     ))}
                 </div>
-                <button className="btn-primary" style={{padding:'10px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
+                <button className="btn-primary" style={{padding:'10px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setEditing('new')}>
                     <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva
                 </button>
             </div>
@@ -1085,7 +1251,7 @@ function ViewExtensiones({ data, toast }) {
             {viewMode==='grid' && (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(255px,1fr))',gap:12}}>
                     {exts.map(e=>(
-                        <div key={e.ext} className="glass glass-hover" style={{padding:'16px',cursor:'pointer'}} onClick={()=>setDrawer(e)}>
+                        <div key={e.ext} className="glass glass-hover" style={{padding:'16px',cursor:'pointer'}} onClick={()=>setEditing(e)}>
                             <div style={{display:'flex',alignItems:'center',gap:12}}>
                                 <img src={e.avatar} style={{width:44,height:44,borderRadius:12,objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{ ev.target.style.display='none'; ev.target.nextSibling.style.display='flex'; }} />
                                 <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'none'}}>{initials(e.name)}</div>
@@ -1115,7 +1281,7 @@ function ViewExtensiones({ data, toast }) {
                         <thead><tr><th>#</th><th>Nombre</th><th>Estado</th><th>IP</th><th>RTT</th><th></th></tr></thead>
                         <tbody>
                             {exts.map(e=>(
-                                <tr key={e.ext} style={{cursor:'pointer'}} onClick={()=>setDrawer(e)}>
+                                <tr key={e.ext} style={{cursor:'pointer'}} onClick={()=>setEditing(e)}>
                                     <td>
                                         <div style={{display:'flex',alignItems:'center',gap:8}}>
                                             <span style={{fontFamily:'monospace',fontWeight:800,color:'#c4b5fd'}}>#{e.ext}</span>
@@ -1134,12 +1300,10 @@ function ViewExtensiones({ data, toast }) {
                     </table>
                 </div>
             )}
-
-            {/* Drawer CRUD */}
-            {drawer && <ExtDrawer ext={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);setSaved(s=>s+1);}} toast={toast} />}
         </div>
     );
 }
+
 
 // ─────────────────────────────────────────────
 // VISTA: AGENTES (con timer llamada activa + llamante remoto)
