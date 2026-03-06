@@ -2566,6 +2566,9 @@ function ViewWebPhone({ data, toast }) {
     const [status, setStatus] = useState('Desconectado');
     const [dest, setDest] = useState('');
     const [simpleUser, setSimpleUser] = useState(null);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isHeld, setIsHeld] = useState(false);
+    const [elapsed, setElapsed] = useState(0);
     const audioRef = useRef(null);
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
@@ -2576,6 +2579,7 @@ function ViewWebPhone({ data, toast }) {
     const [search, setSearch] = useState('');
     const [lastError, setLastError] = useState('');
     const registerTimer = useRef(null);
+    const timerRef = useRef(null);
 
     useEffect(() => {
         // Stop videos when disconnected
@@ -2589,11 +2593,14 @@ function ViewWebPhone({ data, toast }) {
         const cachedExt = localStorage.getItem('tf_sip_ext');
         const cachedPass = localStorage.getItem('tf_sip_pass');
         if (cachedExt && cachedPass && status === 'Desconectado') {
-            // Give a tiny delay for window.SIP and DOM refs
             setTimeout(() => {
                 connect();
             }, 500);
         }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            if (registerTimer.current) clearTimeout(registerTimer.current);
+        };
     }, []);
 
     const connect = () => {
@@ -2633,8 +2640,21 @@ function ViewWebPhone({ data, toast }) {
                 onCallHangup: () => { 
                     toast('Llamada finalizada','info'); 
                     setStatus('Registrado (Libre)'); 
+                    if(timerRef.current) clearInterval(timerRef.current);
+                    setElapsed(0);
+                    setIsMuted(false);
+                    setIsHeld(false);
                 },
-                onCallAnswered: () => { setStatus('Llamada en Curso'); },
+                onCallAnswered: () => { 
+                    setStatus('Llamada en Curso'); 
+                    setElapsed(0);
+                    if(timerRef.current) clearInterval(timerRef.current);
+                    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                },
+                onCallHold: (session, hold) => {
+                    setIsHeld(hold);
+                    setStatus(hold ? 'Llamada en Espera' : 'Llamada en Curso');
+                },
                 onRegistered: () => { 
                     console.log('SIP EVENT: onRegistered');
                     if (registerTimer.current) clearTimeout(registerTimer.current);
@@ -2741,7 +2761,28 @@ function ViewWebPhone({ data, toast }) {
         if(simpleUser) {
             simpleUser.hangup().catch(e=>console.log(e));
             setStatus('Registrado (Libre)');
+            if(timerRef.current) clearInterval(timerRef.current);
+            setElapsed(0);
         }
+    };
+
+    const toggleMute = () => {
+        if(!simpleUser) return;
+        if(isMuted) simpleUser.unmute();
+        else simpleUser.mute();
+        setIsMuted(!isMuted);
+    };
+
+    const toggleHold = () => {
+        if(!simpleUser) return;
+        if(isHeld) simpleUser.unhold();
+        else simpleUser.hold();
+    };
+
+    const formatTime = (s) => {
+        const m = Math.floor(s/60).toString().padStart(2,'0');
+        const sec = (s%60).toString().padStart(2,'0');
+        return `${m}:${sec}`;
     };
 
     const exts = (data?.extensions || []).filter(e => e.ext.includes(search) || e.name.toLowerCase().includes(search.toLowerCase()));
@@ -2878,9 +2919,15 @@ function ViewWebPhone({ data, toast }) {
                             
                             {isCalling ? (
                                 <div style={{flex:1,width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                                    <div style={{color:'white',fontSize:24,fontWeight:300,marginBottom:10}}>{status.includes('Entrante') ? 'Llamada Entrante de...' : 'Llamando a...'}</div>
-                                    <div style={{color:'#8b5cf6',fontSize:48,fontWeight:800,marginBottom:30}}>{dest}</div>
+                                    <div style={{color:'white',fontSize:24,fontWeight:300,marginBottom:5}}>{status.includes('Entrante') ? 'Llamada Entrante de...' : 'Llamada con...'}</div>
+                                    <div style={{color:'#8b5cf6',fontSize:48,fontWeight:800,marginBottom:10}}>{dest}</div>
                                     
+                                    {(status.includes('Curso') || status.includes('Espera')) && (
+                                        <div style={{fontSize:32, color:isHeld?'#9ca3af':'#4ade80', fontWeight:200, fontFamily:'monospace', marginBottom:25}}>
+                                            {formatTime(elapsed)}
+                                        </div>
+                                    )}
+
                                     {/* CONTENEDOR DE VIDEO */}
                                     {isVideo && (
                                         <div style={{display:'flex',gap:16,marginBottom:30,position:'relative'}}>
@@ -2897,8 +2944,8 @@ function ViewWebPhone({ data, toast }) {
                                     {!isVideo && (
                                         <div style={{position:'relative',width:120,height:120,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:40}}>
                                             <div style={{position:'absolute',width:'100%',height:'100%',borderRadius:'50%',background:'rgba(139,92,246,0.2)',animation:'blink 1.5s infinite'}}></div>
-                                            <div style={{width:80,height:80,borderRadius:'50%',background:'rgba(139,92,246,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                                <span className="material-icons-round" style={{fontSize:40,color:'#c4b5fd'}}>record_voice_over</span>
+                                            <div style={{width:80,height:80,borderRadius:'50%',background:isHeld?'#374151':'rgba(139,92,246,0.4)',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .3s'}}>
+                                                <span className="material-icons-round" style={{fontSize:40,color:isHeld?'#9ca3af':'#c4b5fd'}}>{isHeld?'pause':'record_voice_over'}</span>
                                             </div>
                                         </div>
                                     )}
@@ -2909,6 +2956,18 @@ function ViewWebPhone({ data, toast }) {
                                                 <span className="material-icons-round" style={{fontSize:32}}>call</span>
                                             </button>
                                         )}
+                                        
+                                        {!status.includes('Entrante') && (
+                                            <>
+                                                <button onClick={toggleMute} title="Silenciar" style={{width:55,height:55,borderRadius:'50%',background:isMuted?'white':'var(--surface)',color:isMuted?'black':'white',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
+                                                    <span className="material-icons-round">{isMuted?'mic_off':'mic'}</span>
+                                                </button>
+                                                <button onClick={toggleHold} title="Espera" style={{width:55,height:55,borderRadius:'50%',background:isHeld?'white':'var(--surface)',color:isHeld?'black':'white',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
+                                                    <span className="material-icons-round">{isHeld?'play_arrow':'pause'}</span>
+                                                </button>
+                                            </>
+                                        )}
+
                                         <button onClick={hangup} style={{width:65,height:65,borderRadius:'50%',background:'#ef4444',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(239,68,68,0.4)'}}>
                                             <span className="material-icons-round" style={{fontSize:32}}>call_end</span>
                                         </button>
@@ -3360,7 +3419,10 @@ function ViewConfiguracion() {
 // APP PRINCIPAL
 // ─────────────────────────────────────────────
 function App() {
-    const [user, setUser] = useState(() => localStorage.getItem('tf_user') || null); 
+    const [user, setUser] = useState(() => {
+        const u = localStorage.getItem('tf_user');
+        return (u && u !== 'null') ? u : null;
+    }); 
     const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
@@ -3386,7 +3448,7 @@ function App() {
     // Load data
     const load = useCallback(async () => {
         try {
-            const res = await fetch('api/index.php?action=get_full_data');
+            const res = await fetch('api/index.php?action=get_full_data', { credentials: 'include' });
             const d = await res.json();
             if (d.status === 'error' && d.message === 'No autorizado') {
                 setUser(null);
