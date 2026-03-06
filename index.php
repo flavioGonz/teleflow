@@ -639,7 +639,6 @@ function LiveCallNotifications({ calls, extensions }) {
             {notifs.map(n => (
                 <div key={n.id} className="glass glass-hover" style={{
                     width:280, padding:14, borderRadius:18, display:'flex', alignItems:'center', gap:12, 
-```
                     border:'1px solid rgba(139,92,246,0.3)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
                     animation:'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards'
                 }}>
