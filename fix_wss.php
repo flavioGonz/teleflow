@@ -1,14 +1,7 @@
 <?php
-$DB_USER = 'root';
-$DB_PASS = '';
-if (file_exists('/etc/issabelpbx.conf')) {
-    $conf = parse_ini_file('/etc/issabelpbx.conf');
-    $DB_USER = $conf['AMPDBUSER'] ?? 'root';
-    $DB_PASS = $conf['AMPDBPASS'] ?? '';
-}
-
+include __DIR__.'/api/config.php';
 try {
-    $db = new PDO('mysql:host=localhost;dbname=asterisk', $DB_USER, $DB_PASS);
+    $db = mysql_pbx();
     $stmt = $db->prepare("DELETE FROM sip WHERE keyword='transport' AND data='transport-wss'");
     $stmt->execute();
     echo "Removed explicit transport-wss from " . $stmt->rowCount() . " devices.\n";
