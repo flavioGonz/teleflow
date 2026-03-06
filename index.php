@@ -3029,6 +3029,10 @@ const SIP_PARSERS = [
     { re: /\bACK\b/,        color:'#6ee7b7', label:'ACK',      icon:'done' },
     { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
     { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
+    { re: /\bWARNING\b/i,   color:'#eab308', label:'WARNING',  icon:'warning' },
+    { re: /\bERROR\b/i,     color:'#ef4444', label:'ERROR',    icon:'error_outline' },
+    { re: /\bCRITICAL\b/i,  color:'#dc2626', label:'CRITICAL', icon:'gavel' },
+    { re: /\bNOTICE\b/i,    color:'#3b82f6', label:'NOTICE',   icon:'info' },
     { re: /PJSIP.*error/i,   color:'#f87171', label:'PJSIP ERR', icon:'warning' },
     { re: /Endpoint.*loaded/i, color:'#4ade80', label:'EP LOADED', icon:'power' },
     { re: /Unable to find/i, color:'#fb923c', label:'NOT FOUND', icon:'search_off' },
@@ -3047,7 +3051,13 @@ function SIPLogLine({ line, idx }) {
     // Extract timestamp if present
     const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/);
     const ts = tsMatch?.[1] || '';
+    
+    // Extract extension (e.g. from 1001, sip:1001@, Endpoint 1001)
+    const extMatch = line.match(/(?:from|to|contact|endpoint|sip:|from:\s*<sip:)[^\d]*(\d{3,5})(?:@|>|\s|,)/i);
+    const extChip = extMatch ? extMatch[1] : null;
+
     const content = line.replace(tsMatch?.[0]||'', '').trim();
+
     return (
         <div
             onClick={() => setOpen(o => !o)}
@@ -3071,7 +3081,21 @@ function SIPLogLine({ line, idx }) {
                         padding:'1px 7px', borderRadius:6,
                         textTransform:'uppercase', flexShrink:0
                     }}>{parsed.label}</span>
-                    {ts && <span style={{fontSize:9, color:'#374151', fontFamily:'monospace', flexShrink:0}}>{ts}</span>}
+                    
+                    {extChip && (
+                        <span style={{
+                            fontSize:10, fontWeight:700, color:'#c4b5fd',
+                            background: 'rgba(139,92,246,0.15)',
+                            border:'1px solid rgba(139,92,246,0.3)',
+                            padding:'1px 6px', borderRadius:6,
+                            display:'flex', alignItems:'center', gap:3, flexShrink:0
+                        }}>
+                            <span className="material-icons-round" style={{fontSize:12}}>person</span>
+                            {extChip}
+                        </span>
+                    )}
+
+                    {ts && <span style={{fontSize:9, color:'#6b7280', fontFamily:'monospace', flexShrink:0}}>{ts}</span>}
                     <span style={{
                         fontSize:11, color: open ? '#e5e7eb' : '#9ca3af',
                         fontFamily: '"Fira Code", "Courier New", monospace',

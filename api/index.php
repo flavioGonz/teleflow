@@ -149,7 +149,6 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
         $sip_data['rewrite_contact'] = 'yes';
         $sip_data['rtp_symmetric'] = 'yes';
         $sip_data['force_rport'] = 'yes';
-        $sip_data['transport'] = 'transport-wss';
     } else if ($devType === 'video') {
         $sip_data['allow'] = 'alaw,ulaw,h264,vp8';
     }
