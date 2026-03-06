@@ -1943,7 +1943,10 @@ const RG_STRATEGIES = [
     {v:'firstavailable',l:'Primero disponible'},
 ];
 
-function GroupDrawer({ group, onClose, onSaved, toast }) {
+// ─────────────────────────────────────────────
+// FICHA DEL GRUPO — Página dedicada (mismo estilo que ExtEditPage)
+// ─────────────────────────────────────────────
+function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
     const isNew = !group;
     const [form, setForm] = useState({
         grpnum: group?.grpnum||'',
@@ -1953,140 +1956,408 @@ function GroupDrawer({ group, onClose, onSaved, toast }) {
         grplist: (group?.members||[]).join('-'),
     });
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [memberInput, setMemberInput] = useState('');
+
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+    // Members as array from the grplist string
+    const members = form.grplist ? form.grplist.split('-').filter(m => m.trim()) : [];
+
+    const addMember = () => {
+        const ext = memberInput.trim();
+        if (!ext) return;
+        const newList = [...members, ext].join('-');
+        set('grplist', newList);
+        setMemberInput('');
+    };
+
+    const removeMember = (ext) => {
+        set('grplist', members.filter(m => m !== ext).join('-'));
+    };
+
     const save = async () => {
         setSaving(true);
-        const fd=new FormData();Object.entries(form).forEach(([k,v])=>fd.append(k,v));
-        const action = isNew?'create_ring_group':'update_ring_group';
-        const d=await(await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
+        const fd = new FormData();
+        Object.entries(form).forEach(([k,v]) => fd.append(k,v));
+        const action = isNew ? 'create_ring_group' : 'update_ring_group';
+        const d = await(await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
         setSaving(false);
-        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+        if (d.success) { toast(d.message,'success'); onSaved(); }
+        else toast(d.error||'Error','error');
     };
+
     const del = async () => {
-        if(!confirm(`¿Eliminar grupo ${group?.grpnum}?`)) return;
-        const fd=new FormData();fd.append('grpnum',group.grpnum);
-        const d=await(await fetch('api/index.php?action=delete_ring_group',{method:'POST',body:fd})).json();
-        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+        if (!confirm(`¿Eliminar grupo ${group?.grpnum}?`)) return;
+        setDeleting(true);
+        const fd = new FormData(); fd.append('grpnum', group.grpnum);
+        const d = await(await fetch('api/index.php?action=delete_ring_group',{method:'POST',body:fd})).json();
+        if (d.success) { toast(d.message,'success'); onSaved(); }
+        else { toast(d.error||'Error','error'); setDeleting(false); }
     };
-    return(
-        <>
-            <div className="drawer-backdrop" onClick={onClose}/>
-            <div className="drawer theme-transition">
-                <div className="drawer-header">
-                    <div>
-                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nuevo Grupo':`Grupo de Timbrado #${group.grpnum}`}</div>
-                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>Configuracion de timbrado paralelo/serial</div>
-                    </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
-                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
+
+    const STRATEGIES = [
+        {v:'ringall',    l:'Timbre Simultáneo', i:'ring_volume',     c:'#22c55e', desc:'Todos timbran a la vez'},
+        {v:'hunt',       l:'Secuencial',         i:'trending_flat',  c:'#60a5fa', desc:'De a uno, en orden'},
+        {v:'memoryhunt', l:'Mem. Secuencial',    i:'memory',         c:'#a78bfa', desc:'Recuerda donde quedó'},
+        {v:'firstavailable', l:'1ro Disponible', i:'bolt',           c:'#f59e0b', desc:'El primero que conteste'},
+    ];
+
+    const isGroupActive = group?.members?.some(m => activeCalls.some(c => c.ext === m));
+
+    return (
+        <div className="content-area view-enter">
+            {/* Breadcrumb */}
+            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:24}}>
+                <button
+                    onClick={onBack}
+                    style={{width:38,height:38,borderRadius:12,background:'var(--surface)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'var(--muted)',transition:'all .2s'}}
+                    onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
+                    onMouseLeave={e=>e.currentTarget.style.color='var(--muted)'}
+                >
+                    <span className="material-icons-round" style={{fontSize:20}}>arrow_back</span>
+                </button>
+                <div style={{display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--muted)'}}>
+                    <span style={{cursor:'pointer',fontWeight:600}} onClick={onBack}>Grupos de Timbrado</span>
+                    <span className="material-icons-round" style={{fontSize:14}}>chevron_right</span>
+                    <span style={{color:'var(--text)', fontWeight:700}}>
+                        {isNew ? 'Nuevo Grupo' : `Grupo #${group.grpnum} — ${group.description}`}
+                    </span>
+                </div>
+                <div style={{flex:1}} />
+                {!isNew && (
+                    <button
+                        onClick={del}
+                        disabled={deleting}
+                        style={{padding:'8px 16px',borderRadius:10,fontSize:12,fontWeight:700,background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.25)',color:'#f87171',cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'all .2s'}}
+                    >
+                        <span className="material-icons-round" style={{fontSize:16}}>{deleting?'hourglass_top':'delete_outline'}</span>
+                        {deleting ? 'Eliminando...' : 'Eliminar Grupo'}
                     </button>
+                )}
+            </div>
+
+            {/* Two-column layout */}
+            <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:24, alignItems:'start'}}>
+
+                {/* LEFT — Group info card */}
+                <div style={{display:'flex', flexDirection:'column', gap:16}}>
+                    {/* Group avatar */}
+                    <div className="glass" style={{padding:28, textAlign:'center', borderRadius:20, position:'relative', overflow:'hidden'}}>
+                        {isGroupActive && <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
+                        <div style={{
+                            width:80, height:80, borderRadius:22, margin:'0 auto 16px',
+                            background: isGroupActive
+                                ? 'linear-gradient(135deg,#ef4444,#dc2626)'
+                                : 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:36, color:'white',
+                            boxShadow: isGroupActive ? '0 8px 32px rgba(239,68,68,0.45)' : '0 8px 32px rgba(59,130,246,0.45)'
+                        }}>
+                            <span className="material-icons-round" style={{fontSize:40}}>ring_volume</span>
+                        </div>
+                        <div style={{fontSize:18, fontWeight:900, color:'var(--text)'}}>{form.description || 'Sin nombre'}</div>
+                        <div style={{fontFamily:'monospace', fontSize:13, color:'#60a5fa', fontWeight:700, marginTop:4}}>Grupo #{form.grpnum || '—'}</div>
+                        {isGroupActive && (
+                            <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'center', marginTop:12}}>
+                                <span style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444',animation:'blink 1s infinite'}} />
+                                <span style={{fontSize:11, fontWeight:700, color:'#f87171'}}>LLAMADA ACTIVA</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="glass" style={{padding:16, borderRadius:16}}>
+                        <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Estadísticas</div>
+                        {[
+                            {l:'Miembros',      v: members.length,           c:'#60a5fa'},
+                            {l:'Tiempo timbre', v: `${form.grptime}s`,       c:'#c4b5fd'},
+                            {l:'Estrategia',    v: form.strategy,            c:'#22c55e'},
+                            {l:'En llamada',    v: activeCalls.filter(c=>members.includes(c.ext)).length, c:'#f87171'},
+                        ].map(({l,v}) => (
+                            <div key={l} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                                <span style={{fontSize:11, color:'#6b7280', fontWeight:600}}>{l}</span>
+                                <span style={{fontSize:12, color:'#60a5fa', fontWeight:800, fontFamily:'monospace'}}>{v}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Members quick view */}
+                    {members.length > 0 && (
+                        <div className="glass" style={{padding:16, borderRadius:16}}>
+                            <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:10}}>Miembros Actuales</div>
+                            <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                                {members.map(m => {
+                                    const onCall = activeCalls.some(c => c.ext === m);
+                                    return (
+                                        <div key={m} style={{
+                                            padding:'3px 10px', borderRadius:8,
+                                            background: onCall ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.1)',
+                                            border: `1px solid ${onCall ? 'rgba(239,68,68,.3)' : 'rgba(59,130,246,.2)'}`,
+                                            fontSize:11, fontWeight:700,
+                                            color: onCall ? '#f87171' : '#60a5fa',
+                                            display:'flex', alignItems:'center', gap:4
+                                        }}>
+                                            {onCall && <span style={{width:5,height:5,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite'}} />}
+                                            #{m}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="drawer-body">
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Numero del Grupo</label>
-                        <input className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${!isNew ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-500/40'}`} placeholder="Ej: 700" value={form.grpnum} onChange={e=>set('grpnum',e.target.value)} readOnly={!isNew} />
+
+                {/* RIGHT — Form */}
+                <div className="glass" style={{padding:28, borderRadius:20}}>
+                    {/* Row 1: Number + Description */}
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Número del Grupo</label>
+                            <input
+                                className="input-tf"
+                                style={{padding:'12px 16px',borderRadius:14,fontSize:14,fontWeight:700,width:'100%',boxSizing:'border-box',opacity:isNew?1:0.7}}
+                                placeholder="Ej: 700"
+                                value={form.grpnum}
+                                onChange={e=>set('grpnum',e.target.value)}
+                                readOnly={!isNew}
+                            />
+                        </div>
+                        <div>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Nombre o Descripción</label>
+                            <input
+                                className="input-tf"
+                                style={{padding:'12px 16px',borderRadius:14,fontSize:14,width:'100%',boxSizing:'border-box'}}
+                                placeholder="Soporte Técnico..."
+                                value={form.description}
+                                onChange={e=>set('description',e.target.value)}
+                            />
+                        </div>
                     </div>
 
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Descripcion o Nombre</label>
-                        <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" placeholder="Escriba el nombre del grupo..." value={form.description} onChange={e=>set('description',e.target.value)} />
+                    {/* Row 2: Timeout */}
+                    <div style={{marginBottom:20}}>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>
+                            Tiempo de Timbrado <span style={{color:'#c4b5fd', fontFamily:'monospace'}}>({form.grptime}s)</span>
+                        </label>
+                        <div style={{display:'flex', alignItems:'center', gap:12}}>
+                            <input
+                                type="range" min="5" max="120" step="5"
+                                value={form.grptime}
+                                onChange={e=>set('grptime', e.target.value)}
+                                style={{flex:1, accentColor:'#8b5cf6', height:6}}
+                            />
+                            <input
+                                className="input-tf"
+                                type="number" min="5" max="120"
+                                style={{width:80, padding:'10px 12px', borderRadius:12, fontSize:13, fontWeight:700, textAlign:'center', boxSizing:'border-box'}}
+                                value={form.grptime}
+                                onChange={e=>set('grptime',e.target.value)}
+                            />
+                        </div>
                     </div>
 
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Timbrado</label>
-                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
-                            {RG_STRATEGIES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-                        </select>
+                    {/* Estrategia visual */}
+                    <div style={{marginBottom:20}}>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Estrategia de Timbrado</label>
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10}}>
+                            {STRATEGIES.map(s=>(
+                                <button
+                                    key={s.v}
+                                    onClick={()=>set('strategy',s.v)}
+                                    style={{
+                                        padding:'14px 16px', borderRadius:14, cursor:'pointer',
+                                        border: form.strategy===s.v ? `1px solid ${s.c}50` : '1px solid var(--border)',
+                                        background: form.strategy===s.v ? `${s.c}12` : 'var(--surface2)',
+                                        display:'flex', alignItems:'center', gap:12, textAlign:'left',
+                                        transition:'all .2s'
+                                    }}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:22, color:form.strategy===s.v?s.c:'var(--muted)', flexShrink:0}}>{s.i}</span>
+                                    <div>
+                                        <div style={{fontSize:12,fontWeight:800,color:form.strategy===s.v?s.c:'var(--text)'}}>{s.l}</div>
+                                        <div style={{fontSize:10,color:'#6b7280',marginTop:1}}>{s.desc}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Tiempo de timbrado (segundos)</label>
-                        <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.grptime} onChange={e=>set('grptime',e.target.value)} />
-                    </div>
+                    {/* Members editor */}
+                    <div style={{marginBottom:28}}>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Internos del Grupo</label>
 
-                    <div className="mb-6">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Lista de Internos (separados por guion)</label>
-                        <textarea 
-                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40 min-h-[100px] leading-relaxed" 
-                            placeholder="Ej: 1001-1002-1005" 
-                            value={form.grplist} 
-                            onChange={e=>set('grplist',e.target.value)} 
+                        {/* Add member input */}
+                        <div style={{display:'flex', gap:8, marginBottom:10}}>
+                            <input
+                                className="input-tf"
+                                style={{flex:1, padding:'10px 16px', borderRadius:12, fontSize:13}}
+                                placeholder="Agregar extensión (ej: 1001)"
+                                value={memberInput}
+                                onChange={e=>setMemberInput(e.target.value)}
+                                onKeyDown={e=>e.key==='Enter'&&addMember()}
+                            />
+                            <button
+                                onClick={addMember}
+                                className="btn-primary"
+                                style={{padding:'10px 16px', borderRadius:12, fontSize:12, display:'flex', alignItems:'center', gap:4}}
+                            >
+                                <span className="material-icons-round" style={{fontSize:16}}>add</span>
+                                Agregar
+                            </button>
+                        </div>
+
+                        {/* Members chips */}
+                        {members.length > 0 ? (
+                            <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
+                                {members.map(m => (
+                                    <div
+                                        key={m}
+                                        style={{
+                                            display:'flex', alignItems:'center', gap:6,
+                                            padding:'6px 10px 6px 14px', borderRadius:10,
+                                            background:'rgba(139,92,246,0.1)',
+                                            border:'1px solid rgba(139,92,246,0.25)',
+                                            fontSize:12, fontWeight:700, color:'#c4b5fd'
+                                        }}
+                                    >
+                                        <span className="material-icons-round" style={{fontSize:13,color:'#8b5cf6'}}>phone</span>
+                                        #{m}
+                                        <button
+                                            onClick={()=>removeMember(m)}
+                                            style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280',display:'flex',padding:2,marginLeft:2,borderRadius:4}}
+                                        >
+                                            <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{padding:'20px',textAlign:'center',borderRadius:12,border:'1px dashed rgba(139,92,246,0.2)',color:'#4b5563',fontSize:12}}>
+                                Sin miembros. Agrega extensiones con el campo de arriba.
+                            </div>
+                        )}
+
+                        <div style={{fontSize:10,color:'#4b5563',marginTop:8,fontWeight:500}}>
+                            También podés editar la lista directamente:
+                        </div>
+                        <input
+                            className="input-tf"
+                            style={{marginTop:6, padding:'10px 16px', borderRadius:12, fontSize:12, fontFamily:'monospace', width:'100%', boxSizing:'border-box', color:'#c4b5fd'}}
+                            placeholder="1001-1002-1003"
+                            value={form.grplist}
+                            onChange={e => set('grplist', e.target.value)}
                         />
-                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Los internos que timbrarán cuando se llame a este grupo.</div>
                     </div>
-                </div>
-                <div className="drawer-footer" style={{display:'flex', gap:10}}>
-                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
-                        <span className="material-icons-round">delete_outline</span>
-                    </button>}
-                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
-                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Grupo':'Guardar Cambios'}</button>
+
+                    {/* Action buttons */}
+                    <div style={{display:'flex', gap:12, justifyContent:'flex-end', paddingTop:20, borderTop:'1px solid var(--border)'}}>
+                        <button
+                            onClick={onBack}
+                            style={{padding:'12px 24px',borderRadius:14,fontWeight:700,fontSize:13,background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--muted)',cursor:'pointer',transition:'all .2s'}}
+                        >Cancelar</button>
+                        <button
+                            onClick={save}
+                            disabled={saving}
+                            className="btn-primary"
+                            style={{padding:'12px 32px',borderRadius:14,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:8}}
+                        >
+                            <span className="material-icons-round" style={{fontSize:18}}>{saving?'hourglass_top':'save'}</span>
+                            {saving ? 'Guardando...' : isNew ? 'Crear Grupo' : 'Guardar Cambios'}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 }
 
 function ViewGrupos({ toast }) {
-    const [groups,setGroups]=useState([]);
-    const [drawer,setDrawer]=useState(null);
-    const [activeCalls,setActiveCalls]=useState([]);
-    const load=async()=>{
-        try{const d=await(await fetch('api/index.php?action=get_ring_groups')).json();if(d.success)setGroups(d.groups);}catch{}
-        try{const d=await(await fetch('api/index.php?action=get_active_calls')).json();if(d.success)setActiveCalls(d.calls||[]);}catch{}
+    const [groups, setGroups] = useState([]);
+    const [editing, setEditing] = useState(null); // null | 'new' | group object
+    const [activeCalls, setActiveCalls] = useState([]);
+
+    const load = async () => {
+        try { const d=await(await fetch('api/index.php?action=get_ring_groups')).json(); if(d.success) setGroups(d.groups); } catch{}
+        try { const d=await(await fetch('api/index.php?action=get_active_calls')).json(); if(d.success) setActiveCalls(d.calls||[]); } catch{}
     };
-    useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
-    const strategyLabel={ringall:'Simultáneo',hunt:'Secuencial',memoryhunt:'Mem. secuencial',firstavailable:'1ro disponible'};
-    const isGroupActive=(g)=>g.members?.some(m=>activeCalls.some(c=>c.ext===m));
-    return(
+    useEffect(() => { load(); const t=setInterval(load,5000); return()=>clearInterval(t); }, []);
+
+    const strategyLabel = {ringall:'Simultáneo', hunt:'Secuencial', memoryhunt:'Mem. secuencial', firstavailable:'1ro disponible'};
+    const isGroupActive = (g) => g.members?.some(m => activeCalls.some(c => c.ext === m));
+
+    // Si está editando, mostrar página dedicada
+    if (editing) {
+        return (
+            <GroupEditPage
+                group={editing === 'new' ? null : editing}
+                activeCalls={activeCalls}
+                onBack={() => setEditing(null)}
+                onSaved={() => { setEditing(null); load(); }}
+                toast={toast||(m=>alert(m))}
+            />
+        );
+    }
+
+    return (
         <div className="content-area view-enter">
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-                <div style={{fontSize:11,color:'#6b7280'}}>{groups.length} grupos configurados</div>
-                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20}}>
+                <div style={{fontSize:11, color:'#6b7280'}}>{groups.length} grupos configurados</div>
+                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setEditing('new')}>
                     <span className="material-icons-round" style={{fontSize:18}}>add</span>Nuevo Grupo
                 </button>
             </div>
-            {groups.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
-                <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>ring_volume</span>
-                Sin grupos de timbrado configurados
-            </div>}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14}}>
-                {groups.map((g,i)=>{
+
+            {groups.length===0 && (
+                <div className="glass" style={{padding:40, textAlign:'center', color:'#6b7280'}}>
+                    <span className="material-icons-round" style={{fontSize:48, display:'block', marginBottom:12, color:'#374151'}}>ring_volume</span>
+                    Sin grupos de timbrado configurados
+                </div>
+            )}
+
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14}}>
+                {groups.map((g, i) => {
                     const active = isGroupActive(g);
-                    return(
-                    <div key={i} className="glass" style={{padding:20,borderTop:`2px solid ${active?'#ef4444':'#374151'}`,transition:'border-color .3s',position:'relative',overflow:'hidden'}}>
-                        {active&&<div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
-                        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
-                            <div style={{width:40,height:40,borderRadius:12,background:active?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .3s'}}>
-                                <span className="material-icons-round" style={{fontSize:20,color:active?'#f87171':'#60a5fa',animation:active?'blink 1s infinite':'none'}}>ring_volume</span>
-                            </div>
-                            <div style={{flex:1}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                    <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
-                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
+                    return (
+                        <div
+                            key={i}
+                            className="glass glass-hover"
+                            style={{padding:20, borderTop:`2px solid ${active?'#ef4444':'#374151'}`, transition:'border-color .3s', position:'relative', overflow:'hidden', cursor:'pointer'}}
+                            onClick={() => setEditing(g)}
+                        >
+                            {active && <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
+                            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
+                                <div style={{width:40,height:40,borderRadius:12,background:active?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .3s'}}>
+                                    <span className="material-icons-round" style={{fontSize:20,color:active?'#f87171':'#60a5fa',animation:active?'blink 1s infinite':'none'}}>ring_volume</span>
                                 </div>
-                                <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} Â· {g.grptime}s</div>
+                                <div style={{flex:1}}>
+                                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                        <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
+                                        <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
+                                    </div>
+                                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s · {g.members?.length||0} miembros</div>
+                                </div>
+                                <span className="material-icons-round" style={{fontSize:18, color:'#4b5563'}}>chevron_right</span>
                             </div>
-                            <button onClick={()=>setDrawer(g)} style={{padding:'6px 10px',borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',gap:3}}>
-                                <span className="material-icons-round" style={{fontSize:14}}>edit</span>Editar
-                            </button>
+                            <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                                {(g.members||[]).map((m,j) => {
+                                    const onCall = activeCalls.some(c => c.ext === m);
+                                    return (
+                                        <div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
+                                            {onCall && <span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
+                                            #{m}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                            {(g.members||[]).map((m,j)=>{
-                                const onCall=activeCalls.some(c=>c.ext===m);
-                                return(<div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}` ,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
-                                    {onCall&&<span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
-                                    #{m}
-                                </div>);
-                            })}
-                        </div>
-                    </div>);
+                    );
                 })}
             </div>
-            {drawer&&<GroupDrawer group={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);load();}} toast={toast||((m,t)=>alert(m))} />}
         </div>
     );
 }
+
 
 function ViewVivo2({ data }) {
     const [calls,setCalls]=useState([]);
@@ -2820,6 +3091,7 @@ function ViewConfiguracion() {
     const [loadingSip, setLoadingSip] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [filter, setFilter] = useState('');
+    const [senderFilter, setSenderFilter] = useState(''); // filtro por remitente IP/ext
     const logEndRef = useRef(null);
 
     const loadSipDebug = async () => {
@@ -2846,10 +3118,30 @@ function ViewConfiguracion() {
         if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }, [sipLog]);
 
+    // Extraer IPs/extensiones únicas de los logs (remitentes)
+    const extractSenders = (lines) => {
+        const senders = new Set();
+        lines.forEach(line => {
+            // Busca patrones como: from 192.168.x.x, REGISTER sip:1001@, From: <sip:1001@
+            const ipMatch = line.match(/(?:from|contact|via)[:\s]+(?:sip:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
+            const extMatch = line.match(/(?:From:|REGISTER sip:|from:\s*sip:)(\d{3,5})(?:@|>|\s)/i);
+            if (ipMatch?.[1]) senders.add(ipMatch[1]);
+            if (extMatch?.[1]) senders.add('Ext:' + extMatch[1]);
+        });
+        return Array.from(senders).sort();
+    };
+
     const logLines = sipLog.split('\n').filter(l => l.trim());
-    const filteredLines = filter
-        ? logLines.filter(l => l.toLowerCase().includes(filter.toLowerCase()))
-        : logLines;
+    const senders = extractSenders(logLines);
+
+    // Aplicar ambos filtros
+    const filteredLines = logLines.filter(l => {
+        const matchText = !filter || l.toLowerCase().includes(filter.toLowerCase());
+        const matchSender = !senderFilter || l.toLowerCase().includes(
+            senderFilter.startsWith('Ext:') ? senderFilter.replace('Ext:','') : senderFilter
+        );
+        return matchText && matchSender;
+    });
 
     const stats = {
         ok:     logLines.filter(l => /200 OK/.test(l)).length,
@@ -2925,12 +3217,40 @@ function ViewConfiguracion() {
                         <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>developer_board</span>
                         <span style={{fontWeight:800, color:'#8b5cf6', fontSize:14}}>PJSIP Logger</span>
                         <div style={{flexGrow:1}} />
-                        {/* Filter */}
+                        {/* Sender / IP Filter */}
+                        <div style={{position:'relative'}}>
+                            <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14,color:'#4b5563',pointerEvents:'none',zIndex:1}}>router</span>
+                            <select
+                                style={{
+                                    padding:'6px 12px 6px 32px', borderRadius:10, fontSize:12, width:160,
+                                    background:'var(--surface)', border:'1px solid var(--border)',
+                                    color: senderFilter ? '#c4b5fd' : '#6b7280',
+                                    cursor:'pointer', appearance:'none', outline:'none'
+                                }}
+                                value={senderFilter}
+                                onChange={e=>setSenderFilter(e.target.value)}
+                            >
+                                <option value="">Todos los remitentes</option>
+                                {senders.length === 0
+                                    ? <option disabled>Sin datos aún...</option>
+                                    : senders.map(s => <option key={s} value={s.startsWith('Ext:') ? s.replace('Ext:','') : s}>{s}</option>)
+                                }
+                            </select>
+                            {senderFilter && (
+                                <button
+                                    onClick={()=>setSenderFilter('')}
+                                    style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#8b5cf6',display:'flex',padding:0}}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                                </button>
+                            )}
+                        </div>
+                        {/* Text Filter */}
                         <div style={{position:'relative'}}>
                             <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#4b5563'}}>search</span>
                             <input
                                 className="input-tf"
-                                style={{padding:'6px 12px 6px 34px', borderRadius:10, fontSize:12, width:180}}
+                                style={{padding:'6px 12px 6px 34px', borderRadius:10, fontSize:12, width:160}}
                                 placeholder="Filtrar logs..."
                                 value={filter}
                                 onChange={e=>setFilter(e.target.value)}
