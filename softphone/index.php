@@ -23,9 +23,17 @@
     
     <!-- React DevTools Workaround -->
     <script>
-        if (typeof window !== 'undefined' && window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-            window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on = window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on || function() {};
-        }
+        (function() {
+            if (typeof window !== 'undefined') {
+                const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+                if (hook) {
+                    const noop = () => {};
+                    ['on', 'off', 'emit', 'sub'].forEach(m => {
+                        if (typeof hook[m] !== 'function') hook[m] = noop;
+                    });
+                }
+            }
+        })();
     </script>
     
     <!-- Scripts -->
@@ -571,6 +579,7 @@
 
             // 2. PANTALLA PRINCIPAL
             return (
+                <div className="app-container bg-app-gradient relative overflow-hidden">
                     {/* Radial background overlay */}
                     <div className="absolute inset-0 opacity-20 pointer-events-none" 
                          style={{backgroundImage: 'radial-gradient(circle at 50% 0%, #007bff 0%, transparent 70%)'}}></div>                    
