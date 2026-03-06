@@ -2365,6 +2365,88 @@ function ViewGrupos({ toast }) {
 }
 
 
+// ─────────────────────────────────────────────
+// COMPONENTE: LIVE CALL CARD
+// ─────────────────────────────────────────────
+function LiveCallCard({ call, data }) {
+    const [expanded, setExpanded] = React.useState(false);
+    
+    // Buscar info extendida del agente si existe
+    const agent = data?.pbx?.extensions?.find(e => e.ext === call.ext);
+    const avatar = agent?.avatar || `https://ui-avatars.com/api/?name=${call.ext}&background=7c3aed&color=fff`;
+
+    return (
+        <div className="glass glass-hover anim-fadeup" 
+             style={{
+                 padding:'18px 22px', 
+                 marginBottom:12, 
+                 borderRadius:20, 
+                 borderLeft:`4px solid ${call.state==='Up'?'#22c55e':'#f59e0b'}`,
+                 cursor:'pointer',
+                 transition:'all 0.3s ease',
+                 position:'relative',
+                 overflow:'hidden'
+             }}
+             onClick={() => setExpanded(!expanded)}
+        >
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div style={{display:'flex', gap:16, alignItems:'center'}}>
+                    <div style={{position:'relative'}}>
+                        <div style={{width:48, height:48, borderRadius:16, background:'var(--surface2)', overflow:'hidden', border:'1px solid var(--border)'}}>
+                            <img src={avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="" />
+                        </div>
+                        {call.state === 'Up' && (
+                            <div style={{position:'absolute', bottom:-2, right:-2, width:14, height:14, borderRadius:'50%', background:'#22c55e', border:'3px solid var(--surface)', boxShadow:'0 0 10px rgba(34,197,94,0.5)'}} />
+                        )}
+                    </div>
+
+                    <div>
+                        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:2}}>
+                            <span style={{fontSize:15, fontWeight:800, color:'var(--text)', letterSpacing:'-0.02em'}}>
+                                {call.ext} <span style={{color:'var(--muted)', fontWeight:400, margin:'0 4px'}}>→</span> {call.dest}
+                            </span>
+                            <span style={{fontSize:10, padding:'2px 8px', borderRadius:6, background:call.state==='Up'?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)', color:call.state==='Up'?'#4ade80':'#fbbf24', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                                {call.state}
+                            </span>
+                        </div>
+                        <div style={{display:'flex', alignItems:'center', gap:12}}>
+                            <div style={{fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4}}>
+                                <span className="material-icons-round" style={{fontSize:13}}>settings_phone</span>
+                                {call.app || 'Dial'}
+                            </div>
+                            <div style={{fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4}}>
+                                <span className="material-icons-round" style={{fontSize:13}}>lan</span>
+                                {call.channel.split('-')[0].split('/')[0]}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:18, fontWeight:900, color:call.state==='Up'?'#f59e0b':'#9ca3af', fontFamily:'monospace'}}>
+                        {call.duration}
+                    </div>
+                    <div style={{fontSize:9, color:'#6b7280', fontWeight:700, textTransform:'uppercase', marginTop:2}}>Duración</div>
+                </div>
+            </div>
+
+            {expanded && (
+                <div style={{marginTop:16, paddingTop:16, borderTop:'1px solid var(--border)', display:'flex', gap:10, animation:'view-enter 0.3s ease'}}>
+                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(139,92,246,0.1)', color:'#c4b5fd', border:'1px solid rgba(139,92,246,0.2)'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>hearing</span> Susurrar
+                    </button>
+                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(139,92,246,0.1)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.2)'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>call_merge</span> Intervenir
+                    </button>
+                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(239,68,68,0.1)', color:'#f87171', border:'1px solid rgba(239,68,68,0.2)'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>call_end</span> Cortar
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ViewVivo2({ data }) {
     const [calls,setCalls]=useState([]);
     const [prev,setPrev]=useState([]);
