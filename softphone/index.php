@@ -21,15 +21,25 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     
-    <!-- React DevTools Workaround -->
+    <!-- React DevTools Workaround: Prevents crashes with Babel-standalone -->
     <script>
         (function() {
+            const noop = () => {};
+            const patch = (h) => {
+                if (!h) return;
+                ['on', 'off', 'emit', 'sub', 'inject'].forEach(m => {
+                    if (typeof h[m] !== 'function') h[m] = noop;
+                });
+            };
             if (typeof window !== 'undefined') {
-                const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-                if (hook) {
-                    const noop = () => {};
-                    ['on', 'off', 'emit', 'sub'].forEach(m => {
-                        if (typeof hook[m] !== 'function') hook[m] = noop;
+                if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                    patch(window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
+                } else {
+                    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
+                        configurable: true,
+                        enumerable: false,
+                        get: () => window._rdgh,
+                        set: (v) => { patch(v); window._rdgh = v; }
                     });
                 }
             }
@@ -744,8 +754,8 @@
                                     </div>
                                 ))}
                             </div>
-                        </div>
-
+                          </div>
+                        )}
                     </div>
 
                     {/* Navbar (iOS STYLE PREMIUM) */}
