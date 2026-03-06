@@ -601,6 +601,13 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                     <button className="glass-hover" onClick={toggleTheme} style={{background:'none', border:'none', padding:6, borderRadius:8, cursor:'pointer', color: 'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <span className="material-icons-round" style={{fontSize:18, color: darkMode ? '#fbbf24' : '#6366f1'}}>{darkMode?'light_mode':'dark_mode'}</span>
                     </button>
+                    
+                    {/* Botón de cerrar sidebar en móvil */}
+                    {window.innerWidth < 768 && (
+                        <button className="glass-hover" onClick={() => setCollapsed(true)} style={{background:'none', border:'none', padding:4, marginLeft:4, color: 'var(--muted)'}}>
+                            <span className="material-icons-round">chevron_left</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -632,6 +639,7 @@ function LiveCallNotifications({ calls, extensions }) {
             {notifs.map(n => (
                 <div key={n.id} className="glass glass-hover" style={{
                     width:280, padding:14, borderRadius:18, display:'flex', alignItems:'center', gap:12, 
+```
                     border:'1px solid rgba(139,92,246,0.3)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
                     animation:'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards'
                 }}>
@@ -655,21 +663,38 @@ function LiveCallNotifications({ calls, extensions }) {
 // ─────────────────────────────────────────────
 // COMPONENTE: TOPBAR (PARA REFERENCIA, PERO ELIMINADO DEL LAYOUT)
 // ─────────────────────────────────────────────
-function Topbar({ view, data, onRefresh, activeCalls }) {
-    const titles = { dashboard:'Dashboard', extensiones:'Extensiones', agentes:'Monitor de Agentes', vivo:'Llamadas en Vivo', colas:'Colas', grabaciones:'Grabaciones', cdr:'CDR' };
+function Topbar({ view, data, onRefresh, setCollapsed }) {
+    const titles = { 
+        dashboard:'Dashboard General', 
+        extensiones:'Gestión de Ext.', 
+        agentes:'Panel Agentes', 
+        vivo:'Llamadas en Vivo', 
+        colas:'Colas', 
+        grabaciones:'Grabaciones', 
+        cdr:'CDR / Historial', 
+        configuracion: 'Configuración',
+        webphone: 'Softphone Cloud'
+    };
     const [time, setTime] = useState(new Date());
     useEffect(()=>{ const t=setInterval(()=>setTime(new Date()),1000); return()=>clearInterval(t); },[]);
+    
     return (
         <div className="topbar">
-            <div>
-                <h2 style={{fontSize:18,fontWeight:700,color:'var(--text)'}}>{titles[view]||view}</h2>
-                <div style={{fontSize:11,color:'#6b7280',marginTop:1}}>{time.toLocaleDateString('es-UY',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+            <div style={{display:'flex', alignItems:'center', gap:12}}>
+                <button 
+                  className="glass-hover" 
+                  onClick={() => setCollapsed(false)}
+                  style={{background:'none', border:'none', padding:8, borderRadius:10, cursor:'pointer', color: 'var(--text)', display: window.innerWidth < 768 ? 'flex' : 'none', alignItems:'center', justifyContent:'center'}}
+                >
+                    <span className="material-icons-round">menu</span>
+                </button>
+                <div>
+                   <h2 style={{fontSize:16,fontWeight:800,color:'var(--text)', letterSpacing:'-0.5px'}}>{titles[view]||view}</h2>
+                   <div style={{fontSize:9,color:'#6b7280',marginTop:1,textTransform:'uppercase',fontWeight:800,letterSpacing:'0.05em'}}>{time.toLocaleDateString('es-UY',{day:'numeric',month:'short'})} · {time.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{fontSize:11,padding:'5px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontFamily:'monospace',color:'#c4b5fd',fontWeight:600}}>{time.toLocaleTimeString('es-UY')}</div>
-                <button onClick={onRefresh} style={{width:34,height:34,borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#9ca3af',transition:'all .2s'}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(139,92,246,.4)';e.currentTarget.style.color='var(--text)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='#9ca3af'}}>
+                <button onClick={onRefresh} style={{width:34,height:34,borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#9ca3af',transition:'all .2s'}}>
                     <span className="material-icons-round" style={{fontSize:17}}>refresh</span>
                 </button>
             </div>
@@ -2649,7 +2674,7 @@ function App() {
                 activeCalls={data?.pbx?.live_calls?.length || 0}
             />
             <main className="main-content">
-                <Topbar view={view} data={data} onRefresh={load} />
+                <Topbar view={view} data={data} onRefresh={load} setCollapsed={setCollapsed} />
                 <div style={{flex:1, overflowY:'auto'}}>
                     {renderView()}
                 </div>

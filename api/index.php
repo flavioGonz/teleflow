@@ -52,8 +52,14 @@ if ($action === 'get_sip_debug') {
     }
     
     // Leemos las últimas 500 líneas y filtramos
-    $cmd = "tail -n 500 $log_path | grep -iE 'pjsip|sip|reg|auth|fail' | tail -n 80";
+    $tail = file_exists('/usr/bin/tail') ? '/usr/bin/tail' : 'tail';
+    $grep = file_exists('/usr/bin/grep') ? '/usr/bin/grep' : 'grep';
+    
+    $cmd = "$tail -n 800 $log_path | $grep -iaE 'pjsip|sip|reg|auth|fail' | $tail -n 120";
     $output = shell_exec($cmd);
+    
+    // Clean escape codes
+    $output = preg_replace('/\x1B\[[0-9;]*[mK]/', '', $output);
     
     echo json_encode([
         'success' => true, 
