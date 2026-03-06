@@ -40,7 +40,7 @@ if ($action === 'logout') {
     exit;
 }
 
-if (!isset($_SESSION['tf_user'])) {
+if (!isset($_SESSION['tf_user']) && !in_array($action, ['get_agents_data', 'upload_avatar'])) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
     exit;
@@ -159,6 +159,41 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
         $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
     }
 }
+
+// ─── GET AGENTS DATA (Lite version for Softphone Directory) ─────────────────
+if ($action === 'get_agents_data') {
+    $pjsip_e = ami_cmd('pjsip show endpoints');
+    $exts = [];
+    foreach (explode("\n", $pjsip_e) as $line) {
+        if (preg_match('/^\s+Endpoint:\s+(\d+)\/(.+?)\s+(Not in use|Unavailable|In use|Busy|Ringing)\s+(\d+)/i', $line, $m)) {
+            $ext  = $m[1];
+            $name = trim($m[2]);
+            $avatar = "uploads/avatars/$ext.jpg";
+            if (!file_exists($avatar_dir . $ext . '.jpg')) $avatar = "";
+            $st = strtoupper(trim($m[3]));
+            $status = ($st==='NOT IN USE')?'ONLINE':($st==='UNAVAILABLE'?'OFFLINE':'BUSY');
+            $exts[] = ['ext'=>$ext,'name'=>$name,'status'=>$status,'avatar'=>$avatar];
+        }
+    }
+    // MySQL Fallback
+    try {
+        $db2 = mysql_pbx();
+        $db_devs = $db2->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($db_devs as $dev) {
+            $found = false;
+            foreach($exts as $e) if($e['ext'] === $dev['ext']) { $found=true; break; }
+            if(!$found) {
+                $ext = $dev['ext'];
+                $avatar = "uploads/avatars/$ext.jpg";
+                if (!file_exists($avatar_dir . $ext . '.jpg')) $avatar = "";
+                $exts[] = ['ext'=>$dev['ext'],'name'=>$dev['name'] ?: $dev['ext'],'status'=>'OFFLINE','avatar'=>$avatar];
+            }
+        }
+    } catch (Exception $e) {}
+    echo json_encode(['success' => true, 'agents' => $exts]);
+    exit;
+}
+
 
 // ─── GET FULL DATA (dashboard + extensiones + grabaciones) ──────────────────
 if ($action === 'get_full_data') {

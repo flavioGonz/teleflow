@@ -281,7 +281,7 @@
             // General settings / Auth
             const [ext, setExt] = useState(() => localStorage.getItem('tf_sip_ext') || '');
             const [pass, setPass] = useState(() => localStorage.getItem('tf_sip_pass') || 'teleflow123');
-            const [domain, setDomain] = useState(() => '201.217.134.124'); // Default IP for production Asterisk
+            const [domain, setDomain] = useState(() => 'pbx01.infratec.com.uy'); // Default PBX domain
             const [status, setStatus] = useState('Desconectado');
             
             // Navigation
@@ -317,6 +317,39 @@
             const showToast = (msg, type='info') => {
                 setToast({msg, type});
                 setTimeout(()=>setToast(null), 3000);
+            };
+
+            const [showCallChoice, setShowCallChoice] = useState(false);
+
+            const handleAvatarUpload = async (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const formData = new FormData();
+                formData.append('avatar', file);
+                formData.append('ext', ext);
+                try {
+                    const r = await fetch('../api/index.php?action=upload_avatar', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const d = await r.json();
+                    if(d.success) {
+                        showToast('Avatar actualizado','success');
+                        // Refresh contacts to update UI
+                        const r2 = await fetch('../api/index.php?action=get_agents_data');
+                        const d2 = await r2.json();
+                        if(d2.success) setContacts(d2.agents);
+                    } else showToast('Error al subir avatar','error');
+                } catch(e) { showToast('Error de conexión','error'); }
+            };
+
+            const checkPermissions = async (type) => {
+                try {
+                    if(type === 'microphone') await navigator.mediaDevices.getUserMedia({audio:true});
+                    if(type === 'camera') await navigator.mediaDevices.getUserMedia({video:true});
+                    if(type === 'notifications') await Notification.requestPermission();
+                    showToast('Permiso verificado correctamente','success');
+                } catch(e) { showToast('Permiso denegado','error'); }
             };
 
             // ───────────────── API POLLING FOR CONTACTS ─────────────────
@@ -448,6 +481,16 @@
                           showToast('No se alcanzó el WSS proxy','error');
                       });
 
+                    su.delegate.onCallAnswered = () => {
+                        setCallStatus('in-call'); 
+                        setStatus('En Llamada');
+                        setElapsed(0);
+                        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                        
+                        // Video attachment if needed
+                        setTimeout(() => setupVideoTracks(su.session), 500);
+                    };
+
                     setSimpleUser(su);
                 } catch(e) {
                     showToast('Error interno SIP: '+e.message, 'error');
@@ -489,11 +532,12 @@
                     } 
                 };
                 
+                setShowCallChoice(false);
                 setVideoActive(video);
                 setCallDirection('out');
                 setRemoteNumber(dest);
                 
-                simpleUser.call(`sip:${dest}@201.217.134.124`, opts)
+                simpleUser.call(`sip:${dest}@${domain}`, opts)
                   .then(() => {
                       setCallStatus('calling');
                       saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
@@ -707,9 +751,31 @@
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 50px 30px'}}>
                                 <div style={{width:60}}></div> {/* Spacer to center call btn */}
                                 
-                                <button className="call-btn" style={{width:75,height:75,background:'var(--accent)'}} onClick={startCall}>
+                                <button className="call-btn" style={{width:75,height:75,background:'var(--accent)'}} onClick={() => setShowCallChoice(true)}>
                                     <span className="material-icons-round" style={{fontSize:36}}>call</span>
                                 </button>
+
+                                {showCallChoice && (
+                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md z-[150] flex items-end p-6" onClick={() => setShowCallChoice(false)}>
+                                        <div className="w-full flex flex-col gap-3 animate-slideUp" onClick={e => e.stopPropagation()}>
+                                            <button onClick={() => startCall(false)} className="w-full bg-white/10 hover:bg-white/20 p-5 rounded-2xl flex items-center justify-between border border-white/5">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="material-symbols-outlined text-green-500 text-3xl">call</span>
+                                                    <span className="font-bold">Llamada de Audio</span>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-500">chevron_right</span>
+                                            </button>
+                                            <button onClick={() => startCall(true)} className="w-full bg-white/10 hover:bg-white/20 p-5 rounded-2xl flex items-center justify-between border border-white/5">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="material-symbols-outlined text-blue-500 text-3xl">videocam</span>
+                                                    <span className="font-bold">Llamada de Video</span>
+                                                </div>
+                                                <span className="material-symbols-outlined text-slate-500">chevron_right</span>
+                                            </button>
+                                            <button onClick={() => setShowCallChoice(false)} className="w-full bg-slate-800 p-4 rounded-2xl font-bold mt-2">Cancelar</button>
+                                        </div>
+                                    </div>
+                                )}
                                 
                                 <div style={{width:60, display:'flex', justifyContent:'flex-end'}}>
                                     <button onClick={()=>setDest(d=>d.slice(0,-1))} style={{background:'transparent',border:'none',color:'var(--muted)',padding:10}}>
@@ -722,10 +788,10 @@
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         {activeTab==='contacts' && (
-                          <div className="page-enter p-5 h-full">
+                          <div className="page-enter p-5 h-full flex flex-col">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
-                            <div className="flex flex-col gap-3">
-                                {contacts.length===0 && <div className="text-slate-500 text-xs text-center p-10">Buscando contactos...</div>}
+                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto">
+                                {contacts.length===0 && <div className="text-slate-500 text-sm text-center p-20 glass-panel rounded-3xl border border-white/5">Buscando internos...</div>}
                                 {contacts.map((c,i) => (
                                     <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} 
                                         className="flex items-center gap-4 p-4 glass-panel rounded-2xl border border-white/5 active:scale-[0.98] transition-all">
@@ -739,15 +805,16 @@
                                         <div className={`w-2.5 h-2.5 rounded-full ${c.status==='ONLINE'?'bg-green-500':c.status==='BUSY'?'bg-orange-500':'bg-slate-600'}`}></div>
                                     </div>
                                 ))}
+                                <div className="h-24"></div>
                             </div>
                           </div>
                         )}
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
                         {activeTab==='history' && (
-                          <div className="page-enter p-5 h-full">
+                          <div className="page-enter p-5 h-full overflow-y-auto">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Recientes</h2>
-                            <div className="flex flex-col">
+                            <div className="flex flex-col pb-20">
                                 {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
                                 {history.map((h,i) => (
                                     <div key={i} onClick={()=>{setDest(h.num); setActiveTab('dialpad');}} 
@@ -762,6 +829,64 @@
                                         <div className="text-[10px] text-slate-500 font-bold">{formatSmartTime(h.time)}</div>
                                     </div>
                                 ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ──────────────── TAB: SETTINGS ──────────────── */}
+                        {activeTab==='settings' && (
+                          <div className="page-enter p-5 h-full overflow-y-auto">
+                            <h2 className="text-2xl font-extrabold mb-8 pl-1">Ajustes</h2>
+                            <div className="flex flex-col gap-6 pb-28">
+                                <div className="glass-panel p-6 rounded-3xl border border-white/5 flex flex-col items-center gap-4">
+                                    <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatarInput').click()}>
+                                        <div className="w-24 h-24 rounded-full bg-slate-800 overflow-hidden border-2 border-primary/40 relative">
+                                            {contacts.find(c => c.ext === ext)?.avatar ? (
+                                                <img src={`../${contacts.find(c => c.ext === ext).avatar}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-3xl text-white/20">{ext.substring(0,2)}</div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <span className="material-symbols-outlined text-white">photo_camera</span>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="avatarInput" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                                    </div>
+                                    <div className="text-center">
+                                        <h3 className="text-lg font-bold">{contacts.find(c => c.ext === ext)?.name || 'Usuario'}</h3>
+                                        <p className="text-xs text-slate-500 font-medium tracking-wider uppercase mt-1">Extensión {ext}</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 mb-1">Permisos</h4>
+                                    <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
+                                        <button onClick={() => checkPermissions('microphone')} className="w-full flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-all text-left">
+                                            <div className="flex items-center gap-3">
+                                                <span className="material-symbols-outlined text-primary">mic</span>
+                                                <span className="text-sm font-medium">Micrófono</span>
+                                            </div>
+                                            <span className="text-[9px] bg-primary/10 text-primary px-3 py-1 rounded-full font-bold uppercase">Verificar</span>
+                                        </button>
+                                        <button onClick={() => checkPermissions('camera')} className="w-full flex items-center justify-between p-4 border-b border-white/5 hover:bg-white/5 transition-all text-left">
+                                            <div className="flex items-center gap-3">
+                                                <span className="material-symbols-outlined text-primary">videocam</span>
+                                                <span className="text-sm font-medium">Cámara</span>
+                                            </div>
+                                            <span className="text-[9px] bg-primary/10 text-primary px-3 py-1 rounded-full font-bold uppercase">Verificar</span>
+                                        </button>
+                                        <button onClick={() => checkPermissions('notifications')} className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-all text-left">
+                                            <div className="flex items-center gap-3">
+                                                <span className="material-symbols-outlined text-primary">notifications</span>
+                                                <span className="text-sm font-medium">Notificaciones</span>
+                                            </div>
+                                            <span className="text-[9px] bg-primary/10 text-primary px-3 py-1 rounded-full font-bold uppercase">Verificar</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button onClick={disconnect} className="w-full flex items-center gap-3 p-4 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/10 hover:bg-red-500/20 transition-all font-bold text-sm">
+                                    <span className="material-symbols-outlined">logout</span>
+                                    Cerrar Sesión
+                                </button>
                             </div>
                           </div>
                         )}
@@ -790,8 +915,8 @@
                                 <span className={`material-symbols-outlined ${activeTab==='contacts'?'filled-icon':''}`}>person_book</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tighter">Contactos</span>
                             </button>
-                            <button className="flex flex-col items-center gap-1 text-slate-400" onClick={disconnect}>
-                                <span className="material-symbols-outlined">settings</span>
+                            <button className={`flex flex-col items-center gap-1 ${activeTab==='settings'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('settings')}>
+                                <span className={`material-symbols-outlined ${activeTab==='settings'?'filled-icon':''}`}>settings</span>
                                 <span className="text-[9px] font-bold uppercase tracking-tighter">Ajustes</span>
                             </button>
                         </div>
