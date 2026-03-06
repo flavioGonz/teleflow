@@ -213,6 +213,12 @@
         .ios-button-bg:active { background-color: rgba(255, 255, 255, 0.25); transform: scale(0.92); }
         .end-call-bg { background-color: #ff3b30; }
         
+        .glass-panel {
+            background: rgba(23, 38, 54, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
         .status-bar-time { font-weight: 600; font-size: 14px; }
         .home-indicator { width: 130px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 10px auto; }
         
@@ -221,6 +227,10 @@
             transition: font-variation-settings 0.2s;
         }
         .filled-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        .bg-app-gradient {
+            background: linear-gradient(180deg, #0f1923 0%, #1a2a3a 50%, #0f1923 100%);
+        }
     </style>
 </head>
 <body>
@@ -243,8 +253,13 @@
             const [status, setStatus] = useState('Desconectado');
             
             // Navigation
-            const [activeTab, setActiveTab] = useState('dialpad'); 
-            
+            const [activeTab, setActiveTab] = useState('dashboard'); 
+            const [currentTime, setCurrentTime] = useState(new Date());
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);            
             // Call State
             const [dest, setDest] = useState('');
             const [simpleUser, setSimpleUser] = useState(null);
@@ -476,8 +491,11 @@
 
             // 2. PANTALLA PRINCIPAL
             return (
-                <div className="app-container">
+                <div className="app-container bg-app-gradient relative overflow-hidden">
                     
+                    {/* Radial background overlay */}
+                    <div className="absolute inset-0 opacity-20 pointer-events-none" 
+                         style={{backgroundImage: 'radial-gradient(circle at 50% 0%, #007bff 0%, transparent 70%)'}}></div>                    
                     {toast && (
                         <div className="toast" style={{background: toast.type==='error'?'#ef4444':toast.type==='success'?'#10b981':'var(--primary)'}}>
                             <span className="material-icons-round" style={{fontSize:18}}>{toast.type==='error'?'error':toast.type==='success'?'check_circle':'info'}</span>
@@ -485,30 +503,97 @@
                         </div>
                     )}
 
-                    {/* HEADER STATUS */}
-                    <div className="header">
-                        <div style={{display:'flex', alignItems:'center', gap:10}}>
-                            <div style={{width:10,height:10,borderRadius:'50%',background:status.includes('Libre')?'var(--accent)':'#f59e0b',animation:!status.includes('Libre')?'blink 1s infinite':'none'}} />
-                            <div>
-                                <div style={{fontSize:14,fontWeight:800}}>Extensión {ext}</div>
-                                <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>{status}</div>
-                            </div>
+                    {/* HEADER STATUS BAR */}
+                    <header className="flex items-center justify-between px-6 pt-10 pb-4 z-20">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold tracking-wider opacity-60">TELEFLOW</span>
+                            <span className="material-symbols-outlined text-[14px] text-primary">signal_cellular_alt</span>
                         </div>
-                        <button onClick={disconnect} style={{background:'rgba(239,68,68,0.1)',color:'var(--danger)',border:'none',width:36,height:36,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>power_settings_new</span>
-                        </button>
-                    </div>
+                        <div className="absolute left-1/2 -translate-x-1/2">
+                            <p className="text-sm font-medium">{currentTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px]">wifi</span>
+                            <span className="material-symbols-outlined text-[18px] rotate-90">battery_full</span>
+                        </div>
+                    </header>
 
                     {/* VIEWPORT CONTENIDO */}
-                    <div className="main-content">
+                    <div className="main-content z-10">
                         
+                        {/* ──────────────── TAB: DASHBOARD (IDLE SCREEN) ──────────────── */}
+                        <div style={{display: activeTab==='dashboard'?'flex':'none', flexDirection:'column', height:'100%', padding:'0 20px'}}>
+                            <section className="flex flex-col items-center gap-4 text-center mt-6">
+                                <div className="relative">
+                                    <div className="w-32 h-32 rounded-full border-2 border-primary/30 p-1">
+                                        <div className="w-full h-full rounded-full bg-slate-700/50 flex items-center justify-center overflow-hidden">
+                                            {contacts.find(c => c.ext === ext)?.avatar ? (
+                                                <img src={`../${contacts.find(c => c.ext === ext).avatar}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-4xl text-white/30 uppercase">{ext.substring(0,2)}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className={`absolute bottom-1 right-1 w-6 h-6 border-4 border-[#0f1923] rounded-full ${status.includes('Libre')?'bg-green-500':'bg-orange-500'}`}></div>
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-bold tracking-tight">{contacts.find(c => c.ext === ext)?.name || 'Agente Teleflow'}</h1>
+                                    <p className="text-primary font-medium">{status.includes('Libre') ? 'Disponible' : status}</p>
+                                    <p className="text-slate-400 text-sm mt-1">Int. {ext} • {domain}</p>
+                                </div>
+                            </section>
+
+                            <section className="w-full grid grid-cols-2 gap-4 mt-8">
+                                <div className="glass-panel rounded-2xl p-5 flex flex-col gap-1 border border-white/5">
+                                    <span className="material-symbols-outlined text-primary mb-1">cloud_done</span>
+                                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Servidor</p>
+                                    <p className="text-lg font-semibold">{status.includes('Registrado') ? 'Conectado' : 'Offline'}</p>
+                                </div>
+                                <div className="glass-panel rounded-2xl p-5 flex flex-col gap-1 border border-white/5">
+                                    <span className="material-symbols-outlined text-primary mb-1">history</span>
+                                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Llamadas Hoy</p>
+                                    <p className="text-lg font-semibold">{history.length}</p>
+                                </div>
+                            </section>
+
+                            <section className="w-full flex flex-col gap-4 mt-8">
+                                <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-1">Acciones Rápidas</h3>
+                                <div className="flex flex-col gap-3">
+                                    <button onClick={()=>setActiveTab('history')} className="w-full flex items-center justify-between glass-panel p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all active:scale-[0.98]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                                <span className="material-symbols-outlined">call_log</span>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-sm">Historial</p>
+                                                <p className="text-[11px] text-slate-400">Ver llamadas recientes</p>
+                                            </div>
+                                        </div>
+                                        <span className="material-symbols-outlined text-slate-500 text-xl">chevron_right</span>
+                                    </button>
+                                    <button onClick={disconnect} className="w-full flex items-center justify-between glass-panel p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-all active:scale-[0.98]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                                                <span className="material-symbols-outlined">logout</span>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-sm">Cerrar Sesión</p>
+                                                <p className="text-[11px] text-slate-400">Desvincular extensión</p>
+                                            </div>
+                                        </div>
+                                        <span className="material-symbols-outlined text-slate-500 text-xl">chevron_right</span>
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+
                         {/* ──────────────── TAB: DIALPAD ──────────────── */}
                         <div style={{display: activeTab==='dialpad'?'flex':'none', flexDirection:'column', height:'100%'}}>
                             <div style={{flex:1, display:'flex', flexDirection:'column', justifyContent:'center', paddingBottom:20}}>
                                 {/* Display Number */}
-                                <div style={{textAlign:'center', padding:'20px', minHeight:100, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                                <div className="text-center px-5 min-h-[120px] flex items-center justify-center">
                                     <input type="tel" 
-                                        style={{background:'transparent',border:'none',color:'white',fontSize:42,fontWeight:300,textAlign:'center',width:'100%',outline:'none',letterSpacing:'2px'}} 
+                                        className="bg-transparent border-none color-white text-5xl font-light text-center w-full outline-none tracking-widest"
                                         value={dest} onChange={e=>setDest(e.target.value)} placeholder="0" />
                                 </div>
                                 
@@ -541,19 +626,20 @@
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         <div style={{display: activeTab==='contacts'?'block':'none', padding:20, height:'100%'}}>
-                            <h2 style={{fontSize:20,fontWeight:800,marginBottom:15}}>Directorio</h2>
-                            <div style={{display:'flex', flexDirection:'column', gap:10}}>
-                                {contacts.length===0 && <div style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:20}}>Buscando contactos...</div>}
+                            <h2 style={{fontSize:22,fontWeight:800,marginBottom:20,paddingLeft:4}}>Directorio</h2>
+                            <div className="flex flex-col gap-3">
+                                {contacts.length===0 && <div className="text-slate-500 text-xs text-center p-10">Buscando contactos...</div>}
                                 {contacts.map((c,i) => (
-                                    <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'var(--surface2)',borderRadius:16,border:'1px solid var(--border)'}}>
-                                        <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(139,92,246,0.1)',color:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800}}>
-                                            {c.name?.substring(0,2).toUpperCase() || c.ext}
+                                    <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} 
+                                        className="flex items-center gap-4 p-4 glass-panel rounded-2xl border border-white/5 active:scale-[0.98] transition-all">
+                                        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg border border-primary/20">
+                                            {c.avatar ? <img src={`../${c.avatar}`} className="w-full h-full object-cover rounded-full" /> : (c.name?.substring(0,1).toUpperCase() || '?')}
                                         </div>
-                                        <div style={{flex:1}}>
-                                            <div style={{fontSize:14,fontWeight:700}}>{c.name}</div>
-                                            <div style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>Ext: {c.ext}</div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-bold">{c.name}</div>
+                                            <div className="text-[11px] text-slate-400 font-medium">Extensión {c.ext}</div>
                                         </div>
-                                        <div style={{width:10,height:10,borderRadius:'50%',background:c.status==='ONLINE'?'var(--accent)':c.status==='BUSY'?'#f59e0b':'var(--muted)'}}></div>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${c.status==='ONLINE'?'bg-green-500':c.status==='BUSY'?'bg-orange-500':'bg-slate-600'}`}></div>
                                     </div>
                                 ))}
                             </div>
@@ -561,17 +647,20 @@
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
                         <div style={{display: activeTab==='history'?'block':'none', padding:20, height:'100%'}}>
-                            <h2 style={{fontSize:20,fontWeight:800,marginBottom:15}}>Recientes</h2>
-                            <div style={{display:'flex', flexDirection:'column', gap:0}}>
-                                {history.length===0 && <div style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:20}}>Sin llamadas registradas en este equipo</div>}
+                            <h2 style={{fontSize:22,fontWeight:800,marginBottom:20,paddingLeft:4}}>Recientes</h2>
+                            <div className="flex flex-col">
+                                {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
                                 {history.map((h,i) => (
-                                    <div key={i} onClick={()=>{setDest(h.num); setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 10px',borderBottom:'1px solid var(--border)'}}>
-                                        <span className="material-icons-round" style={{color:h.dir==='in'?'var(--primary)':'var(--muted)',fontSize:20}}>{h.dir==='in'?'call_received':'call_made'}</span>
-                                        <div style={{flex:1}}>
-                                            <div style={{fontSize:15,fontWeight:700,color:h.acc==='missed'?'var(--danger)':'white'}}>{h.num}</div>
-                                            <div style={{fontSize:11,color:'var(--muted)',fontWeight:500}}>{h.acc}</div>
+                                    <div key={i} onClick={()=>{setDest(h.num); setActiveTab('dialpad');}} 
+                                         className="flex items-center gap-4 py-4 px-2 border-b border-white/5 active:bg-white/5 transition-all">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${h.dir==='in'?'bg-primary/10 text-primary':'bg-slate-700/30 text-slate-400'}`}>
+                                            <span className="material-symbols-outlined text-lg">{h.dir==='in'?'call_received':'call_made'}</span>
                                         </div>
-                                        <div style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{formatSmartTime(h.time)}</div>
+                                        <div className="flex-1">
+                                            <div className={`text-base font-semibold ${h.acc==='missed'?'text-red-500':'text-white'}`}>{h.num}</div>
+                                            <div className="text-[11px] text-slate-500 font-medium uppercase">{h.acc}</div>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-bold">{formatSmartTime(h.time)}</div>
                                     </div>
                                 ))}
                             </div>
@@ -579,18 +668,37 @@
 
                     </div>
 
-                    {/* Navbar */}
-                    <div className="bottom-nav">
-                        <button className={`nav-item ${activeTab==='contacts'?'active':''}`} onClick={()=>setActiveTab('contacts')}>
-                            <span className="material-icons-round">contacts</span>Directorio
-                        </button>
-                        <button className={`nav-item ${activeTab==='dialpad'?'active':''}`} onClick={()=>setActiveTab('dialpad')}>
-                            <span className="material-icons-round">dialpad</span>Teclado
-                        </button>
-                        <button className={`nav-item ${activeTab==='history'?'active':''}`} onClick={()=>setActiveTab('history')}>
-                            <span className="material-icons-round">schedule</span>Recientes
-                        </button>
-                    </div>
+                    {/* Navbar (iOS STYLE PREMIUM) */}
+                    <nav className="absolute bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[100]">
+                        <div className="flex items-center justify-between">
+                            <button className={`flex flex-col items-center gap-1 ${activeTab==='dashboard'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('dashboard')}>
+                                <span className={`material-symbols-outlined ${activeTab==='dashboard'?'filled-icon':''}`}>home</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tighter">Inicio</span>
+                            </button>
+                            <button className={`flex flex-col items-center gap-1 ${activeTab==='history'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('history')}>
+                                <span className={`material-symbols-outlined ${activeTab==='history'?'filled-icon':''}`}>history</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tighter">Recientes</span>
+                            </button>
+                            
+                            <button className="flex flex-col items-center gap-1 -mt-10" onClick={()=>setActiveTab('dialpad')}>
+                                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all active:scale-90 ${activeTab==='dialpad'?'bg-primary shadow-primary/40':'bg-slate-700 shadow-black/40'}`}>
+                                    <span className="material-symbols-outlined text-3xl">dialpad</span>
+                                </div>
+                                <span className={`text-[9px] font-bold mt-2 uppercase tracking-tighter ${activeTab==='dialpad'?'text-primary':'text-slate-400'}`}>Teclado</span>
+                            </button>
+                            
+                            <button className={`flex flex-col items-center gap-1 ${activeTab==='contacts'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('contacts')}>
+                                <span className={`material-symbols-outlined ${activeTab==='contacts'?'filled-icon':''}`}>person_book</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tighter">Contactos</span>
+                            </button>
+                            <button className="flex flex-col items-center gap-1 text-slate-400" onClick={disconnect}>
+                                <span className="material-symbols-outlined">settings</span>
+                                <span className="text-[9px] font-bold uppercase tracking-tighter">Ajustes</span>
+                            </button>
+                        </div>
+                    </nav>
+
+                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/20 rounded-full z-[101]"></div>
 
                     {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
