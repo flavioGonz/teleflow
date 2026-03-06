@@ -11,6 +11,11 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📱</text></svg>'>
     
+    <!-- PWA Optimized Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Teleflow">
+
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
@@ -73,21 +78,19 @@
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
+            background-color: #0f1923;
             color: var(--text);
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevent bounce scrolling on iOS */
-            overscroll-behavior-y: none;
+            overflow: hidden; 
+            overscroll-behavior: none;
             display: flex;
             flex-direction: column;
             width: 100vw;
-            height: 100dvh; /* Mobile aware height */
+            height: 100dvh; 
         }
 
-        /* Ocultar barra de scroll para vista nativa */
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
-
+        /* Fluid Layout */
         .app-container {
             display: flex;
             flex-direction: column;
@@ -96,53 +99,64 @@
             max-width: 500px;
             margin: 0 auto;
             position: relative;
-            background: var(--bg);
-        }
-
-        .header {
-            padding: env(safe-area-inset-top, 20px) 20px 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            z-index: 10;
+            background: #0f1923;
+            /* Safe areas for notched phones */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .main-content {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 120px; /* Space for Nav */
             position: relative;
-            display: flex;
-            flex-direction: column;
         }
 
         .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             display: flex;
-            background: rgba(19, 19, 28, 0.9);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border);
-            padding-bottom: env(safe-area-inset-bottom, 0px);
+            background: rgba(15, 25, 35, 0.85);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+            padding-top: 12px;
             z-index: 100;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
         }
         .nav-item {
             flex: 1;
-            padding: 12px 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: var(--muted);
+            color: #94a3b8;
             border: none;
             background: transparent;
             font-size: 10px;
-            font-weight: 600;
-            transition: all 0.2s;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            gap: 4px;
         }
-        .nav-item.active { color: var(--primary); }
-        .nav-item span.material-icons-round { font-size: 24px; margin-bottom: 4px; transition: transform 0.2s; }
-        .nav-item.active span.material-icons-round { transform: scale(1.1); font-weight: 900;}
+        .nav-item.active { color: #007bff; }
+        .nav-item .material-symbols-outlined { font-size: 26px; }
+
+        /* Page Transitions */
+        .page-enter {
+            animation: pageFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes pageFadeIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
         .input-tf {
             background: var(--surface2);
@@ -266,12 +280,15 @@
             const [callStatus, setCallStatus] = useState(null); // 'calling', 'ringing', 'in-call', 'held'
             const [isMuted, setIsMuted] = useState(false);
             const [isHeld, setIsHeld] = useState(false);
+            const [videoActive, setVideoActive] = useState(false);
             const [remoteNumber, setRemoteNumber] = useState('');
             const [callDirection, setCallDirection] = useState(''); // 'in' or 'out'
             const [elapsed, setElapsed] = useState(0);
 
-            // Audio element required by SIP.js
+            // Audio/Video Refs
             const audioRef = useRef(null);
+            const localVideoRef = useRef(null);
+            const remoteVideoRef = useRef(null);
             const timerRef = useRef(null);
 
             // History / Contacts
@@ -294,6 +311,11 @@
                     } catch(e) {}
                 };
                 loadContacts();
+
+                // Request Notification Permission
+                if ("Notification" in window) {
+                    Notification.requestPermission();
+                }
             }, []);
 
             // ───────────────── SIP REGISTRATION ─────────────────
@@ -318,14 +340,23 @@
 
                     su.delegate = {
                         onCallReceived: () => { 
-                            showToast('Llamada Entrante','info');
-                            setRemoteNumber(su.session.remoteIdentity.uri.user); 
+                            const caller = su.session.remoteIdentity.uri.user;
+                            showToast('Llamada Entrante: ' + caller,'info');
+                            setRemoteNumber(caller); 
                             setCallDirection('in');
                             setCallStatus('ringing'); 
                             setActiveTab('dialpad');
                             
+                            // Native Notification
+                            if (Notification.permission === "granted") {
+                                new Notification("Llamada Entrante", {
+                                    body: "Extensión " + caller,
+                                    icon: "icon-192.svg"
+                                });
+                            }
+
                             // Trigger wake lock vibration if mobile
-                            if (navigator.vibrate) navigator.vibrate([500, 300, 500]);
+                            if (navigator.vibrate) navigator.vibrate([500, 300, 500, 300, 500]);
                         },
                         onCallHangup: () => { 
                             setCallStatus(null);
@@ -380,10 +411,36 @@
                           showToast('No se alcanzó el WSS proxy','error');
                       });
 
+                    su.delegate.onCallAnswered = () => {
+                        setCallStatus('in-call'); 
+                        setStatus('En Llamada');
+                        setElapsed(0);
+                        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                        
+                        // Setup video if session has tracks
+                        setupVideoTracks(su.session);
+                    };
+
                     setSimpleUser(su);
                 } catch(e) {
                     showToast('Error interno SIP: '+e.message, 'error');
                 }
+            };
+
+            const setupVideoTracks = (session) => {
+                if (!session || !session.sessionDescriptionHandler) return;
+                const remoteStream = new MediaStream();
+                const localStream = new MediaStream();
+
+                session.sessionDescriptionHandler.peerConnection.getReceivers().forEach(receiver => {
+                    if (receiver.track) remoteStream.addTrack(receiver.track);
+                });
+                session.sessionDescriptionHandler.peerConnection.getSenders().forEach(sender => {
+                    if (sender.track) localStream.addTrack(sender.track);
+                });
+
+                if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+                if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
             };
 
             const disconnect = () => {
@@ -395,17 +452,21 @@
             };
 
             // ───────────────── CALL HANDLING ─────────────────
-            const startCall = () => {
+            const startCall = (video = false) => {
                 if(!simpleUser || !status.includes('Registrado')) return showToast('Debe estar registrado','error');
                 if(!dest) return showToast('Ingrese un número','error');
 
-                // Asegurar solo audio
-                const opts = { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } };
+                const opts = { 
+                    sessionDescriptionHandlerOptions: { 
+                        constraints: { audio: true, video: video } 
+                    } 
+                };
                 
+                setVideoActive(video);
                 setCallDirection('out');
                 setRemoteNumber(dest);
                 
-                simpleUser.call(`sip:${dest}@${window.location.hostname}`, opts)
+                simpleUser.call(`sip:${dest}@201.217.134.124`, opts)
                   .then(() => {
                       setCallStatus('calling');
                       saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
@@ -413,10 +474,29 @@
                   .catch(e => showToast('Error al llamar al destino','error'));
             };
 
-            const answerCall = () => {
+            const answerCall = (video = false) => {
                 if(!simpleUser) return;
-                const opts = { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } };
-                simpleUser.answer(opts).catch(e => showToast('Falló al contestar','error'));
+                setVideoActive(video);
+                const opts = { 
+                    sessionDescriptionHandlerOptions: { 
+                        constraints: { audio: true, video: video } 
+                    } 
+                };
+                simpleUser.answer(opts).then(() => {
+                    setTimeout(() => setupVideoTracks(simpleUser.session), 1000);
+                }).catch(e => showToast('Falló al contestar','error'));
+            };
+
+            const toggleVideo = () => {
+                if (!simpleUser || !simpleUser.session) return;
+                // Simplified toggle for SIP.js v0.20
+                if (videoActive) {
+                    setVideoActive(false);
+                    // could use session.sessionDescriptionHandler.peerConnection here but let's keep it simple for now
+                } else {
+                    setVideoActive(true);
+                    // re-invite or upgrade logic would go here
+                }
             };
 
             const hangupCall = () => {
@@ -491,11 +571,10 @@
 
             // 2. PANTALLA PRINCIPAL
             return (
-                <div className="app-container bg-app-gradient relative overflow-hidden">
-                    
                     {/* Radial background overlay */}
                     <div className="absolute inset-0 opacity-20 pointer-events-none" 
                          style={{backgroundImage: 'radial-gradient(circle at 50% 0%, #007bff 0%, transparent 70%)'}}></div>                    
+                    
                     {toast && (
                         <div className="toast" style={{background: toast.type==='error'?'#ef4444':toast.type==='success'?'#10b981':'var(--primary)'}}>
                             <span className="material-icons-round" style={{fontSize:18}}>{toast.type==='error'?'error':toast.type==='success'?'check_circle':'info'}</span>
@@ -503,26 +582,12 @@
                         </div>
                     )}
 
-                    {/* HEADER STATUS BAR */}
-                    <header className="flex items-center justify-between px-6 pt-10 pb-4 z-20">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold tracking-wider opacity-60">TELEFLOW</span>
-                            <span className="material-symbols-outlined text-[14px] text-primary">signal_cellular_alt</span>
-                        </div>
-                        <div className="absolute left-1/2 -translate-x-1/2">
-                            <p className="text-sm font-medium">{currentTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[16px]">wifi</span>
-                            <span className="material-symbols-outlined text-[18px] rotate-90">battery_full</span>
-                        </div>
-                    </header>
-
-                    {/* VIEWPORT CONTENIDO */}
+                    {/* VIEWPORT CONTENIDO (Con transiciones suaves) */}
                     <div className="main-content z-10">
                         
                         {/* ──────────────── TAB: DASHBOARD (IDLE SCREEN) ──────────────── */}
-                        <div style={{display: activeTab==='dashboard'?'flex':'none', flexDirection:'column', height:'100%', padding:'0 20px'}}>
+                        {activeTab==='dashboard' && (
+                          <div className="page-enter flex flex-col h-full px-5">
                             <section className="flex flex-col items-center gap-4 text-center mt-6">
                                 <div className="relative">
                                     <div className="w-32 h-32 rounded-full border-2 border-primary/30 p-1">
@@ -585,11 +650,13 @@
                                     </button>
                                 </div>
                             </section>
-                        </div>
+                          </div>
+                        )}
 
                         {/* ──────────────── TAB: DIALPAD ──────────────── */}
-                        <div style={{display: activeTab==='dialpad'?'flex':'none', flexDirection:'column', height:'100%'}}>
-                            <div style={{flex:1, display:'flex', flexDirection:'column', justifyContent:'center', paddingBottom:20}}>
+                        {activeTab==='dialpad' && (
+                          <div className="page-enter flex flex-col h-full">
+                            <div className="flex-1 flex flex-col justify-center pb-5">
                                 {/* Display Number */}
                                 <div className="text-center px-5 min-h-[120px] flex items-center justify-center">
                                     <input type="tel" 
@@ -622,11 +689,13 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                          </div>
+                        )}
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
-                        <div style={{display: activeTab==='contacts'?'block':'none', padding:20, height:'100%'}}>
-                            <h2 style={{fontSize:22,fontWeight:800,marginBottom:20,paddingLeft:4}}>Directorio</h2>
+                        {activeTab==='contacts' && (
+                          <div className="page-enter p-5 h-full">
+                            <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
                             <div className="flex flex-col gap-3">
                                 {contacts.length===0 && <div className="text-slate-500 text-xs text-center p-10">Buscando contactos...</div>}
                                 {contacts.map((c,i) => (
@@ -643,11 +712,13 @@
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                          </div>
+                        )}
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
-                        <div style={{display: activeTab==='history'?'block':'none', padding:20, height:'100%'}}>
-                            <h2 style={{fontSize:22,fontWeight:800,marginBottom:20,paddingLeft:4}}>Recientes</h2>
+                        {activeTab==='history' && (
+                          <div className="page-enter p-5 h-full">
+                            <h2 className="text-2xl font-extrabold mb-5 pl-1">Recientes</h2>
                             <div className="flex flex-col">
                                 {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
                                 {history.map((h,i) => (
@@ -742,6 +813,20 @@
                                     </p>
                                 </div>
 
+                                {/* VIDEO CONTAINER (If active) */}
+                                {videoActive && callStatus === 'in-call' && (
+                                    <div className="w-full flex-1 flex flex-col mb-4 gap-4 z-20">
+                                        <div className="flex-1 bg-black rounded-3xl overflow-hidden border border-white/10 relative">
+                                            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                                            <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest text-white/70">Remote</div>
+                                        </div>
+                                        <div className="h-32 w-24 bg-black rounded-2xl overflow-hidden border border-primary/40 absolute bottom-64 right-10 shadow-2xl">
+                                             <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                                             <div className="absolute bottom-2 left-2 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] uppercase font-bold text-white/50">You</div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Buttons Grid (iOS Style) */}
                                 <div className="mt-auto px-10 pb-16 w-full max-w-sm z-10">
                                     <div className="grid grid-cols-3 gap-y-10 gap-x-6 justify-items-center mb-20">
@@ -772,31 +857,31 @@
                                             <span className="text-[11px] text-slate-300 font-medium">audio</span>
                                         </div>
 
-                                        {/* Hold / Add Call */}
+                                        {/* Video Toggle */}
                                         <div className="flex flex-col items-center gap-2">
                                             <button 
-                                                onClick={toggleHold}
-                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${isHeld ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
+                                                onClick={toggleVideo}
+                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${videoActive ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
                                             >
-                                                <span className={`material-symbols-outlined text-3xl ${isHeld ? 'filled-icon' : ''}`}>pause</span>
+                                                <span className={`material-symbols-outlined text-3xl ${videoActive ? 'filled-icon' : ''}`}>videocam</span>
                                             </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">{isHeld ? 'unhold' : 'hold'}</span>
+                                            <span className="text-[11px] text-slate-300 font-medium">{videoActive ? 'video off' : 'video'}</span>
                                         </div>
 
                                         {/* FaceTime (Disabled) */}
                                         <div className="flex flex-col items-center gap-2 opacity-50">
                                             <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white cursor-not-allowed">
-                                                <span className="material-symbols-outlined text-3xl">videocam</span>
+                                                <span className="material-symbols-outlined text-3xl">phone_bluetooth_speaker</span>
                                             </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">FaceTime</span>
+                                            <span className="text-[11px] text-slate-300 font-medium">speaker</span>
                                         </div>
 
-                                        {/* Contacts */}
+                                        {/* Hold */}
                                         <div className="flex flex-col items-center gap-2">
-                                            <button onClick={() => { setCallStatus(null); setActiveTab('contacts'); }} className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
-                                                <span className="material-symbols-outlined text-3xl">account_circle</span>
+                                            <button onClick={toggleHold} className={`ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg ${isHeld?'bg-amber-500/30 text-amber-500':''}`}>
+                                                <span className="material-symbols-outlined text-3xl">pause</span>
                                             </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">contacts</span>
+                                            <span className="text-[11px] text-slate-300 font-medium">{isHeld?'unhold':'hold'}</span>
                                         </div>
                                     </div>
 
@@ -807,9 +892,14 @@
                                                 <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
                                                     <span className="material-symbols-outlined text-white text-3xl transform rotate-[135deg]">call_end</span>
                                                 </button>
-                                                <button onClick={answerCall} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
-                                                    <span className="material-symbols-outlined text-white text-3xl">call</span>
-                                                </button>
+                                                <div className="flex flex-col items-center gap-4">
+                                                    <button onClick={() => answerCall(true)} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all outline outline-offset-4 outline-green-500/40">
+                                                        <span className="material-symbols-outlined text-white text-3xl">videocam</span>
+                                                    </button>
+                                                    <button onClick={() => answerCall(false)} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
+                                                        <span className="material-symbols-outlined text-white text-3xl">call</span>
+                                                    </button>
+                                                </div>
                                             </>
                                         ) : (
                                             <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
@@ -825,6 +915,10 @@
                     )}
 
                     <audio ref={audioRef} autoPlay />
+                    <div className="hidden pointer-events-none opacity-0 overflow-hidden size-0">
+                        <video ref={remoteVideoRef} autoPlay playsInline />
+                        <video ref={localVideoRef} autoPlay playsInline muted />
+                    </div>
                 </div>
             );
         }
