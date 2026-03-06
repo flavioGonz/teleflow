@@ -2614,9 +2614,9 @@ function ViewWebPhone({ data, toast }) {
                 media: mediaConfig
             });
             su.userAgentOptions = su.userAgentOptions || {};
-            su.userAgentOptions.authorizationUsername = ext;
-            su.userAgentOptions.authorizationPassword = pass;
-            su.userAgentOptions.authenticationRealm = 'asterisk';
+            su.userAgentOptions.authorizationUsername = ext.trim();
+            su.userAgentOptions.authorizationPassword = pass.trim();
+            // Eliminamos authenticationRealm = 'asterisk' para que responda a cualquier realm dinámico que pida PJSIP
             su.userAgentOptions.transportOptions = { server: server, traceSip: true };
             su.delegate = {
                 onCallReceived: () => { 
