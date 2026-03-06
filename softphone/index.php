@@ -585,6 +585,24 @@
                 setIsMuted(!isMuted);
             };
 
+            const toggleVideo = () => {
+                if(!simpleUser || !simpleUser.session) return;
+                if(videoActive) {
+                    // This is simplified for v0.20, normally involves re-invite
+                    setVideoActive(false);
+                    showToast('Cámara desactivada');
+                } else {
+                    setVideoActive(true);
+                    showToast('Cámara activada');
+                }
+            };
+
+            const flipCamera = () => {
+                showToast('Cambiando cámara...');
+                if(!simpleUser || !simpleUser.session) return;
+                // Complex logic for SIP.js to switch devices, skipping for base demo
+            };
+
             const toggleHold = () => {
                 if(!simpleUser || !simpleUser.session) return;
                 if(isHeld) simpleUser.unhold();
@@ -788,9 +806,9 @@
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         {activeTab==='contacts' && (
-                          <div className="page-enter p-5 h-full flex flex-col">
+                          <div className="page-enter p-5 flex flex-col h-full overflow-hidden">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
-                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto">
+                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto pb-40">
                                 {contacts.length===0 && <div className="text-slate-500 text-sm text-center p-20 glass-panel rounded-3xl border border-white/5">Buscando internos...</div>}
                                 {contacts.map((c,i) => (
                                     <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} 
@@ -800,12 +818,12 @@
                                         </div>
                                         <div className="flex-1">
                                             <div className="text-sm font-bold">{c.name}</div>
-                                            <div className="text-[11px] text-slate-400 font-medium">Extensión {c.ext}</div>
+                                            <div className="text-[11px] text-slate-400 font-medium tracking-tight">Extensión {c.ext}</div>
                                         </div>
                                         <div className={`w-2.5 h-2.5 rounded-full ${c.status==='ONLINE'?'bg-green-500':c.status==='BUSY'?'bg-orange-500':'bg-slate-600'}`}></div>
                                     </div>
                                 ))}
-                                <div className="h-24"></div>
+                                <div className="h-10"></div>
                             </div>
                           </div>
                         )}
@@ -926,144 +944,103 @@
 
                     {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
-                        <div className="call-overlay overflow-hidden">
-                            {/* Status Bar simulation */}
-                            <div className="flex justify-between items-center px-8 pt-4 pb-2 text-white text-xs font-semibold z-20">
-                                <span className="status-bar-time">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                <div className="flex gap-1.5 items-center">
-                                    <span className="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
-                                    <span className="material-symbols-outlined text-[14px]">wifi</span>
-                                    <span className="material-symbols-outlined text-[14px]">battery_full</span>
-                                </div>
+                        <div className="call-overlay fixed inset-0 z-[200] bg-slate-900 overflow-hidden flex flex-col">
+                            {/* Background (Remote Video or Avatar) */}
+                            <div className="absolute inset-0 z-0 overflow-hidden">
+                                {videoActive && callStatus === 'in-call' ? (
+                                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover brightness-[0.8] contrast-[1.1]" />
+                                ) : (
+                                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center">
+                                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60"></div>
+                                        <div className="w-32 h-32 rounded-full glass-panel flex items-center justify-center border-2 border-white/5 shadow-2xl overflow-hidden backdrop-blur-3xl animate-fadeIn">
+                                            {contacts.find(c => c.ext === remoteNumber)?.avatar ? (
+                                                <img src={`../${contacts.find(c => c.ext === remoteNumber).avatar}`} className="w-full h-full object-cover opacity-50" />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                                                    <span className="text-4xl text-white/30">{remoteNumber.substring(0,2)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/70"></div>
                             </div>
 
-                            <div className="flex-1 flex flex-col items-center pt-10 px-6 bg-[#0f1923] text-white relative">
-                                {/* Blurred background effect */}
-                                <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-                                     <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-primary via-background-dark to-slate-900 blur-[100px]"></div>
-                                </div>
-
-                                {/* Call Status and Avatar */}
-                                <div className="flex flex-col items-center mb-10 text-center z-10">
-                                    <div className="w-28 h-28 rounded-full bg-slate-700/30 flex items-center justify-center mb-6 border-4 border-slate-800/50 shadow-2xl relative overflow-hidden group">
-                                        {contacts.find(c => c.ext === remoteNumber)?.avatar ? (
-                                            <img src={`../${contacts.find(c => c.ext === remoteNumber).avatar}`} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center">
-                                                <span className="text-4xl font-light text-white/50">{remoteNumber.substring(0,2)}</span>
-                                            </div>
-                                        )}
-                                        {(callStatus === 'ringing' || callStatus === 'calling') && (
-                                            <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-30"></div>
-                                        )}
-                                    </div>
-                                    
-                                    <h1 className="text-3xl font-medium tracking-tight mb-1">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
-                                    <p className="text-slate-400 text-lg font-light tracking-wide uppercase text-[12px] opacity-80">
+                            {/* Top Header Area */}
+                            <div className="relative z-10 w-full pt-14 px-6 flex flex-col items-center animate-fadeIn">
+                                <h1 className="text-white text-2xl font-semibold tracking-tight text-center">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
+                                <div className="mt-3 bg-black/30 backdrop-blur-2xl px-4 py-1.5 rounded-full border border-white/10 shadow-lg">
+                                    <p className="text-white/90 text-sm font-medium tabular-nums uppercase tracking-[0.1em] text-[11px]">
                                         {callStatus === 'ringing' ? 'llamada entrante...' : 
                                          callStatus === 'calling' ? 'conectando...' : 
                                          callStatus === 'held' ? 'en espera' : formatTime(elapsed)}
                                     </p>
                                 </div>
+                            </div>
 
-                                {/* VIDEO CONTAINER (If active) */}
-                                {videoActive && callStatus === 'in-call' && (
-                                    <div className="w-full flex-1 flex flex-col mb-4 gap-4 z-20">
-                                        <div className="flex-1 bg-black rounded-3xl overflow-hidden border border-white/10 relative">
-                                            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                                            <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest text-white/70">Remote</div>
-                                        </div>
-                                        <div className="h-32 w-24 bg-black rounded-2xl overflow-hidden border border-primary/40 absolute bottom-64 right-10 shadow-2xl">
-                                             <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-                                             <div className="absolute bottom-2 left-2 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] uppercase font-bold text-white/50">You</div>
-                                        </div>
+                            {/* Floating Self Video (Top Right) */}
+                            {videoActive && (callStatus === 'in-call' || callStatus === 'calling') && (
+                                <div className="absolute top-14 right-4 z-20 w-32 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl ring-1 ring-black/5 animate-scaleIn">
+                                    <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                                    <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] uppercase font-bold text-white/70">Tú</div>
+                                </div>
+                            )}
+
+                            {/* Bottom Controls Area */}
+                            <div className="relative z-10 w-full px-6 pb-12 mt-auto animate-slideUp">
+                                {/* Answer Controls (Only when ringing) */}
+                                {callStatus === 'ringing' && (
+                                    <div className="flex justify-center gap-12 mb-10 translate-y-[-20px]">
+                                        <button onClick={() => answerCall(true)} className="flex items-center justify-center size-16 rounded-full bg-blue-500 shadow-xl shadow-blue-500/30 text-white active:scale-90 transition-transform">
+                                            <span className="material-symbols-outlined text-3xl">videocam</span>
+                                        </button>
+                                        <button onClick={() => answerCall(false)} className="flex items-center justify-center size-16 rounded-full bg-green-500 shadow-xl shadow-green-500/30 text-white active:scale-90 transition-transform">
+                                            <span className="material-symbols-outlined text-3xl">call</span>
+                                        </button>
                                     </div>
                                 )}
 
-                                {/* Buttons Grid (iOS Style) */}
-                                <div className="mt-auto px-10 pb-16 w-full max-w-sm z-10">
-                                    <div className="grid grid-cols-3 gap-y-10 gap-x-6 justify-items-center mb-20">
-                                        {/* Mute */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <button 
-                                                onClick={toggleMute}
-                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${isMuted ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
-                                            >
-                                                <span className={`material-symbols-outlined text-3xl ${isMuted ? 'filled-icon' : ''}`}>mic_off</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">mute</span>
-                                        </div>
-
-                                        {/* Keypad */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
-                                                <span className="material-symbols-outlined text-3xl">dialpad</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">keypad</span>
-                                        </div>
-
-                                        {/* Audio / Speaker */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
-                                                <span className="material-symbols-outlined text-3xl">volume_up</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">audio</span>
-                                        </div>
-
-                                        {/* Video Toggle */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <button 
-                                                onClick={toggleVideo}
-                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${videoActive ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
-                                            >
-                                                <span className={`material-symbols-outlined text-3xl ${videoActive ? 'filled-icon' : ''}`}>videocam</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">{videoActive ? 'video off' : 'video'}</span>
-                                        </div>
-
-                                        {/* FaceTime (Disabled) */}
-                                        <div className="flex flex-col items-center gap-2 opacity-50">
-                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white cursor-not-allowed">
-                                                <span className="material-symbols-outlined text-3xl">phone_bluetooth_speaker</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">speaker</span>
-                                        </div>
-
-                                        {/* Hold */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <button onClick={toggleHold} className={`ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg ${isHeld?'bg-amber-500/30 text-amber-500':''}`}>
-                                                <span className="material-symbols-outlined text-3xl">pause</span>
-                                            </button>
-                                            <span className="text-[11px] text-slate-300 font-medium">{isHeld?'unhold':'hold'}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons (Answer/Hangup) */}
-                                    <div className="flex justify-center gap-12">
-                                        {callStatus === 'ringing' ? (
-                                            <>
-                                                <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
-                                                    <span className="material-symbols-outlined text-white text-3xl transform rotate-[135deg]">call_end</span>
-                                                </button>
-                                                <div className="flex flex-col items-center gap-4">
-                                                    <button onClick={() => answerCall(true)} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all outline outline-offset-4 outline-green-500/40">
-                                                        <span className="material-symbols-outlined text-white text-3xl">videocam</span>
-                                                    </button>
-                                                    <button onClick={() => answerCall(false)} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
-                                                        <span className="material-symbols-outlined text-white text-3xl">call</span>
-                                                    </button>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
-                                                <span className="material-symbols-outlined text-white text-3xl transform rotate-[135deg]">call_end</span>
-                                            </button>
-                                        )}
-                                    </div>
+                                {/* Main Glass Bar */}
+                                <div className="max-w-md mx-auto bg-slate-800/40 backdrop-blur-3xl rounded-[2.5rem] p-4 flex items-center justify-between border border-white/10 shadow-2xl">
+                                    {/* Mute Toggle */}
+                                    <button onClick={toggleMute} className={`flex items-center justify-center size-14 rounded-full transition-all ${isMuted?'bg-white text-slate-900':'bg-white/10 text-white'}`}>
+                                        <span className="material-symbols-outlined text-[28px]">{isMuted?'mic_off':'mic'}</span>
+                                    </button>
                                     
-                                    <div className="home-indicator mt-12 bg-white/20"></div>
+                                    {/* Flip Camera */}
+                                    <button onClick={flipCamera} className="flex items-center justify-center size-14 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
+                                        <span className="material-symbols-outlined text-[28px]">cameraswitch</span>
+                                    </button>
+
+                                    {/* Video Toggle */}
+                                    <button onClick={toggleVideo} className={`flex items-center justify-center size-14 rounded-full transition-all ${!videoActive?'bg-white text-slate-900':'bg-white/10 text-white'}`}>
+                                        <span className="material-symbols-outlined text-[28px]">{videoActive?'videocam':'videocam_off'}</span>
+                                    </button>
+                                    
+                                    {/* End Call Button */}
+                                    <button onClick={hangupCall} className="flex items-center justify-center size-14 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 active:scale-95 transition-all outline outline-offset-4 outline-red-500/30">
+                                        <span className="material-symbols-outlined text-[28px] rotate-[135deg]">call_end</span>
+                                    </button>
+                                </div>
+
+                                {/* Additional Actions */}
+                                <div className="flex justify-center mt-6 gap-10">
+                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'bg-white text-slate-900':'bg-white/5 text-white'}`}>
+                                            <span className="material-symbols-outlined text-xl">{isHeld?'play_arrow':'pause'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausa'}</span>
+                                    </button>
+                                    <button className="flex flex-col items-center gap-1.5 opacity-80 group">
+                                        <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
+                                            <span className="material-symbols-outlined text-xl">person_add</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Invitar</span>
+                                    </button>
                                 </div>
                             </div>
+                            {/* Home indicator inside overlay */}
+                            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50"></div>
                         </div>
                     )}
 
