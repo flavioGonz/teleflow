@@ -1,7 +1,7 @@
 <?php
-include __DIR__.'/api/config.php';
+$c = parse_ini_file("/etc/issabelpbx.conf");
 try {
-    $db = mysql_pbx();
+    $db = new PDO("mysql:host=localhost;dbname=asterisk", $c["AMPDBUSER"], $c["AMPDBPASS"]);
     // Setting SIP Channel Driver to PJSIP so WebSockets on chan_sip is disabled
     $stmt = $db->prepare("UPDATE freepbx_settings SET value='PJSIP' WHERE keyword='SIPCHANNELHW'");
     $stmt->execute();
