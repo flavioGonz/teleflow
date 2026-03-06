@@ -13,6 +13,7 @@
     
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     
     <!-- React DevTools Workaround -->
@@ -23,7 +24,30 @@
     </script>
     
     <!-- Scripts -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#007bff",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -182,6 +206,21 @@
             animation: slideDown 0.3s ease;
         }
         @keyframes slideDown { from{top:-50px;opacity:0} to{top:20px;opacity:1} }
+
+        /* Premium Design Additions */
+        .ios-blur { backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); }
+        .ios-button-bg { background-color: rgba(255, 255, 255, 0.1); border: none; }
+        .ios-button-bg:active { background-color: rgba(255, 255, 255, 0.25); transform: scale(0.92); }
+        .end-call-bg { background-color: #ff3b30; }
+        
+        .status-bar-time { font-weight: 600; font-size: 14px; }
+        .home-indicator { width: 130px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 10px auto; }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            transition: font-variation-settings 0.2s;
+        }
+        .filled-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
     </style>
 </head>
 <body>
@@ -553,67 +592,126 @@
                         </button>
                     </div>
 
-                    {/* ──────────────── OVERLAY DE LLAMADA ACTIVA ──────────────── */}
+                    {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
-                        <div className="call-overlay">
-                            <div style={{flex:1, display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center', background:'linear-gradient(180deg, rgba(30,30,45,1) 0%, rgba(10,10,15,1) 100%)'}}>
-                                
-                                <div style={{fontSize:16,color:'var(--muted)',fontWeight:600,marginBottom:15,letterSpacing:'1px',textTransform:'uppercase'}}>
-                                    {callStatus === 'ringing' && callDirection==='in' && 'Llamada Entrante'}
-                                    {callStatus === 'calling' && 'Llamando...'}
-                                    {callStatus === 'in-call' && 'Llamada Activa'}
-                                    {callStatus === 'held' && 'En Espera'}
+                        <div className="call-overlay overflow-hidden">
+                            {/* Status Bar simulation */}
+                            <div className="flex justify-between items-center px-8 pt-4 pb-2 text-white text-xs font-semibold z-20">
+                                <span className="status-bar-time">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                <div className="flex gap-1.5 items-center">
+                                    <span className="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
+                                    <span className="material-symbols-outlined text-[14px]">wifi</span>
+                                    <span className="material-symbols-outlined text-[14px]">battery_full</span>
                                 </div>
-                                
-                                <h2 style={{fontSize:48,fontWeight:300,marginBottom:30}}>{remoteNumber}</h2>
-                                
-                                {/* DURACIÓN O ICONO ANIMADO */}
-                                <div style={{height:60, display:'flex',alignItems:'center',justifyContent:'center',marginBottom:40}}>
-                                    {(callStatus==='in-call' || callStatus==='held') ? (
-                                        <div style={{fontSize:36,fontWeight:200,fontFamily:'monospace',color:callStatus==='held'?'var(--muted)':'var(--accent)'}}>
-                                            {formatTime(elapsed)}
-                                        </div>
-                                    ) : (
-                                        <div style={{position:'relative',width:100,height:100,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                            <div style={{position:'absolute',width:'100%',height:'100%',borderRadius:'50%',border:'2px solid var(--primary)',animation:'pulse 1.5s infinite'}}></div>
-                                            <div style={{width:60,height:60,borderRadius:'50%',background:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                                <span className="material-icons-round" style={{fontSize:32}}>person</span>
-                                            </div>
-                                        </div>
-                                    )}
+                            </div>
+
+                            <div className="flex-1 flex flex-col items-center pt-10 px-6 bg-[#0f1923] text-white relative">
+                                {/* Blurred background effect */}
+                                <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
+                                     <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-gradient-to-br from-primary via-background-dark to-slate-900 blur-[100px]"></div>
                                 </div>
 
-                                {/* CONTROLES DE LA LLAMADA */}
-                                {(callStatus==='in-call' || callStatus==='held') && (
-                                    <div style={{display:'flex',gap:24,marginBottom:60}}>
-                                        <button onClick={toggleMute} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,background:'transparent',border:'none',color:'white',cursor:'pointer'}}>
-                                            <div style={{width:60,height:60,borderRadius:'50%',background:isMuted?'white':'var(--surface2)',color:isMuted?'black':'white',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
-                                                <span className="material-icons-round">{isMuted?'mic_off':'mic'}</span>
+                                {/* Call Status and Avatar */}
+                                <div className="flex flex-col items-center mb-10 text-center z-10">
+                                    <div className="w-28 h-28 rounded-full bg-slate-700/30 flex items-center justify-center mb-6 border-4 border-slate-800/50 shadow-2xl relative overflow-hidden group">
+                                        {contacts.find(c => c.ext === remoteNumber)?.avatar ? (
+                                            <img src={`../${contacts.find(c => c.ext === remoteNumber).avatar}`} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center">
+                                                <span className="text-4xl font-light text-white/50">{remoteNumber.substring(0,2)}</span>
                                             </div>
-                                            <span style={{fontSize:11,fontWeight:600}}>Silenciar</span>
-                                        </button>
-                                        
-                                        <button onClick={toggleHold} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,background:'transparent',border:'none',color:'white',cursor:'pointer'}}>
-                                            <div style={{width:60,height:60,borderRadius:'50%',background:isHeld?'white':'var(--surface2)',color:isHeld?'black':'white',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
-                                                <span className="material-icons-round">{isHeld?'play_arrow':'pause'}</span>
-                                            </div>
-                                            <span style={{fontSize:11,fontWeight:600}}>Espera</span>
-                                        </button>
+                                        )}
+                                        {(callStatus === 'ringing' || callStatus === 'calling') && (
+                                            <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-30"></div>
+                                        )}
                                     </div>
-                                )}
-
-                                {/* BOTONES INFERIORES: CONTESTAR/COLGAR */}
-                                <div style={{display:'flex',gap:30,alignItems:'center'}}>
-                                    {(callStatus === 'ringing' && callDirection === 'in') && (
-                                        <button onClick={answerCall} style={{width:75,height:75,borderRadius:'50%',background:'var(--accent)',color:'white',border:'none',boxShadow:'0 10px 30px rgba(16,185,129,0.3)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                            <span className="material-icons-round" style={{fontSize:36}}>call</span>
-                                        </button>
-                                    )}
-                                    <button onClick={hangupCall} style={{width:(callStatus==='ringing'&&callDirection==='in')?75:80,height:(callStatus==='ringing'&&callDirection==='in')?75:80,borderRadius:'50%',background:'var(--danger)',color:'white',border:'none',boxShadow:'0 10px 30px rgba(239,68,68,0.3)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:36}}>call_end</span>
-                                    </button>
+                                    
+                                    <h1 className="text-3xl font-medium tracking-tight mb-1">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
+                                    <p className="text-slate-400 text-lg font-light tracking-wide uppercase text-[12px] opacity-80">
+                                        {callStatus === 'ringing' ? 'llamada entrante...' : 
+                                         callStatus === 'calling' ? 'conectando...' : 
+                                         callStatus === 'held' ? 'en espera' : formatTime(elapsed)}
+                                    </p>
                                 </div>
 
+                                {/* Buttons Grid (iOS Style) */}
+                                <div className="mt-auto px-10 pb-16 w-full max-w-sm z-10">
+                                    <div className="grid grid-cols-3 gap-y-10 gap-x-6 justify-items-center mb-20">
+                                        {/* Mute */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <button 
+                                                onClick={toggleMute}
+                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${isMuted ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
+                                            >
+                                                <span className={`material-symbols-outlined text-3xl ${isMuted ? 'filled-icon' : ''}`}>mic_off</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">mute</span>
+                                        </div>
+
+                                        {/* Keypad */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
+                                                <span className="material-symbols-outlined text-3xl">dialpad</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">keypad</span>
+                                        </div>
+
+                                        {/* Audio / Speaker */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
+                                                <span className="material-symbols-outlined text-3xl">volume_up</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">audio</span>
+                                        </div>
+
+                                        {/* Hold / Add Call */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <button 
+                                                onClick={toggleHold}
+                                                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${isHeld ? 'bg-white text-black' : 'ios-button-bg text-white'}`}
+                                            >
+                                                <span className={`material-symbols-outlined text-3xl ${isHeld ? 'filled-icon' : ''}`}>pause</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">{isHeld ? 'unhold' : 'hold'}</span>
+                                        </div>
+
+                                        {/* FaceTime (Disabled) */}
+                                        <div className="flex flex-col items-center gap-2 opacity-50">
+                                            <button className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white cursor-not-allowed">
+                                                <span className="material-symbols-outlined text-3xl">videocam</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">FaceTime</span>
+                                        </div>
+
+                                        {/* Contacts */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <button onClick={() => { setCallStatus(null); setActiveTab('contacts'); }} className="ios-button-bg w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg">
+                                                <span className="material-symbols-outlined text-3xl">account_circle</span>
+                                            </button>
+                                            <span className="text-[11px] text-slate-300 font-medium">contacts</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons (Answer/Hangup) */}
+                                    <div className="flex justify-center gap-12">
+                                        {callStatus === 'ringing' ? (
+                                            <>
+                                                <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
+                                                    <span className="material-symbols-outlined text-white text-3xl transform rotate-[135deg]">call_end</span>
+                                                </button>
+                                                <button onClick={answerCall} className="bg-[#34c759] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
+                                                    <span className="material-symbols-outlined text-white text-3xl">call</span>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button onClick={hangupCall} className="bg-[#ff3b30] w-16 h-16 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all">
+                                                <span className="material-symbols-outlined text-white text-3xl transform rotate-[135deg]">call_end</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="home-indicator mt-12 bg-white/20"></div>
+                                </div>
                             </div>
                         </div>
                     )}
