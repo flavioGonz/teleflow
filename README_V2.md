@@ -398,7 +398,12 @@ header('Access-Control-Allow-Origin: https://pbx01.infratec.com.uy');
 
 ## 📅 Changelog
 
-### v2.1 (2025-03-05 - Actualización Mayor)
+### v2.6.0 (2026-03-06 - PWA & SIP.js Fix)
+- ✨ **Mobile Softphone PWA:** Nueva ruta `/teleflow/softphone/` diseñada nativamente para celulares. Incluye marcador táctil, contactos, historial y control de llamadas (Mute, Hold, Timer).
+- ✨ **Documentación SIP:** Detalles documentados sobre el workaround de SIP.js v0.20.0 y PJSIP WSS requirements.
+- 🐛 **Fix Authentication:** Solucionado el bug crítico de registro "Wrong password (403)" re-estructurando la inicialización de `SimpleUser` y delegando credenciales nativamente en el `userAgentOptions` del constructor para soportar SIP.js 0.20.0 y reinos dinámicos.
+
+### v2.1 (2026-03-05 - Actualización Mayor)
 - ✨ **Módulo Softphone Rediseñado:** Interfaz profesional tipo Wave con panel de contactos integrado y soporte Video WebRTC.
 - ✨ **Badges Dinámicos:** El menú lateral ahora muestra contadores en vivo de extensiones online y llamadas activas.
 - ✨ **Persistencia SIP:** Implementado auto-login del softphone mediante localStorage (soporta F5).
@@ -406,7 +411,7 @@ header('Access-Control-Allow-Origin: https://pbx01.infratec.com.uy');
 - 🐛 **Fix:** Corregido error de registro SIP "silencioso" con sistema de diagnóstico y toasts de error precisos.
 - 🐛 **Fix:** Sincronización forzada con Asterisk al crear/editar extensiones (retrieve_conf + restart PJSIP).
 
-### v2.0 (2025-03-05)
+### v2.0 (2026-03-05)
 - ✨ **Rediseño completo sin dependencias Node.js**
 - ✨ **Polling automático cada 5 segundos**
 - ✨ **Tema claro/oscuro integrado**
@@ -423,9 +428,10 @@ header('Access-Control-Allow-Origin: https://pbx01.infratec.com.uy');
 
 ---
 
-**Versión:** 2.0  
-**Última actualización:** 5 de marzo de 2025  
+**Versión:** 2.6.0  
+**Última actualización:** 6 de marzo de 2026  
 **Compatible con:** IISABEL 5 + Asterisk 16+ + Apache 2.4 + PHP 7.4+  
 **Mantenedor:** Equipo de Desarrollo Teleflow
 
 **Estado:** ✅ Listo para Producción
+
