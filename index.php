@@ -2596,8 +2596,9 @@ function ViewWebPhone({ data, toast }) {
         
         try {
             const server = 'wss://' + window.location.host + '/ws';
-            const aor = 'sip:' + ext + '@' + window.location.hostname;
-            console.log('SIP WSS server:', server);
+            const domain = '201.217.134.124'; // IP real del Asterisk para que PJSIP no rechace el realm
+            const aor = 'sip:' + ext + '@' + domain;
+            console.log('SIP WSS server:', server, 'AOR:', aor);
 
             const mediaConfig = {
                 remote: { audio: audioRef.current }
