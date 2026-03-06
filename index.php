@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1901,7 +1901,7 @@ function ViewGrupos({ toast }) {
                                     <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
                                     <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
                                 </div>
-                                <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s</div>
+                                <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} Â· {g.grptime}s</div>
                             </div>
                             <button onClick={()=>setDrawer(g)} style={{padding:'6px 10px',borderRadius:9,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',gap:3}}>
                                 <span className="material-icons-round" style={{fontSize:14}}>edit</span>Editar
@@ -1910,7 +1910,7 @@ function ViewGrupos({ toast }) {
                         <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                             {(g.members||[]).map((m,j)=>{
                                 const onCall=activeCalls.some(c=>c.ext===m);
-                                return(<div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
+                                return(<div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}` ,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
                                     {onCall&&<span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
                                     #{m}
                                 </div>);
@@ -1920,54 +1920,6 @@ function ViewGrupos({ toast }) {
                 })}
             </div>
             {drawer&&<GroupDrawer group={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);load();}} toast={toast||((m,t)=>alert(m))} />}
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────
-// VISTA: VIVO (con timers animados)
-// ─────────────────────────────────────────────
-function LiveCallCard({ call, data }) {
-    const [elapsed,setElapsed]=useState(0);
-    useEffect(()=>{
-        // Parse HH:MM:SS or MM:SS from call.duration
-        const parts=(call.duration||'0:00').split(':').map(Number);
-        const initSec=parts.length===3?parts[0]*3600+parts[1]*60+parts[2]:parts[0]*60+(parts[1]||0);
-        setElapsed(initSec);
-        const t=setInterval(()=>setElapsed(s=>s+1),1000);
-        return()=>clearInterval(t);
-    },[call.channel]);
-    const fmt=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`;}
-    const isLong=elapsed>180;
-    
-    // Enrich with data
-    const extInfo = data?.pbx?.extensions?.find(e=>e.ext===call.ext) || {};
-    const name = extInfo.name || 'Desconocido';
-    const ip = extInfo.ip && extInfo.ip!=='—'? extInfo.ip : '';
-    const cleanDest = call.dest?.startsWith('from-internal') ? 'Interno' : call.dest;
-
-    return(
-        <div className="live-call-card" style={{marginBottom:10,background:'var(--surface2)',padding:'12px 16px',borderRadius:12,border:'1px solid var(--border)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div style={{display:'flex',gap:14,alignItems:'center'}}>
-                    <div className="live-pulse" style={{width:40,height:40,borderRadius:12,background:'rgba(239,68,68,0.15)',border:'2px solid rgba(239,68,68,0.4)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        <span className="material-icons-round" style={{fontSize:20,color:'#f87171'}}>call</span>
-                    </div>
-                    <div>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                            <span style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>Ext {call.ext}</span>
-                            <span style={{fontSize:12,color:'#9ca3af',fontWeight:600}}>{name}</span>
-                        </div>
-                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,display:'flex',alignItems:'center',gap:6}}>
-                            <span style={{color:'#c4b5fd',fontWeight:700}}>{cleanDest}</span>
-                            <span>•</span>
-                            <span style={{textTransform:'uppercase',letterSpacing:'.05em'}}>{call.state}</span>
-                            {ip && <><span>•</span><span style={{fontFamily:'monospace',fontSize:10}}>{ip}</span></>}
-                        </div>
-                    </div>
-                </div>
-                <div className="call-timer" style={{color:isLong?'#f87171':'#f59e0b',fontSize:20,fontWeight:800,fontFamily:'monospace'}}>{fmt(elapsed)}</div>
-            </div>
         </div>
     );
 }
@@ -2625,22 +2577,93 @@ function ViewIVR({ toast }) {
 }
 
 // ─────────────────────────────────────────────
-// APP PRINCIPAL
+// VISTA: CONFIGURACIÓN — Debug SIP Profesional
 // ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// VISTA: CONFIGURACIÓN
-// ─────────────────────────────────────────────
+const SIP_PARSERS = [
+    { re: /\bREGISTER\b/,   color:'#60a5fa', label:'REGISTER',  icon:'login' },
+    { re: /\b200 OK\b/,     color:'#4ade80', label:'200 OK',    icon:'check_circle' },
+    { re: /\b401 Unauthorized\b/i, color:'#fb923c', label:'401 AUTH', icon:'lock' },
+    { re: /\b403 Forbidden\b/i,    color:'#f87171', label:'403 FORBID', icon:'block' },
+    { re: /\b404 Not Found\b/i,    color:'#9ca3af', label:'404 NOTFOUND',icon:'search_off' },
+    { re: /\b408\b/,        color:'#fb923c', label:'408 TIMEOUT', icon:'timer_off' },
+    { re: /\b5\d\d\b/,      color:'#f87171', label:'5xx ERROR',  icon:'error' },
+    { re: /Received\s+SIP/i, color:'#a78bfa', label:'SIP RX',   icon:'arrow_downward' },
+    { re: /Sending\s+SIP/i,  color:'#34d399', label:'SIP TX',   icon:'arrow_upward' },
+    { re: /\bINVITE\b/,     color:'#f59e0b', label:'INVITE',   icon:'phone_forwarded' },
+    { re: /\bBYE\b/,        color:'#f87171', label:'BYE',      icon:'call_end' },
+    { re: /\bACK\b/,        color:'#6ee7b7', label:'ACK',      icon:'done' },
+    { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
+    { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
+    { re: /PJSIP.*error/i,   color:'#f87171', label:'PJSIP ERR', icon:'warning' },
+    { re: /Endpoint.*loaded/i, color:'#4ade80', label:'EP LOADED', icon:'power' },
+    { re: /Unable to find/i, color:'#fb923c', label:'NOT FOUND', icon:'search_off' },
+];
+
+function parseLogLine(line) {
+    for (const p of SIP_PARSERS) {
+        if (p.re.test(line)) return p;
+    }
+    return { color: '#6b7280', label: 'LOG', icon: 'terminal' };
+}
+
+function SIPLogLine({ line, idx }) {
+    const [open, setOpen] = useState(false);
+    const parsed = parseLogLine(line);
+    // Extract timestamp if present
+    const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/);
+    const ts = tsMatch?.[1] || '';
+    const content = line.replace(tsMatch?.[0]||'', '').trim();
+    return (
+        <div
+            onClick={() => setOpen(o => !o)}
+            style={{
+                display:'flex', alignItems:'flex-start', gap:10,
+                padding:'8px 12px', borderRadius:10, cursor:'pointer',
+                background: open ? 'rgba(139,92,246,0.06)' : 'transparent',
+                borderLeft:`3px solid ${parsed.color}`,
+                marginBottom:2,
+                transition:'background .15s'
+            }}
+        >
+            <span className="material-icons-round" style={{fontSize:15, color:parsed.color, flexShrink:0, marginTop:1}}>{parsed.icon}</span>
+            <div style={{flex:1, minWidth:0}}>
+                <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                    <span style={{
+                        fontSize:9, fontWeight:800, letterSpacing:'.1em',
+                        color: parsed.color,
+                        background: `${parsed.color}18`,
+                        border:`1px solid ${parsed.color}30`,
+                        padding:'1px 7px', borderRadius:6,
+                        textTransform:'uppercase', flexShrink:0
+                    }}>{parsed.label}</span>
+                    {ts && <span style={{fontSize:9, color:'#374151', fontFamily:'monospace', flexShrink:0}}>{ts}</span>}
+                    <span style={{
+                        fontSize:11, color: open ? '#e5e7eb' : '#9ca3af',
+                        fontFamily: '"Fira Code", "Courier New", monospace',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace: open?'pre-wrap':'nowrap',
+                        lineHeight:'1.5'
+                    }}>{content}</span>
+                </div>
+            </div>
+            <span className="material-icons-round" style={{fontSize:14, color:'#374151', flexShrink:0, marginTop:2, transform:open?'rotate(180deg)':'', transition:'transform .2s'}}>expand_more</span>
+        </div>
+    );
+}
+
 function ViewConfiguracion() {
     const [activeTab, setActiveTab] = useState('notificaciones');
     const [sipLog, setSipLog] = useState('');
     const [loadingSip, setLoadingSip] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [filter, setFilter] = useState('');
+    const logEndRef = useRef(null);
 
     const loadSipDebug = async () => {
         setLoadingSip(true);
         try {
             const r = await fetch('api/index.php?action=get_sip_debug');
             const d = await r.json();
-            if (d.success) setSipLog(d.log || 'No hay eventos recientes.');
+            if (d.success) setSipLog(d.log || '');
         } catch(e) { setSipLog('Error al conectar con el servidor.'); }
         setLoadingSip(false);
     };
@@ -2648,17 +2671,35 @@ function ViewConfiguracion() {
     useEffect(() => {
         if (activeTab === 'debug_sip') {
             loadSipDebug();
-            const t = setInterval(loadSipDebug, 3000);
-            return () => clearInterval(t);
+            if (autoRefresh) {
+                const t = setInterval(loadSipDebug, 3000);
+                return () => clearInterval(t);
+            }
         }
-    }, [activeTab]);
+    }, [activeTab, autoRefresh]);
+
+    useEffect(() => {
+        if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }, [sipLog]);
+
+    const logLines = sipLog.split('\n').filter(l => l.trim());
+    const filteredLines = filter
+        ? logLines.filter(l => l.toLowerCase().includes(filter.toLowerCase()))
+        : logLines;
+
+    const stats = {
+        ok:     logLines.filter(l => /200 OK/.test(l)).length,
+        auth:   logLines.filter(l => /401|403/.test(l)).length,
+        reg:    logLines.filter(l => /REGISTER/.test(l)).length,
+        errors: logLines.filter(l => /error|failed/i.test(l)).length,
+    };
 
     return (
         <div className="content-area view-enter">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
                 <div>
                     <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Configuración del Sistema</h2>
-                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Personalización de la plataforma y diagnóstico</p>
+                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Diagnóstico y personalización de la plataforma TeleFlow</p>
                 </div>
             </div>
 
@@ -2697,34 +2738,102 @@ function ViewConfiguracion() {
 
             {activeTab === 'debug_sip' && (
                 <div className="anim-fadeup">
-                    <div className="glass" style={{padding:24, background:'#0a0a0f', border:'1px solid #1a1a2e'}}>
-                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
-                            <h4 style={{fontSize:15, fontWeight:800, color:'#8b5cf6', display:'flex', alignItems:'center', gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:20}}>developer_board</span> PJSIP Logger Console
-                            </h4>
-                            <div style={{display:'flex', alignItems:'center', gap:10}}>
-                                {loadingSip && <span className="material-icons-round" style={{fontSize:16, color:'#8b5cf6', animation:'spin-slow 1s linear infinite'}}>sync</span>}
-                                <button className="btn-primary" style={{background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#c4b5fd', padding:'4px 12px', borderRadius:8, fontSize:11}} onClick={loadSipDebug}>Limpiar & Refrescar</button>
+                    {/* Stats Bar */}
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16}}>
+                        {[
+                            {l:'Registros OK',   v:stats.ok,     c:'#4ade80', i:'check_circle'},
+                            {l:'Auth Errors',    v:stats.auth,   c:'#f87171', i:'lock'},
+                            {l:'REGISTER',       v:stats.reg,    c:'#60a5fa', i:'login'},
+                            {l:'Errores',        v:stats.errors, c:'#fb923c', i:'warning'},
+                        ].map(s => (
+                            <div key={s.l} className="glass" style={{padding:'12px 16px', display:'flex', alignItems:'center', gap:10}}>
+                                <span className="material-icons-round" style={{fontSize:20, color:s.c}}>{s.i}</span>
+                                <div>
+                                    <div style={{fontSize:20,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
+                                    <div style={{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className="glass" style={{padding:'12px 16px', borderRadius:16, marginBottom:12, display:'flex', alignItems:'center', gap:12}}>
+                        <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>developer_board</span>
+                        <span style={{fontWeight:800, color:'#8b5cf6', fontSize:14}}>PJSIP Logger</span>
+                        <div style={{flexGrow:1}} />
+                        {/* Filter */}
+                        <div style={{position:'relative'}}>
+                            <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#4b5563'}}>search</span>
+                            <input
+                                className="input-tf"
+                                style={{padding:'6px 12px 6px 34px', borderRadius:10, fontSize:12, width:180}}
+                                placeholder="Filtrar logs..."
+                                value={filter}
+                                onChange={e=>setFilter(e.target.value)}
+                            />
+                        </div>
+                        {/* Auto refresh */}
+                        <button
+                            onClick={()=>setAutoRefresh(a=>!a)}
+                            style={{
+                                padding:'6px 12px', borderRadius:10, fontWeight:700, fontSize:11,
+                                background: autoRefresh ? 'rgba(34,197,94,0.12)' : 'var(--surface2)',
+                                border: autoRefresh ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--border)',
+                                color: autoRefresh ? '#4ade80' : '#6b7280',
+                                cursor:'pointer', display:'flex', alignItems:'center', gap:5
+                            }}
+                        >
+                            <span className="material-icons-round" style={{fontSize:14, animation:autoRefresh&&loadingSip?'spin-slow 1s linear infinite':''}}>
+                                {autoRefresh ? 'sync' : 'pause'}
+                            </span>
+                            {autoRefresh ? 'En Vivo' : 'Pausado'}
+                        </button>
+                        <button
+                            onClick={()=>{setSipLog('');loadSipDebug();}}
+                            style={{padding:'6px 12px', borderRadius:10, fontWeight:700, fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', color:'#6b7280', cursor:'pointer', display:'flex', alignItems:'center', gap:5}}
+                        >
+                            <span className="material-icons-round" style={{fontSize:14}}>delete_sweep</span>Limpiar
+                        </button>
+                    </div>
+
+                    {/* Log Panel */}
+                    <div className="glass" style={{
+                        background:'rgba(5,5,12,0.98)',
+                        border:'1px solid rgba(139,92,246,0.15)',
+                        borderRadius:16, overflow:'hidden'
+                    }}>
+                        {/* Log header */}
+                        <div style={{padding:'10px 16px', borderBottom:'1px solid rgba(255,255,255,0.04)', display:'flex', alignItems:'center', gap:8}}>
+                            <div style={{display:'flex', gap:6}}>
+                                <div style={{width:10,height:10,borderRadius:'50%',background:'#ef4444'}}/>
+                                <div style={{width:10,height:10,borderRadius:'50%',background:'#f59e0b'}}/>
+                                <div style={{width:10,height:10,borderRadius:'50%',background:'#22c55e'}}/>
+                            </div>
+                            <span style={{fontSize:11, color:'#374151', fontFamily:'monospace', marginLeft:8}}>asterisk@pbx ~ pjsip-logger</span>
+                            <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6}}>
+                                <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:autoRefresh?'blink 1.5s infinite':''}} />
+                                <span style={{fontSize:10,color:'#374151',fontWeight:600}}>{filteredLines.length} líneas</span>
                             </div>
                         </div>
-                        <pre style={{
-                            fontSize:11, 
-                            fontFamily:'"Fira Code", monospace', 
-                            color:'#a5b4fc', 
-                            background:'rgba(0,0,0,0.3)', 
-                            padding:16, 
-                            borderRadius:12, 
-                            maxHeight:400, 
-                            overflowY:'auto', 
-                            whiteSpace:'pre-wrap',
-                            lineHeight:'1.6',
-                            border:'1px solid rgba(255,255,255,0.03)'
-                        }}>
-                            {sipLog || 'Conectando al stream de Asterisk...'}
-                        </pre>
-                        <div style={{marginTop:12, fontSize:10, color:'#4b5563', display:'flex', alignItems:'center', gap:6}}>
-                            <span style={{width:6, height:6, borderRadius:'50%', background:'#22c55e'}}></span> Mostrando últimos eventos de registro y autenticación en tiempo real.
+
+                        {/* Log Content */}
+                        <div style={{padding:'8px 4px', maxHeight:500, overflowY:'auto', fontFamily:'"Fira Code","Courier New",monospace'}}>
+                            {filteredLines.length === 0 ? (
+                                <div style={{padding:'40px',textAlign:'center',color:'#374151'}}>
+                                    <span className="material-icons-round" style={{fontSize:40,display:'block',marginBottom:10}}>inbox</span>
+                                    {filter ? `Sin resultados para "${filter}"` : 'Conectando al stream de Asterisk...'}
+                                </div>
+                            ) : filteredLines.map((line, i) => (
+                                <SIPLogLine key={i} line={line} idx={i} />
+                            ))}
+                            <div ref={logEndRef} />
                         </div>
+                    </div>
+
+                    <div style={{marginTop:12, fontSize:10, color:'#374151', display:'flex', alignItems:'center', gap:6}}>
+                        <span style={{width:6, height:6, borderRadius:'50%', background:'#22c55e'}} />
+                        Mostrando últimos eventos de registro y autenticación SIP/PJSIP en tiempo real.
+                        Haz clic en cada línea para expandirla.
                     </div>
                 </div>
             )}
@@ -2736,13 +2845,19 @@ function ViewConfiguracion() {
 // APP PRINCIPAL
 // ─────────────────────────────────────────────
 function App() {
-    const [user, setUser] = useState(null); 
-    const [view, setView] = useState('dashboard');
+    const [user, setUser] = useState(() => localStorage.getItem('tf_user') || null); 
+    const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
-    const [collapsed, setCollapsed] = useState(false);
-    const [darkMode, setDarkMode] = useState(true);
+    const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('tf_dark') !== '0');
     const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
+
+    // Persist view & user to localStorage
+    useEffect(() => { if (user) localStorage.setItem('tf_user', user); else localStorage.removeItem('tf_user'); }, [user]);
+    useEffect(() => { localStorage.setItem('tf_view', view); }, [view]);
+    useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
+    useEffect(() => { localStorage.setItem('tf_dark', darkMode ? '1' : '0'); }, [darkMode]);
 
     // Dark/light toggle
     useEffect(()=>{ document.body.classList.toggle('light',!darkMode); },[darkMode]);
@@ -2834,3 +2949,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
