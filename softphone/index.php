@@ -348,11 +348,15 @@
                     // Instanciar SimpleUser con SIP.js 0.20.0
                     const su = new window.SIP.Web.SimpleUser(server, {
                         aor,
-                        media: { remote: { audio: audioRef.current } },
+                        media: { 
+                            remote: { audio: audioRef.current, video: remoteVideoRef.current },
+                            local: { video: localVideoRef.current }
+                        },
                         userAgentOptions: {
                             authorizationUsername: ext.trim(),
                             authorizationPassword: pass.trim(),
-                            transportOptions: { server: server, traceSip: false }
+                            transportOptions: { server: server, traceSip: true },
+                            iceGatheringTimeout: 2000
                         }
                     });
 
@@ -418,6 +422,21 @@
                         onServerDisconnect: (e) => { 
                             setStatus('Error de Red');
                             showToast('Protocol Error o WSS Caído','error');
+                        },
+                        onCallAnswered: () => { 
+                            setCallStatus('in-call'); 
+                            setStatus('En Llamada');
+                            setElapsed(0);
+                            timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                            
+                            // Save to history
+                            const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
+                            saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
+                            
+                            // Video attachment if needed (SimpleUser does some automatically but we ensure it)
+                            if (videoActive) {
+                                setTimeout(() => setupVideoTracks(su.session), 500);
+                            }
                         }
                     };
 
@@ -428,16 +447,6 @@
                           setStatus('Error de Conexión');
                           showToast('No se alcanzó el WSS proxy','error');
                       });
-
-                    su.delegate.onCallAnswered = () => {
-                        setCallStatus('in-call'); 
-                        setStatus('En Llamada');
-                        setElapsed(0);
-                        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                        
-                        // Setup video if session has tracks
-                        setupVideoTracks(su.session);
-                    };
 
                     setSimpleUser(su);
                 } catch(e) {
@@ -934,10 +943,6 @@
                     )}
 
                     <audio ref={audioRef} autoPlay />
-                    <div className="hidden pointer-events-none opacity-0 overflow-hidden size-0">
-                        <video ref={remoteVideoRef} autoPlay playsInline />
-                        <video ref={localVideoRef} autoPlay playsInline muted />
-                    </div>
                 </div>
             );
         }
