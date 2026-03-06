@@ -302,8 +302,11 @@
             const [remoteNumber, setRemoteNumber] = useState('');
             const [callDirection, setCallDirection] = useState(''); // 'in' or 'out'
             const [elapsed, setElapsed] = useState(0);
+            const [audioLevel, setAudioLevel] = useState(0); // For visualizer
 
             // Audio/Video Refs
+            const audioContextRef = useRef(null);
+            const analyserRef = useRef(null);
             const audioRef = useRef(null);
             const localVideoRef = useRef(null);
             const remoteVideoRef = useRef(null);
@@ -435,10 +438,15 @@
                             const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
                             saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
                             
-                            // Video attachment if needed
-                            if (videoActive) {
-                                setTimeout(() => setupVideoTracks(su.session), 500);
-                            }
+                            // Essential: Setup tracks after short delay for iPhone
+                            setTimeout(() => {
+                                setupVideoTracks(su.session);
+                                // Start analyzer on remote stream
+                                const pc = su.session.sessionDescriptionHandler.peerConnection;
+                                const remoteStream = new MediaStream();
+                                pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
+                                startAudioAnalyzer(remoteStream);
+                            }, 1000);
                         },
                         onCallHold: (session, hold) => {
                             setIsHeld(hold);
@@ -560,29 +568,88 @@
 
             const toggleVideo = () => {
                 if(!simpleUser || !simpleUser.session) return;
-                if(videoActive) {
-                    // This is simplified for v0.20, normally involves re-invite
-                    setVideoActive(false);
-                    showToast('Cámara desactivada');
-                } else {
-                    setVideoActive(true);
-                    showToast('Cámara activada');
+                const active = !videoActive;
+                setVideoActive(active);
+                
+                // For SIP.js v0.20 we might need to renegotiate, but simpler:
+                if(simpleUser.session.sessionDescriptionHandler) {
+                    const pc = simpleUser.session.sessionDescriptionHandler.peerConnection;
+                    pc.getSenders().forEach(sender => {
+                        if(sender.track && sender.track.kind === 'video') {
+                            sender.track.enabled = active;
+                        }
+                    });
                 }
+                showToast(active ? 'Cámara activada' : 'Cámara desactivada');
             };
 
-            const flipCamera = () => {
-                showToast('Cambiando cámara...');
+            const flipCamera = async () => {
                 if(!simpleUser || !simpleUser.session) return;
-                // Complex logic for SIP.js to switch devices, skipping for base demo
+                showToast('Cambiando cámara...');
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                    if(videoDevices.length < 2) return showToast('No hay otra cámara');
+                    
+                    // Logic to find current and switch to next
+                    const currentStream = localVideoRef.current.srcObject;
+                    const currentTrack = currentStream.getVideoTracks()[0];
+                    const nextDevice = videoDevices.find(d => d.deviceId !== (currentTrack ? currentTrack.getSettings().deviceId : ''));
+                    
+                    const newStream = await navigator.mediaDevices.getUserMedia({
+                        video: { deviceId: { exact: nextDevice.deviceId } }
+                    });
+                    const newTrack = newStream.getVideoTracks()[0];
+                    
+                    const pc = simpleUser.session.sessionDescriptionHandler.peerConnection;
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if(sender) sender.replaceTrack(newTrack);
+                    
+                    localVideoRef.current.srcObject = newStream;
+                } catch(e) { showToast('Error al girar cámara','error'); }
             };
 
             const toggleHold = () => {
                 if(!simpleUser || !simpleUser.session) return;
                 if(isHeld) simpleUser.unhold();
                 else simpleUser.hold();
-                // isHeld is actually updated by onCallHold delegate, but we eagerly flip
                 setIsHeld(!isHeld);
             };
+
+            // Audio Level Analyzer
+            const startAudioAnalyzer = (stream) => {
+                if(!stream) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioContext();
+                    const source = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+                    
+                    audioContextRef.current = ctx;
+                    analyserRef.current = analyser;
+                    
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    const check = () => {
+                        if(!analyserRef.current) return;
+                        analyser.getByteFrequencyData(data);
+                        let sum = 0;
+                        for(let i=0; i<data.length; i++) sum += data[i];
+                        setAudioLevel(sum / data.length);
+                        requestAnimationFrame(check);
+                    };
+                    check();
+                } catch(e) {}
+            };
+
+            useEffect(() => {
+                if(!callStatus) {
+                    if(audioContextRef.current) audioContextRef.current.close().catch(()=>{});
+                    analyserRef.current = null;
+                    setAudioLevel(0);
+                }
+            }, [callStatus]);
 
             // ───────────────── UTIL ─────────────────
             const saveHistory = (record) => {
@@ -918,12 +985,10 @@
                     {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
                         <div className="call-overlay fixed inset-0 z-[200] bg-slate-900 overflow-hidden flex flex-col">
-                            {/* Background (Remote Video or Avatar) */}
+                            {/* Overlay Background Wrapper (Handles content but not the video tags because they are outside) */}
                             <div className="absolute inset-0 z-0 overflow-hidden">
-                                {videoActive && callStatus === 'in-call' ? (
-                                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover brightness-[0.8] contrast-[1.1]" />
-                                ) : (
-                                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center">
+                                {(!videoActive || callStatus !== 'in-call') && (
+                                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center transition-opacity">
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60"></div>
                                         <div className="w-32 h-32 rounded-full glass-panel flex items-center justify-center border-2 border-white/5 shadow-2xl overflow-hidden backdrop-blur-3xl animate-fadeIn">
                                             {contacts.find(c => c.ext === remoteNumber)?.avatar ? (
@@ -942,22 +1007,23 @@
                             {/* Top Header Area */}
                             <div className="relative z-10 w-full pt-14 px-6 flex flex-col items-center animate-fadeIn">
                                 <h1 className="text-white text-2xl font-semibold tracking-tight text-center">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
-                                <div className="mt-3 bg-black/30 backdrop-blur-2xl px-4 py-1.5 rounded-full border border-white/10 shadow-lg">
-                                    <p className="text-white/90 text-sm font-medium tabular-nums uppercase tracking-[0.1em] text-[11px]">
-                                        {callStatus === 'ringing' ? 'llamada entrante...' : 
-                                         callStatus === 'calling' ? 'conectando...' : 
-                                         callStatus === 'held' ? 'en espera' : formatTime(elapsed)}
+                                <div className="mt-3 bg-black/30 backdrop-blur-2xl px-5 py-2 rounded-full border border-white/10 shadow-lg flex items-center gap-4">
+                                    <p className="text-white text-[12px] font-bold tabular-nums uppercase tracking-widest min-w-[80px] text-center">
+                                        {callStatus === 'ringing' ? 'llamada...' : callStatus === 'calling' ? 'conectando' : callStatus === 'held' ? 'en espera' : formatTime(elapsed)}
                                     </p>
+                                    {callStatus === 'in-call' && (
+                                        <div className="flex items-center gap-1 h-3 ml-1 border-l border-white/10 pl-3">
+                                            {[1,2,3,4,5,6].map(i => {
+                                                const h = Math.max(3, (audioLevel * (0.8 + Math.random()*0.5)));
+                                                return (
+                                                    <div key={i} className="w-1 bg-primary rounded-full transition-all duration-75" 
+                                                         style={{height: `${h}%`, opacity: 0.6 + (h/100)}}></div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-
-                            {/* Floating Self Video (Top Right) */}
-                            {videoActive && (callStatus === 'in-call' || callStatus === 'calling') && (
-                                <div className="absolute top-14 right-4 z-20 w-32 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl ring-1 ring-black/5 animate-scaleIn">
-                                    <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-                                    <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] uppercase font-bold text-white/70">Tú</div>
-                                </div>
-                            )}
 
                             {/* Bottom Controls Area */}
                             <div className="relative z-10 w-full px-6 pb-12 mt-auto animate-slideUp">
@@ -1002,9 +1068,9 @@
                                         <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'bg-white text-slate-900':'bg-white/5 text-white'}`}>
                                             <span className="material-symbols-outlined text-xl">{isHeld?'play_arrow':'pause'}</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausa'}</span>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
                                     </button>
-                                    <button className="flex flex-col items-center gap-1.5 opacity-80 group">
+                                    <button onClick={() => showToast('Funcionalidad próximamente')} className="flex flex-col items-center gap-1.5 opacity-80 group">
                                         <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
                                             <span className="material-symbols-outlined text-xl">person_add</span>
                                         </div>
@@ -1013,9 +1079,17 @@
                                 </div>
                             </div>
                             {/* Home indicator inside overlay */}
-                            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-50"></div>
+                            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-[210]"></div>
                         </div>
                     )}
+
+                    {/* Persistent Video Elements (Hidden when not in call) */}
+                    <div className={`fixed inset-0 pointer-events-none z-0 ${callStatus==='in-call'?'block':'hidden'}`}>
+                         <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    </div>
+                    <div className={`fixed top-14 right-4 z-[210] w-32 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl pointer-events-none ${(callStatus==='in-call' || callStatus==='calling') && videoActive ? 'block' : 'hidden'}`}>
+                         <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                    </div>
 
                     <audio ref={audioRef} autoPlay />
                 </div>
