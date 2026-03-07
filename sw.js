@@ -34,13 +34,22 @@ self.addEventListener('push', e => {
 });
 
 self.addEventListener('notificationclick', e => {
+  const action = e.action;
   e.notification.close();
+
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cls => {
-      const url = '/teleflow/';
       const cl = cls.find(c => c.url.includes('/teleflow'));
-      if (cl) { cl.focus(); return; }
-      return clients.openWindow(url);
+      
+      if (action === 'answer' || action === 'reject') {
+        if (cl) {
+          cl.postMessage({ type: 'CALL_ACTION', action: action });
+          cl.focus();
+        }
+      } else {
+        if (cl) return cl.focus();
+        return clients.openWindow('/teleflow/');
+      }
     })
   );
 });
@@ -52,7 +61,13 @@ self.addEventListener('message', e => {
       body: e.data.body || '',
       icon: '/teleflow/icon-192.png',
       tag: e.data.tag || 'teleflow',
-      vibrate: [100, 50, 100],
+      data: e.data,
+      vibrate: [300, 100, 300, 100, 300],
+      requireInteraction: true,
+      actions: [
+        { action: 'answer', title: 'Contestar', icon: '/teleflow/check_circle.png' },
+        { action: 'reject', title: 'Rechazar', icon: '/teleflow/cancel.png' }
+      ]
     });
   }
 });

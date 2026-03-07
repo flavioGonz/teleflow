@@ -2662,6 +2662,26 @@ function ViewWebPhone({ data, toast }) {
     const [lastError, setLastError] = useState('');
     const registerTimer = useRef(null);
     const timerRef = useRef(null);
+    const vibrateInterval = useRef(null);
+
+    // Listen for messages from Service Worker (Notification Actions)
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            const handler = (event) => {
+                if (event.data && event.data.type === 'CALL_ACTION') {
+                    if (event.data.action === 'answer') {
+                        console.log('SW: Answer action triggered');
+                        answer();
+                    } else if (event.data.action === 'reject') {
+                        console.log('SW: Reject action triggered');
+                        hangup();
+                    }
+                }
+            };
+            navigator.serviceWorker.addEventListener('message', handler);
+            return () => navigator.serviceWorker.removeEventListener('message', handler);
+        }
+    }, [simpleUser]); // Re-attach if simpleUser changes to ensure closure scope
 
     useEffect(() => {
         // Stop videos when disconnected
@@ -2718,20 +2738,64 @@ function ViewWebPhone({ data, toast }) {
                     toast('¡Llamada entrante!','call'); 
                     setStatus('Llamada Entrante'); 
                     setActiveTab('dialpad');
+                    
+                    // Notificación PWA con botones y vibración
+                    if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification('Llamada Entrante', {
+                                body: 'Interno llamando...',
+                                icon: '/teleflow/icon-192.png',
+                                badge: '/teleflow/icon-192.png',
+                                tag: 'incoming-call',
+                                vibrate: [500, 200, 500, 200, 500],
+                                requireInteraction: true,
+                                actions: [
+                                    { action: 'answer', title: 'Contestar' },
+                                    { action: 'reject', title: 'Rechazar' }
+                                ]
+                            });
+                        });
+                    }
+                    
+                    // Vibración continua (loop)
+                    if (navigator.vibrate) {
+                        navigator.vibrate([500, 200, 500]);
+                        vibrateInterval.current = setInterval(() => {
+                            navigator.vibrate([500, 200, 500]);
+                        }, 1500);
+                    }
                 },
                 onCallHangup: () => { 
                     toast('Llamada finalizada','info'); 
                     setStatus('Registrado (Libre)'); 
                     if(timerRef.current) clearInterval(timerRef.current);
+                    if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                    if(navigator.vibrate) navigator.vibrate(0);
                     setElapsed(0);
                     setIsMuted(false);
                     setIsHeld(false);
+                    
+                    // Cerrar notificación
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                        });
+                    }
                 },
                 onCallAnswered: () => { 
                     setStatus('Llamada en Curso'); 
                     setElapsed(0);
                     if(timerRef.current) clearInterval(timerRef.current);
+                    if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                    if(navigator.vibrate) navigator.vibrate(0);
                     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                    
+                    // Cerrar notificación
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                        });
+                    }
                 },
                 onCallHold: (session, hold) => {
                     setIsHeld(hold);
