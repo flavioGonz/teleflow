@@ -356,9 +356,83 @@
             const audioRef = useRef(null);
             const localVideoRef = useRef(null);
             const remoteVideoRef = useRef(null);
-            const ringbackRef = useRef(new Audio('https://raw.githubusercontent.com/PolymerElements/iron-a11y-announcer/master/demo/sounds/success.mp3')); // Placeholder
-            const incomingRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-03a.mp3')); // Placeholder
+            const ringbackRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-01a.mp3'));
+            const incomingRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-03a.mp3'));
+            const clickSoundRef = useRef(new Audio('https://www.soundjay.com/communication/button-20.mp3'));
+            const toneCtxRef = useRef(null);
             const timerRef = useRef(null);
+
+            // Audio context unlock and Sound Warm-up
+            useEffect(() => {
+                const unlock = () => {
+                    if (toneCtxRef.current) return;
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    toneCtxRef.current = ctx;
+                    // Play a silent buffer to unlock
+                    const buffer = ctx.createBuffer(1, 1, 22050);
+                    const source = ctx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(ctx.destination);
+                    source.start(0);
+
+                    // Warm up audio elements (essential for iOS)
+                    [incomingRef.current, ringbackRef.current, clickSoundRef.current].forEach(a => {
+                        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(()=>{});
+                    });
+
+                    window.removeEventListener('click', unlock);
+                    window.removeEventListener('touchstart', unlock);
+                };
+                window.addEventListener('click', unlock);
+                window.addEventListener('touchstart', unlock);
+            }, []);
+
+            const playClick = () => {
+                if (clickSoundRef.current) {
+                    clickSoundRef.current.currentTime = 0;
+                    clickSoundRef.current.play().catch(()=>{});
+                }
+            };
+
+            const playTone = (freq1, freq2 = 0) => {
+                if (!toneCtxRef.current) return;
+                const ctx = toneCtxRef.current;
+                if (ctx.state === 'suspended') ctx.resume();
+                
+                const osc1 = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(freq1, ctx.currentTime);
+                osc1.connect(gain);
+                
+                let osc2;
+                if(freq2) {
+                    osc2 = ctx.createOscillator();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(freq2, ctx.currentTime);
+                    osc2.connect(gain);
+                }
+
+                gain.connect(ctx.destination);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+
+                osc1.start();
+                if(osc2) osc2.start();
+                osc1.stop(ctx.currentTime + 0.1);
+                if(osc2) osc2.stop(ctx.currentTime + 0.1);
+            };
+
+            const playDTMF = (digit) => {
+                const dtmfFreqs = {
+                    '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+                    '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+                    '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+                    '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+                };
+                if(dtmfFreqs[digit]) playTone(dtmfFreqs[digit][0], dtmfFreqs[digit][1]);
+                else playTone(440); // Simple beep for others
+            };
 
             // History / Contacts
             const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('tf_call_history')||'[]'));
@@ -623,18 +697,19 @@
                 setRemoteNumber(dest);
                 
                 haptic('light');
+                playClick(); // Feedback for the button
                 ringbackRef.current.loop = true;
                 ringbackRef.current.play().catch(()=>{});
 
                 simpleUser.call(`sip:${dest}@${domain}`, opts)
-                  .then(() => {
-                      setCallStatus('calling');
-                      saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
-                  })
-                  .catch(e => {
-                      ringbackRef.current.pause();
-                      showToast('Error al llamar al destino','error');
-                  });
+                   .then(() => {
+                       setCallStatus('calling');
+                       saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
+                   })
+                   .catch(e => {
+                       ringbackRef.current.pause();
+                       showToast('Error al llamar al destino','error');
+                   });
             };
 
             const answerCall = (video = false) => {
@@ -891,23 +966,20 @@
             // 2. PANTALLA PRINCIPAL
             return (
                 <div className="app-container bg-app-gradient relative overflow-hidden">
-                    {/* Radial background overlay */}
-                    <div className="absolute inset-0 opacity-20 pointer-events-none" 
-                         style={{backgroundImage: 'radial-gradient(circle at 50% 0%, #007bff 0%, transparent 70%)'}}></div>                    
-                    
-                    {toast && (
-                        <div className="toast" style={{background: toast.type==='error'?'#ef4444':toast.type==='success'?'#10b981':'var(--primary)'}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>{toast.type==='error'?'error':toast.type==='success'?'check_circle':'info'}</span>
-                            {toast.msg}
-                        </div>
-                    )}
-
-                    {/* VIEWPORT CONTENIDO (Con transiciones suaves) */}
-                    <div className="main-content">
+                    <div className={`main-content transition-all duration-500 ${callStatus ? 'hidden overflow-hidden' : 'opacity-100 scale-100'}`}>
+                        {/* Radial background overlay */}
+                        <div className="absolute inset-0 opacity-20 pointer-events-none" 
+                             style={{backgroundImage: 'radial-gradient(circle at 50% 0%, #007bff 0%, transparent 70%)'}}></div>                    
                         
-                        {/* ──────────────── TAB: DASHBOARD (IDLE SCREEN) ──────────────── */}
+                        {toast && (
+                            <div className="toast" style={{background: toast.type==='error'?'#ef4444':toast.type==='success'?'#10b981':'var(--primary)'}}>
+                                <span className="material-icons-round" style={{fontSize:18}}>{toast.type==='error'?'error':toast.type==='success'?'check_circle':'info'}</span>
+                                {toast.msg}
+                            </div>
+                        )}
+
                         {activeTab==='dashboard' && (
-                          <div className="page-enter flex flex-col px-5 min-h-full">
+                          <div className="page-enter flex flex-col px-5 pb-40">
                             <section className="flex flex-col items-center gap-4 text-center mt-6">
                                 <div className="relative">
                                     <div className="w-32 h-32 rounded-full border-2 border-primary/30 p-1">
@@ -975,7 +1047,7 @@
 
                         {/* ──────────────── TAB: DIALPAD ──────────────── */}
                         {activeTab==='dialpad' && (
-                          <div className="page-enter flex flex-col min-h-full">
+                          <div className="page-enter flex flex-col pb-40">
                             <div className="flex-1 flex flex-col justify-center pb-5">
                                 {/* Display Number */}
                                 <div className="text-center px-5 min-h-[120px] flex items-center justify-center">
@@ -987,7 +1059,7 @@
                                 {/* Keypad grid */}
                                 <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'15px 20px', padding:'0 30px', margin:'auto', maxWidth:350, width:'100%'}}>
                                     {[{n:'1',l:''},{n:'2',l:'ABC'},{n:'3',l:'DEF'},{n:'4',l:'GHI'},{n:'5',l:'JKL'},{n:'6',l:'MNO'},{n:'7',l:'PQRS'},{n:'8',l:'TUV'},{n:'9',l:'WXYZ'},{n:'*',l:''},{n:'0',l:'+'},{n:'#',l:''}].map(k => (
-                                        <button key={k.n} className="dial-btn" onClick={()=>{ setDest(d=>d+k.n); if(navigator.vibrate)navigator.vibrate(20); }}>
+                                        <button key={k.n} className="dial-btn" onClick={()=>{ setDest(d=>d+k.n); playDTMF(k.n); haptic('light'); }}>
                                             <span style={{fontSize:28,fontWeight:400,lineHeight:1}}>{k.n}</span>
                                             {k.l && <span style={{fontSize:9,color:'var(--muted)',fontWeight:700,letterSpacing:'1px',marginTop:2}}>{k.l}</span>}
                                         </button>
@@ -1026,7 +1098,7 @@
                                 )}
                                 
                                 <div style={{width:60, display:'flex', justifyContent:'flex-end'}}>
-                                    <button onClick={()=>setDest(d=>d.slice(0,-1))} style={{background:'transparent',border:'none',color:'var(--muted)',padding:10}}>
+                                    <button onClick={()=>{setDest(d=>d.slice(0,-1)); playClick();}} style={{background:'transparent',border:'none',color:'var(--muted)',padding:10}}>
                                         <span className="material-icons-round" style={{fontSize:28}}>{dest?'backspace':''}</span>
                                     </button>
                                 </div>
@@ -1036,7 +1108,7 @@
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         {activeTab==='contacts' && (
-                          <div className="page-enter p-5 flex flex-col min-h-full">
+                          <div className="page-enter p-5 flex flex-col pb-40">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
                             <div className="flex flex-col gap-3">
                                 {contacts.length===0 && <div className="text-slate-500 text-sm text-center p-20 glass-panel rounded-3xl border border-white/5">Buscando internos...</div>}
@@ -1060,9 +1132,9 @@
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
                         {activeTab==='history' && (
-                          <div className="page-enter p-5 min-h-full">
+                          <div className="page-enter p-5 pb-40">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Recientes</h2>
-                            <div className="flex flex-col pb-20">
+                            <div className="flex flex-col">
                                 {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
                                 {history.map((h,i) => (
                                     <div key={i} onClick={()=>{setDest(h.num); setActiveTab('dialpad');}} 
@@ -1141,7 +1213,7 @@
                     </div>
 
                     {/* Navbar (iOS STYLE PREMIUM - STAYS FIXED AT BOTTOM) */}
-                    <nav className="fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[500]">
+                    <nav className={`fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[500] transition-transform duration-500 ${callStatus ? 'translate-y-full' : 'translate-y-0'}`}>
                         <div className="flex items-center justify-between">
                             <button className={`flex flex-col items-center gap-1 ${activeTab==='dashboard'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('dashboard')}>
                                 <span className={`material-symbols-outlined ${activeTab==='dashboard'?'filled-icon':''}`}>home</span>
