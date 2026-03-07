@@ -1,4 +1,4 @@
-# <div align="center"><img src="https://raw.githubusercontent.com/google/material-design-icons/master/png/communication/sensors/materialicons/48dp/2x/baseline_sensors_white_48dp.png" width="80" /><br>TeleFlow : Next-Gen PBX Control</div>
+# <div align="center">TeleFlow : Next-Gen PBX Control</div>
 
 <img width="1914" height="939" alt="image" src="https://github.com/user-attachments/assets/cf3657bf-f218-40d8-9cb7-09d9479bd144" />
 
