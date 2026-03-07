@@ -46,6 +46,23 @@ if (!isset($_SESSION['tf_user']) && !in_array($action, ['get_agents_data', 'uplo
     exit;
 }
 
+if ($action === 'set_sip_debug') {
+    $level = $_POST['level'] ?? 'off'; // on/off/verbose
+    
+    if ($level === 'on') {
+        shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger on'");
+        shell_exec("/usr/sbin/asterisk -rx 'core set verbose 6'");
+        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Activado (Verbose 6)']);
+    } else if ($level === 'off') {
+        shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger off'");
+        shell_exec("/usr/sbin/asterisk -rx 'core set verbose 3'");
+        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Desactivado (Verbose 3)']);
+    } else {
+        echo json_encode(['success' => false, 'msg' => 'Nivel desconocido']);
+    }
+    exit;
+}
+
 if ($action === 'get_sip_debug') {
     // Intentamos leer el log de asterisk. En Issabel suele ser /var/log/asterisk/full
     // Filtramos por pjsip o errores de registro

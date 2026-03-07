@@ -3185,57 +3185,13 @@ function ViewWebPhone({ data, toast }) {
 // VISTA: IVR (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewIVR({ toast }) {
-    const ReactFlow = window.ReactFlow?.default || window.ReactFlow?.ReactFlow || (() => React.createElement('div'));
-    const Background = window.ReactFlow?.Background || (() => React.createElement('div'));
-    const Controls = window.ReactFlow?.Controls || (() => React.createElement('div'));
-
-    const initialNodes = [
-        { id: '1', type: 'input', data: { label: 'Inicio (Llamada Entrante)' }, position: { x: 250, y: 5 }, style:{background:'#3b82f6',color:'white',border:'none',borderRadius:8,fontWeight:700} },
-        { id: '2', data: { label: 'Reproducir Audio: Bienvenida' }, position: { x: 250, y: 100 }, style:{background:'var(--surface2)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:8} },
-        { id: '3', data: { label: 'Menú IVR (Opción 1 y 2)' }, position: { x: 250, y: 190 }, style:{background:'var(--surface2)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:8} },
-        { id: '4', data: { label: 'Cola: Soporte Técnico' }, position: { x: 100, y: 300 }, style:{background:'rgba(245,158,11,0.2)',color:'#f59e0b',border:'1px solid rgba(245,158,11,0.4)',borderRadius:8,fontWeight:700} },
-        { id: '5', data: { label: 'Extensión: Recepción' }, position: { x: 400, y: 300 }, style:{background:'rgba(34,197,94,0.2)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',borderRadius:8,fontWeight:700} },
-    ];
-
-    const initialEdges = [
-        { id: 'e1-2', source: '1', target: '2', animated: true, style:{stroke:'#3b82f6',strokeWidth:2} },
-        { id: 'e2-3', source: '2', target: '3', style:{stroke:'#9ca3af',strokeWidth:2} },
-        { id: 'e3-4', source: '3', target: '4', label: 'Si presiona 1', style:{stroke:'#9ca3af',strokeWidth:2} },
-        { id: 'e3-5', source: '3', target: '5', label: 'Si presiona 2', style:{stroke:'#9ca3af',strokeWidth:2} },
-    ];
-
-    const [nodes, setNodes] = useState(initialNodes);
-    const [edges, setEdges] = useState(initialEdges);
-
-    if (!window.ReactFlow) {
-        return (
-            <div className="content-area view-enter" style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:500}}>
-                <div style={{textAlign:'center',color:'#f87171'}}>
-                    <span className="material-icons-round" style={{fontSize:48,marginBottom:16}}>error_outline</span>
-                    <div>Error cargando librería ReactFlow. Revise su conexión o módulos CDN.</div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="content-area view-enter" style={{display:'flex',flexDirection:'column'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-                <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Gestor Visual de IVR</h2>
-                <div style={{display:'flex',gap:10}}>
-                    <button className="btn-primary" style={{padding:'8px 16px',borderRadius:10,background:'var(--surface)',border:'1px solid var(--border)',color:'var(--text)'}} onClick={()=>toast('Modo desarrollador activado','info')}>
-                        <span className="material-icons-round" style={{fontSize:16,marginRight:6,verticalAlign:'middle'}}>add_circle</span>Nuevo Nodo
-                    </button>
-                    <button className="btn-primary" style={{padding:'8px 24px',borderRadius:10}} onClick={()=>toast('Flujo IVR guardado con éxito!','success')}>Guardar Flujo</button>
-                </div>
-            </div>
-            
-            <div className="glass" style={{flex:1,borderRadius:16,overflow:'hidden',minHeight:500,position:'relative'}}>
-                <ReactFlow nodes={nodes} edges={edges} fitView>
-                    <Background color="rgba(139,92,246,0.1)" gap={16} />
-                    <Controls style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}} />
-                </ReactFlow>
-            </div>
+        <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
+            <iframe 
+                src="ivr-designer.html" 
+                style={{width:'100%', height:'100%', border:'none', flex: 1}} 
+                title="Visual IVR Designer"
+            />
         </div>
     );
 }
@@ -3375,6 +3331,20 @@ function ViewConfiguracion() {
             if (d.success) setSipLog(d.log || '');
         } catch(e) { setSipLog('Error al conectar con el servidor.'); }
         setLoadingSip(false);
+    };
+
+    const toggleAsteriskDebug = async (level) => {
+        try {
+            const body = new FormData();
+            body.append('level', level);
+            const r = await fetch('api/index.php?action=set_sip_debug', { method: 'POST', body });
+            const d = await r.json();
+            if (d.success) {
+                // Notificar éxito (puedes usar el toast si lo pasaras por props)
+                console.log(d.msg);
+                loadSipDebug(); // Recargar el log inmediatamente
+            }
+        } catch(e) { console.error('Error configurando asterisk'); }
     };
 
     useEffect(() => {
@@ -3553,6 +3523,28 @@ function ViewConfiguracion() {
                                 }}
                             >
                                 <span className="material-icons-round" style={{fontSize:18}}>delete_sweep</span>
+                            </button>
+
+                            <button
+                                onClick={()=>toggleAsteriskDebug('on')}
+                                title="Activar Asterisk Verbose 6 + PJSIP Logger"
+                                style={{
+                                    width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+                                    background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.3)', color:'#60a5fa', cursor:'pointer'
+                                }}
+                            >
+                                <span className="material-icons-round" style={{fontSize:18}}>bug_report</span>
+                            </button>
+                            
+                            <button
+                                onClick={()=>toggleAsteriskDebug('off')}
+                                title="Desactivar Debug (Verbose 3)"
+                                style={{
+                                    width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+                                    background:'var(--surface2)', border:'1px solid var(--border)', color:'#9ca3af', cursor:'pointer'
+                                }}
+                            >
+                                <span className="material-icons-round" style={{fontSize:18}}>healing</span>
                             </button>
                         </div>
                     </div>
