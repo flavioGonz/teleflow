@@ -13,10 +13,15 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#5247e6",
+                        "primary": "#8b5cf6",
                         "background-light": "#f6f6f8",
-                        "background-dark": "#121121",
+                        "background-dark": "#07070d",
                         "slate-custom": "#475569",
+                        "slate": {
+                            700: "#1f1f2e",
+                            800: "#0f0f1a",
+                            900: "#15151f"
+                        }
                     },
                     fontFamily: {
                         "display": ["Inter"]
@@ -28,22 +33,29 @@
     </script>
     <style>
         .grid-bg {
-            background-image: radial-gradient(circle, #d2d1e6 1px, transparent 1px);
+            background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
             background-size: 24px 24px;
+        }
+        .dark .grid-bg {
+            background-image: radial-gradient(circle, rgba(139,92,246,0.15) 1px, transparent 1px);
         }
         .node-connector {
             position: absolute;
             width: 12px;
             height: 12px;
             background: white;
-            border: 2px solid #5247e6;
+            border: 2px solid #8b5cf6;
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.2s;
         }
+        .dark .node-connector {
+            background: #0f0f1a;
+            border-color: #8b5cf6;
+        }
         .node-connector:hover {
             transform: scale(1.3);
-            background: #5247e6;
+            background: #8b5cf6 !important;
         }
         .node {
             cursor: grab;
@@ -74,17 +86,17 @@
         </div>
         <div class="flex items-center gap-4">
             <nav class="hidden md:flex items-center gap-6 mr-6 border-r border-primary/10 pr-6">
-                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">File</a>
-                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">Edit</a>
-                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">View</a>
-                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">Analytics</a>
+                <a class="text-sm font-semibold text-slate- dark:text-slate-200 hover:text-primary transition-colors" href="#">File</a>
+                <a class="text-sm font-semibold text-slate- dark:text-slate-200 hover:text-primary transition-colors" href="#">Edit</a>
+                <a class="text-sm font-semibold text-slate- dark:text-slate-200 hover:text-primary transition-colors" href="#">View</a>
+                <a class="text-sm font-semibold text-slate- dark:text-slate-200 hover:text-primary transition-colors" href="#">Analytics</a>
             </nav>
             <div class="flex gap-3">
-                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate- dark:text-slate-200 hover:bg-slate-50 transition-all shadow-sm">
                     <span class="material-symbols-outlined text-[18px]">check_circle</span>
                     Validate
                 </button>
-                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate- dark:text-slate-200 hover:bg-slate-50 transition-all shadow-sm">
                     <span class="material-symbols-outlined text-[18px]">save</span>
                     Save
                 </button>
@@ -154,7 +166,7 @@
                 <div class="space-y-3 pt-6">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Advanced</p>
                     <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
-                        <div class="size-8 rounded-lg bg-slate-500/10 text-slate-600 flex items-center justify-center">
+                        <div class="size-8 rounded-lg bg-slate-500/10 text-slate- dark:text-slate-200 flex items-center justify-center">
                             <span class="material-symbols-outlined text-[18px]">api</span>
                         </div>
                         <span class="text-sm font-semibold tracking-tight">API / Webhook</span>
@@ -179,11 +191,11 @@
             <!-- UI Controls for Canvas -->
             <div class="absolute bottom-8 left-8 flex flex-col gap-3 z-10">
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 dark:border-slate-700 p-1.5 flex flex-col gap-1">
-                    <button class="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><span class="material-symbols-outlined">add</span></button>
+                    <button class="p-2 hover:bg-slate-100 text-slate- dark:text-slate-200 rounded-xl transition-colors"><span class="material-symbols-outlined">add</span></button>
                     <div class="w-full h-px bg-slate-100"></div>
-                    <button class="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><span class="material-symbols-outlined">remove</span></button>
+                    <button class="p-2 hover:bg-slate-100 text-slate- dark:text-slate-200 rounded-xl transition-colors"><span class="material-symbols-outlined">remove</span></button>
                 </div>
-                <button class="bg-white dark:bg-slate-800 p-3.5 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">
+                <button class="bg-white dark:bg-slate-800 p-3.5 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 text-slate- dark:text-slate-200 hover:bg-slate-100 transition-colors">
                     <span class="material-symbols-outlined">fit_screen</span>
                 </button>
             </div>
@@ -201,11 +213,11 @@
             <div class="relative w-full h-full overflow-hidden" id="canvas">
                 <!-- SVG Connections (Simulated) -->
                 <svg class="absolute inset-0 pointer-events-none w-full h-full">
-                    <path d="M120 180 C 180 180, 180 180, 240 180" fill="none" stroke="#5247e6" stroke-dasharray="6,4" stroke-width="3" stroke-linecap="round"></path>
-                    <path d="M420 180 C 470 180, 480 180, 520 180" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
-                    <path d="M800 130 C 850 130, 850 100, 900 100" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
-                    <path d="M800 180 C 850 180, 850 200, 900 200" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
-                    <path d="M800 230 C 850 230, 850 300, 900 300" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M120 180 C 180 180, 180 180, 240 180" fill="none" stroke="#8b5cf6" stroke-dasharray="6,4" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M420 180 C 470 180, 480 180, 520 180" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 130 C 850 130, 850 100, 900 100" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 180 C 850 180, 850 200, 900 200" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 230 C 850 230, 850 300, 900 300" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round"></path>
                 </svg>
 
                 <!-- Node: Start -->
@@ -214,7 +226,7 @@
                         <span class="text-[10px] font-black text-primary uppercase tracking-widest">Trigger</span>
                         <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <h4 class="text-sm font-bold text-slate- dark:text-slate-200 flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-[18px]">play_arrow</span>
                         Start IVR
                     </h4>
@@ -229,7 +241,7 @@
                         </div>
                         <span class="text-[10px] font-black uppercase tracking-widest">Playback</span>
                     </div>
-                    <div class="bg-slate-50 border border-slate-100 p-2 rounded-lg truncate text-xs font-semibold text-slate-600">
+                    <div class="bg-slate-50 border border-slate-100 p-2 rounded-lg truncate text-xs font-semibold text-slate- dark:text-slate-200">
                         Greeting_Audio.mp3
                     </div>
                     <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
@@ -250,20 +262,20 @@
                     <div class="space-y-2 mt-4">
                         <!-- Port 1 -->
                         <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
-                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">1</span>
-                            <span class="text-xs font-bold text-slate-700">Support</span>
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate- dark:text-slate-200 group-hover:bg-primary group-hover:text-white transition-colors mr-3">1</span>
+                            <span class="text-xs font-bold text-slate- dark:text-slate-200">Support</span>
                             <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
                         </div>
                         <!-- Port 2 -->
                         <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
-                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">2</span>
-                            <span class="text-xs font-bold text-slate-700">Sales</span>
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate- dark:text-slate-200 group-hover:bg-primary group-hover:text-white transition-colors mr-3">2</span>
+                            <span class="text-xs font-bold text-slate- dark:text-slate-200">Sales</span>
                             <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
                         </div>
                         <!-- Port 3 -->
                         <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
-                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">3</span>
-                            <span class="text-xs font-bold text-slate-700">Accounting</span>
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate- dark:text-slate-200 group-hover:bg-primary group-hover:text-white transition-colors mr-3">3</span>
+                            <span class="text-xs font-bold text-slate- dark:text-slate-200">Accounting</span>
                             <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
                         </div>
                         
@@ -284,7 +296,7 @@
                         </div>
                         <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800">Support Team</h4>
+                    <h4 class="text-sm font-bold text-slate- dark:text-slate-200">Support Team</h4>
                     <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
                 </div>
 
@@ -295,7 +307,7 @@
                         </div>
                         <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800">Sales Department</h4>
+                    <h4 class="text-sm font-bold text-slate- dark:text-slate-200">Sales Department</h4>
                     <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
                 </div>
 
@@ -306,7 +318,7 @@
                         </div>
                         <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800">Accounting Desk</h4>
+                    <h4 class="text-sm font-bold text-slate- dark:text-slate-200">Accounting Desk</h4>
                     <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
                 </div>
             </div>
@@ -328,7 +340,7 @@
                 <section class="space-y-5">
                     <div>
                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Node Name</label>
-                        <input class="w-full bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" type="text" value="Main Menu"/>
+                        <input class="w-full bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold text-slate- dark:text-slate-200 px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" type="text" value="Main Menu"/>
                     </div>
                     
                     <div>
@@ -336,7 +348,7 @@
                         <div class="flex gap-2">
                             <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
                                 <span class="material-symbols-outlined text-primary text-xl">audio_file</span>
-                                <span class="text-sm font-semibold truncate text-slate-600">main_menu_options.wav</span>
+                                <span class="text-sm font-semibold truncate text-slate- dark:text-slate-200">main_menu_options.wav</span>
                             </div>
                             <button class="px-4 bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary hover:text-white transition-colors flex items-center justify-center shadow-sm">
                                 <span class="material-symbols-outlined">upload</span>
@@ -369,7 +381,7 @@
                         <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
                             <div class="flex items-center gap-3">
                                 <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">1</span>
-                                <span class="text-sm font-bold text-slate-700">Support</span>
+                                <span class="text-sm font-bold text-slate- dark:text-slate-200">Support</span>
                             </div>
                             <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
                         </div>
@@ -377,7 +389,7 @@
                         <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
                             <div class="flex items-center gap-3">
                                 <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">2</span>
-                                <span class="text-sm font-bold text-slate-700">Sales</span>
+                                <span class="text-sm font-bold text-slate- dark:text-slate-200">Sales</span>
                             </div>
                             <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
                         </div>
@@ -385,7 +397,7 @@
                         <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
                             <div class="flex items-center gap-3">
                                 <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">3</span>
-                                <span class="text-sm font-bold text-slate-700">Accounting</span>
+                                <span class="text-sm font-bold text-slate- dark:text-slate-200">Accounting</span>
                             </div>
                             <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
                         </div>
@@ -410,7 +422,7 @@
     <!-- Footer / Status Bar -->
     <footer class="h-9 bg-white dark:bg-background-dark border-t border-primary/10 px-6 flex items-center justify-between z-30 text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
         <div class="flex items-center gap-6">
-            <span class="flex items-center gap-2 text-slate-600"><span class="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span> Engine Online</span>
+            <span class="flex items-center gap-2 text-slate- dark:text-slate-200"><span class="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span> Engine Online</span>
             <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">lan</span> Localhost:8088</span>
         </div>
         <div class="flex items-center gap-6">

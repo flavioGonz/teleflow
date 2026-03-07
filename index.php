@@ -3682,12 +3682,21 @@ function App() {
                 data={data}
                 activeCalls={data?.pbx?.live_calls?.length || 0}
             />
-            <main className="main-content">
-                <Topbar view={view} data={data} onRefresh={load} setCollapsed={setCollapsed} />
-                <div style={{flex:1, overflowY:'auto'}}>
+            <main className="main-content" style={{padding: 0}}>
+                <div style={{flex:1, overflowY:'auto', height:'100%'}}>
                     {renderView()}
                 </div>
             </main>
+
+            {/* Reemplazo de boton menu para moviles */}
+            {window.innerWidth < 768 && collapsed && (
+                <button 
+                  onClick={() => setCollapsed(false)}
+                  style={{position:'fixed', bottom:20, right:20, zIndex:990, width:48, height:48, borderRadius:'50%', background:'var(--accent)', color:'white', border:'none', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}
+                >
+                    <span className="material-icons-round">menu</span>
+                </button>
+            )}
 
             {toast && (
                 <div className="toast-container">
