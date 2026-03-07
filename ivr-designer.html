@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Asterisk Visual IVR - SaaS Designer</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#5247e6",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#121121",
+                        "slate-custom": "#475569",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        .grid-bg {
+            background-image: radial-gradient(circle, #d2d1e6 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .node-connector {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border: 2px solid #5247e6;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .node-connector:hover {
+            transform: scale(1.3);
+            background: #5247e6;
+        }
+        .node {
+            cursor: grab;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .node:active {
+            cursor: grabbing;
+        }
+        .node:hover {
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden">
+<div class="flex flex-col h-screen">
+    <!-- Top Navigation Bar -->
+    <header class="flex items-center justify-between border-b border-primary/10 bg-white dark:bg-background-dark/50 px-6 py-3 z-30">
+        <div class="flex items-center gap-3">
+            <div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                <span class="material-symbols-outlined text-2xl">account_tree</span>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">Asterisk Visual IVR</h1>
+            <div class="ml-4 flex items-center gap-1 text-xs font-bold bg-green-500/10 text-green-600 dark:text-green-400 px-2.5 py-1 rounded-full border border-green-500/20">
+                <span class="material-symbols-outlined text-sm">cloud_done</span>
+                SYNCED
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <nav class="hidden md:flex items-center gap-6 mr-6 border-r border-primary/10 pr-6">
+                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">File</a>
+                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">Edit</a>
+                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">View</a>
+                <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#">Analytics</a>
+            </nav>
+            <div class="flex gap-3">
+                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                    Validate
+                </button>
+                <button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Save
+                </button>
+                <button class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 hover:-translate-y-0.5">
+                    <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+                    Deploy to Asterisk
+                </button>
+            </div>
+            <div class="ml-4 size-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-primary/20 cursor-pointer hover:border-primary transition-colors">
+                <img class="w-full h-full object-cover" alt="User" src="https://ui-avatars.com/api/?name=Admin&background=5247e6&color=fff"/>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Left Sidebar: Node Library -->
+        <aside class="w-72 bg-white dark:bg-background-dark border-r border-primary/10 flex flex-col z-20 shadow-xl">
+            <div class="p-5 border-b border-primary/10">
+                <h3 class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400">Node Library</h3>
+                <p class="text-xs text-slate-500 font-medium mt-1">Drag components to canvas</p>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 scrollbar-hide">
+                <div class="space-y-3">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Input & Output</p>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-green-500/10 text-green-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Playback</span>
+                    </div>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">dialpad</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Get Digits</span>
+                    </div>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">mic</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Record</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-6">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Logic & Routing</p>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">splitscreen</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Menu Choices</span>
+                    </div>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">schedule</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Time Conditions</span>
+                    </div>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">phone_forwarded</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Transfer & Queue</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-6">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Advanced</p>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-slate-500/10 text-slate-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">api</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">API / Webhook</span>
+                    </div>
+                    <div draggable="true" class="group flex items-center gap-3 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-grab transition-all">
+                        <div class="size-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[18px]">terminal</span>
+                        </div>
+                        <span class="text-sm font-semibold tracking-tight">Asterisk AGI/App</span>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t border-primary/5 bg-slate-50 dark:bg-slate-900/50">
+                <button class="w-full py-3 px-4 rounded-xl border-2 border-dashed border-primary/30 text-primary text-sm font-bold hover:bg-primary/5 hover:border-primary transition-all">
+                    + CUSTOM NODE
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Canvas -->
+        <main class="flex-1 relative overflow-hidden grid-bg bg-background-light dark:bg-background-dark/95">
+            <!-- UI Controls for Canvas -->
+            <div class="absolute bottom-8 left-8 flex flex-col gap-3 z-10">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 dark:border-slate-700 p-1.5 flex flex-col gap-1">
+                    <button class="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><span class="material-symbols-outlined">add</span></button>
+                    <div class="w-full h-px bg-slate-100"></div>
+                    <button class="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><span class="material-symbols-outlined">remove</span></button>
+                </div>
+                <button class="bg-white dark:bg-slate-800 p-3.5 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">
+                    <span class="material-symbols-outlined">fit_screen</span>
+                </button>
+            </div>
+
+            <!-- Breadcrumbs -->
+            <div class="absolute top-8 left-8 z-10 bg-white/90 dark:bg-background-dark/80 backdrop-blur-xl px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2 text-sm">
+                <span class="text-slate-500 font-medium">Projects</span>
+                <span class="material-symbols-outlined text-sm text-slate-300">chevron_right</span>
+                <span class="text-slate-500 font-medium">Support Flow</span>
+                <span class="material-symbols-outlined text-sm text-slate-300">chevron_right</span>
+                <span class="font-bold text-primary">IVR Main Canvas</span>
+            </div>
+
+            <!-- Simulated Flow Editor Nodes -->
+            <div class="relative w-full h-full overflow-hidden" id="canvas">
+                <!-- SVG Connections (Simulated) -->
+                <svg class="absolute inset-0 pointer-events-none w-full h-full">
+                    <path d="M120 180 C 180 180, 180 180, 240 180" fill="none" stroke="#5247e6" stroke-dasharray="6,4" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M420 180 C 470 180, 480 180, 520 180" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 130 C 850 130, 850 100, 900 100" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 180 C 850 180, 850 200, 900 200" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
+                    <path d="M800 230 C 850 230, 850 300, 900 300" fill="none" stroke="#5247e6" stroke-width="3" stroke-linecap="round"></path>
+                </svg>
+
+                <!-- Node: Start -->
+                <div class="node absolute left-12 top-40 w-32 bg-white dark:bg-slate-800 border-2 border-primary rounded-2xl shadow-xl p-4 ring-8 ring-primary/5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-black text-primary uppercase tracking-widest">Trigger</span>
+                        <div class="size-2 bg-green-500 rounded-full animate-pulse"></div>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                        Start IVR
+                    </h4>
+                    <div class="node-connector -right-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+
+                <!-- Node: Saludo -->
+                <div class="node absolute left-[240px] top-[148px] w-48 bg-white dark:bg-slate-800 border border-slate-200 rounded-2xl shadow-lg p-4">
+                    <div class="flex items-center gap-2 mb-3 text-primary">
+                        <div class="w-6 h-6 rounded bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-sm">volume_up</span>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Playback</span>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-100 p-2 rounded-lg truncate text-xs font-semibold text-slate-600">
+                        Greeting_Audio.mp3
+                    </div>
+                    <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
+                    <div class="node-connector -right-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+
+                <!-- Node: Menu Principal -->
+                <div class="node absolute left-[520px] top-[100px] w-72 bg-white dark:bg-slate-800 border-2 border-primary rounded-2xl shadow-2xl p-5 shadow-primary/10 ring-4 ring-primary/5">
+                    <div class="flex items-center gap-2 mb-4 text-primary">
+                        <div class="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30">
+                            <span class="material-symbols-outlined text-sm">splitscreen</span>
+                        </div>
+                        <span class="text-[11px] font-black uppercase tracking-[0.15em]">Main Menu</span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-500 font-medium mb-3 pl-1 text-center bg-slate-50 p-2 rounded-lg border border-slate-100">"Press 1 for Support, 2 for Sales..."</p>
+
+                    <div class="space-y-2 mt-4">
+                        <!-- Port 1 -->
+                        <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">1</span>
+                            <span class="text-xs font-bold text-slate-700">Support</span>
+                            <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
+                        </div>
+                        <!-- Port 2 -->
+                        <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">2</span>
+                            <span class="text-xs font-bold text-slate-700">Sales</span>
+                            <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
+                        </div>
+                        <!-- Port 3 -->
+                        <div class="relative flex items-center p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:border-primary/50 transition-colors group">
+                            <span class="w-6 h-6 rounded bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 group-hover:bg-primary group-hover:text-white transition-colors mr-3">3</span>
+                            <span class="text-xs font-bold text-slate-700">Accounting</span>
+                            <div class="node-connector -right-4 top-1/2 -translate-y-1/2 !bg-white"></div>
+                        </div>
+                        
+                        <!-- Fallback / Default -->
+                        <div class="relative flex items-center justify-between p-2 mt-2">
+                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Invalid / Timeout</span>
+                             <div class="node-connector -right-1.5 top-1/2 -translate-y-1/2 !border-slate-300"></div>
+                        </div>
+                    </div>
+                    <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+
+                <!-- Output Nodes -->
+                <div class="node absolute left-[900px] top-[60px] w-52 bg-white dark:bg-slate-800 border border-slate-200 rounded-2xl shadow-lg p-4">
+                    <div class="flex items-center gap-2 mb-2 text-indigo-500">
+                        <div class="w-6 h-6 rounded bg-indigo-500/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-sm">headset_mic</span>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800">Support Team</h4>
+                    <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+
+                <div class="node absolute left-[900px] top-[160px] w-52 bg-white dark:bg-slate-800 border border-slate-200 rounded-2xl shadow-lg p-4">
+                    <div class="flex items-center gap-2 mb-2 text-indigo-500">
+                        <div class="w-6 h-6 rounded bg-indigo-500/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-sm">trending_up</span>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800">Sales Department</h4>
+                    <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+
+                <div class="node absolute left-[900px] top-[260px] w-52 bg-white dark:bg-slate-800 border border-slate-200 rounded-2xl shadow-lg p-4">
+                    <div class="flex items-center gap-2 mb-2 text-indigo-500">
+                        <div class="w-6 h-6 rounded bg-indigo-500/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-sm">payments</span>
+                        </div>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Queue</span>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800">Accounting Desk</h4>
+                    <div class="node-connector -left-1.5 top-1/2 -translate-y-1/2"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Properties Panel -->
+        <aside class="w-[340px] bg-white dark:bg-background-dark border-l border-primary/10 flex flex-col z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
+            <div class="p-6 border-b border-primary/10 flex items-center justify-between bg-slate-50/50">
+                <div>
+                    <h3 class="text-base font-black text-slate-900 border-b-2 border-primary inline-block pb-0.5 mb-1">Properties</h3>
+                    <p class="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Node ID: MAIN_MENU_01</p>
+                </div>
+                <button class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                    <span class="material-symbols-outlined text-sm">info</span>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
+                <section class="space-y-5">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Node Name</label>
+                        <input class="w-full bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 px-4 py-3 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" type="text" value="Main Menu"/>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Audio Prompt</label>
+                        <div class="flex gap-2">
+                            <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                                <span class="material-symbols-outlined text-primary text-xl">audio_file</span>
+                                <span class="text-sm font-semibold truncate text-slate-600">main_menu_options.wav</span>
+                            </div>
+                            <button class="px-4 bg-primary/10 text-primary border border-primary/20 rounded-xl hover:bg-primary hover:text-white transition-colors flex items-center justify-center shadow-sm">
+                                <span class="material-symbols-outlined">upload</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Timeout (s)</label>
+                            <input class="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-center px-4 py-2.5 focus:ring-2 focus:ring-primary/20 outline-none" type="number" value="10"/>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Max Retries</label>
+                            <input class="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-center px-4 py-2.5 focus:ring-2 focus:ring-primary/20 outline-none" type="number" value="3"/>
+                        </div>
+                    </div>
+                </section>
+
+                <hr class="border-slate-100"/>
+                
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Branch Configuration</label>
+                        <span class="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">3 Items</span>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <!-- Option Item -->
+                        <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">1</span>
+                                <span class="text-sm font-bold text-slate-700">Support</span>
+                            </div>
+                            <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
+                        </div>
+                        <!-- Option Item -->
+                        <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">2</span>
+                                <span class="text-sm font-bold text-slate-700">Sales</span>
+                            </div>
+                            <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
+                        </div>
+                        <!-- Option Item -->
+                        <div class="p-3 bg-white border-2 border-transparent hover:border-slate-200 rounded-xl shadow-[0_2px_8px_-3px_rgba(0,0,0,0.1)] flex items-center justify-between transition-all group cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <span class="size-7 flex items-center justify-center bg-slate-800 text-white text-xs font-black rounded-lg group-hover:bg-primary transition-colors shadow-inner">3</span>
+                                <span class="text-sm font-bold text-slate-700">Accounting</span>
+                            </div>
+                            <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">drag_indicator</span>
+                        </div>
+                    </div>
+                    
+                    <button class="w-full py-3 mt-2 border-2 border-dashed border-slate-300 text-slate-500 text-xs font-black tracking-widest uppercase rounded-xl hover:bg-slate-50 hover:text-primary hover:border-primary/50 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        ADD OPTION
+                    </button>
+                </section>
+            </div>
+            
+            <div class="p-5 border-t border-slate-100 bg-slate-50/50">
+                <button class="w-full py-3.5 flex items-center justify-center gap-2 bg-white border border-red-200 text-red-500 text-sm font-bold rounded-xl hover:bg-red-50 hover:shadow-sm transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                    Delete Node
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer / Status Bar -->
+    <footer class="h-9 bg-white dark:bg-background-dark border-t border-primary/10 px-6 flex items-center justify-between z-30 text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+        <div class="flex items-center gap-6">
+            <span class="flex items-center gap-2 text-slate-600"><span class="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span> Engine Online</span>
+            <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">lan</span> Localhost:8088</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[14px]">zoom_in</span> Canvas 100%</span>
+            <span class="text-primary bg-primary/5 px-2 py-0.5 rounded">ID: flow_v2_support_main</span>
+        </div>
+    </footer>
+</div>
+</body>
+</html>
