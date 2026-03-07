@@ -641,9 +641,17 @@
 
             const toggleMute = () => {
                 if(!simpleUser || !simpleUser.session) return;
-                if(isMuted) simpleUser.unmute();
-                else simpleUser.mute();
-                setIsMuted(!isMuted);
+                const active = isMuted; // If it was muted, we want to activate it
+                const pc = simpleUser.session.sessionDescriptionHandler.peerConnection;
+                if(pc) {
+                    pc.getSenders().forEach(sender => {
+                        if(sender.track && sender.track.kind === 'audio') {
+                            sender.track.enabled = active;
+                        }
+                    });
+                }
+                setIsMuted(!active);
+                showToast(!active ? 'Micrófono silenciado' : 'Micrófono activado');
             };
 
             const toggleVideo = () => {
