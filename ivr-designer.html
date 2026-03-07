@@ -441,5 +441,65 @@
         </div>
     </footer>
 </div>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // Layout shift
+        const workspace = document.querySelector('.flex.flex-1.overflow-hidden');
+        if (workspace) workspace.classList.add('relative');
+        
+        const asides = workspace.querySelectorAll('aside');
+        if (asides.length >= 2) {
+            const nodeLibrary = asides[0];
+            const propertiesPanel = asides[1];
+            
+            // Move Node Library to right side (after main canvas)
+            workspace.appendChild(nodeLibrary);
+            nodeLibrary.classList.remove('border-r', 'shadow-xl');
+            nodeLibrary.classList.add('border-l', 'shadow-[-10px_0_30px_rgba(0,0,0,0.05)]');
+            
+            // Properties panel logic
+            propertiesPanel.classList.add('absolute', 'top-0', 'right-0', 'h-full', 'z-50', 'shadow-2xl', 'translate-x-[110%]', 'transition-transform', 'duration-300');
+            
+            // Add Close Button
+            const pHeader = propertiesPanel.querySelector('.p-5.border-b');
+            if (pHeader) {
+                const btn = document.createElement('button');
+                btn.className = "absolute top-5 right-5 text-slate-400 hover:text-red-500 transition-colors bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex";
+                btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">close</span>';
+                btn.onclick = () => propertiesPanel.classList.add('translate-x-[110%]');
+                pHeader.style.position = 'relative';
+                pHeader.appendChild(btn);
+            }
+
+            // Node click logic
+            const nodes = document.querySelectorAll('.node');
+            nodes.forEach(n => {
+                n.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Deselect others
+                    nodes.forEach(no => no.classList.remove('ring-4', 'ring-primary/50'));
+                    n.classList.remove('shadow-xl');
+                    n.classList.add('ring-4', 'ring-primary/60', 'shadow-2xl');
+                    
+                    propertiesPanel.classList.remove('translate-x-[110%]');
+                });
+            });
+
+            // Canvas click logic
+            const mainCanvas = document.querySelector('main');
+            if (mainCanvas) {
+                mainCanvas.addEventListener('click', () => {
+                     nodes.forEach(no => {
+                         no.classList.remove('ring-4', 'ring-primary/60', 'shadow-2xl');
+                         no.classList.add('shadow-xl');
+                     });
+                     propertiesPanel.classList.add('translate-x-[110%]');
+                });
+            }
+            
+            propertiesPanel.addEventListener('click', (e) => e.stopPropagation());
+        }
+    });
+</script>
 </body>
 </html>
