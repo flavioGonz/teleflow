@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="Teleflow">
 
     <!-- Fonts & Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     
@@ -95,7 +95,7 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Outfit', 'Inter', sans-serif;
             background-color: #0f1923;
             color: var(--text);
             margin: 0;
@@ -262,6 +262,29 @@
         }
         .filled-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         
+        /* NEW PREMIUM ANIMATIONS */
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fadeIn { animation: fadeIn 0.8s ease-out forwards; }
+        
+        @keyframes slideUpFade { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slideUp { animation: slideUpFade 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+
         .bg-app-gradient {
             background: linear-gradient(180deg, #0f1923 0%, #1a2a3a 50%, #0f1923 100%);
         }
@@ -788,31 +811,79 @@
             // 1. PANTALLA DE LOGIN
             if (status === 'Desconectado' || status.includes('Error')) {
                 return (
-                    <div className="app-container" style={{justifyContent:'center', padding:30}}>
-                        <div style={{textAlign:'center', marginBottom:40}}>
-                            <div style={{width:80,height:80,borderRadius:'50%',background:'rgba(139,92,246,0.1)',margin:'0 auto 20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:40,color:'var(--primary)'}}>phonelink_ring</span>
+                    <div className="app-container flex flex-col justify-center items-center px-8 relative overflow-hidden bg-[#0f1923]">
+                        {/* Dynamic Background Blobs */}
+                        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[40%] bg-primary/10 blur-[100px] rounded-full animate-blob"></div>
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[40%] bg-blue-500/10 blur-[100px] rounded-full animate-blob animation-delay-2000"></div>
+                        
+                        <div className="w-full max-w-sm z-10">
+                            {/* Logo/Icon Section */}
+                            <div className="flex flex-col items-center mb-10 animate-fadeIn">
+                                <div className="w-20 h-20 bg-slate-800/50 backdrop-blur-xl rounded-3xl flex items-center justify-center border border-white/10 shadow-2xl mb-6 relative">
+                                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-50"></div>
+                                    <span className="material-symbols-outlined text-4xl text-primary filled-icon relative">phonelink_ring</span>
+                                </div>
+                                <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">Softphone App</h1>
+                                <p className="text-slate-400 font-medium text-sm">Teleflow Enterprise Client</p>
                             </div>
-                            <h1 style={{fontSize:24, fontWeight:900, marginBottom:8}}>Softphone App</h1>
-                            <p style={{color:'var(--muted)', fontSize:13}}>Teleflow PWA Client</p>
-                        </div>
 
-                        <div style={{background:'var(--surface)', padding:24, borderRadius:24, border:'1px solid var(--border)'}}>
-                            <div style={{marginBottom:15}}>
-                                <label style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginBottom:6,display:'block'}}>Extensión SIP</label>
-                                <input type="number" className="input-tf p-3 rounded-xl w-full font-bold text-center text-lg" 
-                                    value={ext} onChange={e=>setExt(e.target.value)} placeholder="Ej. 1005" />
+                            {/* Login Card */}
+                            <div className="glass-panel p-8 rounded-[40px] border border-white/5 shadow-2xl backdrop-blur-3xl animate-slideUp">
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] px-1">Extensión SIP</label>
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl">person</span>
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-slate-900/50 border border-white/5 p-4 pl-12 rounded-2xl text-white font-bold text-lg placeholder:text-slate-700 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                                                value={ext} 
+                                                onChange={e=>setExt(e.target.value)} 
+                                                placeholder="1005" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] px-1">Contraseña</label>
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl">lock</span>
+                                            <input 
+                                                type="password" 
+                                                className="w-full bg-slate-900/50 border border-white/5 p-4 pl-12 rounded-2xl text-white font-bold text-lg placeholder:text-slate-700 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                                                value={pass} 
+                                                onChange={e=>setPass(e.target.value)} 
+                                                placeholder="••••••••" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={connect} 
+                                        className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 group mt-4"
+                                    >
+                                        <span>Conectar</span>
+                                        <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{marginBottom:25}}>
-                                <label style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',marginBottom:6,display:'block'}}>Contraseña</label>
-                                <input type="password" className="input-tf p-3 rounded-xl w-full font-bold text-center" 
-                                    value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" />
+
+                            {/* Status/Error Message */}
+                            {status.includes('Error') && (
+                                <div className="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 animate-shake">
+                                    <span className="material-symbols-outlined text-red-500">error</span>
+                                    <span className="text-xs text-red-400 font-bold whitespace-pre-wrap">{status}</span>
+                                </div>
+                            )}
+
+                            {/* Footer links */}
+                            <div className="mt-12 text-center opacity-40">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Powererd by Teleflow PWA Engine</p>
                             </div>
-                            <button onClick={connect} style={{width:'100%',padding:16,background:'var(--primary)',color:'white',fontWeight:800,borderRadius:16,border:'none',boxShadow:'0 8px 16px rgba(139,92,246,0.3)',fontSize:16}}>
-                                Conectar
-                            </button>
                         </div>
-                        {status.includes('Error') && <div style={{color:'var(--danger)',textAlign:'center',marginTop:20,fontWeight:700,fontSize:14}}>{status}</div>}
+                        
+                        {/* iOS Home Indicator */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/10 rounded-full"></div>
                     </div>
                 );
             }
