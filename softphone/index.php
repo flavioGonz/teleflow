@@ -128,8 +128,10 @@
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
-            padding-bottom: 120px; /* Space for Nav */
+            /* Extra padding to ensure content is not hidden by fixed navbar */
+            padding-bottom: 140px; 
             position: relative;
+            z-index: 10;
         }
 
         .bottom-nav {
@@ -138,14 +140,14 @@
             left: 0;
             right: 0;
             display: flex;
-            background: rgba(15, 25, 35, 0.85);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-top: 1px solid rgba(255,255,255,0.08);
-            padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
+            background: rgba(15, 25, 35, 0.9);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 15px);
             padding-top: 12px;
-            z-index: 100;
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
+            z-index: 500; /* Higher than items */
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
         }
         .nav-item {
             flex: 1;
@@ -830,11 +832,11 @@
                     )}
 
                     {/* VIEWPORT CONTENIDO (Con transiciones suaves) */}
-                    <div className="main-content z-10">
+                    <div className="main-content">
                         
                         {/* ──────────────── TAB: DASHBOARD (IDLE SCREEN) ──────────────── */}
                         {activeTab==='dashboard' && (
-                          <div className="page-enter flex flex-col h-full px-5">
+                          <div className="page-enter flex flex-col px-5 min-h-full">
                             <section className="flex flex-col items-center gap-4 text-center mt-6">
                                 <div className="relative">
                                     <div className="w-32 h-32 rounded-full border-2 border-primary/30 p-1">
@@ -902,7 +904,7 @@
 
                         {/* ──────────────── TAB: DIALPAD ──────────────── */}
                         {activeTab==='dialpad' && (
-                          <div className="page-enter flex flex-col h-full">
+                          <div className="page-enter flex flex-col min-h-full">
                             <div className="flex-1 flex flex-col justify-center pb-5">
                                 {/* Display Number */}
                                 <div className="text-center px-5 min-h-[120px] flex items-center justify-center">
@@ -963,9 +965,9 @@
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         {activeTab==='contacts' && (
-                          <div className="page-enter p-5 flex flex-col h-full overflow-hidden">
+                          <div className="page-enter p-5 flex flex-col min-h-full">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
-                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto pb-40">
+                            <div className="flex flex-col gap-3">
                                 {contacts.length===0 && <div className="text-slate-500 text-sm text-center p-20 glass-panel rounded-3xl border border-white/5">Buscando internos...</div>}
                                 {contacts.map((c,i) => (
                                     <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} 
@@ -987,7 +989,7 @@
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
                         {activeTab==='history' && (
-                          <div className="page-enter p-5 h-full overflow-y-auto">
+                          <div className="page-enter p-5 min-h-full">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Recientes</h2>
                             <div className="flex flex-col pb-20">
                                 {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
@@ -1010,7 +1012,7 @@
 
                         {/* ──────────────── TAB: SETTINGS ──────────────── */}
                         {activeTab==='settings' && (
-                          <div className="page-enter p-5 h-full overflow-y-auto">
+                          <div className="page-enter p-5 min-h-full">
                             <h2 className="text-2xl font-extrabold mb-8 pl-1">Ajustes</h2>
                             <div className="flex flex-col gap-6 pb-28">
                                 <div className="glass-panel p-6 rounded-3xl border border-white/5 flex flex-col items-center gap-4">
@@ -1067,8 +1069,8 @@
                         )}
                     </div>
 
-                    {/* Navbar (iOS STYLE PREMIUM) */}
-                    <nav className="absolute bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[100]">
+                    {/* Navbar (iOS STYLE PREMIUM - STAYS FIXED AT BOTTOM) */}
+                    <nav className="fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[500]">
                         <div className="flex items-center justify-between">
                             <button className={`flex flex-col items-center gap-1 ${activeTab==='dashboard'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('dashboard')}>
                                 <span className={`material-symbols-outlined ${activeTab==='dashboard'?'filled-icon':''}`}>home</span>
