@@ -429,21 +429,26 @@
                 const handleVisibility = () => {
                     if (document.visibilityState === 'visible') {
                         console.log('PWA Resumed: Checking SIP status:', status);
-                        // If we are 'Unreachable' on server, a re-register here helps
-                        if (status === 'Desconectado' && localStorage.getItem('tf_sip_ext')) {
+                        // Comprobar estado real de la conexión al volver del segundo plano
+                        if (simpleUser && !simpleUser.isConnected() && localStorage.getItem('tf_sip_ext')) {
+                            console.log('Reconectando transporte SIP...');
+                            simpleUser.connect().then(() => simpleUser.register());
+                        } else if (status === 'Desconectado' && localStorage.getItem('tf_sip_ext')) {
                             setTimeout(connect, 500);
                         }
                     }
                 };
                 document.addEventListener('visibilitychange', handleVisibility);
                 
-                // Heartbeat every 25s (NAT timeout is usually 30s-60s)
+                // Keep-Alive Híbrido:
+                // El transporte (WSS) ya hace ping/pong cada 15s.
+                // Aquí hacemos un re-registro suave cada 120s para mantener la sesión en Asterisk viva.
                 const hb = setInterval(() => {
-                    if (status.includes('Registrado') && simpleUser) {
-                        console.log('SIP Heartbeat: Refreshing registration');
+                    if (status.includes('Registrado') && simpleUser && simpleUser.isConnected()) {
+                        console.log('SIP Active: Soft re-registration');
                         simpleUser.register();
                     }
-                }, 25000);
+                }, 120000);
 
                 return () => {
                     document.removeEventListener('visibilitychange', handleVisibility);
@@ -545,6 +550,34 @@
                 }
             }, []);
 
+            // ───────────────── WEB PUSH (BACKGROUND ACTIONS) ─────────────────
+            useEffect(() => {
+                if (!('serviceWorker' in navigator)) return;
+                const handleSWMessage = (event) => {
+                    if (event.data && event.data.type === 'CALL_ACTION') {
+                        console.log('Web Push Action Reibida:', event.data.action);
+                        
+                        // Pequeño delay para asegurar que iOS despertó el DOM e hidrató el hardware de audio
+                        setTimeout(() => {
+                            if (event.data.action === 'answer') {
+                                if (simpleUser) {
+                                    setVideoActive(false);
+                                    const opts = { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } };
+                                    simpleUser.answer(opts).then(() => setTimeout(() => setupVideoTracks(simpleUser.session), 1000)).catch(e => console.error("SW answer error:", e));
+                                }
+                            } else if (event.data.action === 'reject') {
+                                if (simpleUser) {
+                                    if (simpleUser.session) simpleUser.decline();
+                                    else simpleUser.hangup() || showToast('Cuelgue enviado','info');
+                                }
+                            }
+                        }, 300);
+                    }
+                };
+                navigator.serviceWorker.addEventListener('message', handleSWMessage);
+                return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+            }, [simpleUser]);
+
             // ───────────────── SIP REGISTRATION ─────────────────
             const connect = () => {
                 if(!ext || !pass) return showToast('Extension & Password required','error');
@@ -564,153 +597,162 @@
                         userAgentOptions: {
                             authorizationUsername: ext.trim(),
                             authorizationPassword: pass.trim(),
-                            transportOptions: { server: server, traceSip: true, keepAliveInterval: 30 },
+                            transportOptions: { server: server, traceSip: false, keepAliveInterval: 15 }, // WSS Ping/Pong cada 15s para evitar cortes de NAT
                             sessionDescriptionHandlerFactoryOptions: {
                                 peerConnectionConfiguration: {
                                     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-                                }
+                                },
+                                iceGatheringTimeout: 1500, // ICE Trickle agresivo (Setups de llamada veloces en redes 4G)
+                                modifiers: [
+                                    (sessionDescription) => {
+                                        // SDP Modifier: Priorizar Opus y activar FEC (Forward Error Correction) para evitar cortes
+                                        let sdp = sessionDescription.sdp;
+                                        const opusRegex = /a=rtpmap:(\d+) opus\/48000\/2/i;
+                                        const match = sdp.match(opusRegex);
+                                        if (match) {
+                                            const pt = match[1];
+                                            sdp = sdp.replace(/m=audio (\d+) RTP\/SAVP(F?) ([0-9 ]+)/, (m, port, f, codecs) => {
+                                                const codecsList = codecs.split(' ').filter(c => c !== pt);
+                                                return `m=audio ${port} RTP/SAVP${f} ${pt} ${codecsList.join(' ')}`;
+                                            });
+                                            if (!sdp.includes(`a=fmtp:${pt}`)) {
+                                                sdp += `a=fmtp:${pt} useinbandfec=1; usedtx=1\r\n`;
+                                            } else {
+                                                sdp = sdp.replace(new RegExp(`a=fmtp:${pt}(.*)`), `a=fmtp:${pt}$1; useinbandfec=1; usedtx=1`);
+                                            }
+                                        }
+                                        sessionDescription.sdp = sdp;
+                                        return Promise.resolve(sessionDescription);
+                                    }
+                                ]
                             }
                         },
                         delegate: {
+                            onCallReceived: () => {
+                                console.log("SIP Event: Call Received");
+                                setCallStatus('ringing');
+                                setCallDirection('in');
+                                const num = su.session?.remoteIdentity?.uri?.user || 'Desconocido';
+                                setRemoteNumber(num);
+                                
+                                // Timbre Nativo Ininterrumpido (Loop nativo vs Autoplay policy)
+                                incomingRef.current.currentTime = 0;
+                                incomingRef.current.loop = true;
+                                incomingRef.current.play().catch(e => console.warn('Autoplay Audio bloqueado (requerida interaccion previa):', e));
+                                haptic('heavy');
+                                
+                                // iOS Backgrounding Avanzado (Web Push)
+                                if (document.visibilityState !== 'visible' && 'serviceWorker' in navigator) {
+                                    navigator.serviceWorker.ready.then(reg => {
+                                        reg.showNotification('Llamada Entrante', {
+                                            body: `📞 Llamada de ${num}`,
+                                            icon: '/teleflow/icon-192.png',
+                                            tag: 'incoming-call',
+                                            vibrate: [300, 100, 300, 100, 300],
+                                            requireInteraction: true,
+                                            actions: [
+                                                { action: 'answer', title: 'Contestar' },
+                                                { action: 'reject', title: 'Rechazar' }
+                                            ]
+                                        });
+                                    });
+                                }
+                            },
                             onCallHangup: () => { 
                                 console.log("SIP Event: Hangup");
-                            setCallStatus(null);
-                            setRemoteNumber('');
-                            setIsHeld(false);
-                            setIsMuted(false);
-                            setIsSpeaker(false);
-                            clearInterval(timerRef.current);
-                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                            if(navigator.vibrate) navigator.vibrate(0);
-                            setElapsed(0);
-                            setStatus('Registrado (Libre)');
-                            
-                            incomingRef.current.pause();
-                            incomingRef.current.currentTime = 0;
-                            ringbackRef.current.pause();
-                            ringbackRef.current.currentTime = 0;
-                            
-                            // Close notification
-                            if ('serviceWorker' in navigator) {
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                                });
-                            }
-                            haptic('medium');
-                        },
-                        onCallAnswered: () => { 
-                            console.log("SIP Event: Answered");
-                            setCallStatus('in-call'); 
-                            setStatus('En Llamada');
-                            setElapsed(0);
-                            if(timerRef.current) clearInterval(timerRef.current);
-                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                            if(navigator.vibrate) navigator.vibrate(0);
-                            timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                            
-                            incomingRef.current.pause();
-                            ringbackRef.current.pause();
-                            
-                            // Close notification
-                            if ('serviceWorker' in navigator) {
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                                });
-                            }
-                            haptic('success');
-
-                            // Save to history
-                            const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
-                            saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
-                            
-                            // Essential: Setup tracks after short delay for iPhone
-                            setTimeout(() => {
-                                setupVideoTracks(su.session);
-                                // Start analyzer on remote stream
-                                if (su.session && su.session.sessionDescriptionHandler) {
-                                    const pc = su.session.sessionDescriptionHandler.peerConnection;
-                                    const remoteStream = new MediaStream();
-                                    pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
-                                    startAudioAnalyzer(remoteStream);
+                                setCallStatus(null);
+                                setRemoteNumber('');
+                                setIsHeld(false);
+                                setIsMuted(false);
+                                setIsSpeaker(false);
+                                clearInterval(timerRef.current);
+                                if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                                if(navigator.vibrate) navigator.vibrate(0);
+                                setElapsed(0);
+                                setStatus('Registrado (Libre)');
+                                
+                                incomingRef.current.pause();
+                                incomingRef.current.currentTime = 0;
+                                ringbackRef.current.pause();
+                                ringbackRef.current.currentTime = 0;
+                                
+                                if ('serviceWorker' in navigator) {
+                                    navigator.serviceWorker.ready.then(reg => {
+                                        reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                                    });
                                 }
-                            }, 800);
-                        },
-                        onCallHold: (session, hold) => {
-                            console.log("SIP Event: Hold", hold);
-                            setIsHeld(hold);
-                            setCallStatus(hold ? 'held' : 'in-call');
-                        },
-                        onCallHangup: () => { 
-                            setCallStatus(null);
-                            setRemoteNumber('');
-                            setIsHeld(false);
-                            setIsMuted(false);
-                            setIsSpeaker(false);
-                            clearInterval(timerRef.current);
-                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                            if(navigator.vibrate) navigator.vibrate(0);
-                            setElapsed(0);
-                            setStatus('Registrado (Libre)');
-                            
-                            incomingRef.current.pause();
-                            incomingRef.current.currentTime = 0;
-                            ringbackRef.current.pause();
-                            ringbackRef.current.currentTime = 0;
-                            
-                            // Close notification
-                            if ('serviceWorker' in navigator) {
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                                });
-                            }
-                            haptic('medium');
-                        },
-                        onCallAnswered: () => { 
-                            setCallStatus('in-call'); 
-                            setStatus('En Llamada');
-                            setElapsed(0);
-                            if(timerRef.current) clearInterval(timerRef.current);
-                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                            if(navigator.vibrate) navigator.vibrate(0);
-                            timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                            
-                            incomingRef.current.pause();
-                            ringbackRef.current.pause();
-                            
-                            // Close notification
-                            if ('serviceWorker' in navigator) {
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                                });
-                            }
-                            haptic('success');
-
-                            // Save to history
-                            const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
-                            saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
-                            
-                            // Essential: Setup tracks after short delay for iPhone
-                            setTimeout(() => {
-                                setupVideoTracks(su.session);
-                                // Start analyzer on remote stream
-                                if (su.session && su.session.sessionDescriptionHandler) {
-                                    const pc = su.session.sessionDescriptionHandler.peerConnection;
-                                    const remoteStream = new MediaStream();
-                                    pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
-                                    startAudioAnalyzer(remoteStream);
+                                haptic('medium');
+                            },
+                            onCallAnswered: () => { 
+                                console.log("SIP Event: Answered");
+                                setCallStatus('in-call'); 
+                                setStatus('En Llamada');
+                                setElapsed(0);
+                                if(timerRef.current) clearInterval(timerRef.current);
+                                if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                                if(navigator.vibrate) navigator.vibrate(0);
+                                timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                                
+                                incomingRef.current.pause();
+                                ringbackRef.current.pause();
+                                
+                                if ('serviceWorker' in navigator) {
+                                    navigator.serviceWorker.ready.then(reg => {
+                                        reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                                    });
                                 }
-                            }, 800);
-                        },
-                        onCallHold: (session, hold) => {
-                            setIsHeld(hold);
-                            setCallStatus(hold ? 'held' : 'in-call');
-                        },
-                        onRegistered: () => { 
-                            setStatus('Registrado (Libre)'); 
-                            localStorage.setItem('tf_sip_ext', ext);
-                            localStorage.setItem('tf_sip_pass', pass);
-                            showToast(`Ext. ${ext} Online`, 'success');
-                        },
+                                haptic('success');
+
+                                // Manejo de Re-Invites de SIP (Tiempos muertos/Held/Cambios de Red)
+                                if (su.session && su.session.sessionDescriptionHandler && su.session.sessionDescriptionHandler.peerConnection) {
+                                    const pc = su.session.sessionDescriptionHandler.peerConnection;
+                                    pc.addEventListener('iceconnectionstatechange', () => {
+                                        console.log('ICE State:', pc.iceConnectionState);
+                                        // Si la red salta (WiFi -> 4G), el estado pasa a disconnected.
+                                        // Dependiendo de tu config de Asterisk (ice_support=yes), SIP.js podría re-negociar automáticamente.
+                                        // Nosotros nos aseguramos de recargar los tracks si vuelve a conectar.
+                                        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                                            setupVideoTracks(su.session);
+                                        }
+                                    });
+                                    
+                                    // Interceptar Asterisk Re-Invites
+                                    // SIP.js v0.20 permite escuchar session.delegate.onInvite
+                                    const existingDelegate = su.session.delegate || {};
+                                    su.session.delegate = {
+                                        ...existingDelegate,
+                                        onInvite: (request, response, statusCode) => {
+                                            console.log("SIP Event: Re-Invite recivido (Asterisk Session Timer u Hold)");
+                                            setTimeout(() => setupVideoTracks(su.session), 300);
+                                            if (existingDelegate.onInvite) existingDelegate.onInvite(request, response, statusCode);
+                                        }
+                                    };
+                                }
+
+                                const num = callDirection === 'in' ? (su.session?.remoteIdentity?.uri?.user || remoteNumber) : dest;
+                                saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
+                                
+                                setTimeout(() => {
+                                    setupVideoTracks(su.session);
+                                    if (su.session && su.session.sessionDescriptionHandler) {
+                                        const pc = su.session.sessionDescriptionHandler.peerConnection;
+                                        const remoteStream = new MediaStream();
+                                        pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
+                                        startAudioAnalyzer(remoteStream);
+                                    }
+                                }, 800);
+                            },
+                            onCallHold: (session, hold) => {
+                                console.log("SIP Event: Hold", hold);
+                                setIsHeld(hold);
+                                setCallStatus(hold ? 'held' : 'in-call');
+                            },
+                            onRegistered: () => { 
+                                setStatus('Registrado (Libre)'); 
+                                localStorage.setItem('tf_sip_ext', ext);
+                                localStorage.setItem('tf_sip_pass', pass);
+                                showToast(`Ext. ${ext} Online`, 'success');
+                            },
                         onUnregistered: () => {
                             if(status === 'Registrando...') {
                                 setStatus('Error de Credenciales');

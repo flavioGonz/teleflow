@@ -786,4 +786,80 @@ if ($action === 'get_reports') {
     exit;
 }
 
+// ─── IVR DESIGNER ENDPOINTS ───────────────────────────────────────────────────
+if ($action === 'get_ivr_data') {
+    $recordings = [];
+    $queues = [];
+    $ringgroups = [];
+    $extensions = [];
+    
+    try {
+        $dbAsterisk = mysql_pbx();
+        $extensions = $dbAsterisk->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        $queues = $dbAsterisk->query("SELECT extension as ext, descr as name FROM queues_config")->fetchAll(PDO::FETCH_ASSOC);
+        $ringgroups = $dbAsterisk->query("SELECT grpnum as ext, description as name FROM ringgroups")->fetchAll(PDO::FETCH_ASSOC);
+        
+        $rec_dir = '/var/lib/asterisk/sounds/custom/';
+        if (file_exists($rec_dir) && is_dir($rec_dir)) {
+            $files = scandir($rec_dir);
+            foreach ($files as $f) {
+                if ($f === '.' || $f === '..') continue;
+                if (preg_match('/\.(wav|WAV|gsm|sln|mp3)$/i', $f)) {
+                    $recordings[] = $f;
+                }
+            }
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'extensions' => $extensions,
+            'queues' => $queues,
+            'ringgroups' => $ringgroups,
+            'recordings' => $recordings
+        ]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false, 'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'upload_ivr_audio') {
+    if (!isset($_FILES['audio'])) {
+        echo json_encode(['success' => false, 'error' => 'No se recibió ningún archivo']);
+        exit;
+    }
+    
+    $file = $_FILES['audio'];
+    $tmp = $file['tmp_name'];
+    $name = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', basename($file['name']));
+    $target_dir = '/var/lib/asterisk/sounds/custom/';
+    
+    if (!file_exists($target_dir)) {
+        @mkdir($target_dir, 0775, true);
+    }
+    
+    $target = $target_dir . $name;
+    
+    if (move_uploaded_file($tmp, $target)) {
+        // Enforce permissions for Asterisk
+        shell_exec("chown asterisk:asterisk " . escapeshellarg($target));
+        shell_exec("chmod 664 " . escapeshellarg($target));
+        
+        // Convert mp3 to wav if needed (for Asterisk compatibility)
+        if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'mp3') {
+            $wav_name = pathinfo($name, PATHINFO_FILENAME) . '.wav';
+            $wav_target = $target_dir . $wav_name;
+            shell_exec("sox " . escapeshellarg($target) . " -r 8000 -c 1 -e signed-integer " . escapeshellarg($wav_target));
+            shell_exec("chown asterisk:asterisk " . escapeshellarg($wav_target));
+            shell_exec("chmod 664 " . escapeshellarg($wav_target));
+            $name = $wav_name; // return the wav name
+        }
+
+        echo json_encode(['success' => true, 'filename' => $name, 'message' => 'Audio subido exitosamente']);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'No se pudo mover el archivo subido al directorio de Issabel. Revisa los permisos de ' . $target_dir]);
+    }
+    exit;
+}
+
 echo json_encode(['status' => 'error', 'message' => 'Acción desconocida: ' . $action]);
