@@ -10,9 +10,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script>
-        if (typeof window !== 'undefined' && window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-            window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on = window.__REACT_DEVTOOLS_GLOBAL_HOOK__.on || function() {};
-        }
+        (function() {
+            const noop = () => {};
+            const patch = (h) => {
+                if (!h) return;
+                ['on', 'off', 'emit', 'sub', 'inject'].forEach(m => {
+                    if (typeof h[m] !== 'function') h[m] = noop;
+                });
+            };
+            if (typeof window !== 'undefined') {
+                if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                    patch(window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
+                } else {
+                    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
+                        configurable: true,
+                        enumerable: false,
+                        get: () => window._rdgh,
+                        set: (v) => { patch(v); window._rdgh = v; }
+                    });
+                }
+            }
+        })();
     </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>

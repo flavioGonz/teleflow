@@ -13,7 +13,24 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  
+  e.respondWith(
+    fetch(e.request).catch(() => {
+      return caches.match(e.request).then(response => {
+        if (response) return response;
+        // Fallback for document navigation
+        if (e.request.mode === 'navigate') {
+          return caches.match('/teleflow/index.php');
+        }
+        // Fallback for everything else (return a dummy response instead of undefined)
+        return new Response('Offline and not cached', { 
+           status: 503, 
+           statusText: 'Service Unavailable',
+           headers: new Headers({'Content-Type': 'text/plain'})
+        });
+      });
+    })
+  );
 });
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────

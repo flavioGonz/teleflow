@@ -356,9 +356,10 @@
             const audioRef = useRef(null);
             const localVideoRef = useRef(null);
             const remoteVideoRef = useRef(null);
-            const ringbackRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-01a.mp3'));
-            const incomingRef = useRef(new Audio('https://www.soundjay.com/phone/telephone-ring-03a.mp3'));
-            const clickSoundRef = useRef(new Audio('https://www.soundjay.com/communication/button-20.mp3'));
+            const ringbackRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/ringback.mp3'));
+            const incomingRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/ring.mp3'));
+            const clickSoundRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/1.mp3'));
+            const vibrateInterval = useRef(null);
             const toneCtxRef = useRef(null);
             const timerRef = useRef(null);
 
@@ -543,16 +544,31 @@
                             incomingRef.current.loop = true;
                             incomingRef.current.play().catch(()=>{});
                             
-                            // Native Notification
-                            if (Notification.permission === "granted") {
-                                new Notification("Llamada Entrante", {
-                                    body: "Extensión " + caller,
-                                    icon: "icon-192.svg"
+                            // PWA Notification with Actions
+                            if ('serviceWorker' in navigator && Notification.permission === "granted") {
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.showNotification("Llamada Entrante", {
+                                        body: "Extensión " + caller,
+                                        icon: "/teleflow/icon-192.png",
+                                        badge: "/teleflow/icon-192.png",
+                                        tag: "incoming-call",
+                                        requireInteraction: true,
+                                        vibrate: [500, 200, 500, 200, 500],
+                                        actions: [
+                                            { action: 'answer', title: 'Contestar' },
+                                            { action: 'reject', title: 'Rechazar' }
+                                        ]
+                                    });
                                 });
                             }
 
-                            // Trigger wake lock vibration if mobile
-                            haptic('error');
+                            // Loop vibration
+                            if (navigator.vibrate) {
+                                navigator.vibrate([500, 200, 500]);
+                                vibrateInterval.current = setInterval(() => {
+                                    navigator.vibrate([500, 200, 500]);
+                                }, 1500);
+                            }
                         },
                         onCallHangup: () => { 
                             setCallStatus(null);
@@ -561,6 +577,8 @@
                             setIsMuted(false);
                             setIsSpeaker(false);
                             clearInterval(timerRef.current);
+                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                            if(navigator.vibrate) navigator.vibrate(0);
                             setElapsed(0);
                             setStatus('Registrado (Libre)');
                             
@@ -569,6 +587,12 @@
                             ringbackRef.current.pause();
                             ringbackRef.current.currentTime = 0;
                             
+                            // Close notification
+                            if ('serviceWorker' in navigator) {
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                                });
+                            }
                             haptic('medium');
                         },
                         onCallAnswered: () => { 
@@ -576,10 +600,19 @@
                             setStatus('En Llamada');
                             setElapsed(0);
                             if(timerRef.current) clearInterval(timerRef.current);
+                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                            if(navigator.vibrate) navigator.vibrate(0);
                             timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
                             
                             incomingRef.current.pause();
                             ringbackRef.current.pause();
+                            
+                            // Close notification
+                            if ('serviceWorker' in navigator) {
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                                });
+                            }
                             haptic('success');
 
                             // Save to history
