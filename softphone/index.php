@@ -535,6 +535,14 @@
                 if ("Notification" in window) {
                     Notification.requestPermission();
                 }
+
+                // Autoconnect on load if credentials exist
+                if (localStorage.getItem('tf_sip_ext') && localStorage.getItem('tf_sip_pass')) {
+                    setTimeout(() => {
+                        const btn = document.getElementById('btn-connect-hidden');
+                        if (btn) btn.click();
+                    }, 600);
+                }
             }, []);
 
             // ───────────────── SIP REGISTRATION ─────────────────
@@ -556,9 +564,12 @@
                         userAgentOptions: {
                             authorizationUsername: ext.trim(),
                             authorizationPassword: pass.trim(),
-                            transportOptions: { server: server, traceSip: true },
-                            iceGatheringTimeout: 2000,
-                            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+                            transportOptions: { server: server, traceSip: true, keepAliveInterval: 30 },
+                            sessionDescriptionHandlerFactoryOptions: {
+                                peerConnectionConfiguration: {
+                                    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+                                }
+                            }
                         },
                         delegate: {
                             onCallHangup: () => { 
@@ -717,7 +728,11 @@
 
                 setStatus('Registrando...');
                     su.connect()
-                      .then(() => su.register())
+                      .then(() => su.register({
+                          requestOptions: {
+                              extraHeaders: [ 'X-Teleflow-PWA: 1' ]
+                          }
+                      }))
                       .catch(e => {
                           setStatus('Error de Conexión');
                           showToast('No se alcanzó el WSS proxy','error');
@@ -790,6 +805,7 @@
                 
                 haptic('light');
                 playClick(); // Feedback for the button
+                ringbackRef.current.currentTime = 0;
                 ringbackRef.current.loop = true;
                 ringbackRef.current.play().catch(()=>{});
 
@@ -800,7 +816,10 @@
                    })
                    .catch(e => {
                        ringbackRef.current.pause();
-                       showToast('Error al llamar al destino','error');
+                       setCallStatus(null);
+                       setRemoteNumber('');
+                       setVideoActive(false);
+                       showToast('Llamada rechazada o inalcanzable (' + (e?.message?.substring(0,18) || 'Error') + ')','error');
                    });
             };
 
@@ -1031,10 +1050,11 @@
 
                                     <button 
                                         onClick={connect} 
-                                        className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 group mt-4"
+                                        className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-extrabold rounded-2xl shadow-xl shadow-primary/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 group mt-4 relative"
                                     >
                                         <span>Conectar</span>
                                         <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                        <div id="btn-connect-hidden" className="absolute" style={{visibility:'hidden'}} onClick={connect}></div>
                                     </button>
                                 </div>
                             </div>
