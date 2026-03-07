@@ -158,6 +158,16 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
     foreach ($sip_data as $kw => $val) {
         $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
     }
+
+    // Actualizar AstDB para que el dialplan de FreePBX/Issabel lo reconozca inmediatamente
+    $dialStr = $sip_data['dial'] ?? "PJSIP/$ext";
+    shell_exec("/usr/sbin/asterisk -rx 'database put AMPUSER $ext/device $ext'");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/user $ext'");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/dial $dialStr'");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/type fixed'");
+    
+    // Recargar PJSIP para aplicar cambios de MySQL (si es que PJSIP lee de ahí, si no retrieve_conf es necesario)
+    // shell_exec("/usr/sbin/asterisk -rx 'module reload res_pjsip.so'");
 }
 
 // ─── GET AGENTS DATA (Lite version for Softphone Directory) ─────────────────
