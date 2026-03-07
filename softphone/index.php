@@ -1183,6 +1183,7 @@
                                 </div>
                             </div>
                           </div>
+                        )}  
                         {/* ──────────────── TAB: DASHBOARD ──────────────── */}
                         {activeTab==='dashboard' && (
                           <div className="page-enter p-5 flex flex-col gap-6 animate-fadeIn pb-32">
