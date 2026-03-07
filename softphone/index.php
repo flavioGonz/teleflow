@@ -21,30 +21,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     
-    <!-- React DevTools Workaround: Prevents crashes with Babel-standalone -->
-    <script>
-        (function() {
-            const noop = () => {};
-            const patch = (h) => {
-                if (!h) return;
-                ['on', 'off', 'emit', 'sub', 'inject'].forEach(m => {
-                    if (typeof h[m] !== 'function') h[m] = noop;
-                });
-            };
-            if (typeof window !== 'undefined') {
-                if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-                    patch(window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
-                } else {
-                    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
-                        configurable: true,
-                        enumerable: false,
-                        get: () => window._rdgh,
-                        set: (v) => { patch(v); window._rdgh = v; }
-                    });
-                }
-            }
-        })();
-    </script>
     
     <!-- Scripts -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -583,12 +559,10 @@
                             transportOptions: { server: server, traceSip: true },
                             iceGatheringTimeout: 2000,
                             iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-                        }
-                    });
-
                         },
-                        onCallHangup: () => { 
-                            console.log("SIP Event: Hangup");
+                        delegate: {
+                            onCallHangup: () => { 
+                                console.log("SIP Event: Hangup");
                             setCallStatus(null);
                             setRemoteNumber('');
                             setIsHeld(false);
@@ -738,9 +712,10 @@
                             setStatus('Error de Red');
                             showToast('Protocol Error o WSS Caído','error');
                         }
-                    };
+                    }
+                });
 
-                    setStatus('Registrando...');
+                setStatus('Registrando...');
                     su.connect()
                       .then(() => su.register())
                       .catch(e => {
