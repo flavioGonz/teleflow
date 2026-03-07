@@ -577,7 +577,6 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         { id:'grupos', icon:'ring_volume', label:'Grupos' },
         { id:'ivr', icon:'account_tree', label:'IVR' },
         { section: 'Herramientas' },
-        { id:'webphone', icon:'phone_in_talk', label:'Softphone' },
         { id:'cdr', icon:'history', label:'CDR' },
         { id:'configuracion', icon:'settings', label:'Configuración' },
     ];
@@ -3339,7 +3338,22 @@ function SIPLogLine({ line, idx }) {
                     }}>{content}</span>
                 </div>
             </div>
-            <span className="material-icons-round" style={{fontSize:14, color:'#374151', flexShrink:0, marginTop:2, transform:open?'rotate(180deg)':'', transition:'transform .2s'}}>expand_more</span>
+            <div style={{display:'flex', alignItems:'center', gap:8, flexShrink:0}}>
+                <span 
+                    className="material-icons-round" 
+                    style={{fontSize:15, color:'#6b7280', cursor:'pointer', padding:4, borderRadius:6}}
+                    onClick={(e)=>{
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(line);
+                    }}
+                    title="Copiar log"
+                    onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                >
+                    content_copy
+                </span>
+                <span className="material-icons-round" style={{fontSize:18, color:'#374151', transform:open?'rotate(180deg)':'', transition:'transform .2s'}}>expand_more</span>
+            </div>
         </div>
     );
 }
@@ -3411,12 +3425,7 @@ function ViewConfiguracion() {
 
     return (
         <div className="content-area view-enter">
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
-                <div>
-                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Configuración del Sistema</h2>
-                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Diagnóstico y personalización de la plataforma TeleFlow</p>
-                </div>
-            </div>
+            {/* Cabecera eliminada por redundancia */}
 
             <div className="glass" style={{display:'flex', padding:4, borderRadius:16, marginBottom:24, background:'var(--surface2)', width:'fit-content'}}>
                 <button onClick={()=>setActiveTab('notificaciones')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='notificaciones'?'var(--surface)':'transparent', color:activeTab==='notificaciones'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
@@ -3453,90 +3462,99 @@ function ViewConfiguracion() {
 
             {activeTab === 'debug_sip' && (
                 <div className="anim-fadeup">
-                    {/* Stats Bar */}
-                    <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16}}>
-                        {[
-                            {l:'Registros OK',   v:stats.ok,     c:'#4ade80', i:'check_circle'},
-                            {l:'Auth Errors',    v:stats.auth,   c:'#f87171', i:'lock'},
-                            {l:'REGISTER',       v:stats.reg,    c:'#60a5fa', i:'login'},
-                            {l:'Errores',        v:stats.errors, c:'#fb923c', i:'warning'},
-                        ].map(s => (
-                            <div key={s.l} className="glass" style={{padding:'12px 16px', display:'flex', alignItems:'center', gap:10}}>
-                                <span className="material-icons-round" style={{fontSize:20, color:s.c}}>{s.i}</span>
-                                <div>
-                                    <div style={{fontSize:20,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
-                                    <div style={{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    {/* Toolbar Re-styled con filtros integrados */}
+                    <div className="glass" style={{padding:'12px 16px', borderRadius:16, marginBottom:12, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+                        <div style={{display:'flex', alignItems:'center', gap:10, marginRight:10}}>
+                            <span className="material-icons-round" style={{fontSize:20, color:'#8b5cf6'}}>developer_board</span>
+                            <span style={{fontWeight:800, color:'#8b5cf6', fontSize:14, whiteSpace:'nowrap'}}>PJSIP Logger</span>
+                        </div>
 
-                    {/* Toolbar */}
-                    <div className="glass" style={{padding:'12px 16px', borderRadius:16, marginBottom:12, display:'flex', alignItems:'center', gap:12}}>
-                        <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>developer_board</span>
-                        <span style={{fontWeight:800, color:'#8b5cf6', fontSize:14}}>PJSIP Logger</span>
+                        {/* Filtros de estado integrados */}
+                        <div style={{display:'flex', gap:6, background:'rgba(0,0,0,0.15)', padding:3, borderRadius:12, marginRight:10}}>
+                            {[
+                                {l:'Registros OK',   v:stats.ok,     c:'#4ade80', i:'check_circle', f:'200 OK'},
+                                {l:'Auth Errors',    v:stats.auth,   c:'#f87171', i:'lock', f:'401|403'},
+                                {l:'REGISTER',       v:stats.reg,    c:'#60a5fa', i:'login', f:'REGISTER'},
+                                {l:'Errores',        v:stats.errors, c:'#fb923c', i:'warning', f:'error|failed'},
+                            ].map(s => (
+                                <button 
+                                    key={s.l} 
+                                    onClick={()=>setFilter(f => f === s.f ? '' : s.f)}
+                                    style={{
+                                        display:'flex', alignItems:'center', gap:6, padding:'5px 10px', 
+                                        borderRadius:10, border:'none', cursor:'pointer',
+                                        background: filter === s.f ? `${s.c}20` : 'transparent',
+                                        border: filter === s.f ? `1px solid ${s.c}40` : '1px solid transparent',
+                                        transition: 'all .2s'
+                                    }}
+                                >
+                                    <span className="material-icons-round" style={{fontSize:14, color:s.c}}>{s.i}</span>
+                                    <span style={{fontSize:10, fontWeight:700, color:filter === s.f ? s.c : '#6b7280'}}>{s.v}</span>
+                                </button>
+                            ))}
+                        </div>
+
                         <div style={{flexGrow:1}} />
+                        
                         {/* Sender / IP Filter */}
                         <div style={{position:'relative'}}>
                             <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14,color:'#4b5563',pointerEvents:'none',zIndex:1}}>router</span>
                             <select
                                 style={{
-                                    padding:'6px 12px 6px 32px', borderRadius:10, fontSize:12, width:160,
-                                    background:'var(--surface)', border:'1px solid var(--border)',
+                                    padding:'6px 12px 6px 32px', borderRadius:10, fontSize:12, width:150,
+                                    background:'var(--surface2)', border:'1px solid var(--border)',
                                     color: senderFilter ? '#c4b5fd' : '#6b7280',
                                     cursor:'pointer', appearance:'none', outline:'none'
                                 }}
                                 value={senderFilter}
                                 onChange={e=>setSenderFilter(e.target.value)}
                             >
-                                <option value="">Todos los remitentes</option>
-                                {senders.length === 0
-                                    ? <option disabled>Sin datos aún...</option>
-                                    : senders.map(s => <option key={s} value={s.startsWith('Ext:') ? s.replace('Ext:','') : s}>{s}</option>)
-                                }
+                                <option value="">Remitentes</option>
+                                {senders.map(s => <option key={s} value={s.startsWith('Ext:') ? s.replace('Ext:','') : s}>{s}</option>)}
                             </select>
-                            {senderFilter && (
-                                <button
-                                    onClick={()=>setSenderFilter('')}
-                                    style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#8b5cf6',display:'flex',padding:0}}
-                                >
-                                    <span className="material-icons-round" style={{fontSize:14}}>close</span>
-                                </button>
-                            )}
                         </div>
+
                         {/* Text Filter */}
                         <div style={{position:'relative'}}>
                             <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#4b5563'}}>search</span>
                             <input
                                 className="input-tf"
-                                style={{padding:'6px 12px 6px 34px', borderRadius:10, fontSize:12, width:160}}
-                                placeholder="Filtrar logs..."
+                                style={{padding:'6px 12px 6px 34px', borderRadius:10, fontSize:12, width:150, background:'var(--surface2)'}}
+                                placeholder="Filtrar..."
                                 value={filter}
                                 onChange={e=>setFilter(e.target.value)}
                             />
                         </div>
-                        {/* Auto refresh */}
-                        <button
-                            onClick={()=>setAutoRefresh(a=>!a)}
-                            style={{
-                                padding:'6px 12px', borderRadius:10, fontWeight:700, fontSize:11,
-                                background: autoRefresh ? 'rgba(34,197,94,0.12)' : 'var(--surface2)',
-                                border: autoRefresh ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--border)',
-                                color: autoRefresh ? '#4ade80' : '#6b7280',
-                                cursor:'pointer', display:'flex', alignItems:'center', gap:5
-                            }}
-                        >
-                            <span className="material-icons-round" style={{fontSize:14, animation:autoRefresh&&loadingSip?'spin-slow 1s linear infinite':''}}>
-                                {autoRefresh ? 'sync' : 'pause'}
-                            </span>
-                            {autoRefresh ? 'En Vivo' : 'Pausado'}
-                        </button>
-                        <button
-                            onClick={()=>{setSipLog('');loadSipDebug();}}
-                            style={{padding:'6px 12px', borderRadius:10, fontWeight:700, fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', color:'#6b7280', cursor:'pointer', display:'flex', alignItems:'center', gap:5}}
-                        >
-                            <span className="material-icons-round" style={{fontSize:14}}>delete_sweep</span>Limpiar
-                        </button>
+
+                        {/* Actions */}
+                        <div style={{display:'flex', gap:6}}>
+                            <button
+                                onClick={()=>setAutoRefresh(a=>!a)}
+                                title={autoRefresh ? 'Pausar stream' : 'Reanudar stream'}
+                                style={{
+                                    width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+                                    background: autoRefresh ? 'rgba(34,197,94,0.12)' : 'var(--surface2)',
+                                    border: autoRefresh ? '1px solid rgba(34,197,94,0.3)' : '1px solid var(--border)',
+                                    color: autoRefresh ? '#4ade80' : '#6b7280',
+                                    cursor:'pointer'
+                                }}
+                            >
+                                <span className="material-icons-round" style={{fontSize:18, animation:autoRefresh&&loadingSip?'spin-slow 1s linear infinite':''}}>
+                                    {autoRefresh ? 'sync' : 'play_arrow'}
+                                </span>
+                            </button>
+
+                            <button
+                                onClick={()=>{setSipLog('');loadSipDebug();}}
+                                title="Limpiar logs"
+                                style={{
+                                    width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+                                    background:'var(--surface2)', border:'1px solid var(--border)', color:'#f87171', cursor:'pointer'
+                                }}
+                            >
+                                <span className="material-icons-round" style={{fontSize:18}}>delete_sweep</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Log Panel */}

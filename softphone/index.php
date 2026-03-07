@@ -308,6 +308,29 @@
             0% { transform: scale(0.8); opacity: 0.5; }
             100% { transform: scale(2.5); opacity: 0; }
         }
+
+        /* Wave Animation for Call */
+        .wave-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 60px;
+        }
+        .wave-bar {
+            width: 4px;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: height 0.1s ease;
+        }
+        .call-timer-big {
+            font-size: 56px;
+            font-weight: 300;
+            font-family: 'Outfit', sans-serif;
+            color: white;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
@@ -414,15 +437,43 @@
                     osc2.connect(gain);
                 }
 
+                // Volume and Envelope
                 gain.connect(ctx.destination);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime); // A bit louder
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
 
                 osc1.start();
                 if(osc2) osc2.start();
-                osc1.stop(ctx.currentTime + 0.1);
-                if(osc2) osc2.stop(ctx.currentTime + 0.1);
+                osc1.stop(ctx.currentTime + 0.2);
+                if(osc2) osc2.stop(ctx.currentTime + 0.2);
             };
+
+            // PERSISTENCE & HEARTBEAT
+            useEffect(() => {
+                const handleVisibility = () => {
+                    if (document.visibilityState === 'visible') {
+                        console.log('PWA Resumed: Checking SIP status:', status);
+                        // If we are 'Unreachable' on server, a re-register here helps
+                        if (status === 'Desconectado' && localStorage.getItem('tf_sip_ext')) {
+                            setTimeout(connect, 500);
+                        }
+                    }
+                };
+                document.addEventListener('visibilitychange', handleVisibility);
+                
+                // Heartbeat every 25s (NAT timeout is usually 30s-60s)
+                const hb = setInterval(() => {
+                    if (status.includes('Registrado') && simpleUser) {
+                        console.log('SIP Heartbeat: Refreshing registration');
+                        simpleUser.register();
+                    }
+                }, 25000);
+
+                return () => {
+                    document.removeEventListener('visibilitychange', handleVisibility);
+                    clearInterval(hb);
+                };
+            }, [status, simpleUser]);
 
             const playDTMF = (digit) => {
                 const dtmfFreqs = {
@@ -436,7 +487,12 @@
             };
 
             // History / Contacts
-            const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('tf_call_history')||'[]'));
+            const [history, setHistory] = useState([]);
+            useEffect(() => {
+                if (ext) {
+                    setHistory(JSON.parse(localStorage.getItem('tf_call_history_' + ext) || '[]'));
+                }
+            }, [ext]);
             const [contacts, setContacts] = useState([]); // Fetch from API or PBX if available
             const [toast, setToast] = useState(null);
 
@@ -456,8 +512,6 @@
                     case 'error': navigator.vibrate([50, 100, 50, 100]); break;
                 }
             };
-
-            const [showCallChoice, setShowCallChoice] = useState(false);
 
             const handleAvatarUpload = async (e) => {
                 const file = e.target.files[0];
@@ -532,43 +586,74 @@
                         }
                     });
 
-                    su.delegate = {
-                        onCallReceived: () => { 
-                            const caller = su.session.remoteIdentity.uri.user;
-                            showToast('Llamada Entrante: ' + caller,'info');
-                            setRemoteNumber(caller); 
-                            setCallDirection('in');
-                            setCallStatus('ringing'); 
-                            setActiveTab('dialpad');
+                        },
+                        onCallHangup: () => { 
+                            console.log("SIP Event: Hangup");
+                            setCallStatus(null);
+                            setRemoteNumber('');
+                            setIsHeld(false);
+                            setIsMuted(false);
+                            setIsSpeaker(false);
+                            clearInterval(timerRef.current);
+                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                            if(navigator.vibrate) navigator.vibrate(0);
+                            setElapsed(0);
+                            setStatus('Registrado (Libre)');
                             
-                            incomingRef.current.loop = true;
-                            incomingRef.current.play().catch(()=>{});
+                            incomingRef.current.pause();
+                            incomingRef.current.currentTime = 0;
+                            ringbackRef.current.pause();
+                            ringbackRef.current.currentTime = 0;
                             
-                            // PWA Notification with Actions
-                            if ('serviceWorker' in navigator && Notification.permission === "granted") {
+                            // Close notification
+                            if ('serviceWorker' in navigator) {
                                 navigator.serviceWorker.ready.then(reg => {
-                                    reg.showNotification("Llamada Entrante", {
-                                        body: "Extensión " + caller,
-                                        icon: "/teleflow/icon-192.png",
-                                        badge: "/teleflow/icon-192.png",
-                                        tag: "incoming-call",
-                                        requireInteraction: true,
-                                        vibrate: [500, 200, 500, 200, 500],
-                                        actions: [
-                                            { action: 'answer', title: 'Contestar' },
-                                            { action: 'reject', title: 'Rechazar' }
-                                        ]
-                                    });
+                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
                                 });
                             }
-
-                            // Loop vibration
-                            if (navigator.vibrate) {
-                                navigator.vibrate([500, 200, 500]);
-                                vibrateInterval.current = setInterval(() => {
-                                    navigator.vibrate([500, 200, 500]);
-                                }, 1500);
+                            haptic('medium');
+                        },
+                        onCallAnswered: () => { 
+                            console.log("SIP Event: Answered");
+                            setCallStatus('in-call'); 
+                            setStatus('En Llamada');
+                            setElapsed(0);
+                            if(timerRef.current) clearInterval(timerRef.current);
+                            if(vibrateInterval.current) clearInterval(vibrateInterval.current);
+                            if(navigator.vibrate) navigator.vibrate(0);
+                            timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+                            
+                            incomingRef.current.pause();
+                            ringbackRef.current.pause();
+                            
+                            // Close notification
+                            if ('serviceWorker' in navigator) {
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
+                                });
                             }
+                            haptic('success');
+
+                            // Save to history
+                            const num = callDirection === 'in' ? su.session?.remoteIdentity?.uri?.user : dest;
+                            saveHistory({ num, dir: callDirection, time: new Date().getTime(), acc:'answered' });
+                            
+                            // Essential: Setup tracks after short delay for iPhone
+                            setTimeout(() => {
+                                setupVideoTracks(su.session);
+                                // Start analyzer on remote stream
+                                if (su.session && su.session.sessionDescriptionHandler) {
+                                    const pc = su.session.sessionDescriptionHandler.peerConnection;
+                                    const remoteStream = new MediaStream();
+                                    pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
+                                    startAudioAnalyzer(remoteStream);
+                                }
+                            }, 800);
+                        },
+                        onCallHold: (session, hold) => {
+                            console.log("SIP Event: Hold", hold);
+                            setIsHeld(hold);
+                            setCallStatus(hold ? 'held' : 'in-call');
                         },
                         onCallHangup: () => { 
                             setCallStatus(null);
@@ -724,7 +809,6 @@
                     } 
                 };
                 
-                setShowCallChoice(false);
                 setVideoActive(video);
                 setCallDirection('out');
                 setRemoteNumber(dest);
@@ -903,9 +987,13 @@
 
             // ───────────────── UTIL ─────────────────
             const saveHistory = (record) => {
-                const nh = [record, ...history].slice(0, 50); // Keep last 50
-                setHistory(nh);
-                localStorage.setItem('tf_call_history', JSON.stringify(nh));
+                setHistory(prev => {
+                    const nh = [record, ...prev].slice(0, 50); // Keep last 50
+                    if (ext) {
+                        localStorage.setItem('tf_call_history_' + ext, JSON.stringify(nh));
+                    }
+                    return nh;
+                });
             };
 
             const formatSmartTime = (ts) => {
@@ -1104,31 +1192,14 @@
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 50px 30px'}}>
                                 <div style={{width:60}}></div> {/* Spacer to center call btn */}
                                 
-                                <button className="call-btn" style={{width:75,height:75,background:'var(--accent)'}} onClick={() => setShowCallChoice(true)}>
-                                    <span className="material-icons-round" style={{fontSize:36}}>call</span>
-                                </button>
-
-                                {showCallChoice && (
-                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md z-[150] flex items-end p-6" onClick={() => setShowCallChoice(false)}>
-                                        <div className="w-full flex flex-col gap-3 animate-slideUp" onClick={e => e.stopPropagation()}>
-                                            <button onClick={() => startCall(false)} className="w-full bg-white/10 hover:bg-white/20 p-5 rounded-2xl flex items-center justify-between border border-white/5">
-                                                <div className="flex items-center gap-4">
-                                                    <span className="material-symbols-outlined text-green-500 text-3xl">call</span>
-                                                    <span className="font-bold">Llamada de Audio</span>
-                                                </div>
-                                                <span className="material-symbols-outlined text-slate-500">chevron_right</span>
-                                            </button>
-                                            <button onClick={() => startCall(true)} className="w-full bg-white/10 hover:bg-white/20 p-5 rounded-2xl flex items-center justify-between border border-white/5">
-                                                <div className="flex items-center gap-4">
-                                                    <span className="material-symbols-outlined text-blue-500 text-3xl">videocam</span>
-                                                    <span className="font-bold">Llamada de Video</span>
-                                                </div>
-                                                <span className="material-symbols-outlined text-slate-500">chevron_right</span>
-                                            </button>
-                                            <button onClick={() => setShowCallChoice(false)} className="w-full bg-slate-800 p-4 rounded-2xl font-bold mt-2">Cancelar</button>
-                                        </div>
-                                    </div>
-                                )}
+                                <div style={{display:'flex', gap:'15px'}}>
+                                    <button className="call-btn" style={{width:65,height:65,background:'var(--accent)'}} onClick={() => startCall(false)}>
+                                        <span className="material-icons-round" style={{fontSize:30}}>call</span>
+                                    </button>
+                                    <button className="call-btn" style={{width:65,height:65,background:'#38bdf8'}} onClick={() => startCall(true)}>
+                                        <span className="material-icons-round" style={{fontSize:30}}>videocam</span>
+                                    </button>
+                                </div>
                                 
                                 <div style={{width:60, display:'flex', justifyContent:'flex-end'}}>
                                     <button onClick={()=>{setDest(d=>d.slice(0,-1)); playClick();}} style={{background:'transparent',border:'none',color:'var(--muted)',padding:10}}>
@@ -1137,13 +1208,18 @@
                                 </div>
                             </div>
                           </div>
+                        {/* ──────────────── TAB: DASHBOARD ──────────────── */}
+                        {activeTab==='dashboard' && (
+                          <div className="page-enter p-5 flex flex-col gap-6 animate-fadeIn pb-32">
+                             {/* Content */}
+                          </div>
                         )}
 
                         {/* ──────────────── TAB: CONTACTS ──────────────── */}
                         {activeTab==='contacts' && (
-                          <div className="page-enter p-5 flex flex-col pb-40">
+                          <div className="page-enter p-5 flex flex-col h-full overflow-hidden">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Directorio</h2>
-                            <div className="flex flex-col gap-3">
+                            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 pb-32">
                                 {contacts.length===0 && <div className="text-slate-500 text-sm text-center p-20 glass-panel rounded-3xl border border-white/5">Buscando internos...</div>}
                                 {contacts.map((c,i) => (
                                     <div key={i} onClick={()=>{setDest(c.ext); setActiveTab('dialpad');}} 
@@ -1165,9 +1241,9 @@
 
                         {/* ──────────────── TAB: HISTORY ──────────────── */}
                         {activeTab==='history' && (
-                          <div className="page-enter p-5 pb-40">
+                          <div className="page-enter p-5 flex flex-col h-full overflow-hidden">
                             <h2 className="text-2xl font-extrabold mb-5 pl-1">Recientes</h2>
-                            <div className="flex flex-col">
+                            <div className="flex-1 overflow-y-auto pr-1 pb-32">
                                 {history.length===0 && <div className="text-slate-500 text-xs text-center p-10">Sin llamadas registradas</div>}
                                 {history.map((h,i) => (
                                     <div key={i} onClick={()=>{setDest(h.num); setActiveTab('dialpad');}} 
@@ -1236,6 +1312,26 @@
                                         </button>
                                     </div>
                                 </div>
+                                <button onClick={() => {
+                                    if ('serviceWorker' in navigator) {
+                                        navigator.serviceWorker.getRegistrations().then(regs => {
+                                            regs.forEach(r => r.update());
+                                            showToast('Buscando actualizaciones...', 'info');
+                                            setTimeout(() => {
+                                                window.location.reload(true);
+                                            }, 1000);
+                                        });
+                                    } else {
+                                        window.location.reload(true);
+                                    }
+                                }} className="w-full flex items-center justify-between p-4 bg-primary/10 text-primary rounded-2xl border border-primary/20 hover:bg-primary/20 transition-all font-bold text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined">restart_alt</span>
+                                        <span>Actualizar App (PWA)</span>
+                                    </div>
+                                    <span className="material-symbols-outlined text-[18px]">cached</span>
+                                </button>
+
                                 <button onClick={disconnect} className="w-full flex items-center gap-3 p-4 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/10 hover:bg-red-500/20 transition-all font-bold text-sm">
                                     <span className="material-symbols-outlined">logout</span>
                                     Cerrar Sesión
@@ -1301,20 +1397,27 @@
 
                             {/* Top Header Area */}
                             <div className="relative z-10 w-full pt-14 px-6 flex flex-col items-center animate-fadeIn">
-                                <h1 className="text-white text-2xl font-semibold tracking-tight text-center">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
-                                <div className="mt-3 bg-black/30 backdrop-blur-2xl px-5 py-2 rounded-full border border-white/10 shadow-lg flex items-center gap-4">
-                                    <p className="text-white text-[12px] font-bold tabular-nums uppercase tracking-widest min-w-[80px] text-center">
-                                        {callStatus === 'ringing' ? 'llamada...' : callStatus === 'calling' ? 'conectando' : callStatus === 'held' ? 'en espera' : formatTime(elapsed)}
-                                    </p>
-                                    {callStatus === 'in-call' && (
-                                        <div className="flex items-center gap-1 h-3 ml-1 border-l border-white/10 pl-3">
-                                            {[1,2,3,4,5,6].map(i => {
-                                                const h = Math.max(3, (audioLevel * (0.8 + Math.random()*0.5)));
-                                                return (
-                                                    <div key={i} className="w-1 bg-primary rounded-full transition-all duration-75" 
-                                                         style={{height: `${h}%`, opacity: 0.6 + (h/100)}}></div>
-                                                );
-                                            })}
+                                <h1 className="text-white text-3xl font-bold tracking-tight text-center">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
+                                
+                                <div className="mt-8 flex flex-col items-center justify-center min-h-[140px]">
+                                    {callStatus === 'in-call' ? (
+                                        <div className="flex flex-col items-center gap-6">
+                                            <div className="call-timer-big animate-fadeIn">{formatTime(elapsed)}</div>
+                                            <div className="wave-container">
+                                                {[...Array(12)].map((_, i) => {
+                                                    const h = 5 + (audioLevel * (0.4 + Math.random() * 0.8));
+                                                    return (
+                                                        <div key={i} className="wave-bar" 
+                                                             style={{ height: `${h}%`, opacity: 0.3 + (h/100), background: 'var(--primary)' }}></div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-black/30 backdrop-blur-2xl px-6 py-3 rounded-full border border-white/10 shadow-lg animate-pulse">
+                                            <p className="text-white text-sm font-bold uppercase tracking-widest text-center">
+                                                {callStatus === 'ringing' ? 'Llamada Entrante...' : callStatus === 'calling' ? 'Conectando...' : 'En Espera'}
+                                            </p>
                                         </div>
                                     )}
                                 </div>
