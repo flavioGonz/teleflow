@@ -20,7 +20,9 @@ try {
             'media_encryption' => 'dtls',
             'remove_existing' => 'yes',
             'dial' => 'PJSIP/' . $ext,
-            'devicetype' => 'webrtc'
+            'devicetype' => 'webrtc',
+            'transport' => 'transport-wss',
+            'context' => 'from-internal'
         ];
         foreach($flags as $k => $v) {
             $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")->execute([$ext, $k, $v]);

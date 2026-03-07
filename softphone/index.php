@@ -326,7 +326,7 @@
             // General settings / Auth
             const [ext, setExt] = useState(() => localStorage.getItem('tf_sip_ext') || '');
             const [pass, setPass] = useState(() => localStorage.getItem('tf_sip_pass') || 'teleflow123');
-            const [domain, setDomain] = useState(() => 'pbx01.infratec.com.uy'); // Default PBX domain
+            const [domain, setDomain] = useState(() => '201.217.134.124'); // IP del Asterisk para evitar fallos de realm/DNS
             const [status, setStatus] = useState('Desconectado');
             
             // Navigation
