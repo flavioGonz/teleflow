@@ -75,7 +75,7 @@ Panel de control para administradores de sistemas.
 
 | Dashboard Principal | Softphone WebRTC |
 | :---: | :---: |
-| ![Dashboard Placeholder](https://via.placeholder.com/600x400/0f0f1a/ffffff?text=Dashboard+TeleFlow) | ![Softphone Placeholder](<img width="428" height="782" alt="image" src="https://github.com/user-attachments/assets/8a468b5d-4b94-4798-8691-5d7d226fdd1f" />
+| ![Dashboard Placeholder](https://via.placeholder.com/600x400/0f0f1a/ffffff?text=Dashboard+TeleFlow) | !<img width="428" height="782" alt="image" src="https://github.com/user-attachments/assets/8a468b5d-4b94-4798-8691-5d7d226fdd1f" />
 ) |
 
 | Designer IVR | Gestión de Extensiones |
