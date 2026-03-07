@@ -427,7 +427,8 @@
                             authorizationUsername: ext.trim(),
                             authorizationPassword: pass.trim(),
                             transportOptions: { server: server, traceSip: true },
-                            iceGatheringTimeout: 2000
+                            iceGatheringTimeout: 2000,
+                            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
                         }
                     });
 
@@ -490,11 +491,13 @@
                             setTimeout(() => {
                                 setupVideoTracks(su.session);
                                 // Start analyzer on remote stream
-                                const pc = su.session.sessionDescriptionHandler.peerConnection;
-                                const remoteStream = new MediaStream();
-                                pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
-                                startAudioAnalyzer(remoteStream);
-                            }, 1000);
+                                if (su.session && su.session.sessionDescriptionHandler) {
+                                    const pc = su.session.sessionDescriptionHandler.peerConnection;
+                                    const remoteStream = new MediaStream();
+                                    pc.getReceivers().forEach(r => { if(r.track) remoteStream.addTrack(r.track); });
+                                    startAudioAnalyzer(remoteStream);
+                                }
+                            }, 800);
                         },
                         onCallHold: (session, hold) => {
                             setIsHeld(hold);
@@ -538,18 +541,36 @@
 
             const setupVideoTracks = (session) => {
                 if (!session || !session.sessionDescriptionHandler) return;
+                const pc = session.sessionDescriptionHandler.peerConnection;
+                if (!pc) return;
+
                 const remoteStream = new MediaStream();
                 const localStream = new MediaStream();
 
-                session.sessionDescriptionHandler.peerConnection.getReceivers().forEach(receiver => {
-                    if (receiver.track) remoteStream.addTrack(receiver.track);
+                pc.getReceivers().forEach(receiver => {
+                    if (receiver.track) {
+                         remoteStream.addTrack(receiver.track);
+                         // If it's audio only, ensure audio element has it
+                         if (receiver.track.kind === 'audio' && audioRef.current) {
+                             const aStream = new MediaStream([receiver.track]);
+                             audioRef.current.srcObject = aStream;
+                             audioRef.current.play().catch(()=>{});
+                         }
+                    }
                 });
-                session.sessionDescriptionHandler.peerConnection.getSenders().forEach(sender => {
+
+                pc.getSenders().forEach(sender => {
                     if (sender.track) localStream.addTrack(sender.track);
                 });
 
-                if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-                if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = remoteStream;
+                    remoteVideoRef.current.play().catch(()=>{});
+                }
+                if (localVideoRef.current) {
+                    localVideoRef.current.srcObject = localStream;
+                    localVideoRef.current.play().catch(()=>{});
+                }
             };
 
             const disconnect = () => {
@@ -600,8 +621,12 @@
                     } 
                 };
                 simpleUser.answer(opts).then(() => {
-                    setTimeout(() => setupVideoTracks(simpleUser.session), 1000);
-                }).catch(e => showToast('Falló al contestar','error'));
+                    // Force an additional tracks setup
+                    setTimeout(() => setupVideoTracks(simpleUser.session), 1500);
+                }).catch(e => {
+                    console.error("Answer error:", e);
+                    showToast('Falló al contestar','error');
+                });
             };
 
 
@@ -673,22 +698,31 @@
             };
 
             const toggleSpeaker = async () => {
-                if(!audioRef.current) return;
+                const audio = audioRef.current;
+                const video = remoteVideoRef.current;
+                if(!audio && !video) return;
+                
                 haptic('light');
                 try {
                     const active = !isSpeaker;
-                    if(audioRef.current.setSinkId) {
-                        // Speakerphone logic for Chrome/Desktop
-                        // On iOS/Safari it's handled by system audio routing
-                        // but we can try to force high volume/video context
-                        setIsSpeaker(active);
+                    setIsSpeaker(active);
+
+                    if(audio && audio.setSinkId) {
+                        // Desktop/Chrome logic
                         showToast(active ? 'Alta voz activado' : 'Alta voz desactivado');
                     } else {
-                        // Fallback for Safari
-                        setIsSpeaker(active);
-                        showToast('Modo de audio cambiado');
+                        // Safari / Mobile logic - Force high volume and video priority
+                        if (audio) audio.volume = 1.0;
+                        if (video) video.volume = 1.0;
+                        
+                        // Trick: sometimes unmuting/playing again triggers system routing change
+                        if (active) showToast('Modo Alta voz (Sistema)');
+                        else showToast('Modo Privado (Sistema)');
                     }
-                } catch(e) { showToast('Error al cambiar audio','error'); }
+                } catch(e) { 
+                    console.error("Speaker error:", e);
+                    showToast('Error al cambiar audio','error'); 
+                }
             };
 
             // Audio Level Analyzer
@@ -1059,7 +1093,7 @@
 
                     {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
-                        <div className="call-overlay fixed inset-0 z-[200] bg-slate-900 overflow-hidden flex flex-col">
+                        <div className={`call-overlay fixed inset-0 z-[200] overflow-hidden flex flex-col transition-colors duration-500 ${videoActive && callStatus === 'in-call' ? 'bg-transparent' : 'bg-slate-950'}`}>
                             {/* Overlay Background Wrapper (Handles content but not the video tags because they are outside) */}
                             <div className="absolute inset-0 z-0 overflow-hidden">
                                 {(!videoActive || callStatus !== 'in-call') && (
@@ -1164,15 +1198,16 @@
                         </div>
                     )}
 
-                    {/* Persistent Video Elements (Hidden when not in call) */}
-                    <div className={`fixed inset-0 pointer-events-none z-0 ${callStatus==='in-call'?'block':'hidden'}`}>
-                         <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    {/* Persistent Video Elements (Using opacity to keep them 'alive' for the browser engine) */}
+                    <div className={`fixed inset-0 pointer-events-none z-0 transition-opacity duration-700 ${callStatus==='in-call' ? 'opacity-100' : 'opacity-0'}`}>
+                         <video ref={remoteVideoRef} autoPlay playsInline muted={false} className="w-full h-full object-cover" />
                     </div>
-                    <div className={`fixed top-14 right-4 z-[210] w-32 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl pointer-events-none ${(callStatus==='in-call' || callStatus==='calling') && videoActive ? 'block' : 'hidden'}`}>
+                    
+                    <div className={`fixed top-14 right-4 z-[210] w-32 aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl pointer-events-none transition-all duration-500 ${(callStatus==='in-call' || callStatus==='calling') && videoActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
                          <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
                     </div>
 
-                    <audio ref={audioRef} autoPlay />
+                    <audio ref={audioRef} autoPlay playsInline />
                 </div>
             );
         }
