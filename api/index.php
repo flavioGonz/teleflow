@@ -937,4 +937,29 @@ if ($action === 'upload_ivr_audio') {
     exit;
 }
 
+if ($action === 'save_ivr_flow') {
+    $data = file_get_contents('php://input');
+    $file = __DIR__ . '/ivr_flow.json';
+    if (file_put_contents($file, $data) !== false) {
+        // Enforce permissions for Asterisk if needed
+        @shell_exec("chmod 664 " . escapeshellarg($file));
+        @shell_exec("chown asterisk:asterisk " . escapeshellarg($file));
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'No se pudo guardar el archivo ivr_flow.json']);
+    }
+    exit;
+}
+
+if ($action === 'get_ivr_flow') {
+    $file = __DIR__ . '/ivr_flow.json';
+    if (file_exists($file)) {
+        $data = file_get_contents($file);
+        echo $data; // Already JSON
+    } else {
+        echo json_encode(['success' => false, 'error' => 'No hay flujo guardado']);
+    }
+    exit;
+}
+
 echo json_encode(['status' => 'error', 'message' => 'Acción desconocida: ' . $action]);

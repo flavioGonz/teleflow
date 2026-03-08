@@ -2975,7 +2975,7 @@ const ReactFlow = ReactFlowComponents ? (ReactFlowComponents.ReactFlow || ReactF
 const { Background, Controls, addEdge, applyNodeChanges, applyEdgeChanges, Handle, Position } = ReactFlowComponents || {};
 
 let ivrNodeIdCounter = 0;
-const getIvrNodeId = () => `node-${ivrNodeIdCounter++}`;
+const getIvrNodeId = () => `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
 const NodeStart = ({ data }) => {
     return (
@@ -3071,9 +3071,20 @@ function IVRDesignerApp({ toast }) {
     }, []);
 
     useEffect(() => {
+        // Load external data
         fetch('api/index.php?action=get_ivr_data').then(r=>r.json()).then(d=>{
             if(d.success) setIvrData(d);
         });
+
+        // Load existing flow (if any)
+        fetch('api/index.php?action=get_ivr_flow')
+            .then(r => r.json())
+            .then(d => {
+                if(d.nodes && d.edges) {
+                    setNodes(d.nodes);
+                    setEdges(d.edges);
+                }
+            }).catch(e => console.log('No existing flow to load', e));
     }, []);
 
     const onDragOver = useCallback((event) => {
@@ -3180,31 +3191,18 @@ function IVRDesignerApp({ toast }) {
                 </ReactFlow>
 
                 <div style={{position:'absolute', top:20, left:20, zIndex:10, background:'var(--surface)', padding:'10px 20px', borderRadius:12, border:'1px solid var(--border)', display:'flex', gap:12, boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
-                    <button onClick={()=>{ toast('Guardado correctamente', 'success'); }} style={{background:'var(--accent)', color:'white', border:'none', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>save</span> Guardar Flujo</button>
+                    <button onClick={()=>{ 
+                        const flowData = { nodes, edges };
+                        fetch('api/index.php?action=save_ivr_flow', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(flowData)
+                        }).then(r=>r.json()).then(d=>{
+                            if(d.success) toast('Flujo guardado y vinculado correctamente', 'success');
+                            else toast('Error al guardar: ' + d.error, 'error');
+                        }).catch(e=>toast('Error de red al guardar', 'error'));
+                    }} style={{background:'var(--accent)', color:'white', border:'none', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>save</span> Guardar Flujo</button>
                     <button onClick={()=>{ toast('Enviando despliegue a Asterisk...', 'info'); setTimeout(()=>toast('IVR Desplegado con éxito.', 'success'), 2000); }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>rocket_launch</span> Aplicar</button>
-                    <button onClick={()=>{
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.accept = 'audio/*';
-                        fileInput.onchange = (e) => {
-                            const file = e.target.files[0];
-                            if(!file) return;
-                            const formData = new FormData();
-                            formData.append('audio', file);
-                            toast('Subiendo audio...', 'info');
-                            fetch('api/index.php?action=upload_ivr_audio', { method: 'POST', body: formData })
-                            .then(res => res.json())
-                            .then(data => {
-                                if(data.success) {
-                                    setIvrData(prev => ({...prev, recordings: [...prev.recordings, data.filename]}));
-                                    toast('Audio subido exitosamente', 'success');
-                                } else {
-                                    toast('Error: ' + data.error, 'error');
-                                }
-                            });
-                        };
-                        fileInput.click();
-                    }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>upload</span> Subir Audio</button>
                 </div>
             </div>
 
@@ -3228,10 +3226,38 @@ function IVRDesignerApp({ toast }) {
                                 </div>
                                 <div>
                                     <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', marginBottom:6}}>Audio de Mensaje</label>
-                                    <select value={selectedNode.data.audio||''} onChange={e=>updateNodeData('audio', e.target.value)} style={{width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none'}}>
-                                        <option value="">-- Seleccionar --</option>
-                                        {ivrData.recordings.map(r=><option key={r} value={r}>{r}</option>)}
-                                    </select>
+                                    <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                        <select value={selectedNode.data.audio||''} onChange={e=>updateNodeData('audio', e.target.value)} style={{flex:1, padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none'}}>
+                                            <option value="">-- Seleccionar --</option>
+                                            {ivrData.recordings.map(r=><option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                        <button onClick={()=>{
+                                            const fileInput = document.createElement('input');
+                                            fileInput.type = 'file';
+                                            fileInput.accept = 'audio/*';
+                                            fileInput.onchange = (e) => {
+                                                const file = e.target.files[0];
+                                                if(!file) return;
+                                                const formData = new FormData();
+                                                formData.append('audio', file);
+                                                toast('Subiendo audio...', 'info');
+                                                fetch('api/index.php?action=upload_ivr_audio', { method: 'POST', body: formData })
+                                                .then(res => res.json())
+                                                .then(data => {
+                                                    if(data.success) {
+                                                        setIvrData(prev => ({...prev, recordings: [...prev.recordings, data.filename]}));
+                                                        updateNodeData('audio', data.filename);
+                                                        toast('Audio subido y enlazado al nodo', 'success');
+                                                    } else {
+                                                        toast('Error: ' + data.error, 'error');
+                                                    }
+                                                });
+                                            };
+                                            fileInput.click();
+                                        }} style={{background:'var(--surface2)', color:'var(--accent)', border:'1px solid var(--border)', padding:'10px', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', minWidth:42, cursor:'pointer'}} title="Subir Nuevo Audio">
+                                            <span className="material-icons-round" style={{fontSize:18}}>upload</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
