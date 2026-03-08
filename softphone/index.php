@@ -177,7 +177,35 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             aspect-ratio: 1;
         }
-        .dial-btn:active { background: rgba(139,92,246,0.2); transform: scale(0.92); }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            transition: font-variation-settings 0.2s;
+        }
+        .filled-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        /* ACTIVE STATES & ANIMATIONS */
+        .active-scale:active { transform: scale(0.92); }
+        
+        .dial-btn:active { 
+            background: var(--primary) !important; 
+            color: white !important;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+            transform: scale(0.9);
+        }
+
+        .btn-toggle-active {
+            background: white !important;
+            color: #1a2a3a !important;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .pulse-green { animation: pulse-green 2s infinite; }
 
         .call-btn {
             border-radius: 50%;
@@ -188,25 +216,24 @@
             border: none;
             cursor: pointer;
             box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .call-btn:active { transform: scale(0.9); }
+        .call-btn:active { transform: scale(0.85); box-shadow: 0 5px 10px rgba(0,0,0,0.4); }
 
         .call-overlay {
-            position: absolute;
+            position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg);
-            z-index: 200;
+            background: #0f1923;
+            z-index: 500;
             display: flex;
             flex-direction: column;
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
         }
 
-        @keyframes slideUp { from { transform: translateY(100%); opacity:0; } to { transform: translateY(0); opacity:1;} }
-        @keyframes blink { 0%, 100% {opacity:1} 50% {opacity:0.3} }
-        @keyframes pulse { 0% {box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 70% {box-shadow:0 0 0 20px rgba(16,185,129,0)} 100% {box-shadow:0 0 0 0 rgba(16,185,129,0)} }
+        @keyframes slideUpIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes pageFadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
 
-        /* Toast Styles */
         .toast {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
             padding: 12px 24px; border-radius: 50px; color: white;
@@ -216,36 +243,21 @@
             animation: slideDown 0.3s ease;
         }
         @keyframes slideDown { from{top:-50px;opacity:0} to{top:20px;opacity:1} }
-
-        /* Premium Design Additions */
-        .ios-blur { backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); }
-        .ios-button-bg { background-color: rgba(255, 255, 255, 0.1); border: none; }
-        .ios-button-bg:active { background-color: rgba(255, 255, 255, 0.25); transform: scale(0.92); }
-        .end-call-bg { background-color: #ff3b30; }
         
         .glass-panel {
             background: rgba(23, 38, 54, 0.7);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
-        
-        .status-bar-time { font-weight: 600; font-size: 14px; }
-        .home-indicator { width: 130px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 10px auto; }
-        
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
-            transition: font-variation-settings 0.2s;
-        }
-        .filled-icon { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        
-        /* NEW PREMIUM ANIMATIONS */
+
+        .animate-blob { animation: blob 7s infinite; }
         @keyframes blob {
             0% { transform: translate(0px, 0px) scale(1); }
             33% { transform: translate(30px, -50px) scale(1.1); }
             66% { transform: translate(-20px, 20px) scale(0.9); }
             100% { transform: translate(0px, 0px) scale(1); }
         }
-        .animate-blob { animation: blob 7s infinite; }
+
         .animation-delay-2000 { animation-delay: 2s; }
         
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -385,6 +397,15 @@
                 };
                 window.addEventListener('click', unlock);
                 window.addEventListener('touchstart', unlock);
+            }, []);
+
+            // Registro de Service Worker para Notificaciones Push (Solo en Softphone)
+            useEffect(() => {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('../sw.js')
+                        .then(reg => console.log('SW Registered in Softphone scope:', reg.scope))
+                        .catch(err => console.error('SW Registration failed:', err));
+                }
             }, []);
 
             const playClick = () => {
@@ -602,7 +623,7 @@
                                 peerConnectionConfiguration: {
                                     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
                                 },
-                                iceGatheringTimeout: 1500, // ICE Trickle agresivo (Setups de llamada veloces en redes 4G)
+                                                                 iceGatheringTimeout: 2000, // Aumentado para iPhone/Redes móviles
                                 modifiers: [
                                     (sessionDescription) => {
                                         // SDP Modifier: Priorizar Opus y activar FEC (Forward Error Correction) para evitar cortes
@@ -707,10 +728,11 @@
                                 if (su.session && su.session.sessionDescriptionHandler && su.session.sessionDescriptionHandler.peerConnection) {
                                     const pc = su.session.sessionDescriptionHandler.peerConnection;
                                     pc.addEventListener('iceconnectionstatechange', () => {
-                                        console.log('ICE State:', pc.iceConnectionState);
-                                        // Si la red salta (WiFi -> 4G), el estado pasa a disconnected.
-                                        // Dependiendo de tu config de Asterisk (ice_support=yes), SIP.js podría re-negociar automáticamente.
-                                        // Nosotros nos aseguramos de recargar los tracks si vuelve a conectar.
+                                        console.log('ICE Connection State:', pc.iceConnectionState);
+                                        if (pc.iceConnectionState === 'failed') {
+                                            console.error('ICE Connection FAILED: Posible problema de NAT o Firewall.');
+                                            showToast('Falla de conexión media (ICE)', 'error');
+                                        }
                                         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
                                             setupVideoTracks(su.session);
                                         }
@@ -1478,8 +1500,8 @@
                                 {/* Main Glass Bar */}
                                 <div className="max-w-md mx-auto bg-slate-800/40 backdrop-blur-3xl rounded-[2.5rem] p-4 flex items-center justify-between border border-white/10 shadow-2xl">
                                     {/* Mute Toggle */}
-                                    <button onClick={toggleMute} className={`flex items-center justify-center size-14 rounded-full transition-all ${isMuted?'bg-white text-slate-900':'bg-white/10 text-white'}`}>
-                                        <span className="material-symbols-outlined text-[28px]">{isMuted?'mic_off':'mic'}</span>
+                                    <button onClick={toggleMute} className={`flex items-center justify-center size-14 rounded-full transition-all active-scale ${isMuted?'btn-toggle-active':'bg-white/10 text-white'}`}>
+                                        <span className={`material-symbols-outlined text-[28px] ${isMuted?'filled-icon':''}`}>{isMuted?'mic_off':'mic'}</span>
                                     </button>
                                     
                                     {/* Flip Camera */}
@@ -1488,8 +1510,8 @@
                                     </button>
 
                                     {/* Video Toggle */}
-                                    <button onClick={toggleVideo} className={`flex items-center justify-center size-14 rounded-full transition-all ${!videoActive?'bg-white text-slate-900':'bg-white/10 text-white'}`}>
-                                        <span className="material-symbols-outlined text-[28px]">{videoActive?'videocam':'videocam_off'}</span>
+                                    <button onClick={toggleVideo} className={`flex items-center justify-center size-14 rounded-full transition-all active-scale ${!videoActive?'btn-toggle-active':'bg-white/10 text-white'}`}>
+                                        <span className={`material-symbols-outlined text-[28px] ${videoActive?'filled-icon':''}`}>{videoActive?'videocam':'videocam_off'}</span>
                                     </button>
                                     
                                     {/* End Call Button */}
@@ -1500,15 +1522,15 @@
 
                                 {/* Additional Actions */}
                                 <div className="flex justify-center mt-6 gap-10">
-                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'bg-white text-slate-900':'bg-white/5 text-white'}`}>
-                                            <span className="material-symbols-outlined text-xl">{isHeld?'play_arrow':'pause'}</span>
+                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'btn-toggle-active':'bg-white/5 text-white'}`}>
+                                            <span className={`material-symbols-outlined text-xl ${isHeld?'filled-icon':''}`}>{isHeld?'play_arrow':'pause'}</span>
                                         </div>
                                         <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
                                     </button>
-                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'bg-white text-slate-900':'bg-white/5 text-white'}`}>
-                                            <span className="material-symbols-outlined text-xl">{isSpeaker?'volume_up':'volume_down'}</span>
+                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'btn-toggle-active':'bg-white/5 text-white'}`}>
+                                            <span className={`material-symbols-outlined text-xl ${isSpeaker?'filled-icon':''}`}>{isSpeaker?'volume_up':'volume_down'}</span>
                                         </div>
                                         <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isSpeaker?'Altavoz':'Normal'}</span>
                                     </button>

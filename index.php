@@ -32,7 +32,29 @@
             }
         })();
     </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                brand: {
+                  bg: '#050508',
+                  surface: '#0d0d14',
+                  accent: '#7c3aed',
+                  success: '#10b981',
+                  warning: '#f59e0b',
+                  danger: '#ef4444'
+                }
+              },
+              fontFamily: {
+                sans: ['Inter', 'sans-serif'],
+                mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+              }
+            }
+          }
+        }
+    </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -143,6 +165,19 @@
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
             70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        @keyframes pulse-red {
+          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .animate-pulse-red {
+          animation: pulse-red 2s infinite;
+        }
+        .glass-effect {
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .call-pulse { animation: callPulse 1.2s infinite; }
         .input-tf {
@@ -695,6 +730,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
 // ─────────────────────────────────────────────
 // COMPONENTE: NOTIFICACIONES SLEEK (SILEO)
 // ─────────────────────────────────────────────
+/*
 function LiveCallNotifications({ calls, extensions }) {
     const [notifs, setNotifs] = useState([]);
     const prevCalls = useRef([]);
@@ -736,6 +772,7 @@ function LiveCallNotifications({ calls, extensions }) {
         </div>
     );
 }
+*/
 
 // ─────────────────────────────────────────────
 // COMPONENTE: TOPBAR (PARA REFERENCIA, PERO ELIMINADO DEL LAYOUT)
@@ -2385,120 +2422,263 @@ function ViewGrupos({ toast }) {
 // ─────────────────────────────────────────────
 // COMPONENTE: LIVE CALL CARD
 // ─────────────────────────────────────────────
-function LiveCallCard({ call, data }) {
-    const [expanded, setExpanded] = React.useState(false);
+// ─────────────────────────────────────────────
+// COMPONENTE: LIVE CALL CARD (PREMIUM DESIGN)
+// ─────────────────────────────────────────────
+function LiveCallCard({ call, data, supervisorExt, toast }) {
+    const [actionLoading, setActionLoading] = React.useState(null);
     
     // Buscar info extendida del agente si existe
     const agent = data?.pbx?.extensions?.find(e => e.ext === call.ext);
     const avatar = agent?.avatar || `https://ui-avatars.com/api/?name=${call.ext}&background=7c3aed&color=fff`;
 
+    const handleAction = async (type) => {
+        if (type !== 'hangup' && !supervisorExt) {
+            toast('Primero configura tu extensión de supervisor en la parte superior', 'error');
+            return;
+        }
+        setActionLoading(type);
+        try {
+            const fd = new FormData();
+            fd.append('type', type);
+            fd.append('channel', call.channel);
+            fd.append('supervisor', supervisorExt);
+            
+            const r = await fetch('api/index.php?action=call_action', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (d.success) toast(d.message, 'success');
+            else toast(d.error || 'Error en la acción', 'error');
+        } catch (e) {
+            toast('Error de conexión', 'error');
+        }
+        setActionLoading(null);
+    };
+
     return (
-        <div className="glass glass-hover anim-fadeup" 
-             style={{
-                 padding:'18px 22px', 
-                 marginBottom:12, 
-                 borderRadius:20, 
-                 borderLeft:`4px solid ${call.state==='Up'?'#22c55e':'#f59e0b'}`,
-                 cursor:'pointer',
-                 transition:'all 0.3s ease',
-                 position:'relative',
-                 overflow:'hidden'
-             }}
-             onClick={() => setExpanded(!expanded)}
-        >
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div style={{display:'flex', gap:16, alignItems:'center'}}>
-                    <div style={{position:'relative'}}>
-                        <div style={{width:48, height:48, borderRadius:16, background:'var(--surface2)', overflow:'hidden', border:'1px solid var(--border)'}}>
-                            <img src={avatar} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="" />
+        <div className="relative group anim-fadeup" style={{ marginBottom: 14 }}>
+            {/* Accent Glow */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-accent to-brand-success rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-500"></div>
+            
+            {/* Main Card Body */}
+            <div className="relative glass-effect rounded-xl p-4 flex items-center justify-between transition-all duration-300 hover:bg-white/[0.05]" style={{background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)'}}>
+                <div className="flex items-center gap-10">
+                    {/* Connection Path */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Origen</span>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded bg-brand-accent/20 flex items-center justify-center">
+                                    <span className="text-sm font-bold text-white">{call.ext.substring(0,2)}</span>
+                                </div>
+                                <span className="text-lg font-bold text-white">{call.ext}</span>
+                                <span className={`w-2 h-2 rounded-full ${call.state==='Up'?'bg-brand-success':'bg-brand-warning animate-pulse'}`}></span>
+                            </div>
                         </div>
-                        {call.state === 'Up' && (
-                            <div style={{position:'absolute', bottom:-2, right:-2, width:14, height:14, borderRadius:'50%', background:'#22c55e', border:'3px solid var(--surface)', boxShadow:'0 0 10px rgba(34,197,94,0.5)'}} />
-                        )}
+                        
+                        <svg className="w-5 h-5 text-gray-600 mt-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M13 7l5 5-5 5M6 7l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Destino</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-white">{call.dest}</span>
+                                <span className={`${call.state==='Up'?'bg-brand-success/10 text-brand-success':'bg-brand-warning/10 text-brand-warning'} text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter`}>
+                                    {call.state}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div>
-                        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:2}}>
-                            <span style={{fontSize:15, fontWeight:800, color:'var(--text)', letterSpacing:'-0.02em'}}>
-                                {call.ext} <span style={{color:'var(--muted)', fontWeight:400, margin:'0 4px'}}>→</span> {call.dest}
-                            </span>
-                            <span style={{fontSize:10, padding:'2px 8px', borderRadius:6, background:call.state==='Up'?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)', color:call.state==='Up'?'#4ade80':'#fbbf24', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em'}}>
-                                {call.state}
+                    {/* Technical Stats */}
+                    <div className="hidden lg:flex items-center gap-8">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Codec</span>
+                            <span className="text-sm font-medium text-gray-300">{call.tech?.codec || '—'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Tx RTT</span>
+                            <span className="text-sm font-medium text-gray-300">{call.tech?.tx_rtt || '—'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Rx Loss</span>
+                            <span className={`text-sm font-medium ${parseFloat(call.tech?.rx_loss)>1?'text-brand-warning':'text-gray-300'}`}>
+                                {call.tech?.rx_loss || '—'}
                             </span>
                         </div>
-                        <div style={{display:'flex', alignItems:'center', gap:12}}>
-                            <div style={{fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4}}>
-                                <span className="material-icons-round" style={{fontSize:13}}>settings_phone</span>
-                                {call.app || 'Dial'}
-                            </div>
-                            <div style={{fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4}}>
-                                <span className="material-icons-round" style={{fontSize:13}}>lan</span>
-                                {call.channel.split('-')[0].split('/')[0]}
-                            </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">REC</span>
+                            <span className={`material-icons-round text-sm ${call.recording?'text-brand-danger animate-pulse':'text-gray-600'}`}>
+                                {call.recording ? 'radio_button_checked' : 'radio_button_unchecked'}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                <div style={{textAlign:'right'}}>
-                    <div style={{fontSize:18, fontWeight:900, color:call.state==='Up'?'#f59e0b':'#9ca3af', fontFamily:'monospace'}}>
-                        {call.duration}
+                {/* Timer & Actions */}
+                <div className="flex items-center gap-8">
+                    <div className="text-right">
+                        <div className="text-2xl font-mono font-black text-yellow-500" style={{ letterSpacing: '-0.05em' }}>
+                            {call.duration}
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">DURACIÓN</span>
                     </div>
-                    <div style={{fontSize:9, color:'#6b7280', fontWeight:700, textTransform:'uppercase', marginTop:2}}>Duración</div>
+
+                    <div className="flex items-center gap-2">
+                        {/* Spy (Listen) */}
+                        <button 
+                            onClick={() => handleAction('spy')}
+                            disabled={actionLoading}
+                            className={`w-10 h-10 rounded-lg border border-white/5 hover:bg-brand-accent/20 hover:border-brand-accent/30 text-gray-400 hover:text-white transition-all duration-300 flex items-center justify-center group/btn`} 
+                            title="Solo Escuchar (Spy)"
+                        >
+                            <span className={`material-icons-round text-xl ${actionLoading==='spy'?'animate-spin':''}`}>
+                                {actionLoading==='spy'?'sync':'headphones'}
+                            </span>
+                        </button>
+
+                        {/* Whisper */}
+                        <button 
+                            onClick={() => handleAction('whisper')}
+                            disabled={actionLoading}
+                            className={`w-10 h-10 rounded-lg border border-white/5 hover:bg-blue-500/20 hover:border-blue-500/30 text-gray-400 hover:text-white transition-all duration-300 flex items-center justify-center group/btn`} 
+                            title="Susurrar (Solo Agente Te Escucha)"
+                        >
+                            <span className={`material-icons-round text-xl ${actionLoading==='whisper'?'animate-spin':''}`}>
+                                {actionLoading==='whisper'?'sync':'record_voice_over'}
+                            </span>
+                        </button>
+
+                        {/* Barge */}
+                        <button 
+                            onClick={() => handleAction('barge')}
+                            disabled={actionLoading}
+                            className={`w-10 h-10 rounded-lg border border-white/5 hover:bg-brand-warning/20 hover:border-brand-warning/30 text-gray-400 hover:text-white transition-all duration-300 flex items-center justify-center group/btn`} 
+                            title="Intervenir (Barge-in)"
+                        >
+                            <span className={`material-icons-round text-xl ${actionLoading==='barge'?'animate-spin':''}`}>
+                                {actionLoading==='barge'?'sync':'group_add'}
+                            </span>
+                        </button>
+
+                        {/* Hangup */}
+                        <button 
+                            onClick={() => handleAction('hangup')}
+                            disabled={actionLoading}
+                            className={`w-10 h-10 rounded-lg border border-white/5 bg-brand-danger/10 hover:bg-brand-danger/20 border-brand-danger/20 hover:border-brand-danger/30 text-brand-danger transition-all duration-300 flex items-center justify-center group/btn`} 
+                            title="Finalizar Llamada"
+                        >
+                            <span className={`material-icons-round text-xl ${actionLoading==='hangup'?'animate-spin':''}`}>
+                                {actionLoading==='hangup'?'sync':'call_end'}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            {expanded && (
-                <div style={{marginTop:16, paddingTop:16, borderTop:'1px solid var(--border)', display:'flex', gap:10, animation:'view-enter 0.3s ease'}}>
-                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(139,92,246,0.1)', color:'#c4b5fd', border:'1px solid rgba(139,92,246,0.2)'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>hearing</span> Susurrar
-                    </button>
-                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(139,92,246,0.1)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.2)'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>call_merge</span> Intervenir
-                    </button>
-                    <button className="btn-primary" style={{padding:'8px 12px', borderRadius:10, fontSize:11, flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'rgba(239,68,68,0.1)', color:'#f87171', border:'1px solid rgba(239,68,68,0.2)'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>call_end</span> Cortar
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
 
-function ViewVivo2({ data }) {
-    const [calls,setCalls]=useState([]);
-    const [prev,setPrev]=useState([]);
-    const load=async()=>{
-        try{
-            const r=await fetch('api/index.php?action=get_active_calls');
-            const d=await r.json();
-            if(d.success){
+function ViewVivo2({ data, toast }) {
+    const [calls, setCalls] = useState([]);
+    const [prev, setPrev] = useState([]);
+    const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
+
+    useEffect(() => {
+        localStorage.setItem('tf_supervisor_ext', supervisorExt);
+    }, [supervisorExt]);
+
+    const load = async () => {
+        try {
+            const r = await fetch('api/index.php?action=get_active_calls');
+            const d = await r.json();
+            if (d.success) {
                 // Notificación si hay nuevas llamadas
-                const newC=d.calls.filter(c=>!prev.find(p=>p.channel===c.channel));
-                newC.forEach(c=>{
-                    if('serviceWorker' in navigator && navigator.serviceWorker.controller){
-                        navigator.serviceWorker.controller.postMessage({type:'NOTIFY',title:'📞 Llamada Entrante',body:`${c.channel} → ${c.dest}`,tag:'call-'+c.channel});
+                const newC = d.calls.filter(c => !prev.find(p => p.channel === c.channel));
+                newC.forEach(c => {
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'NOTIFY', title: '📞 Llamada Entrante', body: `${c.ext} → ${c.dest}`, tag: 'call-' + c.channel });
                     }
                 });
                 setPrev(d.calls);
                 setCalls(d.calls);
             }
-        }catch{}
+        } catch (e) { }
     };
-    useEffect(()=>{load();const t=setInterval(load,3000);return()=>clearInterval(t);},[]);
-    return(
-        <div className="content-area view-enter">
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-                <div className="live-pulse" style={{width:10,height:10,borderRadius:'50%',background:'#ef4444',flexShrink:0}} />
-                <span style={{fontSize:13,fontWeight:700,color:'#ef4444'}}>EN VIVO</span>
-                <span style={{fontSize:12,color:'#6b7280'}}>{calls.length} canal{calls.length!==1?'es':''} activo{calls.length!==1?'s':''}</span>
+
+    useEffect(() => {
+        load();
+        const t = setInterval(load, 2500); // More frequent updates for real-time feel
+        return () => clearInterval(t);
+    }, []);
+
+    return (
+        <div className="content-area view-enter bg-brand-bg min-h-screen p-6">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="w-3 h-3 rounded-full bg-brand-danger" style={{ boxShadow: '0 0 12px rgba(239,68,68,0.6)', animation: 'pulse-ring 1.5s infinite' }}></div>
+                    <div>
+                        <h1 className="text-xl font-black text-white tracking-tight uppercase">Control en Vivo</h1>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{calls.length} CANALES ACTIVOS</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1.5">MI EXTENSIÓN (SUPERVISOR)</span>
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                placeholder="Ej: 1001"
+                                value={supervisorExt}
+                                onChange={e => setSupervisorExt(e.target.value)}
+                                className="bg-brand-surface border border-white/5 rounded-lg px-4 py-2 text-sm font-bold text-brand-accent focus:outline-none focus:border-brand-accent/50 transition-all w-32 text-center"
+                            />
+                            <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">admin_panel_settings</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            {calls.length===0
-                ?<div className="glass" style={{padding:50,textAlign:'center'}}>
-                    <span className="material-icons-round" style={{fontSize:52,display:'block',marginBottom:12,color:'#374151'}}>phone_disabled</span>
-                    <div style={{fontSize:14,color:'#6b7280'}}>Sin llamadas activas</div>
-                  </div>
-                :calls.map((c,i)=><LiveCallCard key={c.channel||i} call={c} data={data} />)
-            }
+
+            <div className="max-w-6xl mx-auto">
+                {calls.length === 0 ? (
+                    <div className="glass-effect rounded-2xl py-32 text-center flex flex-col items-center justify-center opacity-60" style={{background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)'}}>
+                        <div className="w-20 h-20 rounded-full bg-gray-500/10 flex items-center justify-center mb-6">
+                            <span className="material-icons-round text-4xl text-gray-600">phone_disabled</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-400">Silencio en la red</h3>
+                        <p className="text-gray-500 mt-2 text-sm">No hay llamadas activas en este momento.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                        {calls.map((c, i) => (
+                            <LiveCallCard 
+                                key={c.channel || i} 
+                                call={c} 
+                                data={data} 
+                                supervisorExt={supervisorExt}
+                                toast={toast} 
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-12 pt-6 border-t border-white/5 flex items-center justify-between opacity-40">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-brand-success"></span>
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Excelente Calidad</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-brand-warning"></span>
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Latencia Detectada</span>
+                    </div>
+                </div>
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                    PJSIP REAL-TIME STREAM · AUTO-REFRESH 2.5S
+                </div>
+            </div>
         </div>
     );
 }
@@ -2655,16 +2835,9 @@ function ViewReportes({ toast }) {
     );
 }
 
-// ─────────────────────────────────────────────
-// VISTA: SOFT PHONE (WEBRTC)
-// ─────────────────────────────────────────────
+// El Softphone ahora es una PWA independiente en /softphone/
+/*
 function ViewWebPhone({ data, toast }) {
-    console.log('Teleflow WebPhone v2.5 Loaded');
-    const [ext, setExt] = useState(() => localStorage.getItem('tf_sip_ext') || '');
-    const [pass, setPass] = useState(() => 'teleflow123');
-    const [status, setStatus] = useState('Desconectado');
-    const [dest, setDest] = useState('');
-    const [simpleUser, setSimpleUser] = useState(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isHeld, setIsHeld] = useState(false);
     const [elapsed, setElapsed] = useState(0);
@@ -3195,6 +3368,7 @@ function ViewIVR({ toast }) {
         </div>
     );
 }
+*/
 
 // ─────────────────────────────────────────────
 // VISTA: CONFIGURACIÓN — Debug SIP Profesional
@@ -3202,16 +3376,24 @@ function ViewIVR({ toast }) {
 const SIP_PARSERS = [
     { re: /\bREGISTER\b/,   color:'#60a5fa', label:'REGISTER',  icon:'login' },
     { re: /\b200 OK\b/,     color:'#4ade80', label:'200 OK',    icon:'check_circle' },
+    { re: /\b100 Trying\b/i,   color:'#94a3b8', label:'TRYING',   icon:'hourglass_empty' },
+    { re: /\b180 Ringing\b/i,  color:'#f59e0b', label:'RINGING',  icon:'notifications_active' },
+    { re: /\b183 Session Progress\b/i, color:'#3b82f6', label:'EARLY MEDIA', icon:'graphic_eq' },
     { re: /\b401 Unauthorized\b/i, color:'#fb923c', label:'401 AUTH', icon:'lock' },
     { re: /\b403 Forbidden\b/i,    color:'#f87171', label:'403 FORBID', icon:'block' },
     { re: /\b404 Not Found\b/i,    color:'#9ca3af', label:'404 NOTFOUND',icon:'search_off' },
     { re: /\b408\b/,        color:'#fb923c', label:'408 TIMEOUT', icon:'timer_off' },
+    { re: /\b488 Not Acceptable\b/i, color:'#ef4444', label:'SDP ERR', icon:'broken_image' },
+    { re: /\b487 Request Terminated\b/i, color:'#9ca3af', label:'TERM', icon:'cancel' },
     { re: /\b5\d\d\b/,      color:'#f87171', label:'5xx ERROR',  icon:'error' },
+    { re: /\b603 Declined\b/i, color:'#ef4444', label:'DECLINED', icon:'do_not_disturb_on' },
     { re: /Received\s+SIP/i, color:'#a78bfa', label:'SIP RX',   icon:'arrow_downward' },
     { re: /Sending\s+SIP/i,  color:'#34d399', label:'SIP TX',   icon:'arrow_upward' },
     { re: /\bINVITE\b/,     color:'#f59e0b', label:'INVITE',   icon:'phone_forwarded' },
     { re: /\bBYE\b/,        color:'#f87171', label:'BYE',      icon:'call_end' },
     { re: /\bACK\b/,        color:'#6ee7b7', label:'ACK',      icon:'done' },
+    { re: /\bCANCEL\b/,        color:'#9ca3af', label:'CANCEL',   icon:'close' },
+    { re: /\bUPDATE\b/,        color:'#60a5fa', label:'UPDATE',   icon:'update' },
     { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
     { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
     { re: /is ringing/i,     color:'#f59e0b', label:'SONANDO',    icon:'notifications_active' },
@@ -3219,6 +3401,11 @@ const SIP_PARSERS = [
     { re: /is now Unreachable/i, color:'#ef4444', label:'OFFLINE',    icon:'link_off' },
     { re: /is now Reachable/i,   color:'#22c55e', label:'ONLINE',     icon:'link' },
     { re: /is now Lagged/i,      color:'#f59e0b', label:'LAGGED',     icon:'timer' },
+    { re: /m=audio/i,          color:'#c4b5fd', label:'SDP AUDIO', icon:'audiotrack' },
+    { re: /m=video/i,          color:'#f472b6', label:'SDP VIDEO', icon:'videocam' },
+    { re: /ICE candidate/i,    color:'#2dd4bf', label:'ICE CAND',  icon:'lan' },
+    { re: /ICE state changed/i, color:'#fb923c', label:'ICE STATE', icon:'wifi_tethering' },
+    { re: /\bREINVITE\b/i,     color:'#8b5cf6', label:'RE-INVITE', icon:'history' },
     { re: /\bWARNING\b/i,   color:'#eab308', label:'WARNING',  icon:'warning' },
     { re: /\bERROR\b/i,     color:'#ef4444', label:'ERROR',    icon:'error_outline' },
     { re: /\bCRITICAL\b/i,  color:'#dc2626', label:'CRITICAL', icon:'gavel' },
@@ -3319,8 +3506,9 @@ function ViewConfiguracion() {
     const [sipLog, setSipLog] = useState('');
     const [loadingSip, setLoadingSip] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
+    const [pjsipActive, setPjsipActive] = useState(false);
     const [filter, setFilter] = useState('');
-    const [senderFilter, setSenderFilter] = useState(''); // filtro por remitente IP/ext
+    const [senderFilter, setSenderFilter] = useState(''); 
     const logEndRef = useRef(null);
 
     const loadSipDebug = async () => {
@@ -3328,7 +3516,10 @@ function ViewConfiguracion() {
         try {
             const r = await fetch('api/index.php?action=get_sip_debug');
             const d = await r.json();
-            if (d.success) setSipLog(d.log || '');
+            if (d.success) {
+                setSipLog(d.log || '');
+                if (d.is_debug_active !== undefined) setPjsipActive(d.is_debug_active);
+            }
         } catch(e) { setSipLog('Error al conectar con el servidor.'); }
         setLoadingSip(false);
     };
@@ -3340,9 +3531,8 @@ function ViewConfiguracion() {
             const r = await fetch('api/index.php?action=set_sip_debug', { method: 'POST', body });
             const d = await r.json();
             if (d.success) {
-                // Notificar éxito (puedes usar el toast si lo pasaras por props)
-                console.log(d.msg);
-                loadSipDebug(); // Recargar el log inmediatamente
+                setPjsipActive(level === 'on');
+                loadSipDebug(); 
             }
         } catch(e) { console.error('Error configurando asterisk'); }
     };
@@ -3365,7 +3555,6 @@ function ViewConfiguracion() {
     const extractSenders = (lines) => {
         const senders = new Set();
         lines.forEach(line => {
-            // Busca patrones como: from 192.168.x.x, REGISTER sip:1001@, From: <sip:1001@
             const ipMatch = line.match(/(?:from|contact|via)[:\s]+(?:sip:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
             const extMatch = line.match(/(?:From:|REGISTER sip:|from:\s*sip:)(\d{3,5})(?:@|>|\s)/i);
             if (ipMatch?.[1]) senders.add(ipMatch[1]);
@@ -3377,7 +3566,6 @@ function ViewConfiguracion() {
     const logLines = sipLog.split('\n').filter(l => l.trim());
     const senders = extractSenders(logLines);
 
-    // Aplicar ambos filtros
     const filteredLines = logLines.filter(l => {
         const matchText = !filter || l.toLowerCase().includes(filter.toLowerCase());
         const matchSender = !senderFilter || l.toLowerCase().includes(
@@ -3395,8 +3583,6 @@ function ViewConfiguracion() {
 
     return (
         <div className="content-area view-enter">
-            {/* Cabecera eliminada por redundancia */}
-
             <div className="glass" style={{display:'flex', padding:4, borderRadius:16, marginBottom:24, background:'var(--surface2)', width:'fit-content'}}>
                 <button onClick={()=>setActiveTab('notificaciones')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='notificaciones'?'var(--surface)':'transparent', color:activeTab==='notificaciones'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
                     <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>notifications</span>Notificaciones
@@ -3432,14 +3618,12 @@ function ViewConfiguracion() {
 
             {activeTab === 'debug_sip' && (
                 <div className="anim-fadeup">
-                    {/* Toolbar Re-styled con filtros integrados */}
                     <div className="glass" style={{padding:'12px 16px', borderRadius:16, marginBottom:12, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
                         <div style={{display:'flex', alignItems:'center', gap:10, marginRight:10}}>
-                            <span className="material-icons-round" style={{fontSize:20, color:'#8b5cf6'}}>developer_board</span>
-                            <span style={{fontWeight:800, color:'#8b5cf6', fontSize:14, whiteSpace:'nowrap'}}>PJSIP Logger</span>
+                            <div className={pjsipActive ? 'pulse-green' : ''} style={{width:8, height:8, borderRadius:'50%', background: pjsipActive ? '#22c55e' : '#4b5563'}}></div>
+                            <span style={{fontWeight:800, color: pjsipActive ? '#8b5cf6' : '#6b7280', fontSize:14, whiteSpace:'nowrap'}}>PJSIP Logger {pjsipActive ? '(ON)' : '(OFF)'}</span>
                         </div>
 
-                        {/* Filtros de estado integrados */}
                         <div style={{display:'flex', gap:6, background:'rgba(0,0,0,0.15)', padding:3, borderRadius:12, marginRight:10}}>
                             {[
                                 {l:'Registros OK',   v:stats.ok,     c:'#4ade80', i:'check_circle', f:'200 OK'},
@@ -3450,6 +3634,7 @@ function ViewConfiguracion() {
                                 <button 
                                     key={s.l} 
                                     onClick={()=>setFilter(f => f === s.f ? '' : s.f)}
+                                    className="active-scale"
                                     style={{
                                         display:'flex', alignItems:'center', gap:6, padding:'5px 10px', 
                                         borderRadius:10, border:'none', cursor:'pointer',
@@ -3466,7 +3651,6 @@ function ViewConfiguracion() {
 
                         <div style={{flexGrow:1}} />
                         
-                        {/* Sender / IP Filter */}
                         <div style={{position:'relative'}}>
                             <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14,color:'#4b5563',pointerEvents:'none',zIndex:1}}>router</span>
                             <select
@@ -3484,7 +3668,6 @@ function ViewConfiguracion() {
                             </select>
                         </div>
 
-                        {/* Text Filter */}
                         <div style={{position:'relative'}}>
                             <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#4b5563'}}>search</span>
                             <input
@@ -3496,10 +3679,10 @@ function ViewConfiguracion() {
                             />
                         </div>
 
-                        {/* Actions */}
                         <div style={{display:'flex', gap:6}}>
                             <button
                                 onClick={()=>setAutoRefresh(a=>!a)}
+                                className="active-scale"
                                 title={autoRefresh ? 'Pausar stream' : 'Reanudar stream'}
                                 style={{
                                     width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
@@ -3516,6 +3699,7 @@ function ViewConfiguracion() {
 
                             <button
                                 onClick={()=>{setSipLog('');loadSipDebug();}}
+                                className="active-scale"
                                 title="Limpiar logs"
                                 style={{
                                     width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
@@ -3527,21 +3711,30 @@ function ViewConfiguracion() {
 
                             <button
                                 onClick={()=>toggleAsteriskDebug('on')}
+                                className="active-scale"
                                 title="Activar Asterisk Verbose 6 + PJSIP Logger"
                                 style={{
                                     width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
-                                    background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.3)', color:'#60a5fa', cursor:'pointer'
+                                    background: pjsipActive ? 'rgba(139,92,246,0.3)' : 'rgba(59,130,246,0.1)', 
+                                    border: pjsipActive ? '1px solid #8b5cf6' : '1px solid rgba(59,130,246,0.3)', 
+                                    color: pjsipActive ? '#c4b5fd' : '#60a5fa', 
+                                    cursor:'pointer',
+                                    boxShadow: pjsipActive ? '0 0 15px rgba(139,92,246,0.4)' : 'none'
                                 }}
                             >
-                                <span className="material-icons-round" style={{fontSize:18}}>bug_report</span>
+                                <span className="material-icons-round" style={{fontSize:18}}>{pjsipActive ? 'running_with_errors' : 'bug_report'}</span>
                             </button>
                             
                             <button
                                 onClick={()=>toggleAsteriskDebug('off')}
+                                className="active-scale"
                                 title="Desactivar Debug (Verbose 3)"
                                 style={{
                                     width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
-                                    background:'var(--surface2)', border:'1px solid var(--border)', color:'#9ca3af', cursor:'pointer'
+                                    background: !pjsipActive ? 'rgba(255,255,255,0.05)' : 'var(--surface2)', 
+                                    border: '1px solid var(--border)', 
+                                    color: !pjsipActive ? '#4ade80' : '#9ca3af', 
+                                    cursor:'pointer'
                                 }}
                             >
                                 <span className="material-icons-round" style={{fontSize:18}}>healing</span>
@@ -3570,7 +3763,7 @@ function ViewConfiguracion() {
                         </div>
 
                         {/* Log Content */}
-                        <div style={{padding:'8px 4px', maxHeight:500, overflowY:'auto', fontFamily:'"Fira Code","Courier New",monospace'}}>
+                        <div style={{padding:'8px 4px', maxHeight:600, overflowY:'auto', fontFamily:'"Fira Code","Courier New",monospace'}}>
                             {filteredLines.length === 0 ? (
                                 <div style={{padding:'40px',textAlign:'center',color:'#374151'}}>
                                     <span className="material-icons-round" style={{fontSize:40,display:'block',marginBottom:10}}>inbox</span>
@@ -3646,11 +3839,13 @@ function App() {
     }, [load]);
 
     // Register SW
+    /* El Service Worker ahora es manejado por la PWA en /softphone/
     useEffect(()=>{
         if('serviceWorker' in navigator){
             navigator.serviceWorker.register('sw.js').catch(()=>{});
         }
     },[]);
+    */
 
     if (user === null) return <Login onLogin={u => { setUser(u); load(); }} />;
 
@@ -3659,13 +3854,14 @@ function App() {
             case 'dashboard':   return <ViewDashboard data={data} />;
             case 'extensiones': return <ViewExtensiones data={data} toast={showToast} />;
             case 'agentes':     return <ViewAgentes />;
-            case 'vivo':        return <ViewVivo2 data={data} />;
+            case 'vivo':        return <ViewVivo2 data={data} toast={showToast} />;
             case 'cdr':         return <ViewCDR toast={showToast} />;
             case 'reportes':    return <ViewReportes toast={showToast} />;
             case 'colas':       return <ViewColas toast={showToast} />;
             case 'grupos':      return <ViewGrupos toast={showToast} />;
             case 'ivr':         return <ViewIVR toast={showToast} />;
-            case 'webphone':    return <ViewWebPhone data={data} toast={showToast} />;
+// El Softphone ahora es una PWA independiente en /softphone/
+
             case 'configuracion': return <ViewConfiguracion />;
             default:            return <div className="content-area">Vista no implementada</div>;
         }

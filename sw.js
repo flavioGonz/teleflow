@@ -56,7 +56,7 @@ self.addEventListener('notificationclick', e => {
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cls => {
-      const cl = cls.find(c => c.url.includes('/teleflow'));
+      const cl = cls.find(c => c.url.includes('/teleflow/softphone')) || cls.find(c => c.url.includes('/teleflow'));
       
       if (action === 'answer' || action === 'reject') {
         if (cl) {
@@ -65,7 +65,7 @@ self.addEventListener('notificationclick', e => {
         }
       } else {
         if (cl) return cl.focus();
-        return clients.openWindow('/teleflow/');
+        return clients.openWindow('/teleflow/softphone/');
       }
     })
   );

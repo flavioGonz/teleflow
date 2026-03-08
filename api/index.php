@@ -47,44 +47,49 @@ if (!isset($_SESSION['tf_user']) && !in_array($action, ['get_agents_data', 'uplo
 }
 
 if ($action === 'set_sip_debug') {
-    $level = $_POST['level'] ?? 'off'; // on/off/verbose
+    $level = $_POST['level'] ?? 'off'; 
+    $ext   = $_POST['ext'] ?? ''; // Opcional: filtrar por interno en el logger
     
     if ($level === 'on') {
         shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger on'");
+        if ($ext) shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger host $ext'");
         shell_exec("/usr/sbin/asterisk -rx 'core set verbose 6'");
-        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Activado (Verbose 6)']);
-    } else if ($level === 'off') {
+        shell_exec("/usr/sbin/asterisk -rx 'core set debug 5'");
+        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Activado (Verbose 6 + Debug 5)']);
+    } else {
         shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger off'");
         shell_exec("/usr/sbin/asterisk -rx 'core set verbose 3'");
+        shell_exec("/usr/sbin/asterisk -rx 'core set debug 0'");
         echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Desactivado (Verbose 3)']);
-    } else {
-        echo json_encode(['success' => false, 'msg' => 'Nivel desconocido']);
     }
     exit;
 }
 
 if ($action === 'get_sip_debug') {
-    // Intentamos leer el log de asterisk. En Issabel suele ser /var/log/asterisk/full
-    // Filtramos por pjsip o errores de registro
     $log_path = '/var/log/asterisk/full';
     if (!file_exists($log_path)) {
-        echo json_encode(['success' => true, 'log' => "Archivo de log no encontrado en $log_path\nVerifique permisos o ruta."]);
+        echo json_encode(['success' => true, 'log' => "Archivo de log no encontrado en $log_path"]);
         exit;
     }
     
-    // Leemos las últimas 500 líneas y filtramos
+    // Verificamos si el logger está activo (opcional, pero útil para el frontend)
+    $status_out = shell_exec("/usr/sbin/asterisk -rx 'pjsip show history' 2>&1");
+    $is_active = (strpos($status_out, 'enabled') !== false || strpos($status_out, 'History') !== false);
+
     $tail = file_exists('/usr/bin/tail') ? '/usr/bin/tail' : 'tail';
     $grep = file_exists('/usr/bin/grep') ? '/usr/bin/grep' : 'grep';
     
-    $cmd = "$tail -n 800 $log_path | $grep -iaE 'pjsip|sip|reg|auth|fail' | $tail -n 120";
+    // Ampliamos el filtro para ver TODO lo relacionado con la negociación media y errores
+    $patterns = 'pjsip|sip|reg|auth|fail|error|rtp|ice|stun|turn|sdp|re-invite|ack|bye|cancel';
+    $cmd = "$tail -n 1200 $log_path | $grep -iaE '$patterns' | $tail -n 160";
     $output = shell_exec($cmd);
     
-    // Clean escape codes
     $output = preg_replace('/\x1B\[[0-9;]*[mK]/', '', $output);
     
     echo json_encode([
         'success' => true, 
-        'log' => $output ?: "No se detectaron eventos SIP/PJSIP recientes en el log."
+        'is_debug_active' => $is_active,
+        'log' => $output ?: "Esperando eventos... (Asegúrese de activar el PJSIP Logger)"
     ]);
     exit;
 }
@@ -535,39 +540,108 @@ if ($action === 'get_queues') {
 
 // ─── ACTIVE CALLS (VIVO) ─────────────────────────────────────────────────────
 if ($action === 'get_active_calls') {
-    // Use core show channels to get all active channels
-    $raw   = ami_cmd('core show channels verbose');
-    $calls = [];
-    $lines = explode("\n", $raw);
-    foreach ($lines as $line) {
-        $line = rtrim($line);
-        if (empty($line)) continue;
-        // Skip header lines
-        if (strpos($line,'Channel') !== false && strpos($line,'Context') !== false) continue;
-        if (preg_match('/^0 active|^\d+ active calls|^\d+ calls processed/', $line)) continue;
-        // Try to match any PJSIP or SIP channel line
-        // Format varies by Asterisk version but channel is always first
-        if (preg_match('/^((?:PJSIP|SIP)\/[\w\-]+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\w+)/', $line, $m)) {
-            $chan    = $m[1];
-            $ext_num = preg_replace('/^(?:PJSIP|SIP)\/(\d+)-.*$/', '$1', $chan);
-            // Duration: find HH:MM:SS or MM:SS pattern anywhere in line
-            $dur = '0:00';
-            if (preg_match('/\b(\d+:\d{2}:\d{2}|\d+:\d{2})\b/', $line, $dm)) $dur = $dm[1];
-            $state = $m[5];
-            if (!in_array($state, ['Up','Ring','Ringing','Down'])) continue;
-            if ($state === 'Down') continue;
-            $calls[] = [
-                'channel'  => $chan,
-                'ext'      => $ext_num,
-                'dest'     => $m[2],
-                'state'    => $state,
-                'app'      => $m[4],
-                'duration' => $dur,
+    // 1. Get channel info from core show channels verbose
+    $raw_ch = ami_cmd('core show channels verbose');
+    $ch_stats = ami_cmd('pjsip show channelstats');
+    
+    $stats_map = [];
+    foreach (explode("\n", $ch_stats) as $line) {
+        // PJSIP/1001-00000001              ulaw        0.005    0.00     0.005    0.00
+        if (preg_match('/^((?:PJSIP|SIP)\/\S+)\s+(\S+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)/', $line, $sm)) {
+            $stats_map[$sm[1]] = [
+                'codec' => $sm[2],
+                'tx_rtt' => round((float)$sm[3] * 1000) . 'ms',
+                'tx_loss' => $sm[4] . '%',
+                'rx_rtt' => round((float)$sm[5] * 1000) . 'ms',
+                'rx_loss' => $sm[6] . '%'
             ];
         }
     }
-    $calls = array_values(array_unique($calls, SORT_REGULAR));
-    echo json_encode(['success' => true, 'calls' => $calls, 'count' => count($calls)]);
+
+    $calls = [];
+    $lines = explode("\n", $raw_ch);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line)) continue;
+        if (strpos($line, 'Channel') !== false && strpos($line, 'Context') !== false) continue;
+        if (preg_match('/^0 active|^\d+ active calls|^\d+ calls processed/', $line)) continue;
+
+        // Try to match the verbose format:
+        // Channel (1) Context (2) Extension (3) Prio (4) State (5) Application (6) Data (7) CallerID (8) Duration (9) Account (10)
+        // Note: Field spacing varies, use regex to find columns
+        // Example: PJSIP/1001-00000001 from-internal 2005 1 Up Dial PJSIP/2005,,Ttr 1001 00:00:10
+        
+        // This regex is a bit flexible to handle different spacing
+        if (preg_match('/^((?:PJSIP|SIP)\/[\w\-]+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\w+)\s+(\S+)\s+(.*?)\s+(\S+)\s+(\d+:\d{2}:\d{2}|\d+:\d{2})/', $line, $m)) {
+            $chan    = $m[1];
+            $ext_num = $m[8]; // CallerID field
+            $dest    = $m[3]; // Extension field
+            $state   = $m[5];
+            $dur     = $m[9];
+            $app     = $m[6];
+
+            if ($state === 'Down') continue;
+            
+            // Check if recording is active on this channel
+            $rec_active = (strpos(ami_cmd("core show channel $chan"), 'MixMonitor') !== false);
+
+            $calls[] = [
+                'channel'  => $chan,
+                'ext'      => $ext_num,
+                'dest'     => $dest,
+                'state'    => $state,
+                'app'      => $app,
+                'duration' => $dur,
+                'tech'     => $stats_map[$chan] ?? ['codec'=>'—','tx_rtt'=>'—','tx_loss'=>'—','rx_rtt'=>'—','rx_loss'=>'—'],
+                'recording'=> $rec_active
+            ];
+        }
+    }
+    
+    // De-duplicate if needed (sometimes legs show up twice)
+    $unique_calls = [];
+    $seen = [];
+    foreach($calls as $c) {
+        if (!isset($seen[$c['channel']])) {
+            $unique_calls[] = $c;
+            $seen[$c['channel']] = true;
+        }
+    }
+
+    echo json_encode(['success' => true, 'calls' => $unique_calls, 'count' => count($unique_calls)]);
+    exit;
+}
+
+// ─── CALL ACTIONS (HANGUP, SPY, WHISPER, BARGE) ──────────────────────────────
+if ($action === 'call_action') {
+    $sub_action = $_POST['type'] ?? ''; // hangup, spy, whisper, barge
+    $channel    = $_POST['channel'] ?? '';
+    $supervisor = $_POST['supervisor'] ?? ''; // extension of the supervisor
+    
+    if (!$channel) { echo json_encode(['success'=>false, 'error'=>'Canal no especificado']); exit; }
+
+    switch ($sub_action) {
+        case 'hangup':
+            ami_cmd("channel request hangup $channel");
+            echo json_encode(['success'=>true, 'message'=>'Petición de colgado enviada']);
+            break;
+            
+        case 'spy':
+        case 'whisper':
+        case 'barge':
+            if (!$supervisor) { echo json_encode(['success'=>false, 'error'=>'Debes especificar tu extensión de supervisor']); exit; }
+            $opt = ($sub_action === 'whisper') ? 'w' : (($sub_action === 'barge') ? 'B' : '');
+            // Originate a call to the supervisor and connect it to ChanSpy
+            // ChanSpy(PJSIP/agent, options) -> we need the agent extension
+            $target_ext = preg_replace('/^(?:PJSIP|SIP)\/(\d+)-.*$/', '$1', $channel);
+            $cmd = "channel originate PJSIP/$supervisor application ChanSpy PJSIP/$target_ext,q$opt";
+            ami_cmd($cmd);
+            echo json_encode(['success'=>true, 'message'=>'Llamada de intervención iniciada a tu extensión (' . $supervisor . ')']);
+            break;
+            
+        default:
+            echo json_encode(['success'=>false, 'error'=>'Acción desconocida']);
+    }
     exit;
 }
 
