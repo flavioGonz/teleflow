@@ -158,6 +158,9 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
     if ($secret) $sip_data['secret'] = $secret;
     if ($name) $sip_data['callerid'] = "$name <$ext>";
 
+    // CLEANUP: Evitar entradas duplicadas que Issabel genera por defecto y que pisan a las de WebRTC
+    $db->prepare("DELETE FROM sip WHERE id=? AND keyword IN ('rtp_symmetric','rewrite_contact','force_rport','ice_support','use_avpf','rtcp_mux','media_encryption','webrtc','bundle','dtls_auto_generate_cert')")->execute([$ext]);
+
     if ($devType === 'webrtc') {
         $sip_data['allow'] = 'alaw,ulaw,opus,vp8,h264';
         $sip_data['webrtc'] = 'yes';
@@ -168,9 +171,12 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
         $sip_data['ice_support'] = 'yes';
         $sip_data['media_use_received_transport'] = 'yes';
         $sip_data['rtcp_mux'] = 'yes';
+        $sip_data['bundle'] = 'yes';
         $sip_data['rewrite_contact'] = 'yes';
         $sip_data['rtp_symmetric'] = 'yes';
         $sip_data['force_rport'] = 'yes';
+        $sip_data['dtls_auto_generate_cert'] = 'yes';
+        $sip_data['rtp_keepalive'] = '5'; // Enviar paquetes RTP vacíos para mantener NAT abierto
     } else if ($devType === 'video') {
         $sip_data['allow'] = 'alaw,ulaw,h264,vp8';
     }
