@@ -2970,14 +2970,374 @@ function SIPLogLine({ line, idx }) {
     );
 }
 
+const ReactFlowComponents = window.ReactFlow;
+const ReactFlow = ReactFlowComponents ? (ReactFlowComponents.ReactFlow || ReactFlowComponents.default || ReactFlowComponents) : null;
+const { Background, Controls, addEdge, applyNodeChanges, applyEdgeChanges, Handle, Position } = ReactFlowComponents || {};
+
+let ivrNodeIdCounter = 0;
+const getIvrNodeId = () => `node-${ivrNodeIdCounter++}`;
+
+const NodeStart = ({ data }) => {
+    return (
+        <div style={{background:'var(--surface)', border:'2px solid var(--accent)', borderRadius:16, padding:16, width:160, boxShadow:'0 10px 25px rgba(0,0,0,0.1)'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+                <span style={{fontSize:10, fontWeight:900, color:'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>Trigger</span>
+                <div style={{width:8, height:8, background:'#22c55e', borderRadius:'50%'}}></div>
+            </div>
+            <div style={{fontSize:14, fontWeight:700, color:'var(--text)', display:'flex', alignItems:'center', gap:6}}>
+                <span className="material-icons-round" style={{fontSize:18}}>play_arrow</span>
+                Start IVR
+            </div>
+            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+        </div>
+    );
+};
+
+const NodeMenu = ({ data, selected }) => {
+    return (
+        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius:16, padding:16, width:260, boxShadow: selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'}}>
+            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+                <div style={{width:32, height:32, background:'var(--accent)', borderRadius:8, color:'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>splitscreen</span>
+                </div>
+                <span style={{fontSize:11, fontWeight:900, color:'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{data.label || 'Menu'}</span>
+            </div>
+            <div style={{background:'var(--surface2)', padding:8, borderRadius:8, fontSize:12, color:'var(--muted)', textAlign:'center', border:'1px solid var(--border)', marginBottom:12}}>
+                {data.audio || 'Sin Audio'}
+            </div>
+            
+            <div style={{display:'flex', flexDirection:'column', gap:8, position:'relative'}}>
+                {(data.options || []).map(opt => (
+                    <div key={opt.digit} style={{display:'flex', alignItems:'center', padding:8, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, position:'relative'}}>
+                        <div style={{width:24, height:24, background:'var(--bg)', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'var(--text)', marginRight:12}}>{opt.digit}</div>
+                        <div style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{opt.label}</div>
+                        {Handle && <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-20, top:'50%', width:12, height:12, background:'var(--surface)', border:'1px solid var(--border)'}} />}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const NodeAction = ({ data, selected }) => {
+    return (
+        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius:16, padding:16, width:200, boxShadow:'0 10px 25px rgba(0,0,0,0.05)'}}>
+            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+                <div style={{width:28, height:28, background: data.colorbg || 'rgba(59,130,246,0.1)', borderRadius:8, color: data.color || '#3b82f6', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>{data.icon || 'phone_forwarded'}</span>
+                </div>
+                <span style={{fontSize:10, fontWeight:900, color: data.color || '#3b82f6', textTransform:'uppercase', letterSpacing:1}}>{data.typeLabel || 'Action'}</span>
+            </div>
+            <div style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>{data.label || 'Action'}</div>
+            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:'1px solid var(--border)'}} />}
+        </div>
+    );
+}
+
+const ivrNodeTypes = {
+    start: NodeStart,
+    menu: NodeMenu,
+    action: NodeAction
+};
+
+const ivrInitialNodes = [
+  { id: 'start-1', type: 'start', position: { x: 50, y: 150 }, data: {} }
+];
+
+function IVRDesignerApp({ toast }) {
+    const [nodes, setNodes] = useState(ivrInitialNodes);
+    const [edges, setEdges] = useState([]);
+    const [ivrData, setIvrData] = useState({ recordings: [], extensions: [], queues: [], ringgroups: [] });
+    const reactFlowWrapper = useRef(null);
+    const [reactFlowInstance, setReactFlowInstance] = useState(null);
+    const [selectedNode, setSelectedNode] = useState(null);
+
+    const onNodesChange = useCallback((changes) => {
+        if (!applyNodeChanges) return;
+        setNodes((nds) => applyNodeChanges(changes, nds));
+    }, []);
+    const onEdgesChange = useCallback((changes) => {
+        if (!applyEdgeChanges) return;
+        setEdges((eds) => applyEdgeChanges(changes, eds));
+    }, []);
+    const onConnect = useCallback((params) => {
+        if (!addEdge) return;
+        setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: 'var(--accent)', strokeWidth: 2 } }, eds));
+    }, []);
+
+    useEffect(() => {
+        fetch('api/index.php?action=get_ivr_data').then(r=>r.json()).then(d=>{
+            if(d.success) setIvrData(d);
+        });
+    }, []);
+
+    const onDragOver = useCallback((event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }, []);
+
+    const onDrop = useCallback(
+        (event) => {
+            event.preventDefault();
+            const type = event.dataTransfer.getData('application/reactflow');
+            if (!type || !reactFlowInstance) return;
+
+            const position = reactFlowInstance.screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            });
+
+            let newNode = {
+                id: getIvrNodeId(),
+                type,
+                position,
+                data: { label: `Nuevo ${type}` },
+            };
+
+            if (type === 'menu') {
+                newNode.data = { label: 'Menú Principal', audio: '', options: [{ digit: '1', label: 'Ventas' }] };
+            } else if (type === 'action') {
+                newNode.data = { typeLabel: 'Destino', label: 'Ext: 1000', icon: 'phone_forwarded', color: '#3b82f6', colorbg: 'rgba(59,130,246,0.1)' };
+            }
+
+            setNodes((nds) => nds.concat(newNode));
+        },
+        [reactFlowInstance]
+    );
+
+    const onSelectionChange = useCallback(({ nodes }) => {
+        if (nodes.length === 1) setSelectedNode(nodes[0]);
+        else setSelectedNode(null);
+    }, []);
+
+    const updateNodeData = (field, value) => {
+        if (!selectedNode) return;
+        setNodes(nds => nds.map(n => {
+            if (n.id === selectedNode.id) {
+                const newData = { ...n.data, [field]: value };
+                setSelectedNode({ ...n, data: newData }); // update locally
+                return { ...n, data: newData };
+            }
+            return n;
+        }));
+    };
+
+    return (
+        <div style={{display:'flex', height:'100%', width:'100%', flexDirection:'row', fontFamily:'var(--sans)'}}>
+            {/* Sidebar Tools */}
+            <div className="glass" style={{width: 260, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, borderRadius:0}}>
+                <div style={{padding:20, borderBottom:'1px solid var(--border)'}}>
+                    <h3 style={{fontSize:11, fontWeight:900, color:'var(--muted)', letterSpacing:2, textTransform:'uppercase'}}>Librería de Nodos</h3>
+                    <p style={{fontSize:12, color:'var(--muted)', marginTop:4}}>Arrastra al lienzo para crear lógica</p>
+                </div>
+                <div style={{padding:20, display:'flex', flexDirection:'column', gap:10}}>
+                    <div 
+                        onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', 'menu'); e.dataTransfer.effectAllowed = 'move'; }}
+                        draggable 
+                        style={{display:'flex', alignItems:'center', gap:12, padding:12, background:'var(--surface)', border:'1px dashed var(--border)', borderRadius:12, cursor:'grab'}}
+                    >
+                        <div style={{width:32, height:32, background:'rgba(139,92,246,0.1)', color:'var(--accent)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>splitscreen</span>
+                        </div>
+                        <span style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>Menú de Opciones</span>
+                    </div>
+
+                    <div 
+                        onDragStart={(e) => { e.dataTransfer.setData('application/reactflow', 'action'); e.dataTransfer.effectAllowed = 'move'; }}
+                        draggable 
+                        style={{display:'flex', alignItems:'center', gap:12, padding:12, background:'var(--surface)', border:'1px dashed var(--border)', borderRadius:12, cursor:'grab'}}
+                    >
+                        <div style={{width:32, height:32, background:'rgba(59,130,246,0.1)', color:'#3b82f6', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>phone_forwarded</span>
+                        </div>
+                        <span style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>Transferir / Cola</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Diagram */}
+            <div style={{flex: 1, position:'relative'}} ref={reactFlowWrapper}>
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onInit={setReactFlowInstance}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onSelectionChange={onSelectionChange}
+                    nodeTypes={ivrNodeTypes}
+                    fitView
+                >
+                    {Background && <Background color="var(--border)" gap={20} size={1.5} />}
+                    {Controls && <Controls style={{background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}} />}
+                </ReactFlow>
+
+                <div style={{position:'absolute', top:20, left:20, zIndex:10, background:'var(--surface)', padding:'10px 20px', borderRadius:12, border:'1px solid var(--border)', display:'flex', gap:12, boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
+                    <button onClick={()=>{ toast('Guardado correctamente', 'success'); }} style={{background:'var(--accent)', color:'white', border:'none', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>save</span> Guardar Flujo</button>
+                    <button onClick={()=>{ toast('Enviando despliegue a Asterisk...', 'info'); setTimeout(()=>toast('IVR Desplegado con éxito.', 'success'), 2000); }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>rocket_launch</span> Aplicar</button>
+                    <button onClick={()=>{
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.accept = 'audio/*';
+                        fileInput.onchange = (e) => {
+                            const file = e.target.files[0];
+                            if(!file) return;
+                            const formData = new FormData();
+                            formData.append('audio', file);
+                            toast('Subiendo audio...', 'info');
+                            fetch('api/index.php?action=upload_ivr_audio', { method: 'POST', body: formData })
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data.success) {
+                                    setIvrData(prev => ({...prev, recordings: [...prev.recordings, data.filename]}));
+                                    toast('Audio subido exitosamente', 'success');
+                                } else {
+                                    toast('Error: ' + data.error, 'error');
+                                }
+                            });
+                        };
+                        fileInput.click();
+                    }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>upload</span> Subir Audio</button>
+                </div>
+            </div>
+
+            {/* Properties Panel */}
+            {selectedNode && (
+                <div className="glass" style={{width: 320, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, animation:'viewIn 0.3s ease', borderRadius:0}}>
+                    <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                        <div>
+                            <h3 style={{fontSize:16, fontWeight:800, color:'var(--text)'}}>Propiedades</h3>
+                            <p style={{fontSize:10, color:'var(--muted)', marginTop:2, textTransform:'uppercase', fontWeight:800}}>ID: {selectedNode.id}</p>
+                        </div>
+                        <button onClick={()=>setSelectedNode(null)} style={{background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer'}}><span className="material-icons-round">close</span></button>
+                    </div>
+
+                    <div style={{padding:20, display:'flex', flexDirection:'column', gap:16, overflowY:'auto'}}>
+                        {selectedNode.type === 'menu' && (
+                            <>
+                                <div>
+                                    <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', marginBottom:6}}>Nombre del Menú</label>
+                                    <input type="text" value={selectedNode.data.label||''} onChange={e=>updateNodeData('label', e.target.value)} style={{width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none'}} />
+                                </div>
+                                <div>
+                                    <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', marginBottom:6}}>Audio de Mensaje</label>
+                                    <select value={selectedNode.data.audio||''} onChange={e=>updateNodeData('audio', e.target.value)} style={{width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none'}}>
+                                        <option value="">-- Seleccionar --</option>
+                                        {ivrData.recordings.map(r=><option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                                        <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase'}}>Opciones (Dígitos)</label>
+                                        <button onClick={()=>{
+                                            const ops = selectedNode.data.options || [];
+                                            updateNodeData('options', [...ops, {digit: (ops.length+1).toString(), label:'Nueva Opción'}]);
+                                        }} style={{background:'rgba(139,92,246,0.1)', color:'var(--accent)', border:'none', padding:'4px 8px', borderRadius:6, fontSize:10, fontWeight:800, cursor:'pointer'}}>+ AÑADIR</button>
+                                    </div>
+                                    <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                                        {(selectedNode.data.options||[]).map((opt, i) => (
+                                            <div key={i} style={{display:'flex', gap:8, alignItems:'center'}}>
+                                                <input type="text" value={opt.digit} onChange={e=>{
+                                                    const o = [...selectedNode.data.options];
+                                                    o[i].digit = e.target.value;
+                                                    updateNodeData('options', o);
+                                                }} style={{width:40, padding:'8px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', textAlign:'center', outline:'none', fontSize:12, fontWeight:800}} />
+                                                <input type="text" value={opt.label} onChange={e=>{
+                                                    const o = [...selectedNode.data.options];
+                                                    o[i].label = e.target.value;
+                                                    updateNodeData('options', o);
+                                                }} style={{flex:1, padding:'8px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', outline:'none', fontSize:12}} />
+                                                <button onClick={()=>{
+                                                    const o = [...selectedNode.data.options];
+                                                    o.splice(i, 1);
+                                                    updateNodeData('options', o);
+                                                }} style={{background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:16}}>close</span></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        
+                        {selectedNode.type === 'action' && (
+                            <>
+                                <div>
+                                    <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', marginBottom:6}}>Acción o Destino</label>
+                                    <select value={selectedNode.data.label||''} onChange={e=>{
+                                        const val = e.target.value;
+                                        let icon = 'phone_forwarded';
+                                        let color = '#3b82f6';
+                                        let colorbg = 'rgba(59,130,246,0.1)';
+                                        if(val.startsWith('Cola:')) { icon = 'trending_up'; color = '#6366f1'; colorbg = 'rgba(99,102,241,0.1)'; }
+                                        if(val.startsWith('Grupo:')) { icon = 'payments'; color = '#8b5cf6'; colorbg = 'rgba(139,92,246,0.1)'; }
+                                        if(val === 'Colgar Llamada') { icon = 'call_end'; color = '#ef4444'; colorbg = 'rgba(239,68,68,0.1)'; }
+                                        
+                                        // Update label, icon and colors
+                                        setNodes(nds => nds.map(n => {
+                                            if (n.id === selectedNode.id) {
+                                                const newData = { ...n.data, label: val, icon, color, colorbg };
+                                                setSelectedNode({ ...n, data: newData }); // update locally
+                                                return { ...n, data: newData };
+                                            }
+                                            return n;
+                                        }));
+                                    }} style={{width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none'}}>
+                                        <option value="">-- Seleccionar --</option>
+                                        <optgroup label="Extensiones">
+                                            {ivrData.extensions.map(e=><option key={`e${e.ext}`} value={`Ext: ${e.ext}`}>{e.ext} - {e.name}</option>)}
+                                        </optgroup>
+                                        <optgroup label="Colas">
+                                            {ivrData.queues.map(q=><option key={`q${q.ext}`} value={`Cola: ${q.ext}`}>{q.name}</option>)}
+                                        </optgroup>
+                                        <optgroup label="Grupos">
+                                            {ivrData.ringgroups.map(r=><option key={`r${r.ext}`} value={`Grupo: ${r.ext}`}>{r.name}</option>)}
+                                        </optgroup>
+                                        <option value="Colgar Llamada">Colgar Llamada</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {selectedNode.type === 'start' && (
+                            <div style={{color:'var(--muted)', fontSize:12, lineHeight:1.5}}>
+                                Éste es el punto de inicio del IVR.<br/>
+                                Conecta su salida al primer menú o saludo de bienvenida para que las llamadas entrantes sigan la ruta correcta.
+                            </div>
+                        )}
+                        
+                        <div style={{marginTop:20}}>
+                            <button onClick={()=>setNodes(nds => nds.filter(n=>n.id!==selectedNode.id))} style={{width:'100%', background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.3)', padding:'10px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6}}>
+                                <span className="material-icons-round" style={{fontSize:18}}>delete</span> Eliminar Nodo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ViewIVR({ toast }) {
+    if (!ReactFlow) {
+        return (
+            <div className="content-area view-enter" style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>
+                <div style={{textAlign:'center', color:'var(--muted)'}}>
+                    <span className="material-icons-round" style={{fontSize:48, animation:'spin-slow 2s linear infinite'}}>refresh</span>
+                    <h3 style={{marginTop:16, fontSize:18, fontWeight:700}}>Cargando Engine...</h3>
+                </div>
+            </div>
+        );
+    }
+    
     return (
         <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
-            <iframe 
-                src="ivr-designer.html" 
-                style={{width:'100%', height:'100%', border:'none', flex: 1}} 
-                title="Visual IVR Designer"
-            />
+            <ReactFlowComponents.ReactFlowProvider>
+                <IVRDesignerApp toast={toast} />
+            </ReactFlowComponents.ReactFlowProvider>
         </div>
     );
 }
