@@ -3025,17 +3025,18 @@ const NodeMenu = ({ data, selected }) => {
 };
 
 const NodeAction = ({ data, selected }) => {
+    const isLive = data.isLive;
     return (
-        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius:16, padding:16, width:200, boxShadow:'0 10px 25px rgba(0,0,0,0.05)'}}>
-            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:200, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(0,0,0,0.05)' : 'none'), transition: 'all 0.3s'}}>
+            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
-                <div style={{width:28, height:28, background: data.colorbg || 'rgba(59,130,246,0.1)', borderRadius:8, color: data.color || '#3b82f6', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <span className="material-icons-round" style={{fontSize:16}}>{data.icon || 'phone_forwarded'}</span>
+                <div style={{width:28, height:28, background: isLive ? 'rgba(34,197,94,0.2)' : (data.colorbg || 'rgba(59,130,246,0.1)'), borderRadius:8, color: isLive ? '#22c55e' : (data.color || '#3b82f6'), display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 1s infinite' : 'none'}}>{data.icon || 'phone_forwarded'}</span>
                 </div>
-                <span style={{fontSize:10, fontWeight:900, color: data.color || '#3b82f6', textTransform:'uppercase', letterSpacing:1}}>{data.typeLabel || 'Action'}</span>
+                <span style={{fontSize:10, fontWeight:900, color: isLive ? '#22c55e' : (data.color || '#3b82f6'), textTransform:'uppercase', letterSpacing:1}}>{data.typeLabel || 'Action'}</span>
             </div>
             <div style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>{data.label || 'Action'}</div>
-            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:'1px solid var(--border)'}} />}
+            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:`1px solid ${isLive ? '#22c55e' : 'var(--border)'}`}} />}
         </div>
     );
 }
@@ -3059,6 +3060,13 @@ function IVRDesignerApp({ toast }) {
     const [selectedNode, setSelectedNode] = useState(null);
 
     const isIvrActiveRef = useRef(false);
+    const nodesRef = useRef(ivrInitialNodes);
+    const edgesRef = useRef([]);
+
+    useEffect(() => {
+        nodesRef.current = nodes;
+        edgesRef.current = edges;
+    }, [nodes, edges]);
 
     const onNodesChange = useCallback((changes) => {
         if (!applyNodeChanges) return;
@@ -3097,23 +3105,71 @@ function IVRDesignerApp({ toast }) {
         const checkCalls = () => {
             fetch('api/index.php?action=get_active_calls').then(r=>r.json()).then(d => {
                 if(d.success && d.calls) {
-                    const hasCalls = d.calls.length > 0;
-                    if(hasCalls !== isIvrActiveRef.current) {
-                        isIvrActiveRef.current = hasCalls;
-                        
-                        // Animate Edges
-                        setEdges(eds => eds.map(e => ({
-                            ...e, 
-                            animated: hasCalls, 
-                            style: hasCalls ? { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' } : { stroke: 'var(--accent)', strokeWidth: 2, filter: 'none' }
-                        })));
-                        
-                        // Animate Start Node
-                        setNodes(nds => nds.map(n => {
-                            if(n.type === 'start') return { ...n, data: { ...n.data, isLive: hasCalls } };
-                            return n;
-                        }));
+                    const activeTokens = d.calls.reduce((acc, c) => [...acc, c.dest, c.ext], []).filter(Boolean);
+                    
+                    const currentNodes = nodesRef.current;
+                    const currentEdges = edgesRef.current;
+                    
+                    const activeNodeIds = new Set(
+                        currentNodes.filter(n => {
+                            if(n.type === 'action') {
+                                const parts = (n.data.label || '').split(': ');
+                                const num = parts.length > 1 ? parts[1].trim() : parts[0];
+                                return activeTokens.includes(num);
+                            }
+                            return false;
+                        }).map(n => n.id)
+                    );
+                    
+                    const edgesToAnimate = new Set();
+                    let currentTargets = [...activeNodeIds];
+                    while(currentTargets.length > 0) {
+                        const nextTargets = [];
+                        currentEdges.forEach(e => {
+                            if (currentTargets.includes(e.target) && !edgesToAnimate.has(e.id)) {
+                                edgesToAnimate.add(e.id);
+                                nextTargets.push(e.source);
+                            }
+                        });
+                        currentTargets = [...new Set(nextTargets)];
                     }
+                    
+                    const hasActiveFlow = edgesToAnimate.size > 0;
+                    
+                    setEdges(eds => {
+                        let changed = false;
+                        const newEds = eds.map(e => {
+                            const isActiveEdge = edgesToAnimate.has(e.id);
+                            if (e.animated !== isActiveEdge) changed = true;
+                            return isActiveEdge ? {
+                                ...e, animated: true, style: { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' }
+                            } : {
+                                ...e, animated: false, style: { stroke: 'var(--accent)', strokeWidth: 2, filter: 'none' }
+                            };
+                        });
+                        return changed ? newEds : eds;
+                    });
+                    
+                    setNodes(nds => {
+                        let changed = false;
+                        const newNds = nds.map(n => {
+                            if(n.type === 'start') {
+                                if (n.data.isLive !== hasActiveFlow) {
+                                    changed = true;
+                                    return { ...n, data: { ...n.data, isLive: hasActiveFlow } };
+                                }
+                            }
+                            if(n.type === 'action') {
+                                const isActiveNode = activeNodeIds.has(n.id);
+                                if (n.data.isLive !== isActiveNode) {
+                                    changed = true;
+                                    return { ...n, data: { ...n.data, isLive: isActiveNode } };
+                                }
+                            }
+                            return n;
+                        });
+                        return changed ? newNds : nds;
+                    });
                 }
             }).catch(e=>{});
         };
