@@ -367,15 +367,11 @@
             const audioRef = useRef(null);
             const localVideoRef = useRef(null);
             const remoteVideoRef = useRef(null);
-            const ringbackRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/ringback.mp3'));
-            const incomingRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/ring.mp3'));
-            const clickSoundRef = useRef(new Audio('https://raw.githubusercontent.com/rafaelnotfound/dtmf-tones/master/tones/1.mp3'));
             const vibrateInterval = useRef(null);
             const toneCtxRef = useRef(null);
+            const ringIntervalRef = useRef(null);
             const timerRef = useRef(null);
 
-            // Audio context unlock and Sound Warm-up
-            useEffect(() => {
                 const unlock = () => {
                     if (toneCtxRef.current) return;
                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -386,11 +382,6 @@
                     source.buffer = buffer;
                     source.connect(ctx.destination);
                     source.start(0);
-
-                    // Warm up audio elements (essential for iOS)
-                    [incomingRef.current, ringbackRef.current, clickSoundRef.current].forEach(a => {
-                        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(()=>{});
-                    });
 
                     window.removeEventListener('click', unlock);
                     window.removeEventListener('touchstart', unlock);
@@ -408,12 +399,62 @@
                 }
             }, []);
 
-            const playClick = () => {
-                if (clickSoundRef.current) {
-                    clickSoundRef.current.currentTime = 0;
-                    clickSoundRef.current.play().catch(()=>{});
+            // ───────────────── SYNTHESIZED RINGTONES ─────────────────
+            const playSynthesizedRing = (type) => {
+                const ctx = toneCtxRef.current;
+                if (!ctx) return;
+                if (ctx.state === 'suspended') ctx.resume();
+
+                const osc1 = ctx.createOscillator();
+                const osc2 = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'ringback') {
+                    // Europe/US standard ringback: 440+480Hz
+                    osc1.frequency.value = 440;
+                    osc2.frequency.value = 480;
+                    gain.gain.value = 0.2;
+                    osc1.start(); osc2.start();
+                    osc1.stop(ctx.currentTime + 1.5);
+                    osc2.stop(ctx.currentTime + 1.5);
+                } else if (type === 'ringing') {
+                    // Typical phone ring pattern: 400+450Hz
+                    osc1.frequency.value = 400;
+                    osc2.frequency.value = 450;
+                    
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.setValueAtTime(0, ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0, ctx.currentTime + 1.0);
+                    
+                    osc1.start(); osc2.start();
+                    osc1.stop(ctx.currentTime + 1.0);
+                    osc2.stop(ctx.currentTime + 1.0);
+                } else if (type === 'click') {
+                    osc1.frequency.value = 800;
+                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+                    osc1.start(); osc1.stop(ctx.currentTime + 0.05);
                 }
             };
+
+            const startSynthesizedRing = (type) => {
+                stopSynthesizedRing();
+                playSynthesizedRing(type);
+                ringIntervalRef.current = setInterval(() => {
+                    playSynthesizedRing(type);
+                }, type === 'ringback' ? 4000 : 3000);
+            };
+
+            const stopSynthesizedRing = () => {
+                if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+            };
+
+            const playClick = () => playSynthesizedRing('click');
 
             const playTone = (freq1, freq2 = 0) => {
                 if (!toneCtxRef.current) return;
@@ -656,10 +697,8 @@
                                 const num = su.session?.remoteIdentity?.uri?.user || 'Desconocido';
                                 setRemoteNumber(num);
                                 
-                                // Timbre Nativo Ininterrumpido (Loop nativo vs Autoplay policy)
-                                incomingRef.current.currentTime = 0;
-                                incomingRef.current.loop = true;
-                                incomingRef.current.play().catch(e => console.warn('Autoplay Audio bloqueado (requerida interaccion previa):', e));
+                                // Timbre Nativo (Web Audio Synthsizer)
+                                startSynthesizedRing('ringing');
                                 haptic('heavy');
                                 
                                 // iOS Backgrounding Avanzado (Web Push)
@@ -692,10 +731,7 @@
                                 setElapsed(0);
                                 setStatus('Registrado (Libre)');
                                 
-                                incomingRef.current.pause();
-                                incomingRef.current.currentTime = 0;
-                                ringbackRef.current.pause();
-                                ringbackRef.current.currentTime = 0;
+                                stopSynthesizedRing();
                                 
                                 if ('serviceWorker' in navigator) {
                                     navigator.serviceWorker.ready.then(reg => {
@@ -714,8 +750,7 @@
                                 if(navigator.vibrate) navigator.vibrate(0);
                                 timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
                                 
-                                incomingRef.current.pause();
-                                ringbackRef.current.pause();
+                                stopSynthesizedRing();
                                 
                                 if ('serviceWorker' in navigator) {
                                     navigator.serviceWorker.ready.then(reg => {
@@ -869,9 +904,7 @@
                 
                 haptic('light');
                 playClick(); // Feedback for the button
-                ringbackRef.current.currentTime = 0;
-                ringbackRef.current.loop = true;
-                ringbackRef.current.play().catch(()=>{});
+                startSynthesizedRing('ringback');
 
                 simpleUser.call(`sip:${dest}@${domain}`, opts)
                    .then(() => {
@@ -879,7 +912,7 @@
                        saveHistory({ num: dest, dir: 'out', time: new Date().getTime(), acc:'calling' });
                    })
                    .catch(e => {
-                       ringbackRef.current.pause();
+                       stopSynthesizedRing();
                        setCallStatus(null);
                        setRemoteNumber('');
                        setVideoActive(false);
@@ -1402,7 +1435,7 @@
                     </div>
 
                     {/* Navbar (iOS STYLE PREMIUM - STAYS FIXED AT BOTTOM) */}
-                    <nav className={`fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[500] transition-transform duration-500 ${callStatus ? 'translate-y-full' : 'translate-y-0'}`}>
+                    <nav className={`fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 pb-8 pt-3 px-6 z-[100] transition-transform duration-500 ${callStatus ? 'translate-y-full' : 'translate-y-0'}`}>
                         <div className="flex items-center justify-between">
                             <button className={`flex flex-col items-center gap-1 ${activeTab==='dashboard'?'text-primary':'text-slate-400'}`} onClick={()=>setActiveTab('dashboard')}>
                                 <span className={`material-symbols-outlined ${activeTab==='dashboard'?'filled-icon':''}`}>home</span>
@@ -1497,6 +1530,28 @@
                                     </div>
                                 )}
 
+                                {/* Additional Actions */}
+                                <div className="flex justify-center mb-6 gap-10">
+                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'btn-toggle-active':'bg-white/5 text-white'}`}>
+                                            <span className={`material-symbols-outlined text-xl ${isHeld?'filled-icon':''}`}>{isHeld?'play_arrow':'pause'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
+                                    </button>
+                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'btn-toggle-active':'bg-white/5 text-white'}`}>
+                                            <span className={`material-symbols-outlined text-xl ${isSpeaker?'filled-icon':''}`}>{isSpeaker?'volume_up':'volume_down'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isSpeaker?'Altavoz':'Normal'}</span>
+                                    </button>
+                                    <button onClick={() => showToast('Funcionalidad próximamente')} className="flex flex-col items-center gap-1.5 opacity-80 group">
+                                        <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
+                                            <span className="material-symbols-outlined text-xl">person_add</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Invitar</span>
+                                    </button>
+                                </div>
+
                                 {/* Main Glass Bar */}
                                 <div className="max-w-md mx-auto bg-slate-800/40 backdrop-blur-3xl rounded-[2.5rem] p-4 flex items-center justify-between border border-white/10 shadow-2xl">
                                     {/* Mute Toggle */}
@@ -1517,28 +1572,6 @@
                                     {/* End Call Button */}
                                     <button onClick={hangupCall} className="flex items-center justify-center size-14 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 active:scale-95 transition-all outline outline-offset-4 outline-red-500/30">
                                         <span className="material-symbols-outlined text-[28px] rotate-[135deg]">call_end</span>
-                                    </button>
-                                </div>
-
-                                {/* Additional Actions */}
-                                <div className="flex justify-center mt-6 gap-10">
-                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group active-scale">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'btn-toggle-active':'bg-white/5 text-white'}`}>
-                                            <span className={`material-symbols-outlined text-xl ${isHeld?'filled-icon':''}`}>{isHeld?'play_arrow':'pause'}</span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
-                                    </button>
-                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group active-scale">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'btn-toggle-active':'bg-white/5 text-white'}`}>
-                                            <span className={`material-symbols-outlined text-xl ${isSpeaker?'filled-icon':''}`}>{isSpeaker?'volume_up':'volume_down'}</span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isSpeaker?'Altavoz':'Normal'}</span>
-                                    </button>
-                                    <button onClick={() => showToast('Funcionalidad próximamente')} className="flex flex-col items-center gap-1.5 opacity-80 group">
-                                        <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
-                                            <span className="material-symbols-outlined text-xl">person_add</span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Invitar</span>
                                     </button>
                                 </div>
                             </div>
