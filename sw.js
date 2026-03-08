@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teleflow-cache-v21';
+const CACHE_NAME = 'teleflow-cache-v22';
 const STATIC_ASSETS = ['/teleflow/', '/teleflow/index.php', '/teleflow/manifest.json'];
 
 self.addEventListener('install', e => { self.skipWaiting(); });
