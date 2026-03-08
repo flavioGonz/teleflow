@@ -589,6 +589,7 @@ if ($action === 'get_active_calls') {
 
             $calls[] = [
                 'channel'  => $chan,
+                'context'  => $m[2],
                 'ext'      => $ext_num,
                 'dest'     => $dest,
                 'state'    => $state,

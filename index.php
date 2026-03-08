@@ -2996,16 +2996,19 @@ const NodeStart = ({ data }) => {
 };
 
 const NodeMenu = ({ data, selected }) => {
+    const isLive = data.isLive;
     return (
-        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius:16, padding:16, width:260, boxShadow: selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'}}>
-            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
+            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
-                <div style={{width:32, height:32, background:'var(--accent)', borderRadius:8, color:'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <span className="material-icons-round" style={{fontSize:16}}>splitscreen</span>
+                <div style={{width:32, height:32, background: isLive ? 'rgba(34,197,94,0.2)' : 'var(--accent)', borderRadius:8, color: isLive ? '#22c55e' : 'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 1s infinite' : 'none'}}>splitscreen</span>
                 </div>
-                <span style={{fontSize:11, fontWeight:900, color:'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{data.label || 'Menu'}</span>
+                <span style={{flex:1, fontSize:11, fontWeight:900, color: isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{data.label || 'Menu'}</span>
+                {isLive && <div style={{width:8, height:8, background:'#22c55e', borderRadius:'50%', boxShadow:'0 0 8px #22c55e', animation: 'pulse-red 1s infinite'}}></div>}
             </div>
-            <div style={{background:'var(--surface2)', padding:8, borderRadius:8, fontSize:12, color:'var(--muted)', textAlign:'center', border:'1px solid var(--border)', marginBottom:12}}>
+            <div style={{background: isLive ? 'rgba(34,197,94,0.1)' : 'var(--surface2)', padding:8, borderRadius:8, fontSize:12, color:'var(--text)', textAlign:'center', border:`1px solid ${isLive ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`, marginBottom:12}}>
+                <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle', marginRight:4, color: isLive ? '#22c55e' : 'var(--muted)'}}>graphic_eq</span>
                 {data.audio || 'Sin Audio'}
             </div>
             
@@ -3017,7 +3020,7 @@ const NodeMenu = ({ data, selected }) => {
                             <div style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{opt.label}</div>
                             {opt.destination && <div style={{fontSize:10, color:'var(--muted)', marginTop:2, fontWeight:600}}>&rarr; {opt.destination}</div>}
                         </div>
-                        {Handle && <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-20, top:'50%', width:12, height:12, background:'var(--surface)', border:'1px solid var(--border)'}} />}
+                        {Handle && <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-20, top:'50%', width:12, height:12, background:'var(--surface)', border:`1px solid ${isLive ? '#22c55e' : 'var(--border)'}`}} />}
                     </div>
                 ))}
             </div>
@@ -3119,16 +3122,19 @@ function IVRDesignerApp({ toast }) {
                         }
                     });
                     
-                    const activeNodeIds = new Set(
-                        currentNodes.filter(n => {
+                    const activeContexts = d.calls.filter(c => c.context && c.context.startsWith('ivr-node-')).map(c => c.context.replace('ivr-node-', ''));
+                    
+                    const activeNodeIds = new Set([
+                        ...currentNodes.filter(n => {
                             if(n.type === 'action') {
                                 const parts = (n.data.label || '').split(': ');
                                 const num = parts.length > 1 ? parts[1].trim() : parts[0];
                                 return activeTokens.includes(num);
                             }
                             return false;
-                        }).map(n => n.id)
-                    );
+                        }).map(n => n.id),
+                        ...activeContexts
+                    ]);
                     
                     const edgesToAnimate = new Set();
                     let currentTargets = [...activeNodeIds];
@@ -3168,7 +3174,7 @@ function IVRDesignerApp({ toast }) {
                                     return { ...n, data: { ...n.data, isLive: hasActiveFlow } };
                                 }
                             }
-                            if(n.type === 'action') {
+                            if(n.type === 'menu' || n.type === 'action') {
                                 const isActiveNode = activeNodeIds.has(n.id);
                                 if (n.data.isLive !== isActiveNode) {
                                     changed = true;
