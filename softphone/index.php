@@ -373,7 +373,8 @@
             const toneCtxRef = useRef(null);
             const ringIntervalRef = useRef(null);
             const timerRef = useRef(null);
-
+            // Audio context unlock and Sound Warm-up
+            useEffect(() => {
                 const unlock = () => {
                     if (toneCtxRef.current) return;
                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
