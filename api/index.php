@@ -147,6 +147,7 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
         'account'                         => $ext,
         'direct_media'                    => 'no',
         'max_contacts'                    => '1',
+        'remove_existing'                 => 'yes',
         'ice_support'                     => 'no',
         'media_encryption'                => 'no',
         'dtls_verify'                     => 'no',
