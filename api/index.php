@@ -994,7 +994,7 @@ if ($action === 'apply_ivr_flow') {
     $menuNodes = array_filter($nodes, function($n) { return $n['type'] === 'menu'; });
     foreach ($menuNodes as $menu) {
         $audio = $menu['data']['audio'] ?? '';
-        $audioStr = $audio ? str_replace('.wav', '', "custom/$audio") : "silence/1";
+        $audioStr = $audio ? str_replace('.wav', '', "custom/$audio") : "dir-intro";
         
         $conf .= "[ivr-node-{$menu['id']}]\n";
         $conf .= "exten => s,1,NoOp(IVR Menu {$menu['data']['label']})\n";
