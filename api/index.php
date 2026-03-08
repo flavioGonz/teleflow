@@ -111,11 +111,10 @@ function reload_dialplan() {
     $fw = '';
     foreach ($paths as $p) { if (file_exists($p)) { $fw=$p; break; } }
     if ($fw) {
-        shell_exec("$fw reload --quiet >/dev/null 2>&1 &");
+        shell_exec("$fw reload --quiet >/dev/null 2>&1");
     } else {
-        shell_exec("/usr/sbin/asterisk -rx 'dialplan reload' >/dev/null 2>&1");
-        shell_exec("/usr/sbin/asterisk -rx 'module reload res_pjsip.so' >/dev/null 2>&1");
-        shell_exec("/usr/sbin/asterisk -rx 'module reload app_queue.so' >/dev/null 2>&1");
+        shell_exec("/var/lib/asterisk/bin/retrieve_conf >/dev/null 2>&1");
+        shell_exec("/usr/sbin/asterisk -rx 'core reload' >/dev/null 2>&1");
     }
 }
 
@@ -378,8 +377,8 @@ if ($action === 'create_extension') {
         $db->prepare("INSERT INTO devices (id, tech, dial, devicetype, user, description, emergency_cid) VALUES (?, ?, ?, 'fixed', ?, ?, '')")
            ->execute([$ext, 'pjsip', "PJSIP/$ext", $ext, $name]);
 
-        // 2. users table
-        $db->prepare("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass) VALUES (?, ?, ?, 'novm', 0, '', '', '', 'default')")
+        // 2. users table (Set recording 'out=Always|in=Always' so new extensions record by default)
+        $db->prepare("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass) VALUES (?, ?, ?, 'novm', 0, '', 'out=Always|in=Always', '', 'default')")
            ->execute([$ext, $ext, $name]);
 
         // settings helper logic here now integrated into update too

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TeleFlow API - Swagger</title>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.css" />
+    <link rel="icon" type="image/png" href="icon-192.svg" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #FAFAFA;
+        }
+        .topbar {
+            display: none; /* Ocultamos el topbar de swagger por estética */
+        }
+        #swagger-ui {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 50px;
+        }
+        .header-title {
+            text-align: center;
+            font-family: sans-serif;
+            margin-top: 30px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-title">
+    <h1>Documentación de APIs - TeleFlow</h1>
+    <p>Agente documentador: pruebe y verifique todos los endpoints desde este lugar.</p>
+</div>
+
+<div id="swagger-ui"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.js"></script>
+
+<script>
+window.onload = function() {
+    const ui = SwaggerUIBundle({
+        url: "swagger.yaml",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
+        ],
+        plugins: [
+            SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "BaseLayout",
+        defaultModelsExpandDepth: -1 // Opcional: oculta la seccion de schemas si no se usa
+    });
+    window.ui = ui;
+};
+</script>
+</body>
+</html>

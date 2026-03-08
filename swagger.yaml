@@ -1,0 +1,506 @@
+openapi: 3.0.0
+info:
+  title: TeleFlow API
+  description: "API de TeleFlow para Issabel PBX. Permite gestionar extensiones, colas, ring groups, IVR, cdr y reportes. \n\n**Nota de Autenticación**: La mayoría de endpoints requieren sesión activa. Primero use `login`."
+  version: 1.0.0
+servers:
+  - url: /teleflow/api
+    description: "Servidor Local"
+
+paths:
+  /index.php?action=login:
+    post:
+      summary: Login de Usuario
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Credenciales incorrectas
+
+  /index.php?action=logout:
+    get:
+      summary: Cerrar sesión
+      tags: [Auth]
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_full_data:
+    get:
+      summary: Obtener estado global del PBX (Dashboard)
+      tags: [Monitor]
+      responses:
+        '200':
+          description: Lista de extensiones, registro de llamadas recientes, métricas de sistema (CPU, RAM, Uptime) y llamadas activas.
+
+  /index.php?action=get_agents_data:
+    get:
+      summary: Obtener información rápida de agentes (Softphone)
+      tags: [Monitor]
+      responses:
+        '200':
+          description: Lista de agentes, estado en vivo de registro pjsip.
+
+  /index.php?action=get_active_calls:
+    get:
+      summary: Llamadas Activas
+      tags: [Monitor]
+      responses:
+        '200':
+          description: Lista de llamadas activas, canales PJSIP, calidad RTT/Loss y estado temporal (Up, Ringing, etc).
+
+  /index.php?action=get_extension:
+    get:
+      summary: Detalle de Extensión
+      tags: [Extensions]
+      parameters:
+        - in: query
+          name: ext
+          required: true
+          schema:
+            type: string
+          description: Número de extensión
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=create_extension:
+    post:
+      summary: Crear Extensión
+      tags: [Extensions]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                ext:
+                  type: string
+                name:
+                  type: string
+                secret:
+                  type: string
+                device_type:
+                  type: string
+                  enum: [webrtc, video, audio]
+                  default: webrtc
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=update_extension:
+    post:
+      summary: Actualizar Extensión
+      tags: [Extensions]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                ext:
+                  type: string
+                name:
+                  type: string
+                secret:
+                  type: string
+                device_type:
+                  type: string
+                  enum: [webrtc, video, audio]
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=delete_extension:
+    post:
+      summary: Eliminar Extensión
+      tags: [Extensions]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                ext:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=list_extensions_db:
+    get:
+      summary: Listar todas las extensiones en DB
+      tags: [Extensions]
+      responses:
+        '200':
+          description: Array de extensiones
+
+  /index.php?action=upload_avatar:
+    post:
+      summary: Subir un Avatar
+      tags: [Extensions]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                ext:
+                  type: string
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=set_recording:
+    post:
+      summary: Cambiar estado de Grabación
+      tags: [Extensions]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                ext:
+                  type: string
+                mode:
+                  type: string
+                  enum: [always, dontcare, never]
+      responses:
+        '200':
+          description: OK
+
+
+  /index.php?action=get_queues:
+    get:
+      summary: Listar Colas
+      tags: [Queues]
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=create_queue:
+    post:
+      summary: Crear Cola
+      tags: [Queues]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                extension:
+                  type: string
+                descr:
+                  type: string
+                strategy:
+                  type: string
+                  default: ringall
+                timeout:
+                  type: integer
+                  default: 15
+                wrapuptime:
+                  type: integer
+                  default: 5
+                members:
+                  type: string
+                  description: "Extensiones separadas por coma, eg: 1001,1002"
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=update_queue:
+    post:
+      summary: Actualizar Cola
+      tags: [Queues]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                extension:
+                  type: string
+                descr:
+                  type: string
+                strategy:
+                  type: string
+                timeout:
+                  type: integer
+                wrapuptime:
+                  type: integer
+                members:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=delete_queue:
+    post:
+      summary: Eliminar Cola
+      tags: [Queues]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                extension:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_ring_groups:
+    get:
+      summary: Listar Ring Groups
+      tags: [RingGroups]
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=create_ring_group:
+    post:
+      summary: Crear Ring Group
+      tags: [RingGroups]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grpnum:
+                  type: string
+                description:
+                  type: string
+                strategy:
+                  type: string
+                  default: ringall
+                grptime:
+                  type: integer
+                  default: 20
+                grplist:
+                  type: string
+                  description: "Extensiones separadas por guión, eg: 1001-1002"
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=update_ring_group:
+    post:
+      summary: Actualizar Ring Group
+      tags: [RingGroups]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grpnum:
+                  type: string
+                description:
+                  type: string
+                strategy:
+                  type: string
+                grptime:
+                  type: integer
+                grplist:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=delete_ring_group:
+    post:
+      summary: Eliminar Ring Group
+      tags: [RingGroups]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grpnum:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_cdr:
+    get:
+      summary: Listar Registro de Llamadas (CDR)
+      tags: [Reports]
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: src
+          schema:
+            type: string
+        - in: query
+          name: dst
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_reports:
+    get:
+      summary: Estadísticas Generales y Tendencias
+      tags: [Reports]
+      parameters:
+        - in: query
+          name: start
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_ivr_data:
+    get:
+      summary: Obtener datos base para diseñar IVR
+      tags: [IVR]
+      responses:
+        '200':
+          description: Extensiones, colas, ring groups y audios cargados para asignar al IVR.
+
+  /index.php?action=upload_ivr_audio:
+    post:
+      summary: Subir Audio IVR
+      tags: [IVR]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=save_ivr_flow:
+    post:
+      summary: Guardar Diseño del flujo IVR en JSON
+      tags: [IVR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_ivr_flow:
+    get:
+      summary: Obtener Diseño JSON guardado del flujo IVR
+      tags: [IVR]
+      responses:
+        '200':
+          description: JSON con nodos y edges guardados
+
+  /index.php?action=apply_ivr_flow:
+    post:
+      summary: Aplicar Flujo IVR hacia Asterisk (extensions_custom.conf)
+      tags: [IVR]
+      responses:
+        '200':
+          description: Aplica los audios, menús y derivaciones mapeadas
+
+  /index.php?action=call_action:
+    post:
+      summary: Acciones Mágicas en Llamadas (Barge, Whisper, Spy, Hangup)
+      tags: [Calls]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [hangup, spy, whisper, barge]
+                channel:
+                  type: string
+                supervisor:
+                  type: string
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=get_sip_debug:
+    get:
+      summary: Leer Logs PJSIP (Debug)
+      tags: [Diagnostic]
+      responses:
+        '200':
+          description: OK
+
+  /index.php?action=set_sip_debug:
+    post:
+      summary: Habilitar/Deshabilitar Logs PJSIP
+      tags: [Diagnostic]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                level:
+                  type: string
+                  enum: [on, off]
+                ext:
+                  type: string
+      responses:
+        '200':
+          description: OK
