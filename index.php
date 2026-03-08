@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -2841,6 +2841,8 @@ function ViewReportes({ toast }) {
 // VISTA: CONFIGURACIÃ“N â€” Debug SIP Profesional
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SIP_PARSERS = [
+    { re: /DTLS srtp - handle timeout/i, color:'#f43f5e', label:'⚠️ MEDIA TIMEOUT', icon:'vibration' },
+    { re: /Indicated Private Cause Code/i, color:'#94a3b8', label:'HUP CAUSE', icon:'call_missed_outgoing' },
     { re: /\bREGISTER\b/,   color:'#60a5fa', label:'REGISTER',  icon:'login' },
     { re: /\b200 OK\b/,     color:'#4ade80', label:'200 OK',    icon:'check_circle' },
     { re: /\b100 Trying\b/i,   color:'#94a3b8', label:'TRYING',   icon:'hourglass_empty' },
