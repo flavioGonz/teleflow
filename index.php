@@ -2971,113 +2971,13 @@ function SIPLogLine({ line, idx }) {
 }
 
 function ViewIVR({ toast }) {
-    const [ivrs, setIvrs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    
-    useEffect(() => {
-        // Fetch IVRs
-        setTimeout(() => {
-            setIvrs([
-                { id: '1', name: 'Menu Principal', timeout: 10, announcement: 'greeting.wav' },
-                { id: '2', name: 'Soporte Tecnico', timeout: 5, announcement: 'support_msg.wav' }
-            ]);
-            setLoading(false);
-        }, 500);
-    }, []);
-
     return (
-        <div className="content-area view-enter">
-            <div className="header" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
-                <div>
-                    <h2 style={{fontSize:24, fontWeight:800, margin:0, letterSpacing:'-0.5px'}}>Interactive Voice Response (IVR)</h2>
-                    <p style={{margin:0, color:'var(--muted)', fontSize:14}}>Diseñador visual de menús de audio y navegación DTMF.</p>
-                </div>
-                <button 
-                    onClick={() => { setShowModal(true); }}
-                    style={{display:'flex', alignItems:'center', gap:8, background:'var(--accent)', color:'white', border:'none', padding:'10px 20px', borderRadius:10, fontWeight:600, cursor:'pointer', transition:'all 0.2s', boxShadow:'0 4px 12px var(--accent-glow)'}}
-                >
-                    <span className="material-icons-round">add</span> Nuevo IVR
-                </button>
-            </div>
-
-            {loading ? (
-                <div style={{padding:40, textAlign:'center', color:'var(--muted)'}}>
-                    <span className="material-icons-round" style={{animation:'spin 1s linear infinite', fontSize:32}}>sync</span>
-                    <div style={{marginTop:10, fontWeight:600}}>Cargando IVRs...</div>
-                </div>
-            ) : (
-                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:20}}>
-                    {ivrs.map(ivr => (
-                        <div key={ivr.id} className="glass" style={{padding:20, borderRadius:16, border:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:10}}>
-                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
-                                <div style={{display:'flex', alignItems:'center', gap:12}}>
-                                    <div style={{width:40, height:40, borderRadius:10, background:'rgba(139,92,246,0.15)', color:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                                        <span className="material-icons-round">account_tree</span>
-                                    </div>
-                                    <div>
-                                        <div style={{fontSize:16, fontWeight:700}}>{ivr.name}</div>
-                                        <div style={{fontSize:12, color:'var(--muted)', display:'flex', alignItems:'center', gap:4}}>
-                                            <span className="material-icons-round" style={{fontSize:12}}>schedule</span> {ivr.timeout}s timeout
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style={{display:'flex', gap:4}}>
-                                    <button style={{background:'transparent', border:'none', color:'var(--text)', cursor:'pointer', padding:4, opacity:0.6}} title="Editar">
-                                        <span className="material-icons-round" style={{fontSize:18}}>edit</span>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div style={{marginTop:10, padding:10, background:'var(--surface2)', borderRadius:8, fontSize:13, display:'flex', alignItems:'center', gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:16, color:'#4ade80'}}>play_circle</span>
-                                <span style={{color:'var(--muted)'}}>Audio:</span> <span style={{fontWeight:500}}>{ivr.announcement}</span>
-                            </div>
-                            
-                            <button style={{marginTop:5, background:'transparent', border:'1px solid var(--border)', color:'var(--text)', padding:'8px', borderRadius:8, fontWeight:600, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6}}>
-                                <span className="material-icons-round" style={{fontSize:16}}>settings</span> Configurar Nodos
-                            </button>
-                        </div>
-                    ))}
-                    
-                    {ivrs.length === 0 && (
-                        <div style={{gridColumn:'1/-1', textAlign:'center', padding:40, color:'var(--muted)', background:'var(--surface2)', borderRadius:16, border:'1px dashed var(--border)'}}>
-                            <span className="material-icons-round" style={{fontSize:48, opacity:0.5, marginBottom:10}}>account_tree</span>
-                            <h3 style={{fontSize:18, fontWeight:700, margin:0}}>No hay IVRs configurados</h3>
-                            <p style={{fontSize:14, marginTop:4}}>Crea tu primer menú interactivo para guiar a los clientes que llaman.</p>
-                        </div>
-                    )}
-                </div>
-            )}
-            
-            {showModal && (
-                <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <div className="glass anim-fadeup" style={{width:400, padding:24, borderRadius:20, border:'1px solid var(--border)', position:'relative'}}>
-                        <button onClick={()=>setShowModal(false)} style={{position:'absolute', top:16, right:16, background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer'}}>
-                            <span className="material-icons-round">close</span>
-                        </button>
-                        <h3 style={{margin:'0 0 20px 0', fontSize:20, fontWeight:700}}>Crear nuevo IVR</h3>
-                        
-                        <div style={{marginBottom:16}}>
-                            <label style={{display:'block', fontSize:13, fontWeight:600, marginBottom:8, color:'var(--muted)'}}>Nombre del Menú</label>
-                            <input type="text" placeholder="Ej. Menú Principal" style={{width:'100%', padding:'12px 14px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:10, color:'var(--text)', outline:'none'}} />
-                        </div>
-                        
-                        <div style={{marginBottom:16}}>
-                            <label style={{display:'block', fontSize:13, fontWeight:600, marginBottom:8, color:'var(--muted)'}}>Audio de Bienvenida</label>
-                            <select style={{width:'100%', padding:'12px 14px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:10, color:'var(--text)', outline:'none', appearance:'none'}}>
-                                <option>Seleccionar audio cargado...</option>
-                                <option>greeting.wav</option>
-                            </select>
-                        </div>
-                        
-                        <div style={{display:'flex', gap:10, marginTop:24}}>
-                            <button onClick={()=>setShowModal(false)} style={{flex:1, padding:'12px', background:'var(--surface2)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, fontWeight:600, cursor:'pointer'}}>Cancelar</button>
-                            <button onClick={()=>setShowModal(false)} style={{flex:1, padding:'12px', background:'var(--accent)', border:'none', color:'white', borderRadius:10, fontWeight:600, cursor:'pointer'}}>Guardar IVR</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+        <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
+            <iframe 
+                src="ivr-designer.html" 
+                style={{width:'100%', height:'100%', border:'none', flex: 1}} 
+                title="Visual IVR Designer"
+            />
         </div>
     );
 }

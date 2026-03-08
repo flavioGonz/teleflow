@@ -1,0 +1,130 @@
+function ViewIVR({ toast }) {
+    return (
+        <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
+            <iframe 
+                src="ivr-designer.html" 
+                style={{width:'100%', height:'100%', border:'none', flex: 1}} 
+                title="Visual IVR Designer"
+            />
+        </div>
+    );
+}
+
+// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// VISTA: CONFIGURACI├ôN ÔÇö Debug SIP Profesional
+// ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+const SIP_PARSERS = [
+    { re: /\bREGISTER\b/,   color:'#60a5fa', label:'REGISTER',  icon:'login' },
+    { re: /\b200 OK\b/,     color:'#4ade80', label:'200 OK',    icon:'check_circle' },
+    { re: /\b401 Unauthorized\b/i, color:'#fb923c', label:'401 AUTH', icon:'lock' },
+    { re: /\b403 Forbidden\b/i,    color:'#f87171', label:'403 FORBID', icon:'block' },
+    { re: /\b404 Not Found\b/i,    color:'#9ca3af', label:'404 NOTFOUND',icon:'search_off' },
+    { re: /\b408\b/,        color:'#fb923c', label:'408 TIMEOUT', icon:'timer_off' },
+    { re: /\b5\d\d\b/,      color:'#f87171', label:'5xx ERROR',  icon:'error' },
+    { re: /Received\s+SIP/i, color:'#a78bfa', label:'SIP RX',   icon:'arrow_downward' },
+    { re: /Sending\s+SIP/i,  color:'#34d399', label:'SIP TX',   icon:'arrow_upward' },
+    { re: /\bINVITE\b/,     color:'#f59e0b', label:'INVITE',   icon:'phone_forwarded' },
+    { re: /\bBYE\b/,        color:'#f87171', label:'BYE',      icon:'call_end' },
+    { re: /\bACK\b/,        color:'#6ee7b7', label:'ACK',      icon:'done' },
+    { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
+    { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
+    { re: /is ringing/i,     color:'#f59e0b', label:'SONANDO',    icon:'notifications_active' },
+    { re: /answered/i,       color:'#22c55e', label:'CONTESTADA', icon:'call' },
+    { re: /is now Unreachable/i, color:'#ef4444', label:'OFFLINE',    icon:'link_off' },
+    { re: /is now Reachable/i,   color:'#22c55e', label:'ONLINE',     icon:'link' },
+    { re: /is now Lagged/i,      color:'#f59e0b', label:'LAGGED',     icon:'timer' },
+    { re: /\bWARNING\b/i,   color:'#eab308', label:'WARNING',  icon:'warning' },
+    { re: /\bERROR\b/i,     color:'#ef4444', label:'ERROR',    icon:'error_outline' },
+    { re: /\bCRITICAL\b/i,  color:'#dc2626', label:'CRITICAL', icon:'gavel' },
+    { re: /\bNOTICE\b/i,    color:'#3b82f6', label:'NOTICE',   icon:'info' },
+    { re: /PJSIP.*error/i,   color:'#f87171', label:'PJSIP ERR', icon:'warning' },
+    { re: /Endpoint.*loaded/i, color:'#4ade80', label:'EP LOADED', icon:'power' },
+    { re: /Unable to find/i, color:'#fb923c', label:'NOT FOUND', icon:'search_off' },
+];
+
+function parseLogLine(line) {
+    for (const p of SIP_PARSERS) {
+        if (p.re.test(line)) return p;
+    }
+    return { color: '#6b7280', label: 'LOG', icon: 'terminal' };
+}
+
+function SIPLogLine({ line, idx }) {
+    const [open, setOpen] = useState(false);
+    const parsed = parseLogLine(line);
+    // Extract timestamp if present
+    const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/);
+    const ts = tsMatch?.[1] || '';
+    
+    // Extract extension (e.g. from 1001, sip:1001@, Endpoint 1001)
+    const extMatch = line.match(/(?:from|to|contact|endpoint|sip:|from:\s*<sip:)[^\d]*(\d{3,5})(?:@|>|\s|,)/i);
+    const extChip = extMatch ? extMatch[1] : null;
+
+    const content = line.replace(tsMatch?.[0]||'', '').trim();
+
+    return (
+        <div
+            onClick={() => setOpen(o => !o)}
+            style={{
+                display:'flex', alignItems:'flex-start', gap:10,
+                padding:'8px 12px', borderRadius:10, cursor:'pointer',
+                background: open ? 'rgba(139,92,246,0.06)' : 'transparent',
+                borderLeft:`3px solid ${parsed.color}`,
+                marginBottom:2,
+                transition:'background .15s'
+            }}
+        >
+            <span className="material-icons-round" style={{fontSize:15, color:parsed.color, flexShrink:0, marginTop:1}}>{parsed.icon}</span>
+            <div style={{flex:1, minWidth:0}}>
+                <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                    <span style={{
+                        fontSize:9, fontWeight:800, letterSpacing:'.1em',
+                        color: parsed.color,
+                        background: `${parsed.color}18`,
+                        border:`1px solid ${parsed.color}30`,
+                        padding:'1px 7px', borderRadius:6,
+                        textTransform:'uppercase', flexShrink:0
+                    }}>{parsed.label}</span>
+                    
+                    {extChip && (
+                        <span style={{
+                            fontSize:10, fontWeight:700, color:'#c4b5fd',
+                            background: 'rgba(139,92,246,0.15)',
+                            border:'1px solid rgba(139,92,246,0.3)',
+                            padding:'1px 6px', borderRadius:6,
+                            display:'flex', alignItems:'center', gap:3, flexShrink:0
+                        }}>
+                            <span className="material-icons-round" style={{fontSize:12}}>person</span>
+                            {extChip}
+                        </span>
+                    )}
+
+                    {ts && <span style={{fontSize:9, color:'#6b7280', fontFamily:'monospace', flexShrink:0}}>{ts}</span>}
+                    <span style={{
+                        fontSize:11, color: open ? '#e5e7eb' : '#9ca3af',
+                        fontFamily: '"Fira Code", "Courier New", monospace',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace: open?'pre-wrap':'nowrap',
+                        lineHeight:'1.5'
+                    }}>{content}</span>
+                </div>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:8, flexShrink:0}}>
+                <span 
+                    className="material-icons-round" 
+                    style={{fontSize:15, color:'#6b7280', cursor:'pointer', padding:4, borderRadius:6}}
+                    onClick={(e)=>{
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(line);
+                    }}
+                    title="Copiar log"
+                    onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                >
+                    content_copy
+                </span>
+                <span className="material-icons-round" style={{fontSize:18, color:'#374151', transform:open?'rotate(180deg)':'', transition:'transform .2s'}}>expand_more</span>
+            </div>
+        </div>
+    );
+}
+
