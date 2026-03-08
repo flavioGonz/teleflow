@@ -2790,6 +2790,20 @@ function ViewReportes({ toast }) {
                         <div style={{flex:1,position:'relative',minHeight:0}}>
                             <canvas ref={chartRef} />
                         </div>
+                    </div>
+
+                    {/* Tops */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}} className="anim-fadeup-3">
+                        <div className="glass" style={{padding:24}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span> Top Orígenes Activos
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                {stats.origins?.map((o,i)=>(
+                                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                            <div style={{width:24,height:24,borderRadius:6,background:'rgba(139,92,246,0.1)',color:'#c4b5fd',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800}}>{i+1}</div>
+                                            <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{o.src}</span>
                                         </div>
                                         <div style={{fontSize:12,fontWeight:800,color:'#4ade80'}}>{o.count} calls</div>
                                     </div>
