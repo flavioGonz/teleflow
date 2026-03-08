@@ -3010,8 +3010,11 @@ const NodeMenu = ({ data, selected }) => {
             <div style={{display:'flex', flexDirection:'column', gap:8, position:'relative'}}>
                 {(data.options || []).map(opt => (
                     <div key={opt.digit} style={{display:'flex', alignItems:'center', padding:8, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, position:'relative'}}>
-                        <div style={{width:24, height:24, background:'var(--bg)', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'var(--text)', marginRight:12}}>{opt.digit}</div>
-                        <div style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{opt.label}</div>
+                        <div style={{width:24, height:24, background:'var(--bg)', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'var(--text)', marginRight:10, flexShrink:0}}>{opt.digit}</div>
+                        <div style={{display:'flex', flexDirection:'column'}}>
+                            <div style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{opt.label}</div>
+                            {opt.destination && <div style={{fontSize:10, color:'var(--muted)', marginTop:2, fontWeight:600}}>&rarr; {opt.destination}</div>}
+                        </div>
                         {Handle && <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-20, top:'50%', width:12, height:12, background:'var(--surface)', border:'1px solid var(--border)'}} />}
                     </div>
                 ))}
@@ -3127,7 +3130,7 @@ function IVRDesignerApp({ toast }) {
     return (
         <div style={{display:'flex', height:'100%', width:'100%', flexDirection:'row', fontFamily:'var(--sans)'}}>
             {/* Sidebar Tools */}
-            <div className="glass" style={{width: 260, borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, borderRadius:0}}>
+            <div className="glass" style={{width: 260, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, borderRadius:0, order: 2}}>
                 <div style={{padding:20, borderBottom:'1px solid var(--border)'}}>
                     <h3 style={{fontSize:11, fontWeight:900, color:'var(--muted)', letterSpacing:2, textTransform:'uppercase'}}>Librería de Nodos</h3>
                     <p style={{fontSize:12, color:'var(--muted)', marginTop:4}}>Arrastra al lienzo para crear lógica</p>
@@ -3158,7 +3161,7 @@ function IVRDesignerApp({ toast }) {
             </div>
 
             {/* Diagram */}
-            <div style={{flex: 1, position:'relative'}} ref={reactFlowWrapper}>
+            <div style={{flex: 1, position:'relative', order: 1}} ref={reactFlowWrapper}>
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}
@@ -3207,7 +3210,7 @@ function IVRDesignerApp({ toast }) {
 
             {/* Properties Panel */}
             {selectedNode && (
-                <div className="glass" style={{width: 320, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, animation:'viewIn 0.3s ease', borderRadius:0}}>
+                <div className="glass" style={{width: 320, borderLeft:'1px solid var(--border)', display:'flex', flexDirection:'column', zIndex:10, animation:'viewIn 0.3s ease', borderRadius:0, order: 3}}>
                     <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                         <div>
                             <h3 style={{fontSize:16, fontWeight:800, color:'var(--text)'}}>Propiedades</h3>
@@ -3240,22 +3243,41 @@ function IVRDesignerApp({ toast }) {
                                     </div>
                                     <div style={{display:'flex', flexDirection:'column', gap:8}}>
                                         {(selectedNode.data.options||[]).map((opt, i) => (
-                                            <div key={i} style={{display:'flex', gap:8, alignItems:'center'}}>
-                                                <input type="text" value={opt.digit} onChange={e=>{
+                                            <div key={i} style={{display:'flex', flexDirection:'column', gap:6, background:'var(--surface)', padding:10, borderRadius:8, border:'1px solid var(--border)'}}>
+                                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                                    <input type="text" placeholder="Dígito" value={opt.digit} onChange={e=>{
+                                                        const o = [...selectedNode.data.options];
+                                                        o[i].digit = e.target.value;
+                                                        updateNodeData('options', o);
+                                                    }} style={{width:40, padding:'8px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', textAlign:'center', outline:'none', fontSize:12, fontWeight:800}} />
+                                                    <input type="text" placeholder="Ej. Ventas" value={opt.label} onChange={e=>{
+                                                        const o = [...selectedNode.data.options];
+                                                        o[i].label = e.target.value;
+                                                        updateNodeData('options', o);
+                                                    }} style={{flex:1, padding:'8px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', outline:'none', fontSize:12}} />
+                                                    <button onClick={()=>{
+                                                        const o = [...selectedNode.data.options];
+                                                        o.splice(i, 1);
+                                                        updateNodeData('options', o);
+                                                    }} style={{background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:16}}>close</span></button>
+                                                </div>
+                                                <select value={opt.destination||''} onChange={e=>{
                                                     const o = [...selectedNode.data.options];
-                                                    o[i].digit = e.target.value;
+                                                    o[i].destination = e.target.value;
                                                     updateNodeData('options', o);
-                                                }} style={{width:40, padding:'8px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', textAlign:'center', outline:'none', fontSize:12, fontWeight:800}} />
-                                                <input type="text" value={opt.label} onChange={e=>{
-                                                    const o = [...selectedNode.data.options];
-                                                    o[i].label = e.target.value;
-                                                    updateNodeData('options', o);
-                                                }} style={{flex:1, padding:'8px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', outline:'none', fontSize:12}} />
-                                                <button onClick={()=>{
-                                                    const o = [...selectedNode.data.options];
-                                                    o.splice(i, 1);
-                                                    updateNodeData('options', o);
-                                                }} style={{background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:16}}>close</span></button>
+                                                }} style={{width:'100%', padding:'8px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, color:'var(--text)', outline:'none', fontSize:12}}>
+                                                    <option value="">-- Destino (Dibujar o Seleccionar) --</option>
+                                                    <optgroup label="Extensiones">
+                                                        {ivrData.extensions.map(e=><option key={`e${e.ext}`} value={`Ext: ${e.ext}`}>{e.ext} - {e.name}</option>)}
+                                                    </optgroup>
+                                                    <optgroup label="Colas">
+                                                        {ivrData.queues.map(q=><option key={`q${q.ext}`} value={`Cola: ${q.ext}`}>{q.name}</option>)}
+                                                    </optgroup>
+                                                    <optgroup label="Grupos">
+                                                        {ivrData.ringgroups.map(r=><option key={`r${r.ext}`} value={`Grupo: ${r.ext}`}>{r.name}</option>)}
+                                                    </optgroup>
+                                                    <option value="Colgar Llamada">Colgar Llamada</option>
+                                                </select>
                                             </div>
                                         ))}
                                     </div>
