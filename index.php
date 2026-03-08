@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0a0a0f">
-    <title>TeleFlow · Next-Gen PBX Control</title>
+    <title>TeleFlow Â· Next-Gen PBX Control</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📞</text></svg>'>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">ðŸ“ž</text></svg>'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script>
@@ -91,7 +91,7 @@
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; transition: background 0.4s ease, color 0.4s ease; }
         .theme-transition * { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease !important; }
         
-        /* ── CONTEXT MENU ── */
+        /* â”€â”€ CONTEXT MENU â”€â”€ */
         .context-menu {
             position: absolute;
             bottom: 70px;
@@ -120,7 +120,7 @@
         .context-menu-item:hover { background: rgba(139,92,246,0.1); color: var(--text); }
         .context-menu-item.danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
 
-        /* ── LOGIN ── */
+        /* â”€â”€ LOGIN â”€â”€ */
         .login-bg {
             background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.25) 0%, transparent 70%),
                         radial-gradient(ellipse 50% 40% at 80% 80%, rgba(109,40,217,0.15) 0%, transparent 60%),
@@ -152,7 +152,7 @@
         .anim-fadeup-2 { animation: fadeUp 0.7s ease 0.15s both; }
         .anim-fadeup-3 { animation: fadeUp 0.7s ease 0.3s both; }
         
-        /* ── NOTIFICATIONS SILEO ── */
+        /* â”€â”€ NOTIFICATIONS SILEO â”€â”€ */
         @keyframes slideInRight {
             from { opacity: 0; transform: translateX(100px) scale(0.9); }
             to { opacity: 1; transform: translateX(0) scale(1); }
@@ -213,7 +213,7 @@
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(139,92,246,0.45); }
         .btn-primary::after { content:''; position:absolute; inset:0; background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent); }
 
-        /* ── LAYOUT ── */
+        /* â”€â”€ LAYOUT â”€â”€ */
         #app { display:flex; height:100vh; }
         .sidebar {
             width: var(--sidebar-w);
@@ -265,7 +265,7 @@
             flex-shrink: 0;
         }
 
-        /* ── RESPONSIVE / PWA ── */
+        /* â”€â”€ RESPONSIVE / PWA â”€â”€ */
         @media (max-width: 768px) {
             .sidebar {
                 position: fixed;
@@ -285,7 +285,7 @@
             .sidebar-overlay.active { display: block; }
         }
 
-        /* ── MAIN ── */
+        /* â”€â”€ MAIN â”€â”€ */
         .main-content {
             flex: 1;
             overflow-y: auto;
@@ -310,12 +310,12 @@
         }
         .content-area { padding: 24px 28px; flex: 1; }
 
-        /* ── GLASS CARDS ── */
+        /* â”€â”€ GLASS CARDS â”€â”€ */
         .glass { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
         .glass-hover { transition: border-color .2s, transform .2s, box-shadow .2s; }
         .glass-hover:hover { border-color: rgba(139,92,246,0.35); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(139,92,246,0.1); }
 
-        /* ── STATUS BADGES ── */
+        /* â”€â”€ STATUS BADGES â”€â”€ */
         .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em; }
         .badge-online { background:rgba(34,197,94,0.15); color:#4ade80; }
         .badge-offline { background:rgba(107,114,128,0.15); color:#9ca3af; }
@@ -325,12 +325,12 @@
         .dot-offline { background:#6b7280; }
         .dot-busy { background:var(--yellow); box-shadow:0 0 6px var(--yellow); animation:blink 1s infinite; }
 
-        /* ── STAT CARDS ── */
+        /* â”€â”€ STAT CARDS â”€â”€ */
         .stat-card { padding: 20px; border-radius: 14px; }
         .stat-val { font-size: 32px; font-weight: 800; line-height: 1; margin: 8px 0 4px; }
         .stat-label { font-size: 11px; font-weight: 600; letter-spacing:.1em; text-transform:uppercase; color: var(--muted); }
 
-        /* ── AGENT ROW ── */
+        /* â”€â”€ AGENT ROW â”€â”€ */
         .agent-row {
             display: grid;
             grid-template-columns: 2.5fr 1.2fr 1.2fr 1.5fr 1.5fr;
@@ -351,11 +351,11 @@
             flex-shrink: 0;
         }
 
-        /* ── RECORDING ── */
+        /* â”€â”€ RECORDING â”€â”€ */
         audio { filter: invert(1) hue-rotate(180deg); max-width: 100%; }
         audio::-webkit-media-controls-panel { background: var(--surface2); }
 
-        /* ── LIVE CALL ── */
+        /* â”€â”€ LIVE CALL â”€â”€ */
         .live-call-card {
             background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,40,217,0.05));
             border: 1px solid rgba(139,92,246,.3);
@@ -368,16 +368,16 @@
         }
         .live-indicator { animation: livePulse 1.5s infinite; }
 
-        /* ── SCROLLBAR GLOBAL ── */
+        /* â”€â”€ SCROLLBAR GLOBAL â”€â”€ */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
 
-        /* ── MODAL ── */
+        /* â”€â”€ MODAL â”€â”€ */
         .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(8px); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; }
         .modal-box { background: var(--surface); border: 1px solid rgba(139,92,246,.25); border-radius: 20px; padding: 28px; max-width: 520px; width: 100%; box-shadow: 0 40px 80px rgba(0,0,0,.6); }
 
-        /* ── DRAWER ── */
+        /* â”€â”€ DRAWER â”€â”€ */
         .drawer-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);z-index:300; }
         .drawer {
             position:fixed;right:0;top:0;bottom:0;
@@ -414,25 +414,25 @@
             background:rgba(0,0,0,0.2);
         }
 
-        /* ── LIVE CALL ANIM ── */
+        /* â”€â”€ LIVE CALL ANIM â”€â”€ */
         @keyframes callPulse { 0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)} 70%{box-shadow:0 0 0 12px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
         .live-pulse { animation:callPulse 1.5s ease-out infinite; }
         @keyframes countUp { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
         .call-timer { animation:countUp .3s ease; font-family:monospace; font-weight:800; font-size:20px; color:#f59e0b; }
 
-        /* ── TABLE ── */
+        /* â”€â”€ TABLE â”€â”€ */
         .tf-table { width:100%;border-collapse:collapse; }
         .tf-table th { font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border); }
         .tf-table td { padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text); }
         .tf-table tr:hover td { background:var(--surface2); }
 
-        /* ── CDR COLORS ── */
+        /* â”€â”€ CDR COLORS â”€â”€ */
         .cdr-answered { color:#4ade80; }
         .cdr-noanswer { color:#9ca3af; }
         .cdr-busy { color:#fbbf24; }
         .cdr-failed { color:#f87171; }
 
-        /* ── TOAST ── */
+        /* â”€â”€ TOAST â”€â”€ */
         .toast-container { position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px; }
         @keyframes toastIn { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
         .toast { padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;min-width:260px;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:toastIn .3s ease; }
@@ -448,17 +448,17 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // HELPERS
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 const avatarColors = ['from-violet-500 to-purple-700','from-blue-500 to-cyan-600','from-rose-500 to-red-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-600','from-pink-500 to-fuchsia-600'];
 const getColor = (n) => avatarColors[(n?.charCodeAt(0) || 0) % avatarColors.length];
 const initials = (n='') => n.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // LOGIN
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Login({ onLogin }) {
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
@@ -474,8 +474,8 @@ function Login({ onLogin }) {
             const r = await fetch('api/index.php?action=login', { method:'POST', body:fd });
             const d = await r.json();
             if (d.status === 'success') onLogin(d.user);
-            else setErr('Credenciales incorrectas. Verificá usuario y contraseña.');
-        } catch { setErr('Error de conexión con el servidor.'); }
+            else setErr('Credenciales incorrectas. VerificÃ¡ usuario y contraseÃ±a.');
+        } catch { setErr('Error de conexiÃ³n con el servidor.'); }
         setLoading(false);
     };
 
@@ -485,7 +485,7 @@ function Login({ onLogin }) {
             <div className="login-orb" style={{width:500,height:500,background:'radial-gradient(circle,rgba(139,92,246,0.2),transparent)',top:'-10%',left:'-5%'}} />
             <div className="login-orb" style={{width:400,height:400,background:'radial-gradient(circle,rgba(109,40,217,0.15),transparent)',bottom:'-5%',right:'-5%',animationDelay:'4s'}} />
 
-            {/* Líneas de grid decorativas */}
+            {/* LÃ­neas de grid decorativas */}
             <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(139,92,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,0.03) 1px,transparent 1px)',backgroundSize:'50px 50px',pointerEvents:'none'}} />
 
             <div className="login-card rounded-[32px] p-10 w-full max-w-[420px] relative z-10">
@@ -502,7 +502,7 @@ function Login({ onLogin }) {
                     </div>
 
                     <h1 style={{fontSize:36,fontWeight:900,letterSpacing:-1,color:'white',fontStyle:'italic',marginTop:10}}>TeleFlow</h1>
-                    <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.25em',color:'#6b7280',textTransform:'uppercase',marginTop:4}}>Next-Gen PBX Control · Infratec</p>
+                    <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.25em',color:'#6b7280',textTransform:'uppercase',marginTop:4}}>Next-Gen PBX Control Â· Infratec</p>
                 </div>
 
                 {/* Form */}
@@ -523,7 +523,7 @@ function Login({ onLogin }) {
                         <input
                             className="input-tf py-3.5 pl-11 pr-12 rounded-[14px] text-sm"
                             type={showPass?'text':'password'}
-                            placeholder="Contraseña"
+                            placeholder="ContraseÃ±a"
                             value={pass}
                             onChange={e=>setPass(e.target.value)}
                             required
@@ -550,16 +550,16 @@ function Login({ onLogin }) {
                 </form>
 
                 <p className="anim-fadeup-3" style={{textAlign:'center',marginTop:24,fontSize:11,color:'#374151'}}>
-                    TeleFlow v18 · © Infratec {new Date().getFullYear()}
+                    TeleFlow v18 Â· Â© Infratec {new Date().getFullYear()}
                 </p>
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SILEO TOAST (notificaciones premium)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SID = {success:{bg:'linear-gradient(135deg,#052e16,#14532d)',border:'#166534',ic:'check_circle',color:'#4ade80'},error:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#991b1b',ic:'cancel',color:'#f87171'},warning:{bg:'linear-gradient(135deg,#431407,#7c2d12)',border:'#9a3412',ic:'warning',color:'#fb923c'},info:{bg:'linear-gradient(135deg,#0c1445,#1e1b4b)',border:'#3730a3',ic:'info',color:'#a5b4fc'},call:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#dc2626',ic:'call',color:'#fca5a5'}};
 function Toast({ toasts, remove }) {
     return (
@@ -572,7 +572,7 @@ function Toast({ toasts, remove }) {
                             <span className="material-icons-round" style={{fontSize:20,color:s.color}}>{s.ic}</span>
                         </div>
                         <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{t.type==='call'?'📞 Llamada Entrante':t.type==='success'?'✔ Éxito':t.type==='error'?'✖ Error':t.type==='warning'?'⚡ Aviso':'ℹ Info'}</div>
+                            <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>{t.type==='call'?'ðŸ“ž Llamada Entrante':t.type==='success'?'âœ” Ã‰xito':t.type==='error'?'âœ– Error':t.type==='warning'?'âš¡ Aviso':'â„¹ Info'}</div>
                             <div style={{fontSize:13,color:'rgba(255,255,255,.85)',lineHeight:1.4,wordBreak:'break-word'}}>{t.msg}</div>
                             {t.sub&&<div style={{fontSize:11,color:'rgba(255,255,255,.45)',marginTop:4}}>{t.sub}</div>}
                         </div>
@@ -586,9 +586,9 @@ function Toast({ toasts, remove }) {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SIDEBAR
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkMode, setDarkMode, data, activeCalls }) {
     const [showUserMenu, setShowUserMenu] = useState(false);
     const extsOnline = data?.pbx?.extensions?.filter(e=>e.status==='ONLINE')?.length || 0;
@@ -613,7 +613,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         { id:'ivr', icon:'account_tree', label:'IVR' },
         { section: 'Herramientas' },
         { id:'cdr', icon:'history', label:'CDR' },
-        { id:'configuracion', icon:'settings', label:'Configuración' },
+        { id:'configuracion', icon:'settings', label:'ConfiguraciÃ³n' },
     ];
 
     return (
@@ -680,7 +680,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                     <div className="context-menu" style={{ left: collapsed ? '65px' : '10px', bottom: '60px' }}>
                         <div className="context-menu-title" style={{padding:'8px 12px', fontSize:10, fontWeight:800, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.1em'}}>Cuenta</div>
                         <div className="context-menu-item" onClick={() => { setView('configuracion'); setShowUserMenu(false); }}>
-                            <span className="material-icons-round">settings</span>Configuración
+                            <span className="material-icons-round">settings</span>ConfiguraciÃ³n
                         </div>
                         <div className="context-menu-item" onClick={() => { toggleTheme(); setShowUserMenu(false); }}>
                             <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>Modo {darkMode?'Claro':'Oscuro'}
@@ -690,7 +690,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                         </div>
                         <div style={{height:1, background:'var(--border)', margin:'4px 8px'}} />
                         <div className="context-menu-item danger" onClick={onLogout}>
-                            <span className="material-icons-round">logout</span>Cerrar Sesión
+                            <span className="material-icons-round">logout</span>Cerrar SesiÃ³n
                         </div>
                     </div>
                 )}
@@ -727,9 +727,9 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // COMPONENTE: NOTIFICACIONES SLEEK (SILEO)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /*
 function LiveCallNotifications({ calls, extensions }) {
     const [notifs, setNotifs] = useState([]);
@@ -764,7 +764,7 @@ function LiveCallNotifications({ calls, extensions }) {
                     </div>
                     <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:800,color:'white'}}>{n.name}</div>
-                        <div style={{fontSize:10,color:'#3b82f6',fontWeight:700,letterSpacing:'0.5px'}}>LLAMADA EN VIVO • #{n.ext}</div>
+                        <div style={{fontSize:10,color:'#3b82f6',fontWeight:700,letterSpacing:'0.5px'}}>LLAMADA EN VIVO â€¢ #{n.ext}</div>
                     </div>
                     <div className="call-pulse" style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444'}} />
                 </div>
@@ -774,19 +774,19 @@ function LiveCallNotifications({ calls, extensions }) {
 }
 */
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // COMPONENTE: TOPBAR (PARA REFERENCIA, PERO ELIMINADO DEL LAYOUT)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Topbar({ view, data, onRefresh, setCollapsed }) {
     const titles = { 
         dashboard:'Dashboard General', 
-        extensiones:'Gestión de Ext.', 
+        extensiones:'GestiÃ³n de Ext.', 
         agentes:'Panel Agentes', 
         vivo:'Llamadas en Vivo', 
         colas:'Colas', 
         grabaciones:'Grabaciones', 
         cdr:'CDR / Historial', 
-        configuracion: 'Configuración',
+        configuracion: 'ConfiguraciÃ³n',
         webphone: 'Softphone Cloud'
     };
     const [time, setTime] = useState(new Date());
@@ -804,7 +804,7 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
                 </button>
                 <div>
                    <h2 style={{fontSize:16,fontWeight:800,color:'var(--text)', letterSpacing:'-0.5px'}}>{titles[view]||view}</h2>
-                   <div style={{fontSize:9,color:'#6b7280',marginTop:1,textTransform:'uppercase',fontWeight:800,letterSpacing:'0.05em'}}>{time.toLocaleDateString('es-UY',{day:'numeric',month:'short'})} · {time.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>
+                   <div style={{fontSize:9,color:'#6b7280',marginTop:1,textTransform:'uppercase',fontWeight:800,letterSpacing:'0.05em'}}>{time.toLocaleDateString('es-UY',{day:'numeric',month:'short'})} Â· {time.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div>
                 </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -816,9 +816,9 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: DASHBOARD
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ViewDashboard({ data }) {
     const exts = data?.pbx?.extensions || [];
     const online = exts.filter(e=>e.status==='ONLINE').length;
@@ -911,16 +911,16 @@ function ViewDashboard({ data }) {
                     </div>
                 </div>
 
-                {/* Últimas grabaciones */}
+                {/* Ãšltimas grabaciones */}
                 <div className="glass" style={{padding:'20px'}}>
                     <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
                         <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
-                        Últimas Grabaciones
+                        Ãšltimas Grabaciones
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
                         {recs.slice(0,5).map((r,i)=>(
                             <div key={i} style={{padding:'8px 10px',background:'var(--surface2)',borderRadius:10,border:'1px solid var(--border)'}}>
-                                <div style={{fontSize:11,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
+                                <div style={{fontSize:11,fontWeight:700,color:'white'}}>#{r.src} â†’ {r.dst}</div>
                                 <div style={{fontSize:10,color:'#6b7280',display:'flex',justifyContent:'space-between',marginTop:2}}>
                                     <span>{r.calldate?.substring(0,16)}</span>
                                     <span style={{color:'#c4b5fd'}}>{r.duration}s</span>
@@ -935,15 +935,15 @@ function ViewDashboard({ data }) {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: EXTENSIONES (CRUD + grid/tabla)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // No longer used as a floating drawer - ExtEditPage is now a full-page view
 // ExtDrawer left as dead code for reference, replaced by ExtEditPage below
 
-// ─────────────────────────────────────────────
-// FICHA DEL INTERNO — Página dedicada (no modal)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// FICHA DEL INTERNO â€” PÃ¡gina dedicada (no modal)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '' });
@@ -982,7 +982,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     };
 
     const del = async () => {
-        if(!confirm(`¿Eliminar extensión #${form.ext}?`)) return;
+        if(!confirm(`Â¿Eliminar extensiÃ³n #${form.ext}?`)) return;
         setDeleting(true);
         const fd=new FormData(); fd.append('ext',form.ext);
         const d=await(await fetch('api/index.php?action=delete_extension',{method:'POST',body:fd})).json();
@@ -1017,7 +1017,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     <span style={{cursor:'pointer', fontWeight:600}} onClick={onBack}>Extensiones</span>
                     <span className="material-icons-round" style={{fontSize:14}}>chevron_right</span>
                     <span style={{color:'var(--text)', fontWeight:700}}>
-                        {isNew ? 'Nueva Extensión' : `Interno #${ext.ext}`}
+                        {isNew ? 'Nueva ExtensiÃ³n' : `Interno #${ext.ext}`}
                     </span>
                 </div>
                 <div style={{flex:1}} />
@@ -1041,7 +1041,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
             {/* Main two-column layout */}
             <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:24, alignItems:'start'}}>
 
-                {/* LEFT — Avatar / Info card */}
+                {/* LEFT â€” Avatar / Info card */}
                 <div style={{display:'flex', flexDirection:'column', gap:16}}>
                     {/* Avatar big */}
                     <div className="glass" style={{padding:28, textAlign:'center', borderRadius:20}}>
@@ -1053,7 +1053,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             boxShadow:'0 8px 32px rgba(139,92,246,0.45)'
                         }}>{ini}</div>
                         <div style={{fontSize:18, fontWeight:900, color:'var(--text)'}}>{form.name || 'Sin nombre'}</div>
-                        <div style={{fontFamily:'monospace', fontSize:13, color:'#c4b5fd', fontWeight:700, marginTop:4}}>#{form.ext || '—'}</div>
+                        <div style={{fontFamily:'monospace', fontSize:13, color:'#c4b5fd', fontWeight:700, marginTop:4}}>#{form.ext || 'â€”'}</div>
                         {ext?.status && (
                             <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'center', marginTop:12}}>
                                 <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 8px ${statusColor}`}} />
@@ -1065,12 +1065,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     {/* Network info */}
                     {ext && (
                         <div className="glass" style={{padding:16, borderRadius:16}}>
-                            <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Información de Red</div>
+                            <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>InformaciÃ³n de Red</div>
                             {[
                                 {l:'IP', v: ext.ip, c:'#ec4899'},
                                 {l:'RTT', v: ext.rtt, c:'#c4b5fd'},
                                 {l:'MAC', v: ext.mac, c:'#6b7280'},
-                            ].map(({l,v}) => v && v!=='—' ? (
+                            ].map(({l,v}) => v && v!=='â€”' ? (
                                 <div key={l} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
                                     <span style={{fontSize:11, color:'#6b7280', fontWeight:600}}>{l}</span>
                                     <code style={{fontSize:11, color:'#ec4899', fontFamily:'monospace'}}>{v}</code>
@@ -1088,18 +1088,18 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         }}>
                             <div style={{display:'flex', gap:10, alignItems:'flex-start'}}>
                                 <span className="material-icons-round" style={{fontSize:15, color:'#8b5cf6', marginTop:1}}>info</span>
-                                <span style={{fontSize:11, color:'#a78bfa', lineHeight:1.5}}>Los cambios aplicarán un <b>core reload</b> automático en Asterisk para sincronizar SIP y dialplan.</span>
+                                <span style={{fontSize:11, color:'#a78bfa', lineHeight:1.5}}>Los cambios aplicarÃ¡n un <b>core reload</b> automÃ¡tico en Asterisk para sincronizar SIP y dialplan.</span>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* RIGHT — Form */}
+                {/* RIGHT â€” Form */}
                 <div className="glass" style={{padding:28, borderRadius:20}}>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
                         {/* Ext number */}
                         <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Número de Interno</label>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>NÃºmero de Interno</label>
                             <input
                                 className="input-tf"
                                 style={{padding:'12px 16px', borderRadius:14, fontSize:14, fontWeight:700, width:'100%', boxSizing:'border-box', opacity: isNew ? 1 : 0.7}}
@@ -1115,14 +1115,14 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             <input
                                 className="input-tf"
                                 style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
-                                placeholder="Ej: Juan Pérez"
+                                placeholder="Ej: Juan PÃ©rez"
                                 value={form.name}
                                 onChange={e=>set('name',e.target.value)}
                             />
                         </div>
                         {/* Email */}
                         <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Correo Electrónico</label>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Correo ElectrÃ³nico</label>
                             <input
                                 className="input-tf"
                                 style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
@@ -1134,13 +1134,13 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                         {/* Password */}
                         <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Contraseña SIP (Secret)</label>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>ContraseÃ±a SIP (Secret)</label>
                             <div style={{position:'relative'}}>
                                 <input
                                     className="input-tf"
                                     style={{padding:'12px 48px 12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
                                     type={showPass?'text':'password'}
-                                    placeholder="Mínimo 6 caracteres"
+                                    placeholder="MÃ­nimo 6 caracteres"
                                     value={form.secret}
                                     onChange={e=>set('secret',e.target.value)}
                                 />
@@ -1157,7 +1157,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
                     {/* Recording */}
                     <div style={{marginBottom:20}}>
-                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Grabación de Llamadas</label>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>GrabaciÃ³n de Llamadas</label>
                         <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
                             {recOptions.map(o=>(
                                 <button
@@ -1181,7 +1181,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
                     {/* Device type */}
                     <div style={{marginBottom:28}}>
-                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Tecnología de Dispositivo</label>
+                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>TecnologÃ­a de Dispositivo</label>
                         <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
                             {devOptions.map(o=>(
                                 <button
@@ -1251,7 +1251,7 @@ function ViewExtensiones({ data, toast }) {
     const badgeCls = s => s==='ONLINE'?'badge-online':s==='BUSY'?'badge-busy':'badge-offline';
     const dotCls   = s => s==='ONLINE'?'dot-online':s==='BUSY'?'dot-busy':'dot-offline';
 
-    // Si está editando, mostrar página de edición en lugar de la lista
+    // Si estÃ¡ editando, mostrar pÃ¡gina de ediciÃ³n en lugar de la lista
     if (editing) {
         return (
             <ExtEditPage
@@ -1285,7 +1285,7 @@ function ViewExtensiones({ data, toast }) {
             <div style={{display:'flex', gap:10, alignItems:'center', justifyContent:'flex-end', marginBottom:20, flexWrap:'wrap'}}>
                 <div style={{position:'relative', width:280}}>
                     <span className="material-icons-round" style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:17,color:'#6b7280'}}>search</span>
-                    <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
+                    <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensiÃ³n..." value={search} onChange={e=>setSearch(e.target.value)} />
                 </div>
                 
                 {/* Status Chips Filter */}
@@ -1365,9 +1365,9 @@ function ViewExtensiones({ data, toast }) {
 }
 
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: AGENTES (con timer llamada activa + llamante remoto)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AgentCallTimer({ seconds }) {
     const [elapsed, setElapsed] = useState(seconds||0);
     useEffect(()=>{ setElapsed(seconds||0); const t=setInterval(()=>setElapsed(s=>s+1),1000); return()=>clearInterval(t); },[seconds]);
@@ -1409,7 +1409,7 @@ function ViewAgentes() {
 
     return (
         <div className="content-area view-enter">
-            {/* Stats ​*/}
+            {/* Stats â€‹*/}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
                 {[
                     {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors'},
@@ -1478,12 +1478,12 @@ function ViewAgentes() {
                                     ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
                                         <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
                                         <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
-                                            ← {callInfo.dest||callInfo.channel||'—'}
+                                            â† {callInfo.dest||callInfo.channel||'â€”'}
                                         </div>
                                       </div>
                                     : (agent.in_call||0)>0
                                         ? <AgentCallTimer seconds={agent.in_call||0} />
-                                        : <span style={{fontSize:12,color:'#6b7280'}}>—</span>
+                                        : <span style={{fontSize:12,color:'#6b7280'}}>â€”</span>
                                 }
                             </div>
                             <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
@@ -1512,7 +1512,7 @@ function ViewAgentes() {
                             <div style={{display:'flex',gap:12,alignItems:'center'}}>
                                 <div className={`agent-avatar bg-gradient-to-br ${getColor(selected.name)}`} style={{width:48,height:48,borderRadius:12,fontSize:15}}>{initials(selected.name)}</div>
                                 <div>
-                                    <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>#{selected.ext} — {selected.name}</div>
+                                    <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>#{selected.ext} â€” {selected.name}</div>
                                     <span className={`badge ${selected.status==='ONLINE'?'badge-online':selected.status==='BUSY'?'badge-busy':'badge-offline'}`}>
                                         <span className={`badge-dot ${selected.status==='ONLINE'?'dot-online':selected.status==='BUSY'?'dot-busy':'dot-offline'}`} />
                                         {selected.status}
@@ -1531,7 +1531,7 @@ function ViewAgentes() {
                             ].map(({l,v})=>(
                                 <div key={l} style={{background:'var(--surface2)',borderRadius:10,padding:'12px',border:'1px solid var(--border)'}}>
                                     <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:4}}>{l}</div>
-                                    <div style={{fontSize:13,fontWeight:600,color:'#c4b5fd',fontFamily:'monospace'}}>{v||'—'}</div>
+                                    <div style={{fontSize:13,fontWeight:600,color:'#c4b5fd',fontFamily:'monospace'}}>{v||'â€”'}</div>
                                 </div>
                             ))}
                         </div>
@@ -1542,16 +1542,16 @@ function ViewAgentes() {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: VIVO
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ViewVivo({ data }) {
     const calls = (data?.pbx?.calls || []);
     return (
         <div className="content-area">
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
                 <div className="live-indicator" style={{width:10,height:10,borderRadius:'50%',background:'#ef4444',flexShrink:0}} />
-                <span style={{fontSize:13,fontWeight:700,color:'#ef4444'}}>TRANSMISIÓN EN VIVO</span>
+                <span style={{fontSize:13,fontWeight:700,color:'#ef4444'}}>TRANSMISIÃ“N EN VIVO</span>
                 <span style={{fontSize:12,color:'#6b7280'}}>{calls.length} canales activos</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -1568,7 +1568,7 @@ function ViewVivo({ data }) {
                                         <span className="material-icons-round" style={{fontSize:18,color:'#c4b5fd'}}>call</span>
                                     </div>
                                     <div>
-                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>{c.src} → {c.dst}</div>
+                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>{c.src} â†’ {c.dst}</div>
                                         <div style={{fontSize:11,color:'#9ca3af'}}>{c.state || 'Up'}</div>
                                     </div>
                                 </div>
@@ -1582,9 +1582,9 @@ function ViewVivo({ data }) {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: GRABACIONES
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ViewGrabaciones({ data }) {
     const recs = data?.pbx?.recordings || [];
     return (
@@ -1600,7 +1600,7 @@ function ViewGrabaciones({ data }) {
                                         <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd'}}>mic</span>
                                     </div>
                                     <div>
-                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
+                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{r.src} â†’ {r.dst}</div>
                                         <div style={{fontSize:11,color:'#6b7280'}}>{r.calldate?.substring(0,16)}</div>
                                     </div>
                                 </div>
@@ -1618,9 +1618,9 @@ function ViewGrabaciones({ data }) {
     );
 }
 
-// ─────────────────────────────────────────────
-// VISTA: CDR — Impresionante con iconos + export CSV
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// VISTA: CDR â€” Impresionante con iconos + export CSV
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DISP_CFG = {
     'ANSWERED': {label:'Contestada',color:'#4ade80',bg:'rgba(34,197,94,0.12)',border:'rgba(34,197,94,0.25)',icon:'call'},
     'NO ANSWER': {label:'Sin Respuesta',color:'#9ca3af',bg:'rgba(107,114,128,0.12)',border:'rgba(107,114,128,0.25)',icon:'phone_missed'},
@@ -1651,19 +1651,19 @@ function ViewCDR() {
     useEffect(()=>{ load(); },[]);
 
     const fmtSec = s => {
-        if(!s||s===0) return '—';
+        if(!s||s===0) return 'â€”';
         const m=Math.floor(s/60), ss=s%60;
         return m>0?`${m}m ${String(ss).padStart(2,'0')}s`:`${ss}s`;
     };
     const fmtDate = d => {
-        if(!d) return '—';
+        if(!d) return 'â€”';
         const dt=new Date(d);
         return dt.toLocaleString('es-UY',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     };
 
     const exportCSV = () => {
         if(!rows.length) return;
-        const cols=['Fecha','CID','Origen','Destino','Dur. Total','Dur. Facturada','Estado','Grabación'];
+        const cols=['Fecha','CID','Origen','Destino','Dur. Total','Dur. Facturada','Estado','GrabaciÃ³n'];
         const lines=[cols.join(';'),...rows.map(r=>[r.calldate,r.clid,r.src,r.dst,r.duration,r.billsec,r.disposition,r.recordingfile||''].join(';'))];
         const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
         const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -1710,7 +1710,7 @@ function ViewCDR() {
                     </div>
                     <div style={{position:'relative',flex:1,minWidth:120}}>
                         <span className="material-icons-round" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#6b7280'}}>search</span>
-                        <input className="input-tf py-1.5 pl-8 pr-3 rounded-lg text-xs" placeholder="Número origen/destino..." value={src} onChange={e=>setSrc(e.target.value)} />
+                        <input className="input-tf py-1.5 pl-8 pr-3 rounded-lg text-xs" placeholder="NÃºmero origen/destino..." value={src} onChange={e=>setSrc(e.target.value)} />
                     </div>
                     <select className="input-tf py-1.5 px-3 rounded-lg text-xs" value={disp} onChange={e=>setDisp(e.target.value)} style={{width:150}}>
                         <option value="">Todos los estados</option>
@@ -1739,9 +1739,9 @@ function ViewCDR() {
                             <th style={{padding:'12px 16px'}}><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>schedule</span>Fecha y Hora</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_made</span>Origen</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_received</span>Destino</th>
-                            <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>timer</span>Duración</th>
+                            <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>timer</span>DuraciÃ³n</th>
                             <th>Estado</th>
-                            <th>Grabación</th>
+                            <th>GrabaciÃ³n</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1788,9 +1788,9 @@ function ViewCDR() {
                                             {r.recordingfile
                                                 ?<div style={{display:'flex',alignItems:'center',gap:6}}>
                                                     <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
-                                                    <span style={{fontSize:10,color:'#c4b5fd',fontWeight:600}}>Ver ↓</span>
+                                                    <span style={{fontSize:10,color:'#c4b5fd',fontWeight:600}}>Ver â†“</span>
                                                   </div>
-                                                :<span style={{color:'#374151',fontSize:12}}>—</span>
+                                                :<span style={{color:'#374151',fontSize:12}}>â€”</span>
                                             }
                                         </td>
                                     </tr>
@@ -1817,11 +1817,11 @@ function ViewCDR() {
     );
 }
 
-// ─────────────────────────────────────────────
-// VISTA: COLAS (con CRUD + numero + animación activa)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// VISTA: COLAS (con CRUD + numero + animaciÃ³n activa)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const STRAT_OPTS = [
-    {v:'ringall',l:'Timbre simultáneo'},
+    {v:'ringall',l:'Timbre simultÃ¡neo'},
     {v:'rrmemory',l:'Round Robin memoria'},
     {v:'leastrecent',l:'Menos reciente'},
     {v:'fewestcalls',l:'Menos llamadas'},
@@ -1850,7 +1850,7 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
         if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
     };
     const del = async () => {
-        if(!confirm(`¿Eliminar cola ${queue?.id}?`)) return;
+        if(!confirm(`Â¿Eliminar cola ${queue?.id}?`)) return;
         const fd=new FormData();fd.append('extension',queue.id);
         const d=await(await fetch('api/index.php?action=delete_queue',{method:'POST',body:fd})).json();
         if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
@@ -1882,11 +1882,11 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
                     </button>
                 </div>
                 <div className="drawer-body">
-                    <FI label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
-                    <FI label="Nombre descriptivo" k="descr" ph="Soporte Técnico" />
+                    <FI label="NÃºmero de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
+                    <FI label="Nombre descriptivo" k="descr" ph="Soporte TÃ©cnico" />
                     
                     <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Distribución</label>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de DistribuciÃ³n</label>
                         <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
                             {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
                         </select>
@@ -1911,7 +1911,7 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
                             value={form.members} 
                             onChange={e=>set('members',e.target.value)}
                         />
-                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Miembros estáticos que recibirán llamadas de esta cola.</div>
+                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Miembros estÃ¡ticos que recibirÃ¡n llamadas de esta cola.</div>
                     </div>
                 </div>
                 <div className="drawer-footer" style={{display:'flex', gap:10}}>
@@ -1933,7 +1933,7 @@ function ViewColas({ toast }) {
         try{const d=await(await fetch('api/index.php?action=get_queues')).json();if(d.success)setQueues(d.queues);}catch{}
     };
     useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
-    const stratLabel={ringall:'Simultáneo',rrmemory:'Round Robin',leastrecent:'Menos reciente',fewestcalls:'Menos llamadas',random:'Aleatorio',linear:'Lineal'};
+    const stratLabel={ringall:'SimultÃ¡neo',rrmemory:'Round Robin',leastrecent:'Menos reciente',fewestcalls:'Menos llamadas',random:'Aleatorio',linear:'Lineal'};
     return(
         <div className="content-area view-enter">
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
@@ -1962,7 +1962,7 @@ function ViewColas({ toast }) {
                                         <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,.3)',fontSize:10,fontWeight:800,color:'#c4b5fd',fontFamily:'monospace'}}>#{q.id}</div>
                                         <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{q.name}</div>
                                     </div>
-                                    <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{stratLabel[q.strategy]||q.strategy} · {q.calls_processed||0} procesadas · {q.timeout}s timeout</div>
+                                    <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{stratLabel[q.strategy]||q.strategy} Â· {q.calls_processed||0} procesadas Â· {q.timeout}s timeout</div>
                                 </div>
                             </div>
                             <div style={{display:'flex',alignItems:'center',gap:16}}>
@@ -1980,7 +1980,7 @@ function ViewColas({ toast }) {
                                 {q.members.map((m,j)=>(
                                     <div key={j} style={{padding:'5px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,display:'flex',alignItems:'center',gap:6,fontWeight:600}}>
                                         <span style={{width:7,height:7,borderRadius:'50%',background:m.status&&m.status.includes('use')?'#f59e0b':'#22c55e',flexShrink:0}} />
-                                        #{m.ext} {m.name&&<span style={{color:'#6b7280',fontWeight:400}}>· {m.name}</span>}
+                                        #{m.ext} {m.name&&<span style={{color:'#6b7280',fontWeight:400}}>Â· {m.name}</span>}
                                     </div>
                                 ))}
                             </div>
@@ -1993,19 +1993,19 @@ function ViewColas({ toast }) {
     );
 }
 
-// ─────────────────────────────────────────────
-// VISTA: GRUPOS DE TIMBRADO (con CRUD + numero + animación)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// VISTA: GRUPOS DE TIMBRADO (con CRUD + numero + animaciÃ³n)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const RG_STRATEGIES = [
-    {v:'ringall',l:'Timbre simultáneo'},
+    {v:'ringall',l:'Timbre simultÃ¡neo'},
     {v:'hunt',l:'Secuencial (Hunt)'},
     {v:'memoryhunt',l:'Memoria secuencial'},
     {v:'firstavailable',l:'Primero disponible'},
 ];
 
-// ─────────────────────────────────────────────
-// FICHA DEL GRUPO — Página dedicada (mismo estilo que ExtEditPage)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// FICHA DEL GRUPO â€” PÃ¡gina dedicada (mismo estilo que ExtEditPage)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
     const isNew = !group;
     const [form, setForm] = useState({
@@ -2048,7 +2048,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
     };
 
     const del = async () => {
-        if (!confirm(`¿Eliminar grupo ${group?.grpnum}?`)) return;
+        if (!confirm(`Â¿Eliminar grupo ${group?.grpnum}?`)) return;
         setDeleting(true);
         const fd = new FormData(); fd.append('grpnum', group.grpnum);
         const d = await(await fetch('api/index.php?action=delete_ring_group',{method:'POST',body:fd})).json();
@@ -2057,9 +2057,9 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
     };
 
     const STRATEGIES = [
-        {v:'ringall',    l:'Timbre Simultáneo', i:'ring_volume',     c:'#22c55e', desc:'Todos timbran a la vez'},
+        {v:'ringall',    l:'Timbre SimultÃ¡neo', i:'ring_volume',     c:'#22c55e', desc:'Todos timbran a la vez'},
         {v:'hunt',       l:'Secuencial',         i:'trending_flat',  c:'#60a5fa', desc:'De a uno, en orden'},
-        {v:'memoryhunt', l:'Mem. Secuencial',    i:'memory',         c:'#a78bfa', desc:'Recuerda donde quedó'},
+        {v:'memoryhunt', l:'Mem. Secuencial',    i:'memory',         c:'#a78bfa', desc:'Recuerda donde quedÃ³'},
         {v:'firstavailable', l:'1ro Disponible', i:'bolt',           c:'#f59e0b', desc:'El primero que conteste'},
     ];
 
@@ -2081,7 +2081,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                     <span style={{cursor:'pointer',fontWeight:600}} onClick={onBack}>Grupos de Timbrado</span>
                     <span className="material-icons-round" style={{fontSize:14}}>chevron_right</span>
                     <span style={{color:'var(--text)', fontWeight:700}}>
-                        {isNew ? 'Nuevo Grupo' : `Grupo #${group.grpnum} — ${group.description}`}
+                        {isNew ? 'Nuevo Grupo' : `Grupo #${group.grpnum} â€” ${group.description}`}
                     </span>
                 </div>
                 <div style={{flex:1}} />
@@ -2100,7 +2100,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
             {/* Two-column layout */}
             <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:24, alignItems:'start'}}>
 
-                {/* LEFT — Group info card */}
+                {/* LEFT â€” Group info card */}
                 <div style={{display:'flex', flexDirection:'column', gap:16}}>
                     {/* Group avatar */}
                     <div className="glass" style={{padding:28, textAlign:'center', borderRadius:20, position:'relative', overflow:'hidden'}}>
@@ -2117,7 +2117,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                             <span className="material-icons-round" style={{fontSize:40}}>ring_volume</span>
                         </div>
                         <div style={{fontSize:18, fontWeight:900, color:'var(--text)'}}>{form.description || 'Sin nombre'}</div>
-                        <div style={{fontFamily:'monospace', fontSize:13, color:'#60a5fa', fontWeight:700, marginTop:4}}>Grupo #{form.grpnum || '—'}</div>
+                        <div style={{fontFamily:'monospace', fontSize:13, color:'#60a5fa', fontWeight:700, marginTop:4}}>Grupo #{form.grpnum || 'â€”'}</div>
                         {isGroupActive && (
                             <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'center', marginTop:12}}>
                                 <span style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',boxShadow:'0 0 8px #ef4444',animation:'blink 1s infinite'}} />
@@ -2128,7 +2128,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
 
                     {/* Stats */}
                     <div className="glass" style={{padding:16, borderRadius:16}}>
-                        <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Estadísticas</div>
+                        <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>EstadÃ­sticas</div>
                         {[
                             {l:'Miembros',      v: members.length,           c:'#60a5fa'},
                             {l:'Tiempo timbre', v: `${form.grptime}s`,       c:'#c4b5fd'},
@@ -2168,12 +2168,12 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                     )}
                 </div>
 
-                {/* RIGHT — Form */}
+                {/* RIGHT â€” Form */}
                 <div className="glass" style={{padding:28, borderRadius:20}}>
                     {/* Row 1: Number + Description */}
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
                         <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Número del Grupo</label>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>NÃºmero del Grupo</label>
                             <input
                                 className="input-tf"
                                 style={{padding:'12px 16px',borderRadius:14,fontSize:14,fontWeight:700,width:'100%',boxSizing:'border-box',opacity:isNew?1:0.7}}
@@ -2184,11 +2184,11 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                             />
                         </div>
                         <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Nombre o Descripción</label>
+                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Nombre o DescripciÃ³n</label>
                             <input
                                 className="input-tf"
                                 style={{padding:'12px 16px',borderRadius:14,fontSize:14,width:'100%',boxSizing:'border-box'}}
-                                placeholder="Soporte Técnico..."
+                                placeholder="Soporte TÃ©cnico..."
                                 value={form.description}
                                 onChange={e=>set('description',e.target.value)}
                             />
@@ -2252,7 +2252,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                             <input
                                 className="input-tf"
                                 style={{flex:1, padding:'10px 16px', borderRadius:12, fontSize:13}}
-                                placeholder="Agregar extensión (ej: 1001)"
+                                placeholder="Agregar extensiÃ³n (ej: 1001)"
                                 value={memberInput}
                                 onChange={e=>setMemberInput(e.target.value)}
                                 onKeyDown={e=>e.key==='Enter'&&addMember()}
@@ -2299,7 +2299,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                         )}
 
                         <div style={{fontSize:10,color:'#4b5563',marginTop:8,fontWeight:500}}>
-                            También podés editar la lista directamente:
+                            TambiÃ©n podÃ©s editar la lista directamente:
                         </div>
                         <input
                             className="input-tf"
@@ -2343,10 +2343,10 @@ function ViewGrupos({ toast }) {
     };
     useEffect(() => { load(); const t=setInterval(load,5000); return()=>clearInterval(t); }, []);
 
-    const strategyLabel = {ringall:'Simultáneo', hunt:'Secuencial', memoryhunt:'Mem. secuencial', firstavailable:'1ro disponible'};
+    const strategyLabel = {ringall:'SimultÃ¡neo', hunt:'Secuencial', memoryhunt:'Mem. secuencial', firstavailable:'1ro disponible'};
     const isGroupActive = (g) => g.members?.some(m => activeCalls.some(c => c.ext === m));
 
-    // Si está editando, mostrar página dedicada
+    // Si estÃ¡ editando, mostrar pÃ¡gina dedicada
     if (editing) {
         return (
             <GroupEditPage
@@ -2395,7 +2395,7 @@ function ViewGrupos({ toast }) {
                                         <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
                                         <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
                                     </div>
-                                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s · {g.members?.length||0} miembros</div>
+                                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} Â· {g.grptime}s Â· {g.members?.length||0} miembros</div>
                                 </div>
                                 <span className="material-icons-round" style={{fontSize:18, color:'#4b5563'}}>chevron_right</span>
                             </div>
@@ -2419,12 +2419,12 @@ function ViewGrupos({ toast }) {
 }
 
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // COMPONENTE: LIVE CALL CARD
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // COMPONENTE: LIVE CALL CARD (PREMIUM DESIGN)
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function LiveCallCard({ call, data, supervisorExt, toast }) {
     const [actionLoading, setActionLoading] = React.useState(null);
     
@@ -2434,7 +2434,7 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
 
     const handleAction = async (type) => {
         if (type !== 'hangup' && !supervisorExt) {
-            toast('Primero configura tu extensión de supervisor en la parte superior', 'error');
+            toast('Primero configura tu extensiÃ³n de supervisor en la parte superior', 'error');
             return;
         }
         setActionLoading(type);
@@ -2447,9 +2447,9 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
             const r = await fetch('api/index.php?action=call_action', { method: 'POST', body: fd });
             const d = await r.json();
             if (d.success) toast(d.message, 'success');
-            else toast(d.error || 'Error en la acción', 'error');
+            else toast(d.error || 'Error en la acciÃ³n', 'error');
         } catch (e) {
-            toast('Error de conexión', 'error');
+            toast('Error de conexiÃ³n', 'error');
         }
         setActionLoading(null);
     };
@@ -2494,16 +2494,16 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
                     <div className="hidden lg:flex items-center gap-8">
                         <div className="flex flex-col">
                             <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Codec</span>
-                            <span className="text-sm font-medium text-gray-300">{call.tech?.codec || '—'}</span>
+                            <span className="text-sm font-medium text-gray-300">{call.tech?.codec || 'â€”'}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Tx RTT</span>
-                            <span className="text-sm font-medium text-gray-300">{call.tech?.tx_rtt || '—'}</span>
+                            <span className="text-sm font-medium text-gray-300">{call.tech?.tx_rtt || 'â€”'}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-0.5">Rx Loss</span>
                             <span className={`text-sm font-medium ${parseFloat(call.tech?.rx_loss)>1?'text-brand-warning':'text-gray-300'}`}>
-                                {call.tech?.rx_loss || '—'}
+                                {call.tech?.rx_loss || 'â€”'}
                             </span>
                         </div>
                         <div className="flex flex-col">
@@ -2521,7 +2521,7 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
                         <div className="text-2xl font-mono font-black text-yellow-500" style={{ letterSpacing: '-0.05em' }}>
                             {call.duration}
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">DURACIÓN</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">DURACIÃ“N</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -2593,11 +2593,11 @@ function ViewVivo2({ data, toast }) {
             const r = await fetch('api/index.php?action=get_active_calls');
             const d = await r.json();
             if (d.success) {
-                // Notificación si hay nuevas llamadas
+                // NotificaciÃ³n si hay nuevas llamadas
                 const newC = d.calls.filter(c => !prev.find(p => p.channel === c.channel));
                 newC.forEach(c => {
                     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({ type: 'NOTIFY', title: '📞 Llamada Entrante', body: `${c.ext} → ${c.dest}`, tag: 'call-' + c.channel });
+                        navigator.serviceWorker.controller.postMessage({ type: 'NOTIFY', title: 'ðŸ“ž Llamada Entrante', body: `${c.ext} â†’ ${c.dest}`, tag: 'call-' + c.channel });
                     }
                 });
                 setPrev(d.calls);
@@ -2625,7 +2625,7 @@ function ViewVivo2({ data, toast }) {
 
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1.5">MI EXTENSIÓN (SUPERVISOR)</span>
+                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1.5">MI EXTENSIÃ“N (SUPERVISOR)</span>
                         <div className="relative">
                             <input 
                                 type="text" 
@@ -2676,16 +2676,16 @@ function ViewVivo2({ data, toast }) {
                     </div>
                 </div>
                 <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    PJSIP REAL-TIME STREAM · AUTO-REFRESH 2.5S
+                    PJSIP REAL-TIME STREAM Â· AUTO-REFRESH 2.5S
                 </div>
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // VISTA: REPORTES AVANZADOS
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ViewReportes({ toast }) {
     const d=new Date(); d.setDate(d.getDate()-7);
     const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
@@ -2759,8 +2759,8 @@ function ViewReportes({ toast }) {
             {/* Header + Filtros */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,flexWrap:'wrap',gap:16}}>
                 <div>
-                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Reportes Analíticos</h2>
-                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Métricas y gráficas de la actividad de llamadas</p>
+                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Reportes AnalÃ­ticos</h2>
+                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>MÃ©tricas y grÃ¡ficas de la actividad de llamadas</p>
                 </div>
                 <div className="glass" style={{display:'flex',alignItems:'center',gap:10,padding:'8px 16px',borderRadius:14}}>
                     <input type="date" value={start} onChange={e=>setStart(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
@@ -2781,12 +2781,12 @@ function ViewReportes({ toast }) {
                         <Card title="Total Procesadas" value={stats.stats.total?.toLocaleString()||0} sub="Todas las disposiciones" icon="functions" color="#c4b5fd" bg="rgba(139,92,246,0.15)" />
                         <Card title="Contestadas" value={stats.stats.answered?.toLocaleString()||0} sub={`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% de efectividad`} icon="check_circle" color="#4ade80" bg="rgba(34,197,94,0.15)" />
                         <Card title="Abandonadas/Fallidas" value={parseInt(stats.stats.failed||0)+parseInt(stats.stats.no_answer||0)+parseInt(stats.stats.busy||0)} sub="Busy, No Answer, Failed" icon="cancel" color="#f87171" bg="rgba(239,68,68,0.15)" />
-                        <Card title="Duración Promedio" value={fmtTime(Math.round(stats.stats.avg_duration||0))} sub="Tiempo de habla (billsec)" icon="timer" color="#f59e0b" bg="rgba(245,158,11,0.15)" />
+                        <Card title="DuraciÃ³n Promedio" value={fmtTime(Math.round(stats.stats.avg_duration||0))} sub="Tiempo de habla (billsec)" icon="timer" color="#f59e0b" bg="rgba(245,158,11,0.15)" />
                     </div>
 
-                    {/* Gráfica principal */}
+                    {/* GrÃ¡fica principal */}
                     <div className="glass anim-fadeup-2" style={{padding:24,marginBottom:24,height:340,display:'flex',flexDirection:'column'}}>
-                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em'}}>Tendencia de Llamadas por Día</div>
+                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em'}}>Tendencia de Llamadas por DÃ­a</div>
                         <div style={{flex:1,position:'relative',minHeight:0}}>
                             <canvas ref={chartRef} />
                         </div>
@@ -2796,7 +2796,7 @@ function ViewReportes({ toast }) {
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}} className="anim-fadeup-3">
                         <div className="glass" style={{padding:24}}>
                             <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span> Top Orígenes Activos
+                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span> Top OrÃ­genes Activos
                             </div>
                             <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                 {stats.origins?.map((o,i)=>(
@@ -2836,543 +2836,10 @@ function ViewReportes({ toast }) {
 }
 
 // El Softphone ahora es una PWA independiente en /softphone/
-/*
-function ViewWebPhone({ data, toast }) {
-    const [isMuted, setIsMuted] = useState(false);
-    const [isHeld, setIsHeld] = useState(false);
-    const [elapsed, setElapsed] = useState(0);
-    const audioRef = useRef(null);
-    const localVideoRef = useRef(null);
-    const remoteVideoRef = useRef(null);
-    const [isVideo, setIsVideo] = useState(true);
-    const [showPass, setShowPass] = useState(false);
-    const [activeTab, setActiveTab] = useState('dialpad'); 
-    const [history, setHistory] = useState([]);
-    const [search, setSearch] = useState('');
-    const [lastError, setLastError] = useState('');
-    const registerTimer = useRef(null);
-    const timerRef = useRef(null);
-    const vibrateInterval = useRef(null);
 
-    // Listen for messages from Service Worker (Notification Actions)
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            const handler = (event) => {
-                if (event.data && event.data.type === 'CALL_ACTION') {
-                    if (event.data.action === 'answer') {
-                        console.log('SW: Answer action triggered');
-                        answer();
-                    } else if (event.data.action === 'reject') {
-                        console.log('SW: Reject action triggered');
-                        hangup();
-                    }
-                }
-            };
-            navigator.serviceWorker.addEventListener('message', handler);
-            return () => navigator.serviceWorker.removeEventListener('message', handler);
-        }
-    }, [simpleUser]); // Re-attach if simpleUser changes to ensure closure scope
-
-    useEffect(() => {
-        // Stop videos when disconnected
-        if (status === 'Desconectado' && localVideoRef.current) {
-            localVideoRef.current.srcObject = null;
-        }
-    }, [status]);
-
-    // Auto-connect on mount if credentials cached
-    useEffect(() => {
-        const cachedExt = localStorage.getItem('tf_sip_ext');
-        const cachedPass = localStorage.getItem('tf_sip_pass');
-        if (cachedExt && cachedPass && status === 'Desconectado') {
-            setTimeout(() => {
-                connect();
-            }, 500);
-        }
-        return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
-            if (registerTimer.current) clearTimeout(registerTimer.current);
-        };
-    }, []);
-
-    const connect = () => {
-        if(!ext || !pass) return toast('Falta extensión o clave SIP','error');
-        if(!window.SIP) return toast('Cargando SIP.js...','warning');
-        
-        try {
-            const server = 'wss://' + window.location.host + '/ws';
-            const domain = '201.217.134.124'; // IP real del Asterisk para que PJSIP no rechace el realm
-            const aor = 'sip:' + ext + '@' + domain;
-            console.log('SIP WSS server:', server, 'AOR:', aor);
-
-            const mediaConfig = {
-                remote: { audio: audioRef.current }
-            };
-            // Activar video pasándole los refs
-            if (isVideo) {
-                mediaConfig.local = { video: localVideoRef.current };
-                mediaConfig.remote = { audio: audioRef.current, video: remoteVideoRef.current };
-            }
-
-            const su = new window.SIP.Web.SimpleUser(server, {
-                aor,
-                media: mediaConfig,
-                userAgentOptions: {
-                    authorizationUsername: ext.trim(),
-                    authorizationPassword: pass.trim(),
-                    transportOptions: { server: server, traceSip: true }
-                }
-            });
-            su.delegate = {
-                onCallReceived: () => { 
-                    toast('¡Llamada entrante!','call'); 
-                    setStatus('Llamada Entrante'); 
-                    setActiveTab('dialpad');
-                    
-                    // Notificación PWA con botones y vibración
-                    if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification('Llamada Entrante', {
-                                body: 'Interno llamando...',
-                                icon: '/teleflow/icon-192.png',
-                                badge: '/teleflow/icon-192.png',
-                                tag: 'incoming-call',
-                                vibrate: [500, 200, 500, 200, 500],
-                                requireInteraction: true,
-                                actions: [
-                                    { action: 'answer', title: 'Contestar' },
-                                    { action: 'reject', title: 'Rechazar' }
-                                ]
-                            });
-                        });
-                    }
-                    
-                    // Vibración continua (loop)
-                    if (navigator.vibrate) {
-                        navigator.vibrate([500, 200, 500]);
-                        vibrateInterval.current = setInterval(() => {
-                            navigator.vibrate([500, 200, 500]);
-                        }, 1500);
-                    }
-                },
-                onCallHangup: () => { 
-                    toast('Llamada finalizada','info'); 
-                    setStatus('Registrado (Libre)'); 
-                    if(timerRef.current) clearInterval(timerRef.current);
-                    if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                    if(navigator.vibrate) navigator.vibrate(0);
-                    setElapsed(0);
-                    setIsMuted(false);
-                    setIsHeld(false);
-                    
-                    // Cerrar notificación
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                        });
-                    }
-                },
-                onCallAnswered: () => { 
-                    setStatus('Llamada en Curso'); 
-                    setElapsed(0);
-                    if(timerRef.current) clearInterval(timerRef.current);
-                    if(vibrateInterval.current) clearInterval(vibrateInterval.current);
-                    if(navigator.vibrate) navigator.vibrate(0);
-                    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-                    
-                    // Cerrar notificación
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.getNotifications({ tag: 'incoming-call' }).then(ns => ns.forEach(n => n.close()));
-                        });
-                    }
-                },
-                onCallHold: (session, hold) => {
-                    setIsHeld(hold);
-                    setStatus(hold ? 'Llamada en Espera' : 'Llamada en Curso');
-                },
-                onRegistered: () => { 
-                    console.log('SIP EVENT: onRegistered');
-                    if (registerTimer.current) clearTimeout(registerTimer.current);
-                    setStatus('Registrado (Libre)'); 
-                    toast(`Extensión ${ext} registrada!`,'success'); 
-                    localStorage.setItem('tf_sip_ext', ext);
-                    localStorage.setItem('tf_sip_pass', pass);
-                },
-                onUnregistered: () => {
-                    console.warn('SIP: Unregistered from server');
-                    setStatus(prev => {
-                        // Si estábamos registrando y nos llega esto, es que falló (403/401 final)
-                        if (prev === 'Registrando...') {
-                            if (registerTimer.current) clearTimeout(registerTimer.current);
-                            setLastError('SIP 403: Prohibido / Clave incorrecta');
-                            toast('Fallo de registro: 403 Forbidden','error');
-                            return 'Error Autenticación';
-                        }
-                        if (prev.includes('Error')) return prev;
-                        return 'No registrado';
-                    });
-                },
-                onServerDisconnect: (e) => { 
-                    console.error('SIP WSS Disconnected:', e);
-                    const code = e?.code || 'UNK';
-                    const reason = e?.reason || 'Error de socket/proxy';
-                    setStatus(prev => {
-                        if (prev === 'Error Autenticación') return prev;
-                        setLastError(`Socket cerrado (${code}): ${reason}`);
-                        return 'Error de Red';
-                    });
-                }
-            };
-
-            console.log('SIP DEBUG:', { 
-                server, 
-                aor, 
-                ext, 
-                passLength: pass.length,
-                isVideo 
-            });
-
-            setStatus('Registrando...');
-            setLastError('');
-
-            // Safety timeout: 15 seconds to give up
-            if(registerTimer.current) clearTimeout(registerTimer.current);
-            registerTimer.current = setTimeout(() => {
-                setStatus(prev => {
-                    if (prev === 'Registrando...') {
-                        setLastError('Timeout: El servidor no respondió en 15s. Revise Proxy WSS.');
-                        toast('Timeout de registro SIP','error');
-                        return 'Error Timeout';
-                    }
-                    return prev;
-                });
-            }, 15000);
-            
-            console.log('SIP: Starting su.connect()...');
-            su.connect()
-                .then(() => {
-                    console.log('SIP: WSS Link established. Calling su.register()...');
-                    return su.register();
-                })
-                .then(() => {
-                    console.log('SIP: register() promise resolved.');
-                })
-                .catch(e => {
-                    console.error('SIP: Connection/Register CRASH:', e);
-                    if (registerTimer.current) clearTimeout(registerTimer.current);
-                    setStatus('Error Conexión');
-                    setLastError(e.message || 'Error de red/socket');
-                    toast('Error SIP: ' + (e.message || 'Error de red/socket'),'error');
-                });
-            setSimpleUser(su);
-        } catch(e) {
-            console.error('SIP Global Catch:', e);
-            toast('Error SIP: ' + e.message, 'error');
-        }
-    };
-
-    const call = () => {
-        if(!simpleUser || status==='Desconectado' || status==='Error Conexión') return toast('No estás registrado','error');
-        if(!dest) return toast('Ingrese número','warning');
-        
-        // Determinar constraints (si activó video)
-        const opts = isVideo ? { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: true } } } : {};
-        
-        simpleUser.call('sip:'+dest+'@'+window.location.hostname, opts)
-          .then(()=>{
-              setStatus('Llamando...');
-              setHistory(h => [{ dest, time: new Date().toLocaleTimeString(), dir:'out' }, ...h]);
-          })
-          .catch(e => toast('No se pudo establecer llamada','error'));
-    };
-    
-    const answer = () => {
-        if(!simpleUser) return;
-        const opts = isVideo ? { sessionDescriptionHandlerOptions: { constraints: { audio: true, video: true } } } : {};
-        simpleUser.answer(opts).then(() => setStatus('Llamada en Curso')).catch(e => toast('Error al contestar','error'));
-    };
-
-    const hangup = () => {
-        if(simpleUser) {
-            simpleUser.hangup().catch(e=>console.log(e));
-            setStatus('Registrado (Libre)');
-            if(timerRef.current) clearInterval(timerRef.current);
-            setElapsed(0);
-        }
-    };
-
-    const toggleMute = () => {
-        if(!simpleUser) return;
-        if(isMuted) simpleUser.unmute();
-        else simpleUser.mute();
-        setIsMuted(!isMuted);
-    };
-
-    const toggleHold = () => {
-        if(!simpleUser) return;
-        if(isHeld) simpleUser.unhold();
-        else simpleUser.hold();
-    };
-
-    const formatTime = (s) => {
-        const m = Math.floor(s/60).toString().padStart(2,'0');
-        const sec = (s%60).toString().padStart(2,'0');
-        return `${m}:${sec}`;
-    };
-
-    const exts = (data?.extensions || []).filter(e => e.ext.includes(search) || e.name.toLowerCase().includes(search.toLowerCase()));
-
-    const isCalling = status.includes('Llamando') || status.includes('Curso') || status.includes('Entrante');
-
-    return (
-        <div className="content-area view-enter" style={{display:'flex',justifyContent:'center',alignItems:'center',minHeight:'calc(100vh - 80px)'}}>
-            <div className="glass" style={{width:850,height:580,padding:0,borderRadius:24,boxShadow:'0 30px 60px rgba(0,0,0,0.6)',border:'1px solid var(--border)',overflow:'hidden',background:'var(--surface)',display:'flex'}}>
-                
-                {/* ─── SIDEBAR (CONTACTOS / HISTORIAL / NAVEGACIÓN) ─── */}
-                <div style={{width: 320, background:'rgba(0,0,0,0.2)', borderRight:'1px solid var(--border)', display:'flex', flexDirection:'column'}}>
-                    <div style={{padding:'20px 20px 10px 20px', display:'flex', alignItems:'center', gap:12}}>
-                        <div style={{width:45,height:45,borderRadius:'50%',background:'var(--surface2)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid '+ (status.includes('Registrado')?'#10b981':'#ef4444')}}>
-                            <span className="material-icons-round" style={{color:status.includes('Registrado')?'#10b981':'#ef4444'}}>{status.includes('Registrado')?'perm_identity':'person_off'}</span>
-                        </div>
-                        <div>
-                            <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{ext ? `Interno ${ext}` : 'Teleflow WebRTC'}</div>
-                            <div style={{fontSize:11,color:status.includes('Error')?'#ef4444':status.includes('Registrado')?'#10b981':'#9ca3af',fontWeight:600}}>{status}</div>
-                        </div>
-                    </div>
-
-                    <div style={{display:'flex', borderBottom:'1px solid var(--border)', margin:'10px 0'}}>
-                        <button onClick={()=>setActiveTab('dialpad')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='dialpad'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='dialpad'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Teclado</button>
-                        <button onClick={()=>setActiveTab('contacts')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='contacts'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='contacts'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Contactos</button>
-                        <button onClick={()=>setActiveTab('history')} style={{flex:1,background:'transparent',border:'none',color:activeTab==='history'?'#8b5cf6':'#6b7280',padding:'10px',borderBottom:activeTab==='history'?'2px solid #8b5cf6':'2px solid transparent',fontWeight:600,cursor:'pointer'}}>Historial</button>
-                    </div>
-
-                    <div style={{flex:1, overflowY:'auto', padding:'0 15px'}}>
-                        {activeTab === 'contacts' && (
-                            <>
-                                <input type="text" placeholder="Buscar interno..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:'10px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',color:'white',marginBottom:10}} />
-                                {exts.map(e => (
-                                    <div key={e.ext} onClick={()=>{setDest(e.ext);setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:12,cursor:'pointer',borderBottom:'1px solid var(--border)'}} onMouseOver={ev=>ev.currentTarget.style.background='var(--surface2)'} onMouseOut={ev=>ev.currentTarget.style.background='transparent'}>
-                                        <div style={{width:35,height:35,borderRadius:'50%',background:'rgba(139,92,246,0.1)',color:'#8b5cf6',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{e.ext.substring(0,2)}</div>
-                                        <div style={{flex:1}}>
-                                            <div style={{color:'white',fontWeight:600,fontSize:13}}>{e.name}</div>
-                                            <div style={{color:'#9ca3af',fontSize:11}}>Ext: {e.ext}</div>
-                                        </div>
-                                        <div style={{width:10,height:10,borderRadius:'50%',background:e.status==='ONLINE'?'#10b981':'#4b5563'}} title={e.status}></div>
-                                    </div>
-                                ))}
-                                {!exts.length && <div style={{textAlign:'center',padding:20,color:'#6b7280',fontSize:12}}>No se encontraron contactos</div>}
-                            </>
-                        )}
-                        {activeTab === 'history' && (
-                            <>
-                                {history.map((h,i) => (
-                                    <div key={i} onClick={()=>{setDest(h.dest);setActiveTab('dialpad');}} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:12,cursor:'pointer',borderBottom:'1px solid var(--border)'}} onMouseOver={ev=>ev.currentTarget.style.background='var(--surface2)'} onMouseOut={ev=>ev.currentTarget.style.background='transparent'}>
-                                        <span className="material-icons-round" style={{color:h.dir==='out'?'#3b82f6':'#10b981'}}>{h.dir==='out'?'call_made':'call_received'}</span>
-                                        <div style={{flex:1}}>
-                                            <div style={{color:'white',fontWeight:600,fontSize:14}}>{h.dest}</div>
-                                            <div style={{color:'#9ca3af',fontSize:11}}>{h.time}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {!history.length && <div style={{textAlign:'center',padding:20,color:'#6b7280',fontSize:12}}>Historial vacío</div>}
-                            </>
-                        )}
-                        {activeTab === 'dialpad' && (
-                            <div style={{textAlign:'center',paddingTop:20,color:'#9ca3af',fontSize:13}}>
-                                Use el teclado principal para llamar.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* ─── MAIN AREA (DIALER / CALL SCREEN) ─── */}
-                <div style={{flex:1, position:'relative', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg, rgba(30,30,40,0.8), rgba(20,20,30,0.9))', padding:30}}>
-                    
-                    {status === 'Desconectado' || status === 'No registrado' ? (
-                        <div style={{width:'100%',maxWidth:320,animation:'fade-in 0.4s',textAlign:'center'}}>
-                            <span className="material-icons-round" style={{fontSize:60,color:'#c4b5fd',marginBottom:20}}>phonelink_ring</span>
-                            <h3 style={{color:'white',fontWeight:800,marginBottom:20}}>Inicio de Sesión SIP</h3>
-                            
-                            <input type="text" className="input-tf p-3 rounded-2xl w-full" style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,marginBottom:15,color:'white'}} value={ext} onChange={e=>setExt(e.target.value)} placeholder="Extensión (Ej. 1005)" />
-                            
-                            <div style={{position:'relative', marginBottom:25}}>
-                                <input type={showPass?'text':'password'} className="input-tf p-3 rounded-2xl w-full" 
-                                    style={{background:'var(--surface2)',border:'none',textAlign:'center',fontWeight:700,color:'white'}} 
-                                    value={pass} onChange={e=>setPass(e.target.value)} placeholder="Secret PJSIP" />
-                                <button type="button" onClick={()=>setShowPass(!showPass)} 
-                                    style={{position:'absolute',right:15,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>
-                                    <span className="material-icons-round" style={{fontSize:20}}>{showPass?'visibility_off':'visibility'}</span>
-                                </button>
-                            </div>
-                            
-                            <div style={{marginBottom:25}}>
-                                <label style={{fontSize:11,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',display:'block',marginBottom:12}}>Modo de Llamada</label>
-                                <div style={{display:'flex',gap:10,background:'var(--surface2)',padding:4,borderRadius:14}}>
-                                    <button onClick={()=>setIsVideo(false)} style={{flex:1,padding:'10px',borderRadius:12,border:'none',background:!isVideo?'rgba(139,92,246,0.2)':'transparent',color:!isVideo?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:12,cursor:'pointer',transition:'all .3s',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                                        <span className="material-icons-round" style={{fontSize:18}}>call</span> Audio
-                                    </button>
-                                    <button onClick={()=>setIsVideo(true)} style={{flex:1,padding:'10px',borderRadius:12,border:'none',background:isVideo?'rgba(139,92,246,0.2)':'transparent',color:isVideo?'#c4b5fd':'#6b7280',fontWeight:700,fontSize:12,cursor:'pointer',transition:'all .3s',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                                        <span className="material-icons-round" style={{fontSize:18}}>videocam</span> Video
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button className="btn-primary" style={{padding:'14px',borderRadius:16,width:'100%',fontSize:14,fontWeight:800,boxShadow:'0 10px 20px rgba(139,92,246,0.3)'}} onClick={connect}>Registrar Softphone</button>
-                        </div>
-                    ) : status === 'Registrando...' || status.includes('Error') ? (
-                        <div style={{position:'absolute',inset:0,background:'rgba(10,10,15,0.95)',zIndex:100,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.3s',backdropFilter:'blur(10px)'}}>
-                             <div style={{position:'relative',width:100,height:100,marginBottom:30}}>
-                                {status.includes('Error') ? (
-                                    <div style={{width:'100%',height:'100%',borderRadius:'50%',background:'rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #ef4444'}}>
-                                        <span className="material-icons-round" style={{fontSize:48,color:'#ef4444'}}>error_outline</span>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderTopColor:'#8b5cf6',animation:'spin 1s linear infinite'}}></div>
-                                        <div style={{position:'absolute',inset:15,borderRadius:'50%',border:'3px solid rgba(139,92,246,0.1)',borderBottomColor:'#8b5cf6',animation:'spin 1.5s linear reverse infinite'}}></div>
-                                        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                            <span className="material-icons-round" style={{fontSize:32,color:'#8b5cf6',animation:'blink 1s infinite'}}>vpn_lock</span>
-                                        </div>
-                                    </>
-                                )}
-                             </div>
-                             <h2 style={{color:status.includes('Error')?'#ef4444':'white',fontWeight:900,fontSize:22,letterSpacing:'2px',textTransform:'uppercase',marginBottom:10}}>{status.includes('Error')?'Fallo':'Registrando'}</h2>
-                             <div style={{color:'#9ca3af',fontSize:12,fontWeight:600,letterSpacing:'1px',textAlign:'center',maxWidth:250}}>
-                                {status.includes('Error') ? (lastError || 'Error de autenticación o red. Verifique su clave SIP y configuración de Proxy.') : 'Sincronizando con PBX Cloud...'}
-                             </div>
-                             {status.includes('Error') && (
-                                <button className="btn-primary" style={{marginTop:30,padding:'10px 20px',borderRadius:12}} onClick={()=>{ setStatus('Desconectado'); setLastError(''); }}>Reintentar</button>
-                             )}
-                             {!status.includes('Error') && (
-                                <div style={{marginTop:30,width:150,height:2,background:'rgba(255,255,255,0.05)',borderRadius:1,overflow:'hidden'}}>
-                                    <div style={{width:'60%',height:'100%',background:'linear-gradient(90deg,transparent,#8b5cf6,transparent)',animation:'callActive 1s linear infinite'}}></div>
-                                </div>
-                             )}
-                        </div>
-                    ) : (
-                        <div style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',animation:'fade-in 0.4s'}}>
-                            
-                            {isCalling ? (
-                                <div style={{flex:1,width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                                    <div style={{color:'white',fontSize:24,fontWeight:300,marginBottom:5}}>{status.includes('Entrante') ? 'Llamada Entrante de...' : 'Llamada con...'}</div>
-                                    <div style={{color:'#8b5cf6',fontSize:48,fontWeight:800,marginBottom:10}}>{dest}</div>
-                                    
-                                    {(status.includes('Curso') || status.includes('Espera')) && (
-                                        <div style={{fontSize:32, color:isHeld?'#9ca3af':'#4ade80', fontWeight:200, fontFamily:'monospace', marginBottom:25}}>
-                                            {formatTime(elapsed)}
-                                        </div>
-                                    )}
-
-                                    {/* CONTENEDOR DE VIDEO */}
-                                    {isVideo && (
-                                        <div style={{display:'flex',gap:16,marginBottom:30,position:'relative'}}>
-                                            <div style={{width: 320, height: 240, background:'#000', borderRadius:16, overflow:'hidden', border:'2px solid var(--border)', position:'relative'}}>
-                                                <video ref={remoteVideoRef} autoPlay playsInline style={{width:'100%',height:'100%',objectFit:'cover'}} />
-                                                <div style={{position:'absolute',bottom:8,left:8,background:'rgba(0,0,0,0.5)',color:'white',padding:'2px 8px',borderRadius:10,fontSize:10}}>Remoto</div>
-                                            </div>
-                                            <div style={{width: 100, height: 140, background:'#000', borderRadius:12, overflow:'hidden', border:'2px solid #8b5cf6', position:'absolute', bottom:-10, right:-40, boxShadow:'0 10px 20px rgba(0,0,0,0.5)'}}>
-                                                <video ref={localVideoRef} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:'cover',transform:'scaleX(-1)'}} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {/* ANIMACION DE PULSO SI ES SOLO AUDIO */}
-                                    {!isVideo && (
-                                        <div style={{position:'relative',width:120,height:120,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:40}}>
-                                            <div style={{position:'absolute',width:'100%',height:'100%',borderRadius:'50%',background:'rgba(139,92,246,0.2)',animation:'blink 1.5s infinite'}}></div>
-                                            <div style={{width:80,height:80,borderRadius:'50%',background:isHeld?'#374151':'rgba(139,92,246,0.4)',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .3s'}}>
-                                                <span className="material-icons-round" style={{fontSize:40,color:isHeld?'#9ca3af':'#c4b5fd'}}>{isHeld?'pause':'record_voice_over'}</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div style={{display:'flex',gap:20}}>
-                                        {status.includes('Entrante') && (
-                                            <button onClick={answer} style={{width:65,height:65,borderRadius:'50%',background:'#10b981',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(16,185,129,0.4)'}}>
-                                                <span className="material-icons-round" style={{fontSize:32}}>call</span>
-                                            </button>
-                                        )}
-                                        
-                                        {!status.includes('Entrante') && (
-                                            <>
-                                                <button onClick={toggleMute} title="Silenciar" style={{width:55,height:55,borderRadius:'50%',background:isMuted?'white':'var(--surface)',color:isMuted?'black':'white',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
-                                                    <span className="material-icons-round">{isMuted?'mic_off':'mic'}</span>
-                                                </button>
-                                                <button onClick={toggleHold} title="Espera" style={{width:55,height:55,borderRadius:'50%',background:isHeld?'white':'var(--surface)',color:isHeld?'black':'white',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
-                                                    <span className="material-icons-round">{isHeld?'play_arrow':'pause'}</span>
-                                                </button>
-                                            </>
-                                        )}
-
-                                        <button onClick={hangup} style={{width:65,height:65,borderRadius:'50%',background:'#ef4444',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(239,68,68,0.4)'}}>
-                                            <span className="material-icons-round" style={{fontSize:32}}>call_end</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{width:260}}>
-                                    <input type="text" style={{width:'100%',background:'transparent',border:'none',color:'var(--text)',fontSize:36,fontWeight:300,textAlign:'center',padding:'10px',marginBottom:10,letterSpacing:'2px'}} value={dest} onChange={e=>setDest(e.target.value)} placeholder="0" />
-                                    
-                                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,width:'100%',marginBottom:30}}>
-                                        {[{n:'1',l:''},{n:'2',l:'ABC'},{n:'3',l:'DEF'},{n:'4',l:'GHI'},{n:'5',l:'JKL'},{n:'6',l:'MNO'},{n:'7',l:'PQRS'},{n:'8',l:'TUV'},{n:'9',l:'WXYZ'},{n:'*',l:''},{n:'0',l:'+'},{n:'#',l:''}].map(k=>(
-                                            <button key={k.n} onClick={()=>setDest(d=>d+k.n)} style={{background:'var(--surface2)',border:'none',color:'white',width:65,height:65,borderRadius:'50%',margin:'auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 4px 10px rgba(0,0,0,0.3)'}} onMouseDown={e=>e.currentTarget.style.transform='scale(0.92)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}>
-                                                <span style={{fontSize:24,fontWeight:500,lineHeight:1}}>{k.n}</span>
-                                                {k.l && <span style={{fontSize:9,color:'#9ca3af',fontWeight:700,letterSpacing:'1px',marginTop:2}}>{k.l}</span>}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div style={{display:'flex',justifyContent:'space-evenly',width:'100%',alignItems:'center'}}>
-                                        <button onClick={()=>setDest(d=>d.slice(0,-1))} style={{width:50,height:50,background:'transparent',border:'none',color:'#9ca3af',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                            <span className="material-icons-round" style={{fontSize:24}}>{dest?'backspace':''}</span>
-                                        </button>
-                                        
-                                        <button onClick={call} style={{width:75,height:75,borderRadius:'50%',background:'linear-gradient(135deg, #10b981, #059669)',color:'white',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 10px 25px rgba(16,185,129,0.4)'}}>
-                                            <span className="material-icons-round" style={{fontSize:36}}>{isVideo ? 'videocam' : 'call'}</span>
-                                        </button>
-
-                                        <button onClick={()=>{
-                                            if(simpleUser) simpleUser.unregister().then(()=>simpleUser.disconnect()); 
-                                            setStatus('Desconectado'); 
-                                            setDest('');
-                                            localStorage.removeItem('tf_sip_ext');
-                                            localStorage.removeItem('tf_sip_pass');
-                                        }} style={{width:50,height:50,background:'transparent',border:'none',color:'#ef4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}} title="Cerrar Sesión SIP">
-                                            <span className="material-icons-round" style={{fontSize:24}}>power_settings_new</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-                
-                {/* Oculto, usado por SIP.js para el canal de voz/ring */}
-                <audio ref={audioRef} autoPlay />
-            </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────
-// VISTA: IVR (REACT FLOW)
-// ─────────────────────────────────────────────
-function ViewIVR({ toast }) {
-    return (
-        <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
-            <iframe 
-                src="ivr-designer.html" 
-                style={{width:'100%', height:'100%', border:'none', flex: 1}} 
-                title="Visual IVR Designer"
-            />
-        </div>
-    );
-}
-*/
-
-// ─────────────────────────────────────────────
-// VISTA: CONFIGURACIÓN — Debug SIP Profesional
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// VISTA: CONFIGURACIÃ“N â€” Debug SIP Profesional
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SIP_PARSERS = [
     { re: /\bREGISTER\b/,   color:'#60a5fa', label:'REGISTER',  icon:'login' },
     { re: /\b200 OK\b/,     color:'#4ade80', label:'200 OK',    icon:'check_circle' },
@@ -3551,7 +3018,7 @@ function ViewConfiguracion() {
         if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }, [sipLog]);
 
-    // Extraer IPs/extensiones únicas de los logs (remitentes)
+    // Extraer IPs/extensiones Ãºnicas de los logs (remitentes)
     const extractSenders = (lines) => {
         const senders = new Set();
         lines.forEach(line => {
@@ -3599,7 +3066,7 @@ function ViewConfiguracion() {
                         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0', borderBottom:'1px solid var(--border)'}}>
                             <div>
                                 <div style={{fontSize:14, fontWeight:600, color:'var(--text)'}}>Notificaciones Push</div>
-                                <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>Recibe avisos de llamadas en vivo incluso si la pestaña está cerrada.</div>
+                                <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>Recibe avisos de llamadas en vivo incluso si la pestaÃ±a estÃ¡ cerrada.</div>
                             </div>
                             <button className="btn-primary" style={{padding:'8px 16px', borderRadius:10, fontSize:12}} onClick={()=>Notification.requestPermission()}>Solicitar Permiso</button>
                         </div>
@@ -3758,7 +3225,7 @@ function ViewConfiguracion() {
                             <span style={{fontSize:11, color:'#374151', fontFamily:'monospace', marginLeft:8}}>asterisk@pbx ~ pjsip-logger</span>
                             <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6}}>
                                 <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:autoRefresh?'blink 1.5s infinite':''}} />
-                                <span style={{fontSize:10,color:'#374151',fontWeight:600}}>{filteredLines.length} líneas</span>
+                                <span style={{fontSize:10,color:'#374151',fontWeight:600}}>{filteredLines.length} lÃ­neas</span>
                             </div>
                         </div>
 
@@ -3778,8 +3245,8 @@ function ViewConfiguracion() {
 
                     <div style={{marginTop:12, fontSize:10, color:'#374151', display:'flex', alignItems:'center', gap:6}}>
                         <span style={{width:6, height:6, borderRadius:'50%', background:'#22c55e'}} />
-                        Mostrando últimos eventos de registro y autenticación SIP/PJSIP en tiempo real.
-                        Haz clic en cada línea para expandirla.
+                        Mostrando Ãºltimos eventos de registro y autenticaciÃ³n SIP/PJSIP en tiempo real.
+                        Haz clic en cada lÃ­nea para expandirla.
                     </div>
                 </div>
             )}
@@ -3787,9 +3254,9 @@ function ViewConfiguracion() {
     );
 }
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // APP PRINCIPAL
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function App() {
     const [user, setUser] = useState(() => {
         const u = localStorage.getItem('tf_user');
