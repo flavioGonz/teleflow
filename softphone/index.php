@@ -360,6 +360,8 @@
             const [elapsed, setElapsed] = useState(0);
             const [audioLevel, setAudioLevel] = useState(0); // For visualizer
             const [isSpeaker, setIsSpeaker] = useState(false);
+            const [showUpdateModal, setShowUpdateModal] = useState(false);
+            const appVersion = "1.2.0"; // Current Version
 
             // Audio/Video Refs
             const audioContextRef = useRef(null);
@@ -1405,24 +1407,12 @@
                                         </button>
                                     </div>
                                 </div>
-                                <button onClick={() => {
-                                    if ('serviceWorker' in navigator) {
-                                        navigator.serviceWorker.getRegistrations().then(regs => {
-                                            regs.forEach(r => r.update());
-                                            showToast('Buscando actualizaciones...', 'info');
-                                            setTimeout(() => {
-                                                window.location.reload(true);
-                                            }, 1000);
-                                        });
-                                    } else {
-                                        window.location.reload(true);
-                                    }
-                                }} className="w-full flex items-center justify-between p-4 bg-primary/10 text-primary rounded-2xl border border-primary/20 hover:bg-primary/20 transition-all font-bold text-sm">
+                                <button onClick={() => setShowUpdateModal(true)} className="w-full flex items-center justify-between p-4 bg-primary/10 text-primary rounded-2xl border border-primary/20 hover:bg-primary/20 transition-all font-bold text-sm">
                                     <div className="flex items-center gap-3">
-                                        <span className="material-symbols-outlined">restart_alt</span>
+                                        <span className="material-symbols-outlined">system_update</span>
                                         <span>Actualizar App (PWA)</span>
                                     </div>
-                                    <span className="material-symbols-outlined text-[18px]">cached</span>
+                                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                 </button>
 
                                 <button onClick={disconnect} className="w-full flex items-center gap-3 p-4 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/10 hover:bg-red-500/20 transition-all font-bold text-sm">
@@ -1577,6 +1567,58 @@
                             </div>
                             {/* Home indicator inside overlay */}
                             <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-[210]"></div>
+                        </div>
+                    )}
+
+                    {/* ──────────────── UPDATE MODAL (PWA) ──────────────── */}
+                    {showUpdateModal && (
+                        <div className="fixed inset-0 z-[600] flex items-end justify-center sm:items-center bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowUpdateModal(false)}>
+                            <div className="bg-[#13131c] w-full sm:w-[400px] sm:rounded-3xl rounded-t-3xl border border-white/10 p-6 flex flex-col gap-5 animate-slideUp" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3 text-primary">
+                                        <span className="material-symbols-outlined text-3xl pulse-green">system_update</span>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white">Actualización</h2>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Versión actual: {appVersion}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setShowUpdateModal(false)} className="bg-white/5 rounded-full p-2 text-slate-400 hover:text-white transition">
+                                        <span className="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </div>
+                                
+                                <div className="bg-slate-900/50 rounded-2xl p-4 border border-white/5 text-sm text-slate-300 leading-relaxed font-medium space-y-3">
+                                    <p><strong className="text-white">Novedades en esta versión:</strong></p>
+                                    <ul className="list-disc pl-5 space-y-2 marker:text-primary">
+                                        <li>Mejoras en la experiencia del Softphone.</li>
+                                        <li>Timbre de I/O mejorado mediante sintetizador nativo.</li>
+                                        <li>Re-diseño del panel de control de llamadas (Controles más accesibles).</li>
+                                        <li>Mejoras en estabilidad Web Push / PJSIP sobre WSS.</li>
+                                    </ul>
+                                </div>
+
+                                <p className="text-xs text-slate-500 text-center font-medium px-2">
+                                    TeleFlow buscará la última versión del código y actualizará la caché de funcionamiento offline para un rendimiento óptimo. Se requiere reiniciar la App.
+                                </p>
+
+                                <button onClick={() => {
+                                    if ('serviceWorker' in navigator) {
+                                        navigator.serviceWorker.getRegistrations().then(regs => {
+                                            regs.forEach(r => r.update());
+                                            showToast('Buscando actualizaciones...', 'info');
+                                            setTimeout(() => {
+                                                window.location.reload(true);
+                                            }, 1000);
+                                        });
+                                    } else {
+                                        window.location.reload(true);
+                                    }
+                                }} 
+                                className="w-full mt-2 flex items-center justify-center gap-2 p-4 bg-primary hover:bg-primary-hover text-white rounded-2xl shadow-[0_0_20px_rgba(139,92,246,0.2)] transition-all font-bold text-base active:scale-95">
+                                    <span className="material-symbols-outlined animate-spin-slow">sync</span>
+                                    Sincronizar Cambios
+                                </button>
+                            </div>
                         </div>
                     )}
 
