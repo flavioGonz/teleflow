@@ -2978,17 +2978,18 @@ let ivrNodeIdCounter = 0;
 const getIvrNodeId = () => `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
 const NodeStart = ({ data }) => {
+    const isLive = data.isLive;
     return (
-        <div style={{background:'var(--surface)', border:'2px solid var(--accent)', borderRadius:16, padding:16, width:160, boxShadow:'0 10px 25px rgba(0,0,0,0.1)'}}>
+        <div style={{background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`, borderRadius:16, padding:16, width:160, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : '0 10px 25px rgba(0,0,0,0.1)', transition:'all 0.3s'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-                <span style={{fontSize:10, fontWeight:900, color:'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>Trigger</span>
-                <div style={{width:8, height:8, background:'#22c55e', borderRadius:'50%'}}></div>
+                <span style={{fontSize:10, fontWeight:900, color:isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{isLive ? 'Running...' : 'Trigger'}</span>
+                <div style={{width:8, height:8, background:isLive ? '#22c55e' : '#6b7280', borderRadius:'50%', boxShadow: isLive ? '0 0 8px #22c55e' : 'none', animation: isLive ? 'pulse-red 1s infinite' : 'none'}}></div>
             </div>
             <div style={{fontSize:14, fontWeight:700, color:'var(--text)', display:'flex', alignItems:'center', gap:6}}>
-                <span className="material-icons-round" style={{fontSize:18}}>play_arrow</span>
+                <span className="material-icons-round" style={{fontSize:18, color:isLive ? '#22c55e' : 'inherit'}}>play_arrow</span>
                 Start IVR
             </div>
-            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:'2px solid var(--accent)'}} />}
+            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
         </div>
     );
 };
@@ -3057,6 +3058,8 @@ function IVRDesignerApp({ toast }) {
     const [reactFlowInstance, setReactFlowInstance] = useState(null);
     const [selectedNode, setSelectedNode] = useState(null);
 
+    const isIvrActiveRef = useRef(false);
+
     const onNodesChange = useCallback((changes) => {
         if (!applyNodeChanges) return;
         setNodes((nds) => applyNodeChanges(changes, nds));
@@ -3067,7 +3070,11 @@ function IVRDesignerApp({ toast }) {
     }, []);
     const onConnect = useCallback((params) => {
         if (!addEdge) return;
-        setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: 'var(--accent)', strokeWidth: 2 } }, eds));
+        setEdges((eds) => addEdge({ 
+            ...params, 
+            animated: isIvrActiveRef.current, 
+            style: isIvrActiveRef.current ? { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' } : { stroke: 'var(--accent)', strokeWidth: 2 } 
+        }, eds));
     }, []);
 
     useEffect(() => {
@@ -3085,6 +3092,33 @@ function IVRDesignerApp({ toast }) {
                     setEdges(d.edges);
                 }
             }).catch(e => console.log('No existing flow to load', e));
+            
+        // Live Animation Polling
+        const checkCalls = () => {
+            fetch('api/index.php?action=get_active_calls').then(r=>r.json()).then(d => {
+                if(d.success && d.calls) {
+                    const hasCalls = d.calls.length > 0;
+                    if(hasCalls !== isIvrActiveRef.current) {
+                        isIvrActiveRef.current = hasCalls;
+                        
+                        // Animate Edges
+                        setEdges(eds => eds.map(e => ({
+                            ...e, 
+                            animated: hasCalls, 
+                            style: hasCalls ? { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' } : { stroke: 'var(--accent)', strokeWidth: 2, filter: 'none' }
+                        })));
+                        
+                        // Animate Start Node
+                        setNodes(nds => nds.map(n => {
+                            if(n.type === 'start') return { ...n, data: { ...n.data, isLive: hasCalls } };
+                            return n;
+                        }));
+                    }
+                }
+            }).catch(e=>{});
+        };
+        const timer = setInterval(checkCalls, 2000);
+        return () => clearInterval(timer);
     }, []);
 
     const onDragOver = useCallback((event) => {
