@@ -2979,6 +2979,7 @@ const getIvrNodeId = () => `node-${Date.now()}-${Math.floor(Math.random() * 1000
 
 const NodeStart = ({ data }) => {
     const isLive = data.isLive;
+    const ivrNum = data.ivrNumber || '7777';
     return (
         <div style={{background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`, borderRadius:16, padding:16, width:160, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : '0 10px 25px rgba(0,0,0,0.1)', transition:'all 0.3s'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
@@ -2987,7 +2988,7 @@ const NodeStart = ({ data }) => {
             </div>
             <div style={{fontSize:14, fontWeight:700, color:'var(--text)', display:'flex', alignItems:'center', gap:6}}>
                 <span className="material-icons-round" style={{fontSize:18, color:isLive ? '#22c55e' : 'inherit'}}>play_arrow</span>
-                Start IVR
+                IVR: {ivrNum}
             </div>
             {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
         </div>
@@ -3048,7 +3049,7 @@ const ivrNodeTypes = {
 };
 
 const ivrInitialNodes = [
-  { id: 'start-1', type: 'start', position: { x: 50, y: 150 }, data: {} }
+  { id: 'start-1', type: 'start', position: { x: 50, y: 150 }, data: { ivrNumber: '7777' } }
 ];
 
 function IVRDesignerApp({ toast }) {
@@ -3110,6 +3111,14 @@ function IVRDesignerApp({ toast }) {
                     const currentNodes = nodesRef.current;
                     const currentEdges = edgesRef.current;
                     
+                    let ivrNumberCalled = false;
+                    currentNodes.forEach(n => {
+                        if (n.type === 'start') {
+                            const ivrNum = n.data.ivrNumber || '7777';
+                            if (activeTokens.includes(ivrNum.toString())) ivrNumberCalled = true;
+                        }
+                    });
+                    
                     const activeNodeIds = new Set(
                         currentNodes.filter(n => {
                             if(n.type === 'action') {
@@ -3134,7 +3143,7 @@ function IVRDesignerApp({ toast }) {
                         currentTargets = [...new Set(nextTargets)];
                     }
                     
-                    const hasActiveFlow = edgesToAnimate.size > 0;
+                    const hasActiveFlow = edgesToAnimate.size > 0 || ivrNumberCalled;
                     
                     setEdges(eds => {
                         let changed = false;
@@ -3308,6 +3317,15 @@ function IVRDesignerApp({ toast }) {
                     </div>
 
                     <div style={{padding:20, display:'flex', flexDirection:'column', gap:16, overflowY:'auto'}}>
+                        {selectedNode.type === 'start' && (
+                            <>
+                                <div>
+                                    <label style={{display:'block', fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', marginBottom:6}}>Número de Acceso (IVR)</label>
+                                    <input type="text" value={selectedNode.data.ivrNumber || '7777'} onChange={e=>updateNodeData('ivrNumber', e.target.value)} placeholder="Ej. 7777" style={{width:'100%', padding:'10px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', outline:'none', fontWeight:700}} />
+                                    <div style={{fontSize:11, color:'var(--muted)', marginTop:6, lineHeight:1.4}}>Marca este número desde tu extensión para entrar a este flujo IVR. La animación principal se activará cuando la PBX reporte una llamada hacia este destino.</div>
+                                </div>
+                            </>
+                        )}
                         {selectedNode.type === 'menu' && (
                             <>
                                 <div>
