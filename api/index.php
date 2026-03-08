@@ -235,8 +235,9 @@ if ($action === 'get_full_data') {
     $pjsip_c = ami_cmd('pjsip show contacts');
 
     $exts = [];
-    // Real format: " Endpoint:  1001/1001                                            Not in use    0 of inf"
-    foreach (explode("\n", $pjsip_e) as $line) {
+    $pjsip_e = ami_cmd('pjsip show endpoints');
+    $lines = explode("\n", $pjsip_e);
+    foreach ($lines as $line) {
         if (preg_match('/^\s+Endpoint:\s+(\d+)\/(.+?)\s+(Not in use|Unavailable|In use|Busy|Ringing)\s+(\d+)/i', $line, $m)) {
             $ext  = $m[1];
             $name = trim($m[2]);
@@ -959,6 +960,106 @@ if ($action === 'get_ivr_flow') {
     } else {
         echo json_encode(['success' => false, 'error' => 'No hay flujo guardado']);
     }
+    exit;
+}
+
+if ($action === 'apply_ivr_flow') {
+    $file = __DIR__ . '/ivr_flow.json';
+    if (!file_exists($file)) { echo json_encode(['success'=>false, 'error'=>'No hay flujo para aplicar']); exit; }
+    
+    $json = json_decode(file_get_contents($file), true);
+    $nodes = $json['nodes'] ?? [];
+    $edges = $json['edges'] ?? [];
+    
+    $conf = "; TeleFlow Auto-Generated IVR\n\n";
+    
+    // We append the start hook to from-internal-custom so it's dialable
+    $conf .= "[from-internal-custom]\n";
+    
+    $startNodes = array_filter($nodes, function($n) { return $n['type'] === 'start'; });
+    foreach ($startNodes as $start) {
+        $ivrNum = $start['data']['ivrNumber'] ?? '7777';
+        // Encontrar siguiente destino (conexión del start)
+        $next = null;
+        foreach ($edges as $e) { if ($e['source'] == $start['id']) { $next = $e['target']; break; } }
+        
+        if ($next) {
+            $conf .= "exten => {$ivrNum},1,NoOp(TeleFlow IVR - Start)\n";
+            $conf .= "exten => {$ivrNum},n,Goto(ivr-node-{$next},s,1)\n\n";
+        }
+    }
+    
+    // Process Menu Nodes
+    $menuNodes = array_filter($nodes, function($n) { return $n['type'] === 'menu'; });
+    foreach ($menuNodes as $menu) {
+        $audio = $menu['data']['audio'] ?? '';
+        $audioStr = $audio ? str_replace('.wav', '', "custom/$audio") : "silence/1";
+        
+        $conf .= "[ivr-node-{$menu['id']}]\n";
+        $conf .= "exten => s,1,NoOp(IVR Menu {$menu['data']['label']})\n";
+        $conf .= "exten => s,n,Answer()\n";
+        $conf .= "exten => s,n(loop),Background({$audioStr})\n";
+        $conf .= "exten => s,n,WaitExten(5)\n";
+        
+        $options = $menu['data']['options'] ?? [];
+        foreach ($options as $opt) {
+            $digit = $opt['digit'];
+            // Detectar hades a dond va este dígito usando Edges
+            $next = null;
+            foreach ($edges as $e) { if ($e['source'] === $menu['id'] && $e['sourceHandle'] === "opt-{$digit}") { $next = $e['target']; break; } }
+            
+            if ($next) {
+                $conf .= "exten => {$digit},1,Goto(ivr-node-{$next},s,1)\n";
+            } else if (!empty($opt['destination'])) {
+                // Hardcoded fallback destination
+                $destParts = explode(':', $opt['destination']);
+                $target = trim($destParts[1] ?? '');
+                if ($target) $conf .= "exten => {$digit},1,Goto(from-internal,{$target},1)\n";
+            }
+        }
+        $conf .= "exten => i,1,Playback(pbx-invalid)\n";
+        $conf .= "exten => i,n,Goto(s,loop)\n";
+        $conf .= "exten => t,1,Playback(pbx-invalid)\n";
+        $conf .= "exten => t,n,Goto(s,loop)\n\n";
+    }
+    
+    // Process Action/Dest Nodes
+    $actionNodes = array_filter($nodes, function($n) { return $n['type'] === 'action'; });
+    foreach ($actionNodes as $action) {
+        $conf .= "[ivr-node-{$action['id']}]\n";
+        $label = $action['data']['label'] ?? '';
+        if ($label === 'Colgar Llamada') {
+            $conf .= "exten => s,1,Hangup()\n\n";
+        } else {
+            $parts = explode(':', $label);
+            $target = trim($parts[1] ?? '');
+            if ($target) {
+                $conf .= "exten => s,1,Goto(from-internal,{$target},1)\n\n";
+            } else {
+                $conf .= "exten => s,1,Hangup()\n\n";
+            }
+        }
+    }
+    
+    // Escribir archivo
+    $outputConf = '/etc/asterisk/extensions_teleflow_ivr.conf';
+    file_put_contents($outputConf, $conf);
+    @shell_exec('chown asterisk:asterisk ' . escapeshellarg($outputConf));
+    @shell_exec('chmod 664 ' . escapeshellarg($outputConf));
+    
+    // Asegurar #include en custom
+    $extCustom = '/etc/asterisk/extensions_custom.conf';
+    if (file_exists($extCustom)) {
+        $c = file_get_contents($extCustom);
+        if (strpos($c, '#include extensions_teleflow_ivr.conf') === false) {
+            file_put_contents($extCustom, "\n#include extensions_teleflow_ivr.conf\n", FILE_APPEND);
+        }
+    }
+    
+    // Reload Asterisk Dialplan
+    shell_exec('/usr/sbin/asterisk -rx "dialplan reload"');
+    
+    echo json_encode(['success' => true]);
     exit;
 }
 

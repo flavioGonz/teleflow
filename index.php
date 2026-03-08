@@ -3301,7 +3301,16 @@ function IVRDesignerApp({ toast }) {
                             else toast('Error al guardar: ' + d.error, 'error');
                         }).catch(e=>toast('Error de red al guardar', 'error'));
                     }} style={{background:'var(--accent)', color:'white', border:'none', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>save</span> Guardar Flujo</button>
-                    <button onClick={()=>{ toast('Enviando despliegue a Asterisk...', 'info'); setTimeout(()=>toast('IVR Desplegado con éxito.', 'success'), 2000); }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>rocket_launch</span> Aplicar</button>
+                    <button onClick={()=>{ 
+                        toast('Enviando despliegue a Asterisk...', 'info'); 
+                        fetch('api/index.php?action=apply_ivr_flow')
+                            .then(r=>r.json())
+                            .then(d=>{
+                                if(d.success) toast('IVR compilado y desplegado con éxito en la PBX.', 'success');
+                                else toast('Error al compilar: ' + (d.error || 'Desconocido'), 'error');
+                            })
+                            .catch(e=>toast('Error de red desplegando IVR.', 'error'));
+                    }} style={{background:'transparent', color:'var(--text)', border:'1px solid var(--border)', padding:'8px 16px', borderRadius:8, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6}}><span className="material-icons-round" style={{fontSize:18}}>rocket_launch</span> Aplicar</button>
                 </div>
             </div>
 
