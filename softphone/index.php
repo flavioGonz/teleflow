@@ -665,9 +665,13 @@
                             transportOptions: { server: server, traceSip: false, keepAliveInterval: 15 }, // WSS Ping/Pong cada 15s para evitar cortes de NAT
                             sessionDescriptionHandlerFactoryOptions: {
                                 peerConnectionConfiguration: {
-                                    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+                                    iceServers: [
+                                        { urls: "stun:stun.l.google.com:19302" },
+                                        { urls: "stun:stun1.l.google.com:19302" },
+                                        { urls: "stun:stun.sipgate.net:3478" }
+                                    ]
                                 },
-                                                                 iceGatheringTimeout: 2000, // Aumentado para iPhone/Redes móviles
+                                iceGatheringTimeout: 3000, // Aumentado para mayor estabilidad en redes móviles
                                 modifiers: [
                                     (sessionDescription) => {
                                         // SDP Modifier: Priorizar Opus y activar FEC (Forward Error Correction) para evitar cortes
