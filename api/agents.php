@@ -30,15 +30,16 @@ $action = $_GET['action'] ?? '';
 // ==========================================
 if ($action === 'get_agents_data') {
     try {
-        // Obtener datos de Asterisk via CLI
-        $endpoints = shell_exec("/usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
-        $channels = shell_exec("/usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null");
-        $contacts = shell_exec("/usr/sbin/asterisk -rx 'pjsip show contacts' 2>/dev/null");
+        // Obtener datos de Asterisk via CLI con ancho forzado
+        $cmd_prefix = "COLUMNS=200 ";
+        $endpoints = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
+        $channels = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null");
+        $contacts = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'pjsip show contacts' 2>/dev/null");
         
         $agents = array();
         
-        // Parsear endpoints (extensiones)
-        preg_match_all('/Endpoint:\s+([\w]+)\/.*?\s+(\d+)\s+of/', $endpoints, $matches, PREG_SET_ORDER);
+        // Parsear endpoints (extensiones) - El CID es opcional
+        preg_match_all('/Endpoint:\s+([\w]+)(?:\/.*?)?\s+(.*?)\s+(\d+)\s+of/i', $endpoints, $matches, PREG_SET_ORDER);
         
         foreach ($matches as $match) {
             $ext = $match[1];

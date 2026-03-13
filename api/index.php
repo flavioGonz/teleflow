@@ -102,7 +102,7 @@ function mysql_pbx($db = 'asterisk') {
 }
 
 function ami_cmd($cmd) {
-    return shell_exec("/usr/sbin/asterisk -rx " . escapeshellarg($cmd) . " 2>/dev/null");
+    return shell_exec("COLUMNS=200 /usr/sbin/asterisk -rx " . escapeshellarg($cmd) . " 2>/dev/null");
 }
 
 function reload_dialplan() {
@@ -243,12 +243,13 @@ if ($action === 'get_full_data') {
     $pjsip_e = ami_cmd('pjsip show endpoints');
     $lines = explode("\n", $pjsip_e);
     foreach ($lines as $line) {
-        if (preg_match('/^\s+Endpoint:\s+(\d+)\/(.+?)\s+(Not in use|Unavailable|In use|Busy|Ringing)\s+(\d+)/i', $line, $m)) {
+        // Regex mejorada: el CID (/...) es opcional
+        if (preg_match('/^\s+Endpoint:\s+(\d+)(?:\/.*?)?\s+(Not in use|Unavailable|In use|Busy|Ringing|Unknown)\s+(\d+)/i', $line, $m)) {
             $ext  = $m[1];
-            $name = trim($m[2]);
-            $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($name ?: $ext) . '&background=714B67&color=fff&size=80';
+            $name = $ext; // Fallback al mismo interno si no hay CID
+            $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=714B67&color=fff&size=80';
             if (file_exists($avatar_dir . $ext . '.jpg')) $avatar = "uploads/avatars/$ext.jpg?" . time();
-            $st = strtoupper(trim($m[3]));
+            $st = strtoupper(trim($m[2]));
             $status = ($st==='NOT IN USE')?'ONLINE':($st==='UNAVAILABLE'?'OFFLINE':'BUSY');
             $exts[$ext] = ['ext'=>$ext,'name'=>$name,'status'=>$status,'ip'=>'—','rtt'=>'—','mac'=>'—','avatar'=>$avatar,'recording'=>'dontcare'];
         }

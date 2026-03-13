@@ -55,60 +55,63 @@ try {
     echo "2. Generating config via retrieve_conf...\n";
     shell_exec('/var/lib/asterisk/bin/retrieve_conf');
 
-    echo "3. Patching pjsip_additional.conf (Robust Pass)...\n";
+    echo "3. Patching pjsip_additional.conf to resolve name clashes...\n";
     $file = '/etc/asterisk/pjsip_additional.conf';
     if (file_exists($file)) {
-        $content = file_get_contents($file);
-        $sections = preg_split('/^\[/m', $content);
-        $newContent = $sections[0]; // Header comments
+        $lines = file($file);
+        $newLines = [];
+        $currentSection = "";
+        $currentType = "";
         
-        $renamedAors = [];
-        $endpointNames = [];
-
-        // First pass: identify types
-        $processedSections = [];
-        for ($i = 1; $i < count($sections); $i++) {
-            $section = "[" . $sections[$i];
-            preg_match('/^\[(.*)\]/', $section, $m);
-            $name = $m[1];
-            preg_match('/type=(.*)/', $section, $tm);
-            $type = isset($tm[1]) ? trim($tm[1]) : "";
-            
-            if ($type == 'endpoint') {
-                $endpointNames[] = $name;
-            }
-            $processedSections[] = ['name' => $name, 'type' => $type, 'content' => $section];
-        }
-
-        // Second pass: rename clashes
-        foreach ($processedSections as &$ps) {
-            if (($ps['type'] == 'aor' || $ps['type'] == 'auth') && in_array($ps['name'], $endpointNames)) {
-                $newName = "{$ps['name']}-{$ps['type']}";
-                $ps['content'] = preg_replace('/^\[(.*)\]/', "[$newName]", $ps['content']);
-                $renamedAors[$ps['name']][$ps['type']] = $newName;
-                echo "Renaming duplicate section [{$ps['name']}] type={$ps['type']} to [{$newName}]\n";
-            }
-        }
-
-        // Third pass: update references in endpoints
-        foreach ($processedSections as &$ps) {
-            if ($ps['type'] == 'endpoint') {
-                foreach (['auth', 'aors'] as $key) {
-                    preg_match("/^$key=(.*)/m", $ps['content'], $rm);
-                    if (isset($rm[1])) {
-                        $refName = trim($rm[1]);
-                        $refType = ($key == 'aors') ? 'aor' : 'auth';
-                        if (isset($renamedAors[$refName][$refType])) {
-                            $ps['content'] = preg_replace("/^$key=.*/m", "$key={$renamedAors[$refName][$refType]}", $ps['content']);
-                            echo "Updating reference in endpoint [{$ps['name']}]: $key={$renamedAors[$refName][$refType]}\n";
+        // Strategy: We will detect sections and if it's an aor or auth, we rename the header.
+        // And we will keep track of names to update references in endpoints.
+        
+        $content = file_get_contents($file);
+        
+        // First pass: identify all endpoint names
+        preg_match_all('/^\[(.*)\]\s*type=endpoint/m', $content, $endpoints);
+        $endpointNames = $endpoints[1];
+        
+        $lines = explode("\n", $content);
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if (preg_match('/^\[(.*)\]/', $trimmed, $m)) {
+                $currentSection = $m[1];
+                $newLines[] = $line;
+            } elseif (preg_match('/^type=(.*)/', $trimmed, $m)) {
+                $currentType = $m[1];
+                // If this is an aor or auth with the SAME name as an endpoint, we have a problem in the header we just added
+                if (($currentType == 'aor' || $currentType == 'auth') && in_array($currentSection, $endpointNames)) {
+                    // Update the LAST line added (the header)
+                    $lastIdx = count($newLines) - 2; // -1 is this line, -2 is the header
+                    // Actually, we might have had multiple lines between header and type=...
+                    // Let's find the header
+                    for ($i = count($newLines) - 1; $i >= 0; $i--) {
+                        if (trim($newLines[$i]) == "[$currentSection]") {
+                            $newName = "{$currentSection}-{$currentType}";
+                            $newLines[$i] = "[$newName]\n";
+                            echo "Renamed duplicate section [$currentSection] to [$newName]\n";
+                            break;
                         }
                     }
                 }
+                $newLines[] = $line;
+            } elseif (preg_match('/^(auth|aors|outbound_auth)=(.*)/', $trimmed, $m)) {
+                $key = $m[1];
+                $val = $m[2];
+                if (in_array($val, $endpointNames)) {
+                    $type = ($key == 'aors') ? 'aor' : 'auth';
+                    $newVal = "{$val}-{$type}";
+                    $newLines[] = "{$key}={$newVal}\n";
+                    echo "Updated reference in endpoint: {$key}={$newVal}\n";
+                } else {
+                    $newLines[] = $line;
+                }
+            } else {
+                $newLines[] = $line;
             }
-            $newContent .= $ps['content'];
         }
-        
-        file_put_contents($file, $newContent);
+        file_put_contents($file, implode("\n", $newLines));
     }
 
     echo "4. Reloading Asterisk...\n";

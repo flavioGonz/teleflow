@@ -1,12 +1,19 @@
 <?php
+/**
+ * PJSIP AOR Fix Script
+ * Specifically targets the "AOR not found" issue by ensuring AORs have unique names 
+ * and are correctly referenced in endpoints.
+ */
+
 try {
     $db = new PDO('mysql:host=localhost;dbname=asterisk', 'root', 'Sildan.1329');
     
+    echo "1. Harmonizing DB for all extensions...\n";
     $webrtc_ids = ['2001', '2002', '2003', '2004', '2005', '2006', '2007'];
     $standard_ids = ['1001', '1002', '1004', '1005'];
+    $all_ids = array_merge($webrtc_ids, $standard_ids);
 
-    echo "1. Harmonizing DB...\n";
-    foreach (array_merge($webrtc_ids, $standard_ids) as $ext) {
+    foreach ($all_ids as $ext) {
         $is_webrtc = in_array($ext, $webrtc_ids);
         $db->prepare("DELETE FROM sip WHERE id=?")->execute([$ext]);
         
@@ -55,69 +62,77 @@ try {
     echo "2. Generating config via retrieve_conf...\n";
     shell_exec('/var/lib/asterisk/bin/retrieve_conf');
 
-    echo "3. Patching pjsip_additional.conf (Robust Pass)...\n";
+    echo "3. Patching pjsip_additional.conf to resolve section name clashes...\n";
     $file = '/etc/asterisk/pjsip_additional.conf';
     if (file_exists($file)) {
         $content = file_get_contents($file);
         $sections = preg_split('/^\[/m', $content);
-        $newContent = $sections[0]; // Header comments
+        $newContent = $sections[0]; 
         
         $renamedAors = [];
         $endpointNames = [];
 
-        // First pass: identify types
+        // Identify endpoints
         $processedSections = [];
         for ($i = 1; $i < count($sections); $i++) {
             $section = "[" . $sections[$i];
-            preg_match('/^\[(.*)\]/', $section, $m);
-            $name = $m[1];
-            preg_match('/type=(.*)/', $section, $tm);
-            $type = isset($tm[1]) ? trim($tm[1]) : "";
-            
-            if ($type == 'endpoint') {
-                $endpointNames[] = $name;
+            if (preg_match('/^\[(.*)\]/', $section, $m)) {
+                $name = $m[1];
+                if (preg_match('/type=endpoint/i', $section)) {
+                    $endpointNames[] = $name;
+                }
+                $processedSections[] = ['name' => $name, 'content' => $section];
             }
-            $processedSections[] = ['name' => $name, 'type' => $type, 'content' => $section];
         }
 
-        // Second pass: rename clashes
+        // Rename AORs and Auths that clash with endpoint names
         foreach ($processedSections as &$ps) {
-            if (($ps['type'] == 'aor' || $ps['type'] == 'auth') && in_array($ps['name'], $endpointNames)) {
-                $newName = "{$ps['name']}-{$ps['type']}";
+            if (preg_match('/type=aor/i', $ps['content']) && in_array($ps['name'], $endpointNames)) {
+                $newName = "{$ps['name']}-aor";
                 $ps['content'] = preg_replace('/^\[(.*)\]/', "[$newName]", $ps['content']);
-                $renamedAors[$ps['name']][$ps['type']] = $newName;
-                echo "Renaming duplicate section [{$ps['name']}] type={$ps['type']} to [{$newName}]\n";
+                $ps['newName'] = $newName;
+                $ps['type'] = 'aor';
+                $renamedAors[$ps['name']]['aor'] = $newName;
+                echo "Renaming AOR [{$ps['name']}] to [{$newName}]\n";
+            }
+            if (preg_match('/type=auth/i', $ps['content']) && in_array($ps['name'], $endpointNames)) {
+                $newName = "{$ps['name']}-auth";
+                $ps['content'] = preg_replace('/^\[(.*)\]/', "[$newName]", $ps['content']);
+                $ps['newName'] = $newName;
+                $ps['type'] = 'auth';
+                $renamedAors[$ps['name']]['auth'] = $newName;
+                echo "Renaming AUTH [{$ps['name']}] to [{$newName}]\n";
             }
         }
 
-        // Third pass: update references in endpoints
+        // Update references in endpoints
         foreach ($processedSections as &$ps) {
-            if ($ps['type'] == 'endpoint') {
-                foreach (['auth', 'aors'] as $key) {
-                    preg_match("/^$key=(.*)/m", $ps['content'], $rm);
-                    if (isset($rm[1])) {
-                        $refName = trim($rm[1]);
-                        $refType = ($key == 'aors') ? 'aor' : 'auth';
-                        if (isset($renamedAors[$refName][$refType])) {
-                            $ps['content'] = preg_replace("/^$key=.*/m", "$key={$renamedAors[$refName][$refType]}", $ps['content']);
-                            echo "Updating reference in endpoint [{$ps['name']}]: $key={$renamedAors[$refName][$refType]}\n";
-                        }
-                    }
+            if (preg_match('/type=endpoint/i', $ps['content'])) {
+                $originalName = $ps['name'];
+                if (isset($renamedAors[$originalName]['auth'])) {
+                    $ps['content'] = preg_replace('/^auth=.*/m', "auth={$renamedAors[$originalName]['auth']}", $ps['content']);
+                }
+                if (isset($renamedAors[$originalName]['aor'])) {
+                    $ps['content'] = preg_replace('/^aors=.*/m', "aors={$renamedAors[$originalName]['aor']}", $ps['content']);
                 }
             }
             $newContent .= $ps['content'];
         }
         
         file_put_contents($file, $newContent);
+        echo "Successfully patched $file\n";
+    } else {
+        echo "WARNING: $file not found. This might be a production environment restriction.\n";
     }
 
-    echo "4. Reloading Asterisk...\n";
+    echo "4. Reloading Asterisk PJSIP...\n";
     shell_exec('/usr/sbin/asterisk -rx "core reload"');
     shell_exec('/usr/sbin/asterisk -rx "module reload res_pjsip.so"');
 
-    echo "--- VERIFICATION ---\n";
-    echo shell_exec('/usr/sbin/asterisk -rx "pjsip show endpoints" | grep Endpoint');
+    echo "--- VERIFICATION FOR 1002 ---\n";
+    echo shell_exec('/usr/sbin/asterisk -rx "pjsip show endpoint 1002"');
 
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
 }
+?>
