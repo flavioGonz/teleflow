@@ -384,7 +384,7 @@
             width:100%; max-width:440px;
             background:var(--surface);
             border-left:1px solid rgba(139,92,246,.25);
-            z-index:301;
+            z-index:9999;
             display:flex; flex-direction:column;
             overflow:hidden;
             box-shadow:-25px 0 80px rgba(0,0,0,.7);
@@ -611,6 +611,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         { id:'colas', icon:'queue', label:'Colas', badge: qWaiting, badgeColor: '#f59e0b' },
         { id:'grupos', icon:'ring_volume', label:'Grupos' },
         { id:'ivr', icon:'account_tree', label:'IVR' },
+        { id:'radar', icon:'radar', label:'Tráfico', icColor: '#3b82f6' },
         { section: 'Herramientas' },
         { id:'cdr', icon:'history', label:'CDR' },
         { id:'configuracion', icon:'settings', label:'Configuración' },
@@ -1375,13 +1376,20 @@ function AgentCallTimer({ seconds }) {
     return <span style={{fontFamily:'monospace',fontWeight:800,color:'#f59e0b',fontSize:13}}>{fmt(elapsed)}</span>;
 }
 
-function ViewAgentes() {
+function ViewAgentes({ toast }) {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [selected, setSelected] = useState(null);
     const [activeCalls, setActiveCalls] = useState([]);
+    const [isGrid, setIsGrid] = useState(true);
+    const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
+    const [actionLoading, setActionLoading] = useState(null);
+
+    useEffect(() => {
+        localStorage.setItem('tf_supervisor_ext', supervisorExt);
+    }, [supervisorExt]);
 
     const load = useCallback(async () => {
         try {
@@ -1397,6 +1405,34 @@ function ViewAgentes() {
 
     useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
 
+    const handleAction = async (agent, type) => {
+        const callInfo = activeCalls.find(c => c.ext === String(agent.ext));
+        if (!callInfo && type === 'spy') {
+            toast('El agente no está en una llamada activa', 'warning');
+            return;
+        }
+        if (type === 'spy' && !supervisorExt) {
+            toast('Configura tu extensión de supervisor primero', 'error');
+            return;
+        }
+        
+        setActionLoading(agent.ext);
+        try {
+            const fd = new FormData();
+            fd.append('type', type);
+            fd.append('channel', callInfo?.channel || '');
+            fd.append('supervisor', supervisorExt);
+            
+            const r = await fetch('api/index.php?action=call_action', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (d.success) toast(d.message, 'success');
+            else toast(d.error || 'Error', 'error');
+        } catch (e) {
+            toast('Error de conexión', 'error');
+        }
+        setActionLoading(null);
+    };
+
     const getCallInfo = (ext) => activeCalls.find(c => c.ext === String(ext));
 
     const filtered = agents.filter(a =>
@@ -1410,71 +1446,193 @@ function ViewAgentes() {
     return (
         <div className="content-area view-enter">
             {/* Stats ​*/}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
                 {[
-                    {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors'},
-                    {l:'En Llamada',v:busy,c:'#f59e0b',ic:'call'},
-                    {l:'Total Llamadas',v:calls,c:'#8b5cf6',ic:'bar_chart'},
-                    {l:'Offline',v:agents.length-online-busy,c:'#6b7280',ic:'do_not_disturb'},
+                    {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors',bg:'rgba(34,197,94,0.1)'},
+                    {l:'En Llamada',v:busy,c:'#ef4444',ic:'call',bg:'rgba(239,68,68,0.1)'},
+                    {l:'Total Llamadas',v:calls,c:'#8b5cf6',ic:'bar_chart',bg:'rgba(139,92,246,0.1)'},
+                    {l:'Offline',v:agents.length-online-busy,c:'#6b7280',ic:'do_not_disturb',bg:'rgba(255,255,255,0.05)'},
                 ].map(s=>(
-                    <div key={s.l} className="glass" style={{padding:'16px'}}>
+                    <div key={s.l} className="glass" style={{padding:20, borderRadius:20}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                            <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
-                            <div style={{width:32,height:32,borderRadius:9,background:`${s.c}18`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:16,color:s.c}}>{s.ic}</span>
+                            <div style={{fontSize:10,fontWeight:800,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em'}}>{s.l}</div>
+                            <div style={{width:36,height:36,borderRadius:10,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:s.c}}>{s.ic}</span>
                             </div>
                         </div>
-                        <div style={{fontSize:28,fontWeight:800,color:s.c,marginTop:6,lineHeight:1}}>{s.v}</div>
+                        <div style={{fontSize:32,fontWeight:900,color:s.c,marginTop:8,lineHeight:1}}>{s.v}</div>
                     </div>
                 ))}
             </div>
 
-            {/* Filtros */}
-            <div style={{display:'flex',gap:10,marginBottom:16}}>
+            {/* Filtros y Controles de Vista */}
+            <div style={{display:'flex',gap:12,marginBottom:24,alignItems:'center'}}>
                 <div style={{position:'relative',flex:1}}>
-                    <span className="material-icons-round" style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:17,color:'#6b7280'}}>search</span>
-                    <input className="input-tf py-2 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar agente..." value={search} onChange={e=>setSearch(e.target.value)} />
+                    <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#6b7280'}}>search</span>
+                    <input className="input-tf py-3 pl-12 pr-4 rounded-2xl text-sm" placeholder="Buscar por nombre o extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
                 </div>
-                <select className="input-tf py-2 px-4 rounded-xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
-                    <option value="">Todos</option>
-                    <option value="ONLINE">Online</option>
+                
+                <div className="glass" style={{display:'flex', padding:4, borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
+                    <button onClick={()=>setIsGrid(true)} className={`p-2 rounded-xl transition-all ${isGrid?'bg-white/10 text-white shadow-lg':'text-gray-500 hover:text-gray-300'}`}>
+                        <span className="material-icons-round" style={{fontSize:20}}>grid_view</span>
+                    </button>
+                    <button onClick={()=>setIsGrid(false)} className={`p-2 rounded-xl transition-all ${!isGrid?'bg-white/10 text-white shadow-lg':'text-gray-500 hover:text-gray-300'}`}>
+                        <span className="material-icons-round" style={{fontSize:20}}>format_list_bulleted</span>
+                    </button>
+                </div>
+
+                <div className="glass" style={{display:'flex', alignItems:'center', gap:10, padding:'4px 12px', borderRadius:16}}>
+                    <span className="material-icons-round" style={{fontSize:16, color:'#6b7280'}}>admin_panel_settings</span>
+                    <input 
+                        type="text" 
+                        placeholder="Mi Ext" 
+                        value={supervisorExt} 
+                        onChange={e=>setSupervisorExt(e.target.value)} 
+                        className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" 
+                    />
+                </div>
+
+                <select className="input-tf py-3 px-6 rounded-2xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
+                    <option value="">Todos los Estados</option>
+                    <option value="ONLINE">Disponibles</option>
                     <option value="BUSY">En Llamada</option>
-                    <option value="OFFLINE">Offline</option>
+                    <option value="OFFLINE">Desconectados</option>
                 </select>
             </div>
 
-            {/* Header */}
-            <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr',padding:'8px 18px',fontSize:10,fontWeight:700,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>
-                <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada Activa</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
-            </div>
+            {/* Active Stack Grid / List */}
+            {!isGrid && (
+                <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr',padding:'8px 18px',fontSize:10,fontWeight:800,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>
+                    <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada Activa</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
+                </div>
+            )}
 
             {loading
                 ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
                 : filtered.length === 0
                     ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes que coincidan</div>
-                    : filtered.map(agent => {
-                        const callInfo = getCallInfo(agent.ext);
-                        const isBusy = agent.status==='BUSY' || !!callInfo;
-                        return(
-                        <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
-                            <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
-                                    {initials(agent.name)}
-                                    {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
-                                </div>
-                                <div>
-                                    <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
-                                    <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
-                                </div>
+                    : isGrid 
+                        ? (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-8 anim-fadeup">
+                                {filtered.map(agent => {
+                                    const callInfo = getCallInfo(agent.ext);
+                                    const isBusy = agent.status === 'BUSY' || !!callInfo;
+                                    const isOffline = agent.status === 'OFFLINE';
+                                    const statusColor = isBusy ? '#ef4444' : (isOffline ? '#4b5563' : '#22c55e');
+                                    
+                                    return (
+                                        <div key={agent.ext} className="group relative flex flex-col items-center" onClick={() => setSelected(agent)} style={{cursor:'pointer'}}>
+                                            <div className="relative mb-4">
+                                                <div className={`w-20 h-20 rounded-[24px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
+                                                     style={{
+                                                         boxShadow: isBusy ? `0 10px 30px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 30px rgba(34,197,94,0.2)`),
+                                                         border: `2px solid ${statusColor}44`,
+                                                         filter: isOffline ? 'grayscale(0.8) opacity(0.6)' : 'none'
+                                                     }}>
+                                                    {initials(agent.name)}
+                                                </div>
+                                                
+                                                {/* Status Badge */}
+                                                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor, boxShadow: `0 4px 12px ${statusColor}66`}}>
+                                                    <span className="material-icons-round text-[12px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
+                                                        {isBusy ? 'call' : (isOffline ? 'cloud_off' : 'check')}
+                                                    </span>
+                                                </div>
+
+                                                {/* Spy Action Overlay */}
+                                                <div className="absolute inset-0 rounded-[24px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); handleAction(agent, 'spy'); }} 
+                                                        className={`w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all ${actionLoading === agent.ext ? 'animate-spin' : ''}`}
+                                                        title="Escuchar Llamada (Spy)"
+                                                    >
+                                                        <span className="material-icons-round" style={{fontSize:24}}>{actionLoading === agent.ext ? 'sync' : 'headphones'}</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-center group-hover:translate-y-[-4px] transition-transform">
+                                                <div style={{fontSize:13, fontWeight:900, color:'white', letterSpacing:'-0.5px'}}>#{agent.ext}</div>
+                                                <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', marginTop:2, maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{agent.name}</div>
+                                                
+                                                {isBusy && (
+                                                    <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                                        <AgentCallTimer seconds={callInfo?.elapsed_sec || agent.in_call || 0} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <div style={{textAlign:'center'}}>
-                                <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
-                                    <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                    {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
-                                </span>
+                        )
+                        : (
+                            <div className="anim-fadeup">
+                                {filtered.map(agent => {
+                                    const callInfo = getCallInfo(agent.ext);
+                                    const isBusy = agent.status==='BUSY' || !!callInfo;
+                                    return(
+                                    <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
+                                        <div style={{display:'flex',alignItems:'center',gap:12, position:'relative'}}>
+                                            <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
+                                                {initials(agent.name)}
+                                                {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
+                                            </div>
+                                            <div>
+                                                <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
+                                                <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
+                                            </div>
+                                            
+                                            {/* List Spy Button */}
+                                            {isBusy && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleAction(agent, 'spy'); }} 
+                                                    className={`ml-auto w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center ${actionLoading === agent.ext ? 'animate-spin' : ''}`}
+                                                    title="Spy"
+                                                >
+                                                    <span className="material-icons-round" style={{fontSize:18}}>{actionLoading === agent.ext ? 'sync' : 'headphones'}</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{textAlign:'center'}}>
+                                            <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
+                                                <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
+                                                {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
+                                            </span>
+                                        </div>
+                                        <div style={{textAlign:'center'}}>
+                                            {callInfo
+                                                ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                                                    <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
+                                                    <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
+                                                        ? {callInfo.dest||callInfo.channel||'—'}
+                                                    </div>
+                                                  </div>
+                                                : (agent.in_call||0)>0
+                                                    ? <AgentCallTimer seconds={agent.in_call||0} />
+                                                    : <span style={{fontSize:12,color:'#6b7280'}}>—</span>
+                                            }
+                                        </div>
+                                        <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
+                                            <div style={{textAlign:'center'}}>
+                                                <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
+                                                <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
+                                            </div>
+                                            <div style={{textAlign:'center'}}>
+                                                <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
+                                                <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
+                                            </div>
+                                        </div>
+                                        <div style={{textAlign:'right'}}>
+                                            <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
+                                            <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
+                                        </div>
+                                    </div>);
+                                })}
                             </div>
-                            <div style={{textAlign:'center'}}>
-                                {callInfo
+                        )
+            }llInfo
                                     ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
                                         <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
                                         <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
@@ -1926,7 +2084,7 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
     );
 }
 
-function ViewColas({ toast }) {
+function ViewColas({ toast, onReport }) {
     const [queues,setQueues]=useState([]);
     const [drawer,setDrawer]=useState(null);
     const load=async()=>{
@@ -1946,45 +2104,96 @@ function ViewColas({ toast }) {
                 <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>queue</span>
                 No hay colas configuradas
             </div>}
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 anim-fadeup">
                 {queues.map((q,i)=>{
                     const isActive = (q.calls_waiting||0) > 0;
+                    const isCritical = isActive && q.max_wait > 30;
+                    const isWarning = isActive && q.max_wait > 15 && !isCritical;
+                    const statusColor = isCritical ? '#ef4444' : (isWarning ? '#f59e0b' : (isActive ? '#22c55e' : '#374151'));
+
                     return(
-                    <div key={i} className="glass" style={{padding:20,borderLeft:`3px solid ${isActive?'#f59e0b':'#374151'}`,transition:'border-color .3s',position:'relative',overflow:'hidden'}}>
-                        {isActive&&<div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#f59e0b,#ef4444,#f59e0b)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                            <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <div style={{width:44,height:44,borderRadius:12,background:isActive?'rgba(245,158,11,0.15)':'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',transition:'background .3s'}}>
-                                    <span className="material-icons-round" style={{fontSize:22,color:isActive?'#f59e0b':'#c4b5fd',animation:isActive?'blink 1s infinite':'none'}}>queue</span>
-                                </div>
-                                <div>
-                                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                        <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,.3)',fontSize:10,fontWeight:800,color:'#c4b5fd',fontFamily:'monospace'}}>#{q.id}</div>
-                                        <div style={{fontSize:15,fontWeight:800,color:'var(--text)'}}>{q.name}</div>
+                    <div key={i} className={`glass group relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${isCritical ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-black animate-pulse' : ''}`}
+                         style={{
+                             padding:24, borderRadius:24, 
+                             border: `1px solid ${isCritical ? '#ef4444' : (isWarning ? '#f59e0b' : 'var(--border)')}`,
+                             background: isCritical ? 'rgba(239,68,68,0.05)' : 'var(--surface)'
+                         }}>
+                        
+                        {/* Heatmap intensity indicator */}
+                        <div style={{
+                            position:'absolute', top:0, right:0, width:100, height:100,
+                            background: `radial-gradient(circle at top right, ${statusColor}22, transparent)`,
+                            zIndex: 0
+                        }} />
+
+                        <div style={{position:'relative', zIndex:1}}>
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
+                                <div style={{display:'flex', alignItems:'center', gap:12}}>
+                                    <div style={{
+                                        width:48, height:48, borderRadius:16, 
+                                        background: isActive ? `${statusColor}22` : 'var(--surface2)',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        boxShadow: isActive ? `0 0 20px ${statusColor}33` : 'none'
+                                    }}>
+                                        <span className="material-icons-round" style={{fontSize:24, color:statusColor, animation: isActive ? 'blink 1.5s infinite' : 'none'}}>hub</span>
                                     </div>
-                                    <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{stratLabel[q.strategy]||q.strategy} · {q.calls_processed||0} procesadas · {q.timeout}s timeout</div>
+                                    <div>
+                                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                            <span style={{fontSize:10, fontWeight:900, color:'#6b7280', fontFamily:'monospace', background:'var(--surface2)', padding:'2px 6px', borderRadius:5}}>#{q.id}</span>
+                                            <h3 style={{fontSize:16, fontWeight:900, color:'var(--text)'}}>{q.name}</h3>
+                                        </div>
+                                        <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>{stratLabel[q.strategy]||q.strategy}</div>
+                                    </div>
+                                </div>
+
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
+                                    <button title="Ajustes" onClick={()=>setDrawer(q)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                                        <span className="material-icons-round" style={{fontSize:18}}>settings</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div style={{display:'flex',alignItems:'center',gap:16}}>
-                                <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:28,fontWeight:800,color:isActive?'#f59e0b':'#4ade80',lineHeight:1}}>{q.calls_waiting||0}</div>
-                                    <div style={{fontSize:9,color:'#6b7280',textTransform:'uppercase'}}>Esperando</div>
+
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
+                                <div className="glass" style={{padding:'15px 10px', textAlign:'center', borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
+                                    <div style={{fontSize:38, fontWeight:900, color:statusColor, lineHeight:1, letterSpacing:'-2px'}}>{q.calls_waiting||0}</div>
+                                    <div style={{fontSize:9, color:'#6b7280', fontWeight:800, textTransform:'uppercase', marginTop:4, letterSpacing:'1px'}}>En Espera</div>
                                 </div>
-                                <button onClick={()=>setDrawer(q)} style={{padding:'7px 12px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',color:'#9ca3af',cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',gap:4}}>
-                                    <span className="material-icons-round" style={{fontSize:15}}>edit</span>Editar
+                                <div className="glass" style={{padding:'15px 10px', textAlign:'center', borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
+                                    <div style={{fontSize:18, fontWeight:800, color:'var(--text)', lineHeight:1}}>{q.max_wait > 0 ? fmtTime(q.max_wait) : '00:00'}</div>
+                                    <div style={{fontSize:9, color:'#6b7280', fontWeight:800, textTransform:'uppercase', marginTop:14, letterSpacing:'1px'}}>T. Máximo</div>
+                                </div>
+                            </div>
+
+                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
+                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800, textTransform:'uppercase'}}>Agentes Logueados</div>
+                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800}}>{q.members?.length || 0} Total</div>
+                            </div>
+
+                            <div style={{display:'flex', flexWrap:'wrap', gap:4, minHeight:32}}>
+                                {q.members?.slice(0, 8).map((m,j)=>(
+                                    <div key={j} className="w-8 h-8 rounded-lg border border-white/5 flex items-center justify-center relative group/member" 
+                                         style={{background:m.status==='ONLINE'?'rgba(34,197,94,0.1)':(m.status==='BUSY'?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.05)')}}
+                                         title={`${m.ext} - ${m.status}`}>
+                                        <span style={{fontSize:10, fontWeight:700, color:m.status==='ONLINE'?'#4ade80':(m.status==='BUSY'?'#f59e0b':'#4b5563')}}>{m.ext.slice(-2)}</span>
+                                        <span style={{position:'absolute', bottom:-2, right:-2, width:8, height:8, borderRadius:'50%', background:m.status==='ONLINE'?'#22c55e':(m.status==='BUSY'?'#f59e0b':'#374151'), border:'2px solid var(--surface)'}} />
+                                    </div>
+                                ))}
+                                {q.members?.length > 8 && <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-gray-500">+{q.members.length-8}</div>}
+                            </div>
+
+                            {/* Floating Hover Actions */}
+                            <div className="absolute inset-x-0 -bottom-2 translate-y-full group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 flex justify-center gap-2 pb-4 pt-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none group-hover:pointer-events-auto">
+                                <button className="btn-primary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800}} onClick={()=>toast('Función habilitada pronto','info')}>
+                                    LOGUEAR AGENTE
+                                </button>
+                                <button className="btn-secondary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800, background:'var(--surface2)', color:'white', border:'1px solid var(--border)'}} onClick={()=>toast('Estrategia: '+q.strategy,'info')}>
+                                    ESTRATEGIA
+                                </button>
+                                <button className="btn-secondary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800, background:'var(--surface2)', color:'white', border:'1px solid var(--border)'}} onClick={()=>onReport(q.id)}>
+                                    REPORTE
                                 </button>
                             </div>
                         </div>
-                        {q.members&&q.members.length>0&&(
-                            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                                {q.members.map((m,j)=>(
-                                    <div key={j} style={{padding:'5px 12px',borderRadius:8,background:'var(--surface2)',border:'1px solid var(--border)',fontSize:11,display:'flex',alignItems:'center',gap:6,fontWeight:600}}>
-                                        <span style={{width:7,height:7,borderRadius:'50%',background:m.status&&m.status.includes('use')?'#f59e0b':'#22c55e',flexShrink:0}} />
-                                        #{m.ext} {m.name&&<span style={{color:'#6b7280',fontWeight:400}}>· {m.name}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>);
                 })}
             </div>
@@ -2419,6 +2628,176 @@ function ViewGrupos({ toast }) {
 }
 
 
+
+// ─────────────────────────────────────────────
+// VISTA: RADAR DE TRÁFICO (REACT FLOW)
+// ─────────────────────────────────────────────
+function ViewRadar({ data, toast }) {
+    const rf = window.ReactFlow;
+    if (!rf) return (
+        <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
+            <span className="material-icons-round text-6xl">running_with_errors</span>
+            <div className="text-xl font-bold">React Flow no cargado</div>
+            <p className="text-sm">Verifica la conexión a internet o la carga del CDN.</p>
+        </div>
+    );
+
+    const { ReactFlow, Background, Controls } = rf;
+    const [nodes, setNodes] = useState([]);
+    const [edges, setEdges] = useState([]);
+
+    useEffect(() => {
+        const newNodes = [];
+        const newEdges = [];
+
+        // Trunks (Entradas)
+        newNodes.push({
+            id: 'trunk-main',
+            type: 'input',
+            data: { label: (
+                <div className="flex flex-col items-center gap-1">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <span className="material-icons-round text-blue-400">router</span>
+                    </div>
+                    <div className="text-[10px] font-black uppercase text-blue-400">Troncal SIP</div>
+                    <div className="text-[9px] text-gray-500 font-bold">PSTN Gateway</div>
+                </div>
+            )},
+            position: { x: 50, y: 150 },
+            style: { background: 'rgba(15,15,26,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '20px', padding: '15px', backdropFilter: 'blur(10px)', width: 140 }
+        });
+
+        // Queues (Hubs)
+        const queues = data?.pbx?.queues || [];
+        queues.forEach((q, idx) => {
+            const y = 80 + (idx * 140);
+            newNodes.push({
+                id: `q-${q.id}`,
+                data: { label: (
+                    <div className="flex flex-col items-center gap-1">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                            <span className="material-icons-round text-amber-500">hub</span>
+                        </div>
+                        <div className="text-[11px] font-black text-white uppercase tracking-tight">{q.name}</div>
+                        <div className="flex gap-2 mt-1">
+                            <div className="text-[10px] bg-amber-500/20 text-amber-500 font-black px-2 py-0.5 rounded-full">#{q.id}</div>
+                            {q.calls_waiting > 0 && (
+                                <div className="text-[10px] bg-red-500 text-white font-black px-2 py-0.5 rounded-full animate-pulse">
+                                    {q.calls_waiting}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )},
+                position: { x: 300, y: y },
+                style: { background: 'rgba(15,15,26,0.8)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '24px', padding: '15px', backdropFilter: 'blur(10px)', width: 160 }
+            });
+
+            // Edge from trunk to queue
+            newEdges.push({
+                id: `e-trunk-q-${q.id}`,
+                source: 'trunk-main',
+                target: `q-${q.id}`,
+                animated: q.calls_waiting > 0,
+                style: { stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.1)', strokeWidth: q.calls_waiting > 0 ? 3 : 1 }
+            });
+        });
+
+        // Agents (Endpoints)
+        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
+        agents.forEach((a, idx) => {
+            const isBusy = a.status === 'BUSY';
+            const y = 20 + (idx * 90);
+            newNodes.push({
+                id: `a-${a.ext}`,
+                type: 'output',
+                data: { label: (
+                    <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${getColor(a.name)} flex items-center justify-center text-[11px] font-black text-white shadow-xl group-hover:scale-110 transition-transform`}>
+                            {initials(a.name)}
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                            <div className="text-[12px] font-black text-white">#{a.ext}</div>
+                            <div className="text-[9px] text-gray-500 font-bold uppercase truncate">{a.name.split(' ')[0]}</div>
+                        </div>
+                        <div className={`w-2.5 h-2.5 rounded-full border-2 border-black ${isBusy?'bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse':'bg-green-500 shadow-[0_0_8px_#22c55e]'}`} />
+                    </div>
+                )},
+                position: { x: 650, y: y },
+                style: { 
+                    background: 'rgba(15,15,26,0.8)', 
+                    border: `1px solid ${isBusy?'rgba(239,68,68,0.4)':'rgba(34,197,94,0.3)'}`, 
+                    borderRadius: '20px', padding: '10px 14px', backdropFilter: 'blur(10px)', width: 200 
+                }
+            });
+        });
+
+        // Active Call Edges
+        const activeCalls = data?.pbx?.calls || [];
+        activeCalls.forEach((call, idx) => {
+            const agentNode = `a-${call.ext}`;
+            // If the agent exists in our nodes
+            if (newNodes.find(n => n.id === agentNode)) {
+                newEdges.push({
+                    id: `call-${idx}`,
+                    source: 'trunk-main',
+                    target: agentNode,
+                    animated: true,
+                    label: <div className="bg-red-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">VOZ ACTIVA</div>,
+                    style: { stroke: '#ef4444', strokeWidth: 4, filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.4))' },
+                    labelStyle: { fill: '#fff', fontWeight: 900 }
+                });
+            }
+        });
+
+        setNodes(newNodes);
+        setEdges(newEdges);
+    }, [data]);
+
+    return (
+        <div className="content-area view-enter" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
+            {/* Header / Info box */}
+            <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }} className="flex gap-3">
+                <div className="glass px-4 py-3 rounded-2xl flex items-center gap-5 border border-white/10 shadow-2xl backdrop-blur-xl">
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Troncales</span>
+                    </div>
+                    <div className="w-px h-5 bg-white/10" />
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_#f59e0b]" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Distribución</span>
+                    </div>
+                    <div className="w-px h-5 bg-white/10" />
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Puntos Finales</span>
+                    </div>
+                </div>
+                
+                <div className="glass px-4 py-3 rounded-2xl flex items-center gap-2 border border-red-500/30 shadow-2xl backdrop-blur-xl">
+                    <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">En Tiempo Real</span>
+                </div>
+            </div>
+
+            <ReactFlow 
+                nodes={nodes} 
+                edges={edges}
+                fitView
+                className="bg-[#050508]"
+                zoomOnScroll={false}
+                zoomOnPinch={true}
+                panOnDrag={true}
+            >
+                <Background variant="dots" color="rgba(139,92,246,0.15)" gap={30} size={1} />
+                <Controls showInteractive={false} className="glass border-white/10" />
+            </ReactFlow>
+        </div>
+    );
+}
+
+
 // ─────────────────────────────────────────────
 // COMPONENTE: LIVE CALL CARD
 // ─────────────────────────────────────────────
@@ -2686,7 +3065,7 @@ function ViewVivo2({ data, toast }) {
 // ─────────────────────────────────────────────
 // VISTA: REPORTES AVANZADOS
 // ─────────────────────────────────────────────
-function ViewReportes({ toast }) {
+function ViewReportes({ toast, queue, onClearQueue }) {
     const d=new Date(); d.setDate(d.getDate()-7);
     const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
     const [end, setEnd] = useState(() => new Date().toISOString().split('T')[0]);
@@ -2698,7 +3077,8 @@ function ViewReportes({ toast }) {
     const load = async () => {
         setLoading(true);
         try {
-            const r = await fetch(`api/index.php?action=get_reports&start=${start}&end=${end}`);
+            const qParam = queue ? `&queue=${queue}` : '';
+            const r = await fetch(`api/index.php?action=get_reports&start=${start}&end=${end}${qParam}`);
             const d = await r.json();
             if(d.success) setStats(d);
             else toast(d.error||'Error al cargar reportes','error');
@@ -2706,7 +3086,7 @@ function ViewReportes({ toast }) {
         setLoading(false);
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [queue, start, end]);
 
     useEffect(() => {
         if (!stats || !chartRef.current || !window.Chart) return;
@@ -2758,9 +3138,20 @@ function ViewReportes({ toast }) {
         <div className="content-area view-enter">
             {/* Header + Filtros */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,flexWrap:'wrap',gap:16}}>
-                <div>
-                    <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>Reportes Analíticos</h2>
-                    <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>Métricas y gráficas de la actividad de llamadas</p>
+                <div style={{display:'flex', alignItems:'center', gap:15}}>
+                    {queue && (
+                        <button onClick={onClearQueue} style={{width:40, height:40, borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted)'}}>
+                            <span className="material-icons-round">arrow_back</span>
+                        </button>
+                    )}
+                    <div>
+                        <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>
+                            {queue ? `Reporte de Cola #${queue}` : 'Reportes Analíticos'}
+                        </h2>
+                        <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>
+                            {queue ? 'Métricas específicas de esta cola' : 'Métricas y gráficas de la actividad de llamadas'}
+                        </p>
+                    </div>
                 </div>
                 <div className="glass" style={{display:'flex',alignItems:'center',gap:10,padding:'8px 16px',borderRadius:14}}>
                     <input type="date" value={start} onChange={e=>setStart(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
@@ -2780,7 +3171,7 @@ function ViewReportes({ toast }) {
                     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginBottom:24}} className="anim-fadeup">
                         <Card title="Total Procesadas" value={stats.stats.total?.toLocaleString()||0} sub="Todas las disposiciones" icon="functions" color="#c4b5fd" bg="rgba(139,92,246,0.15)" />
                         <Card title="Contestadas" value={stats.stats.answered?.toLocaleString()||0} sub={`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% de efectividad`} icon="check_circle" color="#4ade80" bg="rgba(34,197,94,0.15)" />
-                        <Card title="Abandonadas/Fallidas" value={parseInt(stats.stats.failed||0)+parseInt(stats.stats.no_answer||0)+parseInt(stats.stats.busy||0)} sub="Busy, No Answer, Failed" icon="cancel" color="#f87171" bg="rgba(239,68,68,0.15)" />
+                        <Card title="Espera Promedio" value={fmtTime(Math.round(stats.stats.avg_wait||0))} sub="Tiempo antes de atender" icon="hourglass_top" color="#3b82f6" bg="rgba(59,130,246,0.15)" />
                         <Card title="Duración Promedio" value={fmtTime(Math.round(stats.stats.avg_duration||0))} sub="Tiempo de habla (billsec)" icon="timer" color="#f59e0b" bg="rgba(245,158,11,0.15)" />
                     </div>
 
@@ -3812,6 +4203,7 @@ function App() {
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('tf_dark') !== '0');
     const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
+    const [reportQueue, setReportQueue] = useState(null);
 
     // Persist view & user to localStorage
     useEffect(() => { if (user) localStorage.setItem('tf_user', user); else localStorage.removeItem('tf_user'); }, [user]);
@@ -3864,11 +4256,12 @@ function App() {
         switch(view) {
             case 'dashboard':   return <ViewDashboard data={data} />;
             case 'extensiones': return <ViewExtensiones data={data} toast={showToast} />;
-            case 'agentes':     return <ViewAgentes />;
+            case 'agentes':     return <ViewAgentes toast={showToast} />;
             case 'vivo':        return <ViewVivo2 data={data} toast={showToast} />;
+            case 'radar':       return <ViewRadar data={data} toast={showToast} />;
             case 'cdr':         return <ViewCDR toast={showToast} />;
-            case 'reportes':    return <ViewReportes toast={showToast} />;
-            case 'colas':       return <ViewColas toast={showToast} />;
+            case 'reportes':    return <ViewReportes toast={showToast} queue={reportQueue} onClearQueue={()=>setReportQueue(null)} />;
+            case 'colas':       return <ViewColas toast={showToast} onReport={(qid)=>{setReportQueue(qid);setView('reportes');}} />;
             case 'grupos':      return <ViewGrupos toast={showToast} />;
             case 'ivr':         return <ViewIVR toast={showToast} />;
 // El Softphone ahora es una PWA independiente en /softphone/

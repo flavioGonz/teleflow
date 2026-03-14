@@ -105,6 +105,40 @@ function ami_cmd($cmd) {
     return shell_exec("COLUMNS=200 /usr/sbin/asterisk -rx " . escapeshellarg($cmd) . " 2>/dev/null");
 }
 
+function get_all_endpoint_statuses() {
+    $pjsip_e = ami_cmd('pjsip show endpoints');
+    $pjsip_c = ami_cmd('pjsip show contacts');
+    
+    $statuses = [];
+    $contacts = [];
+    
+    // Parse contacts for IP
+    foreach (explode("\n", $pjsip_c) as $line) {
+        if (preg_match('/^\s*Contact:\s+(\d+)\/(\S+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\S+)/i', $line, $m)) {
+            $contacts[$m[1]] = $m[4]; // IP address
+        }
+    }
+
+    // Parse endpoints for status
+    foreach (explode("\n", $pjsip_e) as $line) {
+        // Updated regex to catch modern Asterisk PJSIP output
+        if (preg_match('/Endpoint:\s+([\w]+)(?:\/.*?)?\s+(.*?)\s+(\d+)\s+of/i', $line, $m)) {
+            $ext = $m[1];
+            $status_raw = trim($m[2]);
+            $status = 'OFFLINE';
+            if (strpos($status_raw, 'Not in use') !== false) $status = 'ONLINE';
+            else if (strpos($status_raw, 'In use') !== false || strpos($status_raw, 'Busy') !== false) $status = 'BUSY';
+            else if (strpos($status_raw, 'Ringing') !== false) $status = 'RINGING';
+            
+            $statuses[$ext] = [
+                'status' => $status,
+                'ip' => $contacts[$ext] ?? '---'
+            ];
+        }
+    }
+    return $statuses;
+}
+
 function reload_dialplan() {
     // Find fwconsole in common locations
     $paths = ['/var/lib/asterisk/bin/fwconsole','/usr/sbin/fwconsole','/usr/local/sbin/fwconsole'];
@@ -528,6 +562,16 @@ if ($action === 'get_queues') {
             $processed = 0;
             if (preg_match('/processed (\d+)/i', $qa, $pm)) $processed = intval($pm[1]);
 
+            // Parse max wait time from the calls list
+            // Longest wait: 0:42
+            $max_wait = 0;
+            if (preg_match_all('/wait:\s+(\d+):(\d+)/i', $qa, $wait_matches, PREG_SET_ORDER)) {
+                foreach ($wait_matches as $wm) {
+                    $seconds = (intval($wm[1]) * 60) + intval($wm[2]);
+                    if ($seconds > $max_wait) $max_wait = $seconds;
+                }
+            }
+
             $queues[] = [
                 'id'            => $qid,
                 'name'          => $q['descr'],
@@ -536,8 +580,20 @@ if ($action === 'get_queues') {
                 'wrapuptime'    => $details['wrapuptime'][0] ?? 0,
                 'calls_waiting' => $waiting,
                 'calls_processed' => $processed,
+                'max_wait'      => $max_wait,
                 'members'       => $members,
             ];
+        }
+
+        // Cross-reference member status with actual PJSIP reachability
+        $pjsip_statuses = get_all_endpoint_statuses();
+        foreach ($queues as &$q) {
+            foreach ($q['members'] as &$m) {
+                if (isset($pjsip_statuses[$m['ext']])) {
+                    $m['status'] = $pjsip_statuses[$m['ext']]['status'];
+                    $m['ip'] = $pjsip_statuses[$m['ext']]['ip'] ?? '---';
+                }
+            }
         }
     } catch (Exception $e) {
         echo json_encode(['success'=>false,'error'=>$e->getMessage()]); exit;
@@ -831,18 +887,35 @@ if ($action === 'delete_ring_group') {
 if ($action === 'get_reports') {
     $start = $_GET['start'] ?? date('Y-m-d', strtotime('-7 days'));
     $end = $_GET['end'] ?? date('Y-m-d');
+    $queue = $_GET['queue'] ?? '';
     
     try {
         $db = mysql_pbx('asteriskcdrdb');
         
+        $where = ["DATE(calldate) BETWEEN ? AND ?"];
+        $params = [$start, $end];
+        if ($queue) {
+            $where[] = "dst = ?";
+            $params[] = $queue;
+        }
+        $wStr = implode(" AND ", $where);
+
         // General stats
-        $stmtStats = $db->prepare("SELECT COUNT(*) as total, SUM(CASE WHEN disposition='ANSWERED' THEN 1 ELSE 0 END) as answered, SUM(CASE WHEN disposition='FAILED' THEN 1 ELSE 0 END) as failed, SUM(CASE WHEN disposition='NO ANSWER' THEN 1 ELSE 0 END) as no_answer, SUM(CASE WHEN disposition='BUSY' THEN 1 ELSE 0 END) as busy, AVG(billsec) as avg_duration FROM cdr WHERE DATE(calldate) BETWEEN ? AND ?");
-        $stmtStats->execute([$start, $end]);
+        $stmtStats = $db->prepare("SELECT 
+            COUNT(*) as total, 
+            SUM(CASE WHEN disposition='ANSWERED' THEN 1 ELSE 0 END) as answered, 
+            SUM(CASE WHEN disposition='FAILED' THEN 1 ELSE 0 END) as failed, 
+            SUM(CASE WHEN disposition='NO ANSWER' THEN 1 ELSE 0 END) as no_answer, 
+            SUM(CASE WHEN disposition='BUSY' THEN 1 ELSE 0 END) as busy, 
+            AVG(billsec) as avg_duration,
+            AVG(duration - billsec) as avg_wait
+            FROM cdr WHERE $wStr");
+        $stmtStats->execute($params);
         $stats = $stmtStats->fetch(PDO::FETCH_ASSOC);
 
         // Daily trend
-        $stmtTrend = $db->prepare("SELECT DATE(calldate) as date, disposition, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY date, disposition ORDER BY date ASC");
-        $stmtTrend->execute([$start, $end]);
+        $stmtTrend = $db->prepare("SELECT DATE(calldate) as date, disposition, COUNT(*) as count FROM cdr WHERE $wStr GROUP BY date, disposition ORDER BY date ASC");
+        $stmtTrend->execute($params);
         $trendRaw = $stmtTrend->fetchAll(PDO::FETCH_ASSOC);
         
         $trend = [];
@@ -853,14 +926,17 @@ if ($action === 'get_reports') {
         }
 
         // Top origins
-        $stmtOrigins = $db->prepare("SELECT src, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY src ORDER BY count DESC LIMIT 5");
-        $stmtOrigins->execute([$start, $end]);
+        $stmtOrigins = $db->prepare("SELECT src, COUNT(*) as count FROM cdr WHERE $wStr GROUP BY src ORDER BY count DESC LIMIT 5");
+        $stmtOrigins->execute($params);
         $origins = $stmtOrigins->fetchAll(PDO::FETCH_ASSOC);
 
-        // Top dests
-        $stmtDests = $db->prepare("SELECT dst, COUNT(*) as count FROM cdr WHERE DATE(calldate) BETWEEN ? AND ? GROUP BY dst ORDER BY count DESC LIMIT 5");
-        $stmtDests->execute([$start, $end]);
-        $dests = $stmtDests->fetchAll(PDO::FETCH_ASSOC);
+        // Top dests (only if not filtering by a single queue)
+        $dests = [];
+        if (!$queue) {
+            $stmtDests = $db->prepare("SELECT dst, COUNT(*) as count FROM cdr WHERE $wStr GROUP BY dst ORDER BY count DESC LIMIT 5");
+            $stmtDests->execute($params);
+            $dests = $stmtDests->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         echo json_encode(['success'=>true, 'stats'=>$stats, 'trend'=>$trend, 'origins'=>$origins, 'dests'=>$dests]);
     } catch(Exception $e) {
