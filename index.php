@@ -1365,9 +1365,8 @@ function ViewExtensiones({ data, toast }) {
     );
 }
 
-
 // ─────────────────────────────────────────────
-// VISTA: AGENTES (con timer llamada activa + llamante remoto)
+// UTIL: Timer para llamadas
 // ─────────────────────────────────────────────
 function AgentCallTimer({ seconds }) {
     const [elapsed, setElapsed] = useState(seconds||0);
@@ -1376,6 +1375,9 @@ function AgentCallTimer({ seconds }) {
     return <span style={{fontFamily:'monospace',fontWeight:800,color:'#f59e0b',fontSize:13}}>{fmt(elapsed)}</span>;
 }
 
+// ─────────────────────────────────────────────
+// VISTA: AGENTES - Dashboard Activo
+// ─────────────────────────────────────────────
 function ViewAgentes({ toast }) {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1445,7 +1447,6 @@ function ViewAgentes({ toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* Stats ​*/}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
                 {[
                     {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors',bg:'rgba(34,197,94,0.1)'},
@@ -1465,7 +1466,6 @@ function ViewAgentes({ toast }) {
                 ))}
             </div>
 
-            {/* Filtros y Controles de Vista */}
             <div style={{display:'flex',gap:12,marginBottom:24,alignItems:'center'}}>
                 <div style={{position:'relative',flex:1}}>
                     <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#6b7280'}}>search</span>
@@ -1483,13 +1483,7 @@ function ViewAgentes({ toast }) {
 
                 <div className="glass" style={{display:'flex', alignItems:'center', gap:10, padding:'4px 12px', borderRadius:16}}>
                     <span className="material-icons-round" style={{fontSize:16, color:'#6b7280'}}>admin_panel_settings</span>
-                    <input 
-                        type="text" 
-                        placeholder="Mi Ext" 
-                        value={supervisorExt} 
-                        onChange={e=>setSupervisorExt(e.target.value)} 
-                        className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" 
-                    />
+                    <input type="text" placeholder="Mi Ext" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" />
                 </div>
 
                 <select className="input-tf py-3 px-6 rounded-2xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
@@ -1500,169 +1494,117 @@ function ViewAgentes({ toast }) {
                 </select>
             </div>
 
-            {/* Active Stack Grid / List */}
             {!isGrid && (
                 <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr',padding:'8px 18px',fontSize:10,fontWeight:800,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>
-                    <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada Activa</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
+                    <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
                 </div>
             )}
 
-            {loading
-                ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
-                : filtered.length === 0
-                    ? <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes que coincidan</div>
-                    : isGrid 
-                        ? (
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-8 anim-fadeup">
-                                {filtered.map(agent => {
-                                    const callInfo = getCallInfo(agent.ext);
-                                    const isBusy = agent.status === 'BUSY' || !!callInfo;
-                                    const isOffline = agent.status === 'OFFLINE';
-                                    const statusColor = isBusy ? '#ef4444' : (isOffline ? '#4b5563' : '#22c55e');
-                                    
-                                    return (
-                                        <div key={agent.ext} className="group relative flex flex-col items-center" onClick={() => setSelected(agent)} style={{cursor:'pointer'}}>
-                                            <div className="relative mb-4">
-                                                <div className={`w-20 h-20 rounded-[24px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
-                                                     style={{
-                                                         boxShadow: isBusy ? `0 10px 30px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 30px rgba(34,197,94,0.2)`),
-                                                         border: `2px solid ${statusColor}44`,
-                                                         filter: isOffline ? 'grayscale(0.8) opacity(0.6)' : 'none'
-                                                     }}>
-                                                    {initials(agent.name)}
-                                                </div>
-                                                
-                                                {/* Status Badge */}
-                                                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor, boxShadow: `0 4px 12px ${statusColor}66`}}>
-                                                    <span className="material-icons-round text-[12px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
-                                                        {isBusy ? 'call' : (isOffline ? 'cloud_off' : 'check')}
-                                                    </span>
-                                                </div>
-
-                                                {/* Spy Action Overlay */}
-                                                <div className="absolute inset-0 rounded-[24px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); handleAction(agent, 'spy'); }} 
-                                                        className={`w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all ${actionLoading === agent.ext ? 'animate-spin' : ''}`}
-                                                        title="Escuchar Llamada (Spy)"
-                                                    >
-                                                        <span className="material-icons-round" style={{fontSize:24}}>{actionLoading === agent.ext ? 'sync' : 'headphones'}</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="text-center group-hover:translate-y-[-4px] transition-transform">
-                                                <div style={{fontSize:13, fontWeight:900, color:'white', letterSpacing:'-0.5px'}}>#{agent.ext}</div>
-                                                <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', marginTop:2, maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{agent.name}</div>
-                                                
-                                                {isBusy && (
-                                                    <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                                                        <AgentCallTimer seconds={callInfo?.elapsed_sec || agent.in_call || 0} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )
-                        : (
-                            <div className="anim-fadeup">
-                                {filtered.map(agent => {
-                                    const callInfo = getCallInfo(agent.ext);
-                                    const isBusy = agent.status==='BUSY' || !!callInfo;
-                                    return(
-                                    <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
-                                        <div style={{display:'flex',alignItems:'center',gap:12, position:'relative'}}>
-                                            <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
-                                                {initials(agent.name)}
-                                                {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
-                                            </div>
-                                            <div>
-                                                <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
-                                                <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
-                                            </div>
-                                            
-                                            {/* List Spy Button */}
-                                            {isBusy && (
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleAction(agent, 'spy'); }} 
-                                                    className={`ml-auto w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center ${actionLoading === agent.ext ? 'animate-spin' : ''}`}
-                                                    title="Spy"
-                                                >
-                                                    <span className="material-icons-round" style={{fontSize:18}}>{actionLoading === agent.ext ? 'sync' : 'headphones'}</span>
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div style={{textAlign:'center'}}>
-                                            <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
-                                                <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                                {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
-                                            </span>
-                                        </div>
-                                        <div style={{textAlign:'center'}}>
-                                            {callInfo
-                                                ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                                                    <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
-                                                    <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
-                                                        ? {callInfo.dest||callInfo.channel||'—'}
-                                                    </div>
-                                                  </div>
-                                                : (agent.in_call||0)>0
-                                                    ? <AgentCallTimer seconds={agent.in_call||0} />
-                                                    : <span style={{fontSize:12,color:'#6b7280'}}>—</span>
-                                            }
-                                        </div>
-                                        <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
-                                            <div style={{textAlign:'center'}}>
-                                                <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
-                                                <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
-                                            </div>
-                                            <div style={{textAlign:'center'}}>
-                                                <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
-                                                <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
-                                            </div>
-                                        </div>
-                                        <div style={{textAlign:'right'}}>
-                                            <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
-                                            <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
-                                        </div>
-                                    </div>);
-                                })}
-                            </div>
-                        )
-            }llInfo
-                                    ? <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                                        <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
-                                        <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>
-                                            �? {callInfo.dest||callInfo.channel||'—'}
-                                        </div>
-                                      </div>
-                                    : (agent.in_call||0)>0
-                                        ? <AgentCallTimer seconds={agent.in_call||0} />
-                                        : <span style={{fontSize:12,color:'#6b7280'}}>—</span>
-                                }
-                            </div>
-                            <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
-                                <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
-                                    <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
+            {loading ? (
+                <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
+            ) : filtered.length === 0 ? (
+                <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes que coincidan</div>
+            ) : isGrid ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-8 anim-fadeup">
+                    {filtered.map(agent => {
+                        const callInfo = getCallInfo(agent.ext);
+                        const isBusy = agent.status === 'BUSY' || !!callInfo;
+                        const isOffline = agent.status === 'OFFLINE';
+                        const statusColor = isBusy ? '#ef4444' : (isOffline ? '#4b5563' : '#22c55e');
+                        return (
+                            <div key={agent.ext} className="group relative flex flex-col items-center" onClick={() => setSelected(agent)} style={{cursor:'pointer'}}>
+                                <div className="relative mb-4">
+                                    <div className={`w-20 h-20 rounded-[24px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
+                                         style={{
+                                             boxShadow: isBusy ? `0 10px 30px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 30px rgba(34,197,94,0.2)`),
+                                             border: `2px solid ${statusColor}44`,
+                                             filter: isOffline ? 'grayscale(0.8) opacity(0.6)' : 'none'
+                                         }}>
+                                        {initials(agent.name)}
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor}}>
+                                        <span className="material-icons-round text-[12px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
+                                            {isBusy ? 'call' : (isOffline ? 'cloud_off' : 'check')}
+                                        </span>
+                                    </div>
+                                    <div className="absolute inset-0 rounded-[24px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
+                                        <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
+                                            <span className="material-icons-round" style={{fontSize:24}}>headphones</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style={{textAlign:'center'}}>
-                                    <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
-                                    <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
+                                <div className="text-center group-hover:translate-y-[-4px] transition-transform">
+                                    <div style={{fontSize:13, fontWeight:900, color:'white'}}>#{agent.ext}</div>
+                                    <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{agent.name}</div>
+                                    {isBusy && (
+                                        <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                            <AgentCallTimer seconds={callInfo?.elapsed_sec || agent.in_call || 0} />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div style={{textAlign:'right'}}>
-                                <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
-                                <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="anim-fadeup">
+                    {filtered.map(agent => {
+                        const callInfo = getCallInfo(agent.ext);
+                        const isBusy = agent.status==='BUSY' || !!callInfo;
+                        return (
+                            <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
+                                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                                    <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
+                                        {initials(agent.name)}
+                                        {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
+                                    </div>
+                                    <div>
+                                        <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
+                                        <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
+                                    </div>
+                                    {isBusy && (
+                                        <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} className="ml-auto w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center">
+                                            <span className="material-icons-round" style={{fontSize:18}}>headphones</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <div style={{textAlign:'center'}}>
+                                    <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
+                                        <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
+                                        {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
+                                    </span>
+                                </div>
+                                <div style={{textAlign:'center'}}>
+                                    {callInfo ? (
+                                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                                            <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
+                                            <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>{callInfo.dest||'—'}</div>
+                                        </div>
+                                    ) : (agent.in_call||0)>0 ? (
+                                        <AgentCallTimer seconds={agent.in_call||0} />
+                                    ) : <span style={{fontSize:12,color:'#6b7280'}}>—</span>}
+                                </div>
+                                <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
+                                    <div style={{textAlign:'center'}}>
+                                        <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
+                                        <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
+                                    </div>
+                                    <div style={{textAlign:'center'}}>
+                                        <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
+                                        <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
+                                    </div>
+                                </div>
+                                <div style={{textAlign:'right'}}>
+                                    <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
+                                    <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
+                                </div>
                             </div>
-                        </div>);
-                    })
-            }
+                        );
+                    })}
+                </div>
+            )}
 
-            {/* Modal agente */}
             {selected && (
                 <div className="modal-backdrop" onClick={()=>setSelected(null)}>
                     <div className="modal-box" onClick={e=>e.stopPropagation()}>
