@@ -2733,7 +2733,7 @@ const RadarAgentNode = ({ data }) => {
 
     return (
         <div style={{ position:'relative', width:80, height:80, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+            {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: statusColor, width: 8, height: 8, border: '2px solid var(--surface)' }} />}
             
             {/* Main Circle */}
             <div className={`glass shadow-xl ${isRinging ? 'anim-vibrate' : ''}`} style={{ 
@@ -2773,7 +2773,7 @@ const RadarAgentNode = ({ data }) => {
                 {call && <div style={{ fontSize: 7, color: statusColor, fontWeight: 900, animation: 'pulse 1s infinite' }}>{isRinging ? 'SONANDO' : call.duration}</div>}
             </div>
 
-            {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+            {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: statusColor, width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         </div>
     );
 };
@@ -2833,47 +2833,75 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const { ReactFlow: RFComp, Background, Controls, Handle, Position, applyNodeChanges } = rf;
-    const ReactFlow = RFComp || rf.default || rf;
+    const rf = window.ReactFlow;
+    if (!rf) return (
+        <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
+            <span className="material-icons-round text-6xl">running_with_errors</span>
+            <div className="text-xl font-bold">React Flow no cargado</div>
+            <p className="text-sm">Verifica la conexión a internet o la carga del CDN.</p>
+        </div>
+    );
+
+    const RFComp = rf.ReactFlow || rf.default || rf;
+    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = rf;
+    const ReactFlow = RFComp;
+
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
 
-    // Persistencia de posiciones
-    const STORAGE_KEY = 'teleflow_radar_positions';
-    const savePositions = (nodesToSave) => {
-        const positions = {};
-        nodesToSave.forEach(n => {
-            if (n.position) positions[n.id] = n.position;
-        });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-    };
+    // Persistencia
+    const POS_KEY = 'teleflow_radar_positions';
+    const EDGE_KEY = 'teleflow_radar_edges';
 
     const onNodesChange = useCallback(
         (changes) => {
             setNodes((nds) => {
                 const nextNodes = applyNodeChanges(changes, nds);
-                savePositions(nextNodes);
+                const positions = {};
+                nextNodes.forEach(n => { if(n.position) positions[n.id] = n.position; });
+                localStorage.setItem(POS_KEY, JSON.stringify(positions));
                 return nextNodes;
             });
-        },
-        [applyNodeChanges]
+        }, [applyNodeChanges]
+    );
+
+    const onEdgesChange = useCallback(
+        (changes) => {
+            setEdges((eds) => {
+                const nextEdges = applyEdgeChanges(changes, eds);
+                localStorage.setItem(EDGE_KEY, JSON.stringify(nextEdges));
+                return nextEdges;
+            });
+        }, [applyEdgeChanges]
+    );
+
+    const onConnect = useCallback(
+        (params) => {
+            setEdges((eds) => {
+                const nextEdges = addEdge({ ...params, type: 'animatedData', animated: true }, eds);
+                localStorage.setItem(EDGE_KEY, JSON.stringify(nextEdges));
+                return nextEdges;
+            });
+        }, [addEdge]
     );
 
     useEffect(() => {
-        const savedPositions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        const savedPositions = JSON.parse(localStorage.getItem(POS_KEY) || '{}');
+        const savedEdges = JSON.parse(localStorage.getItem(EDGE_KEY) || '[]');
         const newNodes = [];
-        const newEdges = [];
+        const newEdges = [...savedEdges];
         const nodeDataGlobals = { Handle, Position, initials, getColor };
 
         // Helper to get position with override
         const getPos = (id, fallback) => savedPositions[id] || fallback;
 
-        // 1. CORE PBX (LEFT)
+        // 1. CORE PBX (CENTER)
         newNodes.push({
             id: 'core-pbx',
             type: 'core',
             data: { ...nodeDataGlobals, label: 'PBX SERVER' },
-            position: getPos('core-pbx', { x: 50, y: 300 })
+            position: getPos('core-pbx', { x: 50, y: 300 }),
+            dragHandle: '.radar-node-glass' 
         });
 
         // 2. Distribute Queues & Agents in Star/Hub Pattern
@@ -3016,7 +3044,7 @@ function ViewRadar({ data, toast }) {
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [data, Handle, Position]); // Aseguramos que se ejecute cuando RF cargue
+    }, [data, Handle, Position]); 
 
     return (
         <div className="content-area view-enter" style={{ height: 'calc(100vh - 80px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
@@ -3066,15 +3094,19 @@ function ViewRadar({ data, toast }) {
                 nodes={nodes} 
                 edges={edges}
                 onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
                 nodeTypes={radarNodeTypes}
                 edgeTypes={radarEdgeTypes}
                 fitView
+                snapToGrid={true}
+                snapGrid={[15, 15]}
                 zoomOnScroll={true}
                 panOnDrag={true}
-                minZoom={0.2}
-                maxZoom={1.5}
+                minZoom={0.1}
+                maxZoom={2}
             >
-                {Background && <Background color="rgba(139,92,246,0.03)" gap={20} size={1} />}
+                {Background && <Background variant="dots" gap={20} size={1} color="rgba(255,255,255,0.05)" />}
                 {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
             </ReactFlow>
         </div>
