@@ -2685,8 +2685,14 @@ const RadarGroupNode = ({ data }) => (
         border: '1px dashed rgba(255,255,255,0.1)', minWidth: 200, textAlign: 'center' 
     }}>
         <div style={{ fontSize:10, fontWeight:900, color:'var(--muted)', textTransform:'uppercase', letterSpacing:2 }}>{data.label}</div>
-        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+        {data.Handle && (
+            <>
+                <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />
+                <data.Handle type="target" position={data.Position?.Right} style={{ opacity: 0 }} />
+                <data.Handle type="source" position={data.Position?.Left} style={{ opacity: 0 }} />
+                <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />
+            </>
+        )}
     </div>
 );
 
@@ -2836,29 +2842,33 @@ function ViewRadar({ data, toast }) {
             position: { x: 50, y: 300 }
         });
 
-        // 2. Queues & Hierarchical Nesting
+        // 2. Distribute Queues & Agents in Star/Hub Pattern
         const queues = data?.pbx?.queues || [];
         const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
         const activeCalls = data?.pbx?.calls || [];
 
-        let currentY = 50;
+        let currentYLeft = 0;
+        let currentYRight = 0;
         const processedAgents = new Set();
+        const groupSpacing = 40;
 
         queues.forEach((q, idx) => {
             const queueAgents = agents.filter(a => {
-                // Heurística simple: si el agente está en los miembros de la cola o tiene la cola como destino
                 return q.members?.includes(a.ext) || activeCalls.some(c => c.ext === a.ext && (c.dest === q.id || c.from === q.id));
             });
 
             const groupHeight = 120 + (Math.ceil(queueAgents.length / 2) * 90);
             const groupId = `parent-q-${q.id}`;
+            const side = idx % 2 === 0 ? 'right' : 'left';
+            const xPos = side === 'right' ? 450 : -650;
+            const yPos = side === 'right' ? currentYRight : currentYLeft;
 
             // Nodo Padre (Grupo)
             newNodes.push({
                 id: groupId,
                 type: 'group',
-                data: { label: q.name },
-                position: { x: 450, y: currentY },
+                data: { ...nodeDataGlobals, label: q.name },
+                position: { x: xPos, y: yPos },
                 style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)' }
             });
 
@@ -2911,20 +2921,24 @@ function ViewRadar({ data, toast }) {
                 }
             });
 
-            currentY += groupHeight + 40;
+            if (side === 'right') currentYRight += groupHeight + groupSpacing;
+            else currentYLeft += groupHeight + groupSpacing;
         });
 
-        // 3. Agentes Huérfanos (No están en ninguna cola activa)
+        // 3. Orphand Agents Group
         const orphanAgents = agents.filter(a => !processedAgents.has(a.ext));
         if (orphanAgents.length > 0) {
             const groupHeight = 80 + (Math.ceil(orphanAgents.length / 2) * 90);
             const groupId = 'parent-orphans';
+            const side = (queues.length % 2 === 0) ? 'right' : 'left';
+            const xPos = side === 'right' ? 450 : -650;
+            const yPos = side === 'right' ? currentYRight : currentYLeft;
 
             newNodes.push({
                 id: groupId,
                 type: 'group',
-                data: { label: 'OTROS INTERNOS' },
-                position: { x: 450, y: currentY },
+                data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
+                position: { x: xPos, y: yPos },
                 style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,100,100,0.05)' }
             });
 
@@ -2954,6 +2968,16 @@ function ViewRadar({ data, toast }) {
                     });
                 }
             });
+            
+            if (side === 'right') currentYRight += groupHeight + groupSpacing;
+            else currentYLeft += groupHeight + groupSpacing;
+        }
+
+        // 4. Final PBX Core Position (Centered vertically relative to total height)
+        const totalHeight = Math.max(currentYLeft, currentYRight);
+        const coreNode = newNodes.find(n => n.id === 'core-pbx');
+        if (coreNode) {
+            coreNode.position = { x: 100, y: (totalHeight / 2) - 70 };
         }
 
         setNodes(newNodes);
