@@ -36,8 +36,8 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/reactflow@11.10.1/dist/style.css">
-    <script src="https://unpkg.com/reactflow@11.10.1/dist/umd/index.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <style>
         :root {
@@ -457,7 +457,11 @@ function Login({ onLogin }) {
         const fd = new FormData();
         fd.append('username', user); fd.append('password', pass);
         try {
-            const r = await fetch('api/index.php?action=login', { method:'POST', body:fd });
+            const r = await fetch('api/index.php?action=login', { 
+                method: 'POST', 
+                body: fd,
+                credentials: 'include'
+            });
             const d = await r.json();
             if (d.status === 'success') onLogin(d.user);
             else setErr('Credenciales incorrectas. Verificá usuario y contraseña.');
@@ -942,7 +946,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     useEffect(() => {
         if (!isNew && ext.ext) {
-            fetch(`api/index.php?action=get_extension&ext=${ext.ext}`)
+            fetch(`api/index.php?action=get_extension&ext=${ext.ext}`, { credentials: 'include' })
                 .then(r=>r.json())
                 .then(d=>{ if(d.success) setForm(f=>({...f, secret: d.secret||''})); });
         }
@@ -956,7 +960,11 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         Object.entries(form).forEach(([k,v])=>fd.append(k,v));
         fd.append('device_type', devType);
         const action = isNew ? 'create_extension' : 'update_extension';
-        const r = await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd});
+        const r = await fetch(`api/index.php?action=${action}`, { 
+            method: 'POST', 
+            body: fd,
+            credentials: 'include'
+        });
         const d = await r.json();
         if (d.success) {
             if (!isNew) {
@@ -2813,8 +2821,8 @@ const radarEdgeTypes = {
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewRadar({ data, toast }) {
-    const rfObj = window.ReactFlow;
-    if (!rfObj) return (
+    const rf = window.ReactFlow;
+    if (!rf) return (
         <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
             <span className="material-icons-round text-6xl">running_with_errors</span>
             <div className="text-xl font-bold">React Flow no cargado</div>
@@ -2822,17 +2830,10 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    // Estrategia de extracción ultra-robusta
-    const getUtil = (name) => rfObj[name] || (rfObj.default && rfObj.default[name]);
-    
-    const Background = getUtil('Background');
-    const Controls = getUtil('Controls');
-    const Handle = getUtil('Handle');
-    const Position = getUtil('Position');
-    const applyNodeChanges = getUtil('applyNodeChanges');
-    const applyEdgeChanges = getUtil('applyEdgeChanges');
-    const addEdge = getUtil('addEdge');
-    const ReactFlow = rfObj.ReactFlow || rfObj.default || rfObj;
+    // Estrategia de extracción UMD estándar compatible con v11
+    const rfStore = rf.default || rf;
+    const ReactFlow = rf.ReactFlow || rf.default || rf;
+    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = rfStore;
 
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
@@ -4585,7 +4586,7 @@ function App() {
             <div className={`sidebar-overlay ${!collapsed && window.innerWidth < 768 ? 'active' : ''}`} onClick={() => setCollapsed(true)} />
             <Sidebar 
                 view={view} setView={setView} user={user} 
-                onLogout={async () => { await fetch('api/index.php?action=logout'); setUser(null); }} 
+                onLogout={async () => { await fetch('api/index.php?action=logout', { credentials: 'include' }); setUser(null); }} 
                 collapsed={collapsed} setCollapsed={setCollapsed}
                 darkMode={darkMode} setDarkMode={setDarkMode}
                 data={data}
