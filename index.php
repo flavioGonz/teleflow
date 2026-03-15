@@ -2689,19 +2689,21 @@ const RadarCoreNode = ({ data }) => (
 );
 
 const RadarGroupNode = ({ data }) => (
-    <div className="glass box-shadow-premium" style={{ 
-        width: 130, height: 130, borderRadius: '50%', background: 'rgba(139,92,246,0.03)', 
-        border: '1.5px dashed rgba(139,92,246,0.4)', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 15,
-        boxShadow: '0 0 20px rgba(139,92,246,0.05)'
-    }}>
-        <span className="material-icons-round" style={{ fontSize: 24, color: '#8b5cf6', opacity: 0.6, marginBottom: 4 }}>workspaces</span>
-        <div style={{ fontSize:9, fontWeight:900, color:'var(--text)', textTransform:'uppercase', letterSpacing:1.5, lineHeight: 1.2 }}>{data.label}</div>
+    <div style={{ position:'relative', pointerEvents:'none' }}>
+        <div className="glass box-shadow-premium" style={{ 
+            width: 130, height: 130, borderRadius: '50%', background: 'rgba(139,92,246,0.05)', 
+            border: '2px solid #8b5cf6', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 15,
+            boxShadow: '0 0 30px rgba(139,92,246,0.2)',
+            position: 'absolute', left: 0, top: 0
+        }}>
+            <span className="material-icons-round" style={{ fontSize: 32, color: '#8b5cf6', marginBottom: 4 }}>workspaces</span>
+            <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1.5, lineHeight: 1.2 }}>{data.label}</div>
+        </div>
         {data.Handle && (
             <>
-                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
-                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
-                <data.Handle type="source" position={data.Position?.Bottom} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
+                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: 65, top: 0 }} />
+                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: 65, top: 130 }} />
             </>
         )}
     </div>
@@ -2962,7 +2964,7 @@ function ViewRadar({ data, toast }) {
                 type: 'group',
                 data: { ...nodeDataGlobals, label: q.name },
                 position: getPos(groupId, { x: xPos, y: yPos }),
-                style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)' }
+                style: { width: 620, height: Math.max(groupHeight, 350), backgroundColor: 'rgba(139,92,246,0.015)', border: '2px dashed rgba(139,92,246,0.15)', borderRadius: '50%' }
             });
 
             // Nodo Info de Cola
@@ -3032,7 +3034,7 @@ function ViewRadar({ data, toast }) {
                 type: 'group',
                 data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
                 position: getPos(groupId, { x: xPos, y: yPos }),
-                style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,100,100,0.05)' }
+                style: { width: 620, height: Math.max(groupHeight, 350), backgroundColor: 'rgba(139,92,246,0.015)', border: '2px dashed rgba(139,92,246,0.15)', borderRadius: '50%' }
             });
 
             orphanAgents.forEach((a, aIdx) => {
