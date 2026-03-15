@@ -2640,6 +2640,72 @@ function ViewGrupos({ toast }) {
 
 
 
+// ─── RADAR NODES ───
+const RadarTrunkNode = ({ data }) => (
+    <div className="radar-node-glass p-5 border border-blue-500/30 rounded-[28px] shadow-2xl flex flex-col items-center gap-3 w-40">
+        <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-blue-400/10 animate-pulse" />
+            <span className="material-icons-round text-blue-400 text-3xl z-10">public</span>
+        </div>
+        <div className="text-center">
+            <div className="text-[11px] font-black uppercase text-blue-400 tracking-widest leading-none mb-1">TRONCAL SIP</div>
+            <div className="text-[9px] text-gray-500 font-bold">PSTN GATEWAY</div>
+        </div>
+        {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ background:'#3b82f6', border:'2px solid #050508', width:12, height:12 }} />}
+    </div>
+);
+
+const RadarQueueNode = ({ data }) => {
+    const hasCalls = data.calls_waiting > 0;
+    return (
+        <div className={`radar-node-glass p-4 border rounded-[30px] shadow-2xl flex flex-col items-center gap-2 w-48 transition-all ${hasCalls?'border-amber-500 shadow-amber-500/20':'border-amber-500/20'}`}>
+             {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
+             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 relative group">
+                {hasCalls && <div className="absolute inset-[-4px] rounded-full border border-amber-500 animate-ping opacity-20" />}
+                <span className="material-icons-round text-amber-500 text-2xl group-hover:rotate-45 transition-transform">hub</span>
+            </div>
+            <div className="text-center">
+                <div className="text-[14px] font-black text-white leading-none mb-0.5">{data.name}</div>
+                <div className="text-[10px] text-gray-500 font-bold">COLA #{data.id}</div>
+            </div>
+            {hasCalls && (
+                <div className="mt-1 px-3 py-1 rounded-full bg-amber-500 text-black text-[12px] font-black flex items-center gap-2 shadow-lg shadow-amber-500/40">
+                    <span className="material-icons-round text-[14px]">call</span>
+                    {data.calls_waiting} ESPERANDO
+                </div>
+            )}
+            {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
+        </div>
+    );
+};
+
+const RadarAgentNode = ({ data }) => {
+    const isBusy = data.agent.status === 'BUSY';
+    const isOffline = data.agent.status === 'OFFLINE';
+    return (
+        <div className={`radar-node-glass p-3 border rounded-[24px] shadow-2xl flex items-center gap-3 w-56 transition-all ${isBusy?'border-red-500/50 shadow-red-500/20 bg-red-500/5':'border-white/5'}`}>
+            {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ background:isBusy?'#ef4444':'#22c55e', border:'2px solid #050508', width:10, height:10 }} />}
+            <div className="relative flex-shrink-0">
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-[13px] font-black text-white shadow-xl group-hover:scale-110 transition-transform`}>
+                    {data.initials(data.agent.name)}
+                </div>
+                {!isOffline && <div className={`absolute bottom-[-1px] right-[-1px] w-4 h-4 rounded-full border-2 border-black flex items-center justify-center ${isBusy?'bg-red-500 animate-pulse':'bg-green-500 shadow-[0_0_8px_#22c55e]'}`} />}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-black text-white leading-none mb-1 group-hover:text-purple-400 transition-colors">#{data.agent.ext}</div>
+                <div className="text-[10px] text-gray-500 font-bold uppercase truncate">{data.agent.name}</div>
+                {isBusy && <div className="text-[9px] text-red-400 font-black animate-pulse mt-0.5">LÍNEA OCUPADA</div>}
+            </div>
+        </div>
+    );
+};
+
+const radarNodeTypes = {
+    trunk: RadarTrunkNode,
+    queue: RadarQueueNode,
+    agent: RadarAgentNode
+};
+
 // ─────────────────────────────────────────────
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
@@ -2653,7 +2719,7 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const { ReactFlow: RFComp, Background, Controls } = rf;
+    const { ReactFlow: RFComp, Background, Controls, Handle, Position } = rf;
     const ReactFlow = RFComp || rf.default || rf;
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
@@ -2661,103 +2727,75 @@ function ViewRadar({ data, toast }) {
     useEffect(() => {
         const newNodes = [];
         const newEdges = [];
+        const nodeDataGlobals = { Handle, Position, initials, getColor };
 
-        // Trunks (Entradas)
+        // 1. Trunk
         newNodes.push({
             id: 'trunk-main',
-            type: 'input',
-            data: { label: (
-                <div className="flex flex-col items-center gap-1">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                        <span className="material-icons-round text-blue-400">router</span>
-                    </div>
-                    <div className="text-[10px] font-black uppercase text-blue-400">Troncal SIP</div>
-                    <div className="text-[9px] text-gray-500 font-bold">PSTN Gateway</div>
-                </div>
-            )},
-            position: { x: 50, y: 150 },
-            style: { background: 'rgba(15,15,26,0.8)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '20px', padding: '15px', backdropFilter: 'blur(10px)', width: 140 }
+            type: 'trunk',
+            data: { ...nodeDataGlobals },
+            position: { x: 50, y: 300 }
         });
 
-        // Queues (Hubs)
+        // 2. Queues
         const queues = data?.pbx?.queues || [];
         queues.forEach((q, idx) => {
-            const y = 80 + (idx * 140);
+            const y = 50 + (idx * 160);
             newNodes.push({
                 id: `q-${q.id}`,
-                data: { label: (
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                            <span className="material-icons-round text-amber-500">hub</span>
-                        </div>
-                        <div className="text-[11px] font-black text-white uppercase tracking-tight">{q.name}</div>
-                        <div className="flex gap-2 mt-1">
-                            <div className="text-[10px] bg-amber-500/20 text-amber-500 font-black px-2 py-0.5 rounded-full">#{q.id}</div>
-                            {q.calls_waiting > 0 && (
-                                <div className="text-[10px] bg-red-500 text-white font-black px-2 py-0.5 rounded-full animate-pulse">
-                                    {q.calls_waiting}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )},
-                position: { x: 300, y: y },
-                style: { background: 'rgba(15,15,26,0.8)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '24px', padding: '15px', backdropFilter: 'blur(10px)', width: 160 }
+                type: 'queue',
+                data: { ...nodeDataGlobals, ...q },
+                position: { x: 350, y: y }
             });
 
-            // Edge from trunk to queue
+            // Edge Troncal -> Cola (Invisible o suave si no hay flujo)
             newEdges.push({
                 id: `e-trunk-q-${q.id}`,
                 source: 'trunk-main',
                 target: `q-${q.id}`,
                 animated: q.calls_waiting > 0,
-                style: { stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.1)', strokeWidth: q.calls_waiting > 0 ? 3 : 1 }
-            });
-        });
-
-        // Agents (Endpoints)
-        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
-        agents.forEach((a, idx) => {
-            const isBusy = a.status === 'BUSY';
-            const y = 20 + (idx * 90);
-            newNodes.push({
-                id: `a-${a.ext}`,
-                type: 'output',
-                data: { label: (
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${getColor(a.name)} flex items-center justify-center text-[11px] font-black text-white shadow-xl group-hover:scale-110 transition-transform`}>
-                            {initials(a.name)}
-                        </div>
-                        <div className="text-left flex-1 min-w-0">
-                            <div className="text-[12px] font-black text-white">#{a.ext}</div>
-                            <div className="text-[9px] text-gray-500 font-bold uppercase truncate">{a.name.split(' ')[0]}</div>
-                        </div>
-                        <div className={`w-2.5 h-2.5 rounded-full border-2 border-black ${isBusy?'bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse':'bg-green-500 shadow-[0_0_8px_#22c55e]'}`} />
-                    </div>
-                )},
-                position: { x: 650, y: y },
+                pathOptions: { borderRadius: 20 },
                 style: { 
-                    background: 'rgba(15,15,26,0.8)', 
-                    border: `1px solid ${isBusy?'rgba(239,68,68,0.4)':'rgba(34,197,94,0.3)'}`, 
-                    borderRadius: '20px', padding: '10px 14px', backdropFilter: 'blur(10px)', width: 200 
+                    stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.08)', 
+                    strokeWidth: q.calls_waiting > 0 ? 3 : 1.5,
+                    filter: q.calls_waiting > 0 ? 'drop-shadow(0 0 10px #f59e0b)' : 'none'
                 }
             });
         });
 
-        // Active Call Edges
+        // 3. Agents & Flows
+        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
         const activeCalls = data?.pbx?.calls || [];
-        activeCalls.forEach((call, idx) => {
-            const agentNode = `a-${call.ext}`;
-            // If the agent exists in our nodes
-            if (newNodes.find(n => n.id === agentNode)) {
+
+        agents.forEach((a, idx) => {
+            const call = activeCalls.find(c => c.ext === String(a.ext));
+            const isBusy = a.status === 'BUSY' || !!call;
+            // Layout circular o grid? Vamos con vertical stack mas espaciado
+            const y = 20 + (idx * 85);
+            
+            newNodes.push({
+                id: `a-${a.ext}`,
+                type: 'agent',
+                data: { ...nodeDataGlobals, agent: a },
+                position: { x: 750, y: y }
+            });
+
+            if (call) {
+                // Si la llamada es de una cola conocida, conectar desde la cola
+                const fromQueue = queues.find(q => call.dest === q.id || call.from === q.id);
+                const sourceId = fromQueue ? `q-${fromQueue.id}` : 'trunk-main';
+
                 newEdges.push({
-                    id: `call-${idx}`,
-                    source: 'trunk-main',
-                    target: agentNode,
+                    id: `call-${call.channel}`,
+                    source: sourceId,
+                    target: `a-${a.ext}`,
                     animated: true,
-                    label: <div className="bg-red-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">VOZ ACTIVA</div>,
-                    style: { stroke: '#ef4444', strokeWidth: 4, filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.4))' },
-                    labelStyle: { fill: '#fff', fontWeight: 900 }
+                    label: <div className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black border border-white/20 animate-pulse">VOZ</div>,
+                    style: { 
+                        stroke: '#ef4444', 
+                        strokeWidth: 4, 
+                        filter: 'drop-shadow(0 0 12px rgba(239,68,68,0.6))' 
+                    }
                 });
             }
         });
@@ -2767,43 +2805,72 @@ function ViewRadar({ data, toast }) {
     }, [data]);
 
     return (
-        <div className="content-area view-enter" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
-            {/* Header / Info box */}
-            <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }} className="flex gap-3">
-                <div className="glass px-4 py-3 rounded-2xl flex items-center gap-5 border border-white/10 shadow-2xl backdrop-blur-xl">
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Troncales</span>
+        <div className="content-area view-enter bg-[#050508]" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
+            <style>{`
+                .radar-node-glass {
+                    background: rgba(13, 13, 20, 0.7);
+                    backdrop-filter: blur(12px) saturate(180%);
+                    -webkit-backdrop-filter: blur(12px) saturate(180%);
+                    transition: transform 0.2s, background 0.3s;
+                }
+                .radar-node-glass:hover {
+                    background: rgba(20, 20, 30, 0.9);
+                    transform: scale(1.02);
+                }
+                .react-flow__edge-path {
+                    transition: stroke 0.3s, stroke-width 0.3s;
+                }
+                @keyframes radar-scan {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
+            
+            {/* Radar Background Decor */}
+            <div className="absolute inset-0 pointer-events-none opacity-20">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-blue-500/20 rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-blue-500/10 rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] border border-blue-500/5 rounded-full" />
+                <div className="absolute top-1/2 left-1/2 h-[600px] w-[1px] bg-gradient-to-t from-transparent via-blue-500 to-transparent origin-top animate-[radar-scan_10s_linear_infinite]" />
+            </div>
+
+            <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }} className="flex gap-4">
+                <div className="glass px-5 py-3 rounded-2xl flex items-center gap-6 border border-white/5 shadow-2xl backdrop-blur-2xl">
+                    <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_12px_#3b82f6]" />
+                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Inbound</span>
                     </div>
-                    <div className="w-px h-5 bg-white/10" />
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_#f59e0b]" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Distribución</span>
+                    <div className="w-px h-6 bg-white/5" />
+                    <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_#f59e0b]" />
+                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Strategy</span>
                     </div>
-                    <div className="w-px h-5 bg-white/10" />
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Puntos Finales</span>
+                    <div className="w-px h-6 bg-white/5" />
+                    <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_12px_#22c55e]" />
+                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Endpoints</span>
                     </div>
                 </div>
                 
-                <div className="glass px-4 py-3 rounded-2xl flex items-center gap-2 border border-red-500/30 shadow-2xl backdrop-blur-xl">
-                    <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">En Tiempo Real</span>
+                <div className="glass px-5 py-3 rounded-2xl flex items-center gap-3 border border-red-500/30 shadow-2xl bg-red-500/5">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+                    <span className="text-[11px] font-black text-red-500 uppercase tracking-widest">LIVE TRAFFIC</span>
                 </div>
             </div>
 
             <ReactFlow 
                 nodes={nodes} 
                 edges={edges}
+                nodeTypes={radarNodeTypes}
                 fitView
-                className="bg-[#050508]"
                 zoomOnScroll={false}
                 zoomOnPinch={true}
                 panOnDrag={true}
+                minZoom={0.2}
+                maxZoom={2}
             >
-                {Background && <Background variant="dots" color="rgba(139,92,246,0.15)" gap={30} size={1} />}
-                {Controls && <Controls showInteractive={false} className="glass border-white/10" />}
+                {Background && <Background variant="lines" color="rgba(255,255,255,0.02)" gap={40} size={1} />}
+                {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
             </ReactFlow>
         </div>
     );
