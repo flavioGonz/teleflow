@@ -1436,7 +1436,7 @@ function ViewAgentes({ toast }) {
     const fetchHistory = async (ext) => {
         if (historyData[ext]) { setPeekHistory(ext); return; }
         try {
-            const r = await fetch(`api/index.php?action=get_agent_history&ext=${ext}`);
+            const r = await fetch(`api/index.php?action=get_agent_history&ext=${ext}`, { credentials: 'include' });
             const d = await r.json();
             if (d.success) {
                 setHistoryData(prev => ({...prev, [ext]: d.history}));
@@ -1455,7 +1455,11 @@ function ViewAgentes({ toast }) {
             const fd = new FormData();
             fd.append('channel', callData.channel);
             fd.append('ext', targetExt);
-            const r = await fetch('api/index.php?action=redirect_call', { method:'POST', body:fd });
+            const r = await fetch('api/index.php?action=redirect_call', { 
+                method: 'POST', 
+                body: fd,
+                credentials: 'include'
+            });
             const d = await r.json();
             if (d.success) toast(d.message, 'success');
             else toast(d.error, 'error');
@@ -2278,7 +2282,11 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
         const fd = new FormData();
         Object.entries(form).forEach(([k,v]) => fd.append(k,v));
         const action = isNew ? 'create_ring_group' : 'update_ring_group';
-        const d = await(await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
+        const d = await(await fetch(`api/index.php?action=${action}`, { 
+            method: 'POST', 
+            body: fd,
+            credentials: 'include'
+        })).json();
         setSaving(false);
         if (d.success) { toast(d.message,'success'); onSaved(); }
         else toast(d.error||'Error','error');
@@ -2288,7 +2296,11 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
         if (!confirm(`¿Eliminar grupo ${group?.grpnum}?`)) return;
         setDeleting(true);
         const fd = new FormData(); fd.append('grpnum', group.grpnum);
-        const d = await(await fetch('api/index.php?action=delete_ring_group',{method:'POST',body:fd})).json();
+        const d = await(await fetch('api/index.php?action=delete_ring_group', {
+            method: 'POST',
+            body: fd,
+            credentials: 'include'
+        })).json();
         if (d.success) { toast(d.message,'success'); onSaved(); }
         else { toast(d.error||'Error','error'); setDeleting(false); }
     };
@@ -2830,15 +2842,35 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    // Estrategia de extracción ultra-robusta redundante
+    // Estrategia de extracción ultra-robusta con FALLBACKS MANUALES
     const ReactFlow = rf.ReactFlow || rf.default || rf;
     const Background = rf.Background || (rf.default && rf.default.Background) || ReactFlow.Background;
     const Controls = rf.Controls || (rf.default && rf.default.Controls) || ReactFlow.Controls;
     const Handle = rf.Handle || (rf.default && rf.default.Handle) || ReactFlow.Handle;
     const Position = rf.Position || (rf.default && rf.default.Position) || ReactFlow.Position;
-    const applyNodeChanges = rf.applyNodeChanges || (rf.default && rf.default.applyNodeChanges) || ReactFlow.applyNodeChanges;
-    const applyEdgeChanges = rf.applyEdgeChanges || (rf.default && rf.default.applyEdgeChanges) || ReactFlow.applyEdgeChanges;
-    const addEdge = rf.addEdge || (rf.default && rf.default.addEdge) || ReactFlow.addEdge;
+    
+    // Fallback manual para applyNodeChanges (para que nunca sea undefined)
+    const _anc = rf.applyNodeChanges || (rf.default && rf.default.applyNodeChanges) || ReactFlow.applyNodeChanges;
+    const applyNodeChanges = typeof _anc === 'function' ? _anc : (changes, nds) => {
+        return nds.map(node => {
+            const pos = changes.find(c => c.id === node.id && c.type === 'position');
+            const sel = changes.find(c => c.id === node.id && c.type === 'select');
+            let next = { ...node };
+            if (pos && pos.position) next.position = pos.position;
+            if (sel) next.selected = sel.selected;
+            return next;
+        });
+    };
+
+    const _aec = rf.applyEdgeChanges || (rf.default && rf.default.applyEdgeChanges) || ReactFlow.applyEdgeChanges;
+    const applyEdgeChanges = typeof _aec === 'function' ? _aec : (changes, eds) => {
+        return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
+    };
+
+    const _ae = rf.addEdge || (rf.default && rf.default.addEdge) || ReactFlow.addEdge;
+    const addEdge = typeof _ae === 'function' ? _ae : (params, eds) => {
+        return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
+    };
 
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
@@ -3676,9 +3708,36 @@ function SIPLogLine({ line, idx }) {
     );
 }
 
-const ReactFlowComponents = window.ReactFlow;
-const ReactFlow = ReactFlowComponents ? (ReactFlowComponents.ReactFlow || ReactFlowComponents.default || ReactFlowComponents) : null;
-const { Background, Controls, addEdge, applyNodeChanges, applyEdgeChanges, Handle, Position } = ReactFlowComponents || {};
+const _rfc = window.ReactFlow || {};
+const ReactFlow = _rfc.ReactFlow || _rfc.default || _rfc;
+const _rfu = _rfc.default || _rfc;
+
+const Background = _rfu.Background || ReactFlow.Background;
+const Controls = _rfu.Controls || ReactFlow.Controls;
+const Handle = _rfu.Handle || ReactFlow.Handle;
+const Position = _rfu.Position || ReactFlow.Position;
+
+const _anc_ivr = _rfu.applyNodeChanges || ReactFlow.applyNodeChanges;
+const applyNodeChanges = typeof _anc_ivr === 'function' ? _anc_ivr : (changes, nds) => {
+    return nds.map(node => {
+        const pos = changes.find(c => c.id === node.id && c.type === 'position');
+        const sel = changes.find(c => c.id === node.id && c.type === 'select');
+        let next = { ...node };
+        if (pos && pos.position) next.position = pos.position;
+        if (sel) next.selected = sel.selected;
+        return next;
+    });
+};
+
+const _aec_ivr = _rfu.applyEdgeChanges || ReactFlow.applyEdgeChanges;
+const applyEdgeChanges = typeof _aec_ivr === 'function' ? _aec_ivr : (changes, eds) => {
+    return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
+};
+
+const _ae_ivr = _rfu.addEdge || ReactFlow.addEdge;
+const addEdge = typeof _ae_ivr === 'function' ? _ae_ivr : (params, eds) => {
+    return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
+};
 
 let ivrNodeIdCounter = 0;
 const getIvrNodeId = () => `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -3779,15 +3838,12 @@ function IVRDesignerApp({ toast }) {
     }, [nodes, edges]);
 
     const onNodesChange = useCallback((changes) => {
-        if (!applyNodeChanges) return;
         setNodes((nds) => applyNodeChanges(changes, nds));
-    }, []);
+    }, [applyNodeChanges]);
     const onEdgesChange = useCallback((changes) => {
-        if (!applyEdgeChanges) return;
         setEdges((eds) => applyEdgeChanges(changes, eds));
-    }, []);
+    }, [applyEdgeChanges]);
     const onConnect = useCallback((params) => {
-        if (!addEdge) return;
         setEdges((eds) => addEdge({ 
             ...params, 
             animated: isIvrActiveRef.current, 
@@ -3797,12 +3853,12 @@ function IVRDesignerApp({ toast }) {
 
     useEffect(() => {
         // Load external data
-        fetch('api/index.php?action=get_ivr_data').then(r=>r.json()).then(d=>{
+        fetch('api/index.php?action=get_ivr_data', { credentials: 'include' }).then(r=>r.json()).then(d=>{
             if(d.success) setIvrData(d);
         });
 
         // Load existing flow (if any)
-        fetch('api/index.php?action=get_ivr_flow')
+        fetch('api/index.php?action=get_ivr_flow', { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 if(d.nodes && d.edges) {
@@ -3813,7 +3869,7 @@ function IVRDesignerApp({ toast }) {
             
         // Live Animation Polling
         const checkCalls = () => {
-            fetch('api/index.php?action=get_active_calls').then(r=>r.json()).then(d => {
+            fetch('api/index.php?action=get_active_calls', { credentials: 'include' }).then(r=>r.json()).then(d => {
                 if(d.success && d.calls) {
                     const activeTokens = d.calls.reduce((acc, c) => [...acc, c.dest, c.ext], []).filter(Boolean);
                     
