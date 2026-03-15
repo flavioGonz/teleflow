@@ -9,6 +9,18 @@
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📞</text></svg>'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script>
+        // Blindaje contra errores de React DevTools hook corrupto
+        try {
+            if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+                if (typeof hook.on !== 'function') hook.on = function(){};
+                if (typeof hook.off !== 'function') hook.off = function(){};
+                if (typeof hook.emit !== 'function') hook.emit = function(){};
+                if (!hook.renderers) hook.renderers = new Map();
+            }
+        } catch(e) {}
+    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
         tailwind.config = {
@@ -2688,21 +2700,25 @@ const RadarCoreNode = ({ data }) => (
     </div>
 );
 
-const RadarGroupNode = ({ data }) => (
-    <div style={{ position:'relative', pointerEvents:'none', width:0, height:0 }}>
-        {/* Title positioned at top of group circle */}
-        <div style={{ 
-            position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
-            fontSize: 14, fontWeight: 900, color: '#8b5cf6', textTransform: 'uppercase',
-            letterSpacing: 2, whiteSpace: 'nowrap', opacity: 0.8
-        }}>
-            {data.label}
+const RadarGroupNode = ({ data }) => {
+    const H = data.Handle;
+    const P = data.Position;
+    return (
+        <div style={{ position:'relative', pointerEvents:'none', width:0, height:0 }}>
+            {/* Title positioned at top of group circle */}
+            <div style={{ 
+                position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
+                fontSize: 14, fontWeight: 900, color: '#8b5cf6', textTransform: 'uppercase',
+                letterSpacing: 2, whiteSpace: 'nowrap', opacity: 0.8
+            }}>
+                {data.label}
+            </div>
+            {/* Central Anchor for connections */}
+            {H && <H type="target" position={P?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />}
+            {H && <H type="source" position={P?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />}
         </div>
-        {/* Central Anchor for connections */}
-        <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />
-        <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />
-    </div>
-);
+    );
+};
 
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
@@ -2846,10 +2862,11 @@ function ViewRadar({ data, toast }) {
 
     // Estrategia de extracción ultra-robusta con FALLBACKS MANUALES
     const ReactFlow = rf.ReactFlow || rf.default || rf;
-    const Background = rf.Background || (rf.default && rf.default.Background) || ReactFlow.Background;
-    const Controls = rf.Controls || (rf.default && rf.default.Controls) || ReactFlow.Controls;
-    const Handle = rf.Handle || (rf.default && rf.default.Handle) || ReactFlow.Handle;
-    const Position = rf.Position || (rf.default && rf.default.Position) || ReactFlow.Position;
+    const DummyComp = () => null;
+    const Background = rf.Background || (rf.default && rf.default.Background) || ReactFlow.Background || DummyComp;
+    const Controls = rf.Controls || (rf.default && rf.default.Controls) || ReactFlow.Controls || DummyComp;
+    const Handle = rf.Handle || (rf.default && rf.default.Handle) || ReactFlow.Handle || DummyComp;
+    const Position = rf.Position || (rf.default && rf.default.Position) || ReactFlow.Position || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
     
     // Fallback manual para applyNodeChanges (para que nunca sea undefined)
     const _anc = rf.applyNodeChanges || (rf.default && rf.default.applyNodeChanges) || ReactFlow.applyNodeChanges;
