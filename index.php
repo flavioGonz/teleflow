@@ -9,29 +9,6 @@
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📞</text></svg>'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <script>
-        (function() {
-            const noop = () => {};
-            const patch = (h) => {
-                if (!h) return;
-                ['on', 'off', 'emit', 'sub', 'inject'].forEach(m => {
-                    if (typeof h[m] !== 'function') h[m] = noop;
-                });
-            };
-            if (typeof window !== 'undefined') {
-                if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-                    patch(window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
-                } else {
-                    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
-                        configurable: true,
-                        enumerable: false,
-                        get: () => window._rdgh,
-                        set: (v) => { patch(v); window._rdgh = v; }
-                    });
-                }
-            }
-        })();
-    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
         tailwind.config = {
@@ -2825,8 +2802,8 @@ function ViewRadar({ data, toast }) {
                 zoomOnPinch={true}
                 panOnDrag={true}
             >
-                <Background variant="dots" color="rgba(139,92,246,0.15)" gap={30} size={1} />
-                <Controls showInteractive={false} className="glass border-white/10" />
+                {Background && <Background variant="dots" color="rgba(139,92,246,0.15)" gap={30} size={1} />}
+                {Controls && <Controls showInteractive={false} className="glass border-white/10" />}
             </ReactFlow>
         </div>
     );
