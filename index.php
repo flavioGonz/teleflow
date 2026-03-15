@@ -2682,18 +2682,12 @@ function ViewGrupos({ toast }) {
 // ─── RADAR NODES ─ IVR AESTHETIC ───
 // ─── RADAR NODES ─ HIERARCHICAL PBX STYLE ───
 const RadarCoreNode = ({ data }) => (
-    <div className="glass box-shadow-premium" style={{ 
-        width: 140, height: 140, borderRadius: '50%', background: 'var(--surface)', 
-        border: '3px solid #8b5cf6', display: 'flex', flexDirection: 'column', 
-        alignItems: 'center', justifyContent: 'center', gap: 6,
-        boxShadow: '0 0 30px rgba(139,92,246,0.3)'
+    <div className="radar-node-glass anim-pulse-border" style={{ 
+        width: 140, height: 140, borderRadius: '50%', background: 'rgba(124,58,237,0.1)', 
+        border: '3px solid #7c3aed', display: 'flex', flexDirection: 'column', 
+        alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 50px rgba(124,58,237,0.3)',
+        position: 'relative', zIndex: 10
     }}>
-        <div style={{ padding:10, background:'rgba(139,92,246,0.1)', borderRadius:'50%' }}>
-            <span className="material-icons-round text-purple-500" style={{ fontSize:40 }}>settings_input_component</span>
-        </div>
-        <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1 }}>PBX CORE</div>
-        {/* Handles for connections */}
-        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         {data.Handle && <data.Handle type="source" position={data.Position?.Top} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         {data.Handle && <data.Handle type="source" position={data.Position?.Bottom} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
@@ -2713,9 +2707,18 @@ const RadarGroupNode = ({ data }) => {
             }}>
                 {data.label}
             </div>
-            {/* Central Anchor for connections */}
-            {H && <H type="target" position={P?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />}
-            {H && <H type="source" position={P?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />}
+            {/* Multi-side handles for manual routing */}
+            {H && (
+                <>
+                    <H type="target" position={P?.Top} id="t" style={{ background: '#8b5cf6' }} />
+                    <H type="target" position={P?.Bottom} id="b" style={{ background: '#8b5cf6' }} />
+                    <H type="target" position={P?.Left} id="l" style={{ background: '#8b5cf6' }} />
+                    <H type="target" position={P?.Right} id="r" style={{ background: '#8b5cf6' }} />
+                    {/* Source handles too to allow linking outward */}
+                    <H type="source" position={P?.Top} id="st" style={{ background: '#8b5cf6', top: 5 }} />
+                    <H type="source" position={P?.Bottom} id="sb" style={{ background: '#8b5cf6', bottom: 5 }} />
+                </>
+            )}
         </div>
     );
 };
@@ -2787,6 +2790,17 @@ const RadarAgentNode = ({ data }) => {
                         width: 14, height: 14, borderRadius: '50%', 
                         background: statusColor, border: '3px solid var(--surface)' 
                     }} />
+                )}
+
+                {/* Handles on all sides */}
+                {data.Handle && (
+                    <>
+                        <data.Handle type="target" position={data.Position?.Top} id="t" style={{ background: statusColor, opacity: 0.1 }} />
+                        <data.Handle type="target" position={data.Position?.Bottom} id="b" style={{ background: statusColor, opacity: 0.1 }} />
+                        <data.Handle type="target" position={data.Position?.Left} id="l" style={{ background: statusColor, opacity: 0.1 }} />
+                        <data.Handle type="target" position={data.Position?.Right} id="r" style={{ background: statusColor, opacity: 0.1 }} />
+                        <data.Handle type="source" position={data.Position?.Top} id="st" style={{ background: '#7c3aed', opacity: 0 }} />
+                    </>
                 )}
             </div>
 
@@ -2914,7 +2928,9 @@ function ViewRadar({ data, toast }) {
         (changes) => {
             setEdges((eds) => {
                 const nextEdges = applyEdgeChanges(changes, eds);
-                localStorage.setItem(EDGE_KEY, JSON.stringify(nextEdges));
+                // Solo guardamos conexiones manuales (las que no empiezan con 'sys-')
+                const manualEdges = nextEdges.filter(e => !e.id.startsWith('sys-'));
+                localStorage.setItem(EDGE_KEY, JSON.stringify(manualEdges));
                 return nextEdges;
             });
         }, [applyEdgeChanges]
@@ -2923,8 +2939,9 @@ function ViewRadar({ data, toast }) {
     const onConnect = useCallback(
         (params) => {
             setEdges((eds) => {
-                const nextEdges = addEdge({ ...params, type: 'animatedData', animated: true }, eds);
-                localStorage.setItem(EDGE_KEY, JSON.stringify(nextEdges));
+                const nextEdges = addEdge({ ...params, type: 'animatedData', animated: true, id: `man-${Date.now()}` }, eds);
+                const manualEdges = nextEdges.filter(e => !e.id.startsWith('sys-'));
+                localStorage.setItem(EDGE_KEY, JSON.stringify(manualEdges));
                 return nextEdges;
             });
         }, [addEdge]
@@ -2934,18 +2951,19 @@ function ViewRadar({ data, toast }) {
         const savedPositions = JSON.parse(localStorage.getItem(POS_KEY) || '{}');
         const savedEdges = JSON.parse(localStorage.getItem(EDGE_KEY) || '[]');
         const newNodes = [];
+        
+        // Empezamos con las conexiones manuales guardadas
         const newEdges = [...savedEdges];
+        
         const nodeDataGlobals = { Handle, Position, initials, getColor };
-
-        // Helper to get position with override
         const getPos = (id, fallback) => savedPositions[id] || fallback;
 
-        // 1. CORE PBX (CENTER)
+        // 1. CORE PBX
         newNodes.push({
             id: 'core-pbx',
             type: 'core',
-            data: { ...nodeDataGlobals, label: 'PBX SERVER' },
-            position: getPos('core-pbx', { x: 50, y: 300 }),
+            data: { ...nodeDataGlobals },
+            position: getPos('core-pbx', { x: 0, y: 0 }),
             dragHandle: '.radar-node-glass' 
         });
 
@@ -2971,16 +2989,16 @@ function ViewRadar({ data, toast }) {
                 const itemAgents = agents.filter(a => {
                     if (processedAgents.has(a.ext)) return false;
                     const isMember = (item.members || []).includes(a.ext);
-                    const isInCall = activeCalls.some(c => (c.ext === a.ext || c.dest === a.ext) && (c.dest === item.id || c.from === item.id || c.app.toLowerCase().includes(cat.id)));
+                    const isInCall = activeCalls.some(c => (c.ext === a.ext || c.dest === a.ext) && (c.dest === item.id || c.from === item.id));
                     return isMember || isInCall;
                 });
 
-                if (itemAgents.length === 0 && cat.id !== 'q') return; // Skip empty RGs/IVRs unless it's a Queue with waiting calls
+                if (itemAgents.length === 0 && cat.id !== 'q') return;
 
                 const agentCount = itemAgents.length;
                 const circleSize = Math.max(400, 200 + (Math.sqrt(agentCount) * 150));
                 const groupId = `parent-${cat.id}-${item.id}`;
-                const xPos = 500;
+                const xPos = 600;
                 const yPos = currentY;
 
                 newNodes.push({
@@ -2989,17 +3007,6 @@ function ViewRadar({ data, toast }) {
                     data: { ...nodeDataGlobals, label: `${item.name || item.id}` },
                     position: getPos(groupId, { x: xPos, y: yPos }),
                     style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(139,92,246,0.01)', border: '2px dashed rgba(139,92,246,0.2)', borderRadius: '50%' }
-                });
-
-                // Anchor Node for connections (Hidden, in the center of the big circle)
-                const anchorId = `anchor-${groupId}`;
-                newNodes.push({
-                    id: anchorId,
-                    type: 'group', // Using group type for label
-                    parentNode: groupId,
-                    data: { ...nodeDataGlobals, label: item.name },
-                    position: { x: circleSize/2, y: circleSize/2 },
-                    style: { width: 0, height: 0, visibility: 'hidden' }
                 });
 
                 if (cat.id === 'q') {
@@ -3013,13 +3020,14 @@ function ViewRadar({ data, toast }) {
                     });
                 }
 
+                // Sistema: Conexión dinámica (No persistente en localStorage, se regenera)
                 newEdges.push({
-                    id: `e-core-${groupId}`,
+                    id: `sys-core-${groupId}`,
                     source: 'core-pbx',
                     target: groupId,
                     type: 'animatedData',
                     animated: true,
-                    style: { stroke: '#8b5cf6', strokeWidth: 2 }
+                    style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.6 }
                 });
 
                 itemAgents.forEach((a, aIdx) => {
@@ -3038,8 +3046,9 @@ function ViewRadar({ data, toast }) {
                         extent: 'parent'
                     });
 
+                    // Conexión dinámica del sistema entre el item y el agente
                     newEdges.push({
-                        id: `e-g-a-${a.ext}`,
+                        id: `sys-g-a-${a.ext}`,
                         source: cat.id === 'q' ? `q-${item.id}` : groupId,
                         target: `a-${a.ext}`,
                         type: 'animatedData',
@@ -3052,7 +3061,7 @@ function ViewRadar({ data, toast }) {
             });
         });
 
-        // Orphan Agents
+        // Otros Internos
         const orphanAgents = agents.filter(a => !processedAgents.has(a.ext));
         if (orphanAgents.length > 0) {
             const circleSize = Math.max(400, 200 + (Math.sqrt(orphanAgents.length) * 150));
@@ -3061,7 +3070,7 @@ function ViewRadar({ data, toast }) {
                 id: groupId,
                 type: 'group',
                 data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
-                position: getPos(groupId, { x: 500, y: currentY }),
+                position: getPos(groupId, { x: 600, y: currentY }),
                 style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(156,163,175,0.01)', border: '2px dashed rgba(156,163,175,0.2)', borderRadius: '50%' }
             });
 
@@ -3077,12 +3086,7 @@ function ViewRadar({ data, toast }) {
                     extent: 'parent'
                 });
             });
-            currentY += circleSize + groupSpacing;
         }
-
-        const totalHeight = currentY;
-        const coreNode = newNodes.find(n => n.id === 'core-pbx');
-        if (coreNode && !savedPositions['core-pbx']) coreNode.position = { x: -100, y: totalHeight / 2 - 70 };
 
         setNodes(newNodes);
         setEdges(newEdges);
