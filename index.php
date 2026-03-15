@@ -2648,84 +2648,144 @@ function ViewGrupos({ toast }) {
 }
 
 // ─── RADAR NODES ─ IVR AESTHETIC ───
-const RadarTrunkNode = ({ data }) => (
-    <div className="glass box-shadow-premium" style={{ border:`2px solid #3b82f6`, borderRadius:20, padding:20, width:140, textAlign:'center', background:'var(--surface)' }}>
-        <div style={{ padding:10, background:'rgba(59,130,246,0.1)', borderRadius:12, marginBottom:10 }}>
-            <span className="material-icons-round text-blue-500" style={{ fontSize:32 }}>public</span>
+// ─── RADAR NODES ─ HIERARCHICAL PBX STYLE ───
+const RadarCoreNode = ({ data }) => (
+    <div className="glass box-shadow-premium" style={{ 
+        width: 140, height: 140, borderRadius: '50%', background: 'var(--surface)', 
+        border: '3px solid #8b5cf6', display: 'flex', flexDirection: 'column', 
+        alignItems: 'center', justifyContent: 'center', gap: 6,
+        boxShadow: '0 0 30px rgba(139,92,246,0.3)'
+    }}>
+        <div style={{ padding:10, background:'rgba(139,92,246,0.1)', borderRadius:'50%' }}>
+            <span className="material-icons-round text-purple-500" style={{ fontSize:40 }}>settings_input_component</span>
         </div>
-        <div style={{ fontSize:10, fontWeight:900, color:'#3b82f6', textTransform:'uppercase', letterSpacing:1 }}>Uplink</div>
-        <div style={{ fontSize:14, fontWeight:800, color:'var(--text)', marginTop:4 }}>SIP TRUNK</div>
-        {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+        <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1 }}>PBX CORE</div>
+        {/* Handles for connections */}
+        <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+        <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+        <Handle type="source" position={Position.Top} style={{ opacity: 0 }} />
+        <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+);
+
+const RadarGroupNode = ({ data }) => (
+    <div className="glass" style={{ 
+        padding: '12px 24px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', 
+        border: '1px dashed rgba(255,255,255,0.1)', minWidth: 200, textAlign: 'center' 
+    }}>
+        <div style={{ fontSize:10, fontWeight:900, color:'var(--muted)', textTransform:'uppercase', letterSpacing:2 }}>{data.label}</div>
+        <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+        <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
 );
 
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
     return (
-        <div className="glass box-shadow-light" style={{ border:`1.5px solid ${hasCalls ? '#f59e0b' : 'var(--border)'}`, borderRadius:20, padding:18, width:220, background:'var(--surface)', transition:'all 0.3s' }}>
-             {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-                <div style={{ width:36, height:36, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div className={`glass box-shadow-light anim-pulse-border-${hasCalls ? 'amber' : 'none'}`} style={{ 
+            border:`1.5px solid ${hasCalls ? '#f59e0b' : 'var(--border)'}`, 
+            borderRadius:20, padding:15, width:240, background:'var(--surface)',
+            transition:'all 0.3s'
+        }}>
+             <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                <div style={{ width:34, height:34, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <span className="material-icons-round" style={{ fontSize:18, color:'#f59e0b' }}>hub</span>
                 </div>
                 <div style={{ flex:1 }}>
-                    <div style={{ fontSize:9, fontWeight:900, color:'#f59e0b', textTransform:'uppercase' }}>Queue</div>
-                    <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', truncate:true }}>{data.name}</div>
+                    <div style={{ fontSize:8, fontWeight:900, color:'#f59e0b', textTransform:'uppercase' }}>COLA #{data.id}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{data.name}</div>
                 </div>
              </div>
-             <div style={{ background:'var(--surface2)', borderRadius:12, padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontSize:10, fontWeight:700, color:'var(--muted)' }}>Llamadas</span>
-                <span style={{ fontSize:16, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
+             <div style={{ background:'var(--surface2)', borderRadius:10, padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:9, fontWeight:700, color:'var(--muted)' }}>Llamadas en espera:</span>
+                <span style={{ fontSize:14, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
              </div>
-             {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+             <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
         </div>
     );
 };
 
 const RadarAgentNode = ({ data }) => {
-    const isBusy = data.agent.status === 'BUSY';
+    const call = data.activeCall;
+    const isBusy = data.agent.status === 'BUSY' || !!call;
     const isOffline = data.agent.status === 'OFFLINE';
+    const isRinging = call && call.state !== 'Up';
+    
+    // Status en español
+    const statusEsp = isRinging ? 'MARCANDO' : (isBusy ? 'EN LLAMADA' : (isOffline ? 'OFFLINE' : 'DISPONIBLE'));
+    const statusColor = isRinging ? '#f59e0b' : (isBusy ? '#ef4444' : '#22c55e');
+
     return (
-        <div className="glass" style={{ border:`1.5px solid ${isBusy ? '#ef4444' : (isOffline ? 'transparent' : '#22c55e')}`, borderRadius:18, padding:12, width:240, background:'var(--surface)', display:'flex', alignItems:'center', gap:12 }}>
-            {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+        <div className={`glass anim-pulse-border-${isRinging ? 'amber' : (isBusy ? 'red' : 'none')}`} style={{ 
+            border:`1.5px solid ${statusColor}`, 
+            borderRadius:18, padding:10, width:260, background:'var(--surface)', 
+            display:'flex', alignItems:'center', gap:10,
+            transition: 'all 0.4s'
+        }}>
+            <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
             <div style={{ position:'relative' }}>
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-sm font-black text-white shadow-lg overflow-hidden`}>
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-xs font-black text-white shadow-lg overflow-hidden`}>
                     <img src={data.agent.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} />
                     <span style={{ display:'none' }}>{data.initials(data.agent.name)}</span>
                 </div>
-                {!isOffline && <div style={{ position:'absolute', bottom:-2, right:-2, width:14, height:14, borderRadius:'50%', border:'3px solid var(--surface)', background:isBusy?'#ef4444':'#22c55e' }} />}
+                {!isOffline && <div style={{ position:'absolute', bottom:-2, right:-2, width:13, height:13, borderRadius:'50%', border:'2px solid var(--surface)', background:statusColor }} />}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ fontSize:12, fontWeight:800, color:'var(--text)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <span>#{data.agent.ext}</span>
-                    <span style={{ fontSize:8, fontWeight:900, textTransform:'uppercase', color:isBusy?'#ef4444':'var(--muted)' }}>{data.agent.status}</span>
+                    <span style={{ fontSize:7, fontWeight:900, textTransform:'uppercase', color:statusColor }}>{statusEsp}</span>
                 </div>
-                <div style={{ fontSize:10, color:'var(--muted)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{data.agent.name}</div>
+                <div style={{ fontSize:9, color:'var(--muted)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{data.agent.name}</div>
+                {call && (
+                    <div style={{ marginTop:4, display:'flex', alignItems:'center', gap:4 }}>
+                        <div style={{ fontSize:8, fontWeight:800, color:'var(--accent)', background:'var(--surface2)', padding:'2px 6px', borderRadius:4 }}>
+                            {call.duration || '00:00'}
+                        </div>
+                        <div style={{ fontSize:8, color:'var(--muted)', fontWeight:600, truncate:true }}>
+                             {call.from} &rarr; {call.dest}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-// ─── CUSTOM EDGE ─ PARTICLE FLOW ───
-const AnimatedDataEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, animated }) => {
+// ─── CUSTOM EDGE ─ DATA FLOW ───
+const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, animated }) => {
     const rf = window.ReactFlow;
     if (!rf || !rf.getBezierPath) return null;
     
-    const [edgePath] = rf.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const [edgePath, labelX, labelY] = rf.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
     return (
         <>
-            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 2 : 1, strokeDasharray: animated ? '4 4' : 'none', stroke: animated ? '#8b5cf6' : 'rgba(255,255,255,0.05)' }} />
             {animated && (
-                <circle r="3" fill="#8b5cf6">
-                    <animateMotion dur="1.5s" repeatCount="indefinite" path={edgePath} />
-                </circle>
+                <>
+                    <circle r="3" fill="#8b5cf6">
+                        <animateMotion dur="1s" repeatCount="indefinite" path={edgePath} />
+                    </circle>
+                    <foreignObject width={100} height={40} x={labelX - 50} y={labelY - 20} className="pointer-events-none">
+                        <div style={{ 
+                            background: 'rgba(139,92,246,0.9)', color: 'white', 
+                            fontSize: 9, fontWeight: 900, padding: '2px 8px', 
+                            borderRadius: 20, textAlign: 'center', backdropFilter: 'blur(4px)',
+                            border: '1px solid rgba(255,255,255,0.2)'
+                        }}>
+                            {data?.duration || 'VOZ'}
+                        </div>
+                    </foreignObject>
+                </>
             )}
         </>
     );
 };
 
 const radarNodeTypes = {
+    core: RadarCoreNode,
+    group: RadarGroupNode,
     trunk: RadarTrunkNode,
     queue: RadarQueueNode,
     agent: RadarAgentNode
@@ -2758,79 +2818,105 @@ function ViewRadar({ data, toast }) {
         const newEdges = [];
         const nodeDataGlobals = { Handle, Position, initials, getColor };
 
-        // 1. Trunk
+        // 1. CORE PBX (CENTER)
+        newNodes.push({
+            id: 'core-pbx',
+            type: 'core',
+            data: { ...nodeDataGlobals, label: 'PBX SERVER' },
+            position: { x: 350, y: 300 }
+        });
+
+        // 2. Trunk Connections
         newNodes.push({
             id: 'trunk-main',
             type: 'trunk',
             data: { ...nodeDataGlobals },
-            position: { x: 50, y: 300 }
+            position: { x: 20, y: 300 }
+        });
+        newEdges.push({
+            id: 'e-trunk-core',
+            source: 'trunk-main',
+            target: 'core-pbx',
+            type: 'animatedData',
+            animated: data?.pbx?.calls?.length > 0
         });
 
-        // 2. Queues
+        // 3. Queues Group
         const queues = data?.pbx?.queues || [];
+        newNodes.push({
+            id: 'group-queues',
+            type: 'group',
+            data: { label: 'COLAS DE ATENCIÓN' },
+            position: { x: 700, y: 50 },
+        });
+        newEdges.push({
+            id: 'e-core-gq',
+            source: 'core-pbx',
+            target: 'group-queues',
+            type: 'animatedData',
+            animated: queues.some(q => q.calls_waiting > 0)
+        });
+
         queues.forEach((q, idx) => {
-            const y = 50 + (idx * 160);
+            const y = 140 + (idx * 160);
             newNodes.push({
                 id: `q-${q.id}`,
                 type: 'queue',
                 data: { ...nodeDataGlobals, ...q },
-                position: { x: 350, y: y }
+                position: { x: 700, y: y }
             });
-
-            // Edge Troncal -> Cola (Invisible o suave si no hay flujo)
             newEdges.push({
-                id: `e-trunk-q-${q.id}`,
-                source: 'trunk-main',
+                id: `e-gq-q-${q.id}`,
+                source: 'group-queues',
                 target: `q-${q.id}`,
+                type: 'animatedData',
                 animated: q.calls_waiting > 0,
-                pathOptions: { borderRadius: 20 },
-                style: { 
-                    stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.08)', 
-                    strokeWidth: q.calls_waiting > 0 ? 3 : 1.5,
-                    filter: q.calls_waiting > 0 ? 'drop-shadow(0 0 10px #f59e0b)' : 'none'
-                }
+                style: { stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.05)' }
             });
         });
 
-        // 3. Agents & Flows
+        // 4. Agents Group
         const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
         const activeCalls = data?.pbx?.calls || [];
+        
+        newNodes.push({
+            id: 'group-agents',
+            type: 'group',
+            data: { label: 'INTERNOS / AGENTES' },
+            position: { x: 1100, y: 50 },
+        });
+        newEdges.push({
+            id: 'e-core-ga',
+            source: 'core-pbx',
+            target: 'group-agents',
+            type: 'animatedData',
+            animated: activeCalls.length > 0
+        });
 
         agents.forEach((a, idx) => {
-            const call = activeCalls.find(c => c.ext === String(a.ext));
-            const isBusy = a.status === 'BUSY' || !!call;
-            // Layout circular o grid? Vamos con vertical stack mas espaciado
-            const y = 20 + (idx * 85);
+            const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
+            const y = 140 + (idx * 85);
             
             newNodes.push({
                 id: `a-${a.ext}`,
                 type: 'agent',
-                data: { ...nodeDataGlobals, agent: a },
-                position: { x: 750, y: y }
+                data: { ...nodeDataGlobals, agent: a, activeCall: call },
+                position: { x: 1100, y: y }
             });
 
-            if (call) {
-                // Si la llamada es de una cola conocida, conectar desde la cola
-                const fromQueue = queues.find(q => call.dest === q.id || call.from === q.id);
-                const sourceId = fromQueue ? `q-${fromQueue.id}` : 'trunk-main';
+            const isActive = !!call;
+            const fromQueue = call ? queues.find(q => call.dest === q.id || call.from === q.id) : null;
+            const sourceId = fromQueue ? `q-${fromQueue.id}` : 'group-agents';
 
-                newEdges.push({
-                    id: `call-${call.channel}`,
-                    source: sourceId,
-                    target: `a-${a.ext}`,
-                    type: 'animatedData',
-                    animated: true,
-                    style: { stroke: '#8b5cf6', strokeWidth: 2 }
-                });
-            } else {
-                // Subtle static link for available agents
-                newEdges.push({
-                    id: `idle-${a.ext}`,
-                    source: 'trunk-main',
-                    target: `a-${a.ext}`,
-                    style: { stroke: 'rgba(255,255,255,0.03)', strokeWidth: 1 }
-                });
-            }
+            newEdges.push({
+                id: `e-ga-a-${a.ext}`,
+                source: sourceId,
+                target: `a-${a.ext}`,
+                type: 'animatedData',
+                animated: isActive,
+                data: { duration: call?.duration },
+                style: { stroke: isActive ? (call.state === 'Up' ? '#ef4444' : '#f59e0b') : 'rgba(255,255,255,0.03)' }
+            });
         });
 
         setNodes(newNodes);
@@ -2840,19 +2926,28 @@ function ViewRadar({ data, toast }) {
     return (
         <div className="content-area view-enter" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
             <style>{`
-                .react-flow__background {
-                    background: var(--bg);
+                .react-flow__background { background: var(--bg); }
+                .react-flow__edge-path { transition: all 0.5s; }
+                
+                @keyframes pulse-border-red {
+                    0% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                    70% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                    100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
                 }
-                .react-flow__edge-path {
-                    transition: stroke 0.3s, stroke-width 0.3s;
+                @keyframes pulse-border-amber {
+                    0% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+                    70% { border-color: rgba(245, 158, 11, 1); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+                    100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
                 }
+                .anim-pulse-border-red { animation: pulse-border-red 2s infinite; }
+                .anim-pulse-border-amber { animation: pulse-border-amber 2s infinite; }
             `}</style>
             
             <div style={{ position: 'absolute', top: 20, left: 24, zIndex: 10, display:'flex', alignItems:'center', gap:10 }}>
-                <span className="material-icons-round" style={{ color: 'var(--accent)', fontSize: 24 }}>hub</span>
+                <span className="material-icons-round" style={{ color: 'var(--accent)', fontSize: 24 }}>radar</span>
                 <div>
-                    <h2 style={{ fontSize:15, fontWeight:900, color:'var(--text)', margin:0, textTransform:'uppercase', letterSpacing:1 }}>Radar de Tráfico</h2>
-                    <div style={{ fontSize:10, color:'var(--muted)', fontWeight:700 }}>Flujo de llamadas en tiempo real</div>
+                    <h2 style={{ fontSize:15, fontWeight:900, color:'var(--text)', margin:0, textTransform:'uppercase', letterSpacing:1 }}>Mapa de Tráfico PBX</h2>
+                    <div style={{ fontSize:10, color:'var(--muted)', fontWeight:700 }}>Flujo jerárquico y estados en tiempo real</div>
                 </div>
             </div>
 
@@ -2864,10 +2959,10 @@ function ViewRadar({ data, toast }) {
                 fitView
                 zoomOnScroll={true}
                 panOnDrag={true}
-                minZoom={0.5}
+                minZoom={0.2}
                 maxZoom={1.5}
             >
-                {Background && <Background color="rgba(255,255,255,0.03)" gap={30} size={1} />}
+                {Background && <Background color="rgba(139,92,246,0.03)" gap={20} size={1} />}
                 {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
             </ReactFlow>
         </div>
