@@ -2647,20 +2647,14 @@ function ViewGrupos({ toast }) {
     );
 }
 
-// ─── RADAR NODES ─ MISSION CONTROL STYLE ───
+// ─── RADAR NODES ─ IVR AESTHETIC ───
 const RadarTrunkNode = ({ data }) => (
-    <div className="radar-node-trunk relative p-8 flex flex-col items-center justify-center gap-4 group">
-        <div className="absolute inset-0 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
-        <div className="radar-node-glass relative w-24 h-24 rounded-full border-2 border-blue-500/40 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.2)]">
-            <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(59,130,246,0.2))] animate-[spin_4s_linear_infinite]" />
-            <div className="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center backdrop-blur-md z-10 transition-transform group-hover:scale-110">
-                <span className="material-icons-round text-blue-400 text-4xl">public</span>
-            </div>
+    <div className="glass box-shadow-premium" style={{ border:`2px solid #3b82f6`, borderRadius:20, padding:20, width:140, textAlign:'center', background:'var(--surface)' }}>
+        <div style={{ padding:10, background:'rgba(59,130,246,0.1)', borderRadius:12, marginBottom:10 }}>
+            <span className="material-icons-round text-blue-500" style={{ fontSize:32 }}>public</span>
         </div>
-        <div className="text-center z-10">
-            <div className="text-[12px] font-black uppercase text-blue-400 tracking-[0.3em] mb-1">TRONCAL GWAY</div>
-            <div className="text-[10px] text-gray-500 font-black tracking-widest opacity-60">PSTN UPLINK</div>
-        </div>
+        <div style={{ fontSize:10, fontWeight:900, color:'#3b82f6', textTransform:'uppercase', letterSpacing:1 }}>Uplink</div>
+        <div style={{ fontSize:14, fontWeight:800, color:'var(--text)', marginTop:4 }}>SIP TRUNK</div>
         {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
     </div>
 );
@@ -2668,21 +2662,22 @@ const RadarTrunkNode = ({ data }) => (
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
     return (
-        <div className={`radar-node-glass relative p-5 flex flex-col items-center gap-3 transition-all duration-500 ${hasCalls ? 'border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.25)]' : 'border-white/10'}`} 
-             style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', width: 200, height: 180, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="glass box-shadow-light" style={{ border:`1.5px solid ${hasCalls ? '#f59e0b' : 'var(--border)'}`, borderRadius:20, padding:18, width:220, background:'var(--surface)', transition:'all 0.3s' }}>
              {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-             <div className="mt-4 w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/30 relative">
-                {hasCalls && <div className="absolute inset-0 rounded-xl border-2 border-amber-500 animate-ping opacity-40" />}
-                <span className="material-icons-round text-amber-500 text-3xl">hub</span>
-            </div>
-            <div className="text-center">
-                <div className="text-[14px] font-black text-white leading-none uppercase tracking-tighter mb-1">{data.name}</div>
-                <div className="text-[28px] font-black text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">
-                    {String(data.calls_waiting).padStart(2, '0')}
+             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                <div style={{ width:36, height:36, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span className="material-icons-round" style={{ fontSize:18, color:'#f59e0b' }}>hub</span>
                 </div>
-                <div className="text-[10px] text-gray-500 font-bold tracking-widest">COLA ACTIVA</div>
-            </div>
-            {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+                <div style={{ flex:1 }}>
+                    <div style={{ fontSize:9, fontWeight:900, color:'#f59e0b', textTransform:'uppercase' }}>Queue</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', truncate:true }}>{data.name}</div>
+                </div>
+             </div>
+             <div style={{ background:'var(--surface2)', borderRadius:12, padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:10, fontWeight:700, color:'var(--muted)' }}>Llamadas</span>
+                <span style={{ fontSize:16, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
+             </div>
+             {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
         </div>
     );
 };
@@ -2691,27 +2686,42 @@ const RadarAgentNode = ({ data }) => {
     const isBusy = data.agent.status === 'BUSY';
     const isOffline = data.agent.status === 'OFFLINE';
     return (
-        <div className={`radar-node-glass relative p-3 border-l-4 rounded-xl shadow-2xl flex items-center gap-4 w-64 transition-all ${isBusy?'border-red-500 bg-red-500/5 shadow-red-500/10':'border-green-500 bg-green-500/5 shadow-green-500/5'}`}>
+        <div className="glass" style={{ border:`1.5px solid ${isBusy ? '#ef4444' : (isOffline ? 'transparent' : '#22c55e')}`, borderRadius:18, padding:12, width:240, background:'var(--surface)', display:'flex', alignItems:'center', gap:12 }}>
             {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-            <div className="relative">
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-lg font-black text-white shadow-2xl overflow-hidden`}>
-                    <img src={data.agent.avatar} className="w-full h-full object-cover" 
-                         onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
-                    <span style={{display:'none'}}>{data.initials(data.agent.name)}</span>
+            <div style={{ position:'relative' }}>
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-sm font-black text-white shadow-lg overflow-hidden`}>
+                    <img src={data.agent.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} />
+                    <span style={{ display:'none' }}>{data.initials(data.agent.name)}</span>
                 </div>
-                {!isOffline && <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-[#050508] ${isBusy?'bg-red-500 animate-pulse':'bg-green-500'}`} />}
+                {!isOffline && <div style={{ position:'absolute', bottom:-2, right:-2, width:14, height:14, borderRadius:'50%', border:'3px solid var(--surface)', background:isBusy?'#ef4444':'#22c55e' }} />}
             </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                    <span className="text-[15px] font-black text-white tracking-tight">#{data.agent.ext}</span>
-                    <span className="text-[9px] font-black text-gray-500 uppercase">{data.agent.status}</span>
+            <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span>#{data.agent.ext}</span>
+                    <span style={{ fontSize:8, fontWeight:900, textTransform:'uppercase', color:isBusy?'#ef4444':'var(--muted)' }}>{data.agent.status}</span>
                 </div>
-                <div className="text-[11px] text-gray-400 font-bold uppercase truncate">{data.agent.name}</div>
-                {isBusy && <div className="mt-2 h-1 w-full bg-red-500/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-red-500 animate-[loading-shimmer_1.5s_infinite]" style={{ width: '60%' }} />
-                </div>}
+                <div style={{ fontSize:10, color:'var(--muted)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{data.agent.name}</div>
             </div>
         </div>
+    );
+};
+
+// ─── CUSTOM EDGE ─ PARTICLE FLOW ───
+const AnimatedDataEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, animated }) => {
+    const rf = window.ReactFlow;
+    if (!rf || !rf.getBezierPath) return null;
+    
+    const [edgePath] = rf.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+
+    return (
+        <>
+            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+            {animated && (
+                <circle r="3" fill="#8b5cf6">
+                    <animateMotion dur="1.5s" repeatCount="indefinite" path={edgePath} />
+                </circle>
+            )}
+        </>
     );
 };
 
@@ -2719,6 +2729,9 @@ const radarNodeTypes = {
     trunk: RadarTrunkNode,
     queue: RadarQueueNode,
     agent: RadarAgentNode
+};
+const radarEdgeTypes = {
+    animatedData: AnimatedDataEdge
 };
 
 
@@ -2805,13 +2818,17 @@ function ViewRadar({ data, toast }) {
                     id: `call-${call.channel}`,
                     source: sourceId,
                     target: `a-${a.ext}`,
+                    type: 'animatedData',
                     animated: true,
-                    label: <div className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-black border border-white/20 animate-pulse">VOZ</div>,
-                    style: { 
-                        stroke: '#ef4444', 
-                        strokeWidth: 4, 
-                        filter: 'drop-shadow(0 0 12px rgba(239,68,68,0.6))' 
-                    }
+                    style: { stroke: '#8b5cf6', strokeWidth: 2 }
+                });
+            } else {
+                // Subtle static link for available agents
+                newEdges.push({
+                    id: `idle-${a.ext}`,
+                    source: 'trunk-main',
+                    target: `a-${a.ext}`,
+                    style: { stroke: 'rgba(255,255,255,0.03)', strokeWidth: 1 }
                 });
             }
         });
@@ -2821,100 +2838,21 @@ function ViewRadar({ data, toast }) {
     }, [data]);
 
     return (
-        <div className="content-area view-enter bg-[#050508]" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
+        <div className="content-area view-enter" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
             <style>{`
-                .radar-node-glass {
-                    background: rgba(13, 14, 25, 0.4);
-                    backdrop-filter: blur(20px) saturate(180%);
-                    -webkit-backdrop-filter: blur(20px) saturate(180%);
-                    border: 1px solid rgba(255,255,255,0.08);
-                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                }
-                .radar-node-glass:hover {
-                    background: rgba(13, 14, 25, 0.8);
-                    transform: translateY(-8px) scale(1.05);
-                    border-color: rgba(255,255,255,0.2);
+                .react-flow__background {
+                    background: var(--bg);
                 }
                 .react-flow__edge-path {
                     transition: stroke 0.3s, stroke-width 0.3s;
-                    filter: drop-shadow(0 0 5px currentColor);
-                }
-                @keyframes radar-scan {
-                    from { transform: translate(-50%, -50%) rotate(0deg); }
-                    to { transform: translate(-50%, -50%) rotate(360deg); }
-                }
-                @keyframes particle-flow {
-                    from { stroke-dashoffset: 100; }
-                    to { stroke-dashoffset: 0; }
-                }
-                @keyframes loading-shimmer {
-                    from { transform: translateX(-100%); }
-                    to { transform: translateX(100%); }
-                }
-                .radar-grid-particle {
-                    position: absolute;
-                    width: 2px;
-                    height: 2px;
-                    background: #fff;
-                    border-radius: 50%;
-                    opacity: 0.2;
-                    animation: float-particle 20s linear infinite;
-                }
-                @keyframes float-particle {
-                    from { transform: translateY(0) translateX(0); }
-                    to { transform: translateY(-100vh) translateX(50px); }
                 }
             `}</style>
             
-            {/* Radar Background Decor - Mission Control */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] border border-white/[0.02] rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-white/[0.03] rounded-full shadow-[inset_0_0_100px_rgba(59,130,246,0.02)]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-blue-500/[0.05] rounded-full" />
-                
-                {/* Scanning Beam */}
-                <div className="absolute top-1/2 left-1/2 w-[600px] h-[600px] origin-top-left animate-[radar-scan_4s_linear_infinite]" 
-                     style={{ background: 'conic-gradient(from 0deg, transparent 0deg, rgba(59,130,246,0.1) 60deg, transparent 61deg)', borderRadius: '50%' }} />
-                
-                {/* Data Particles */}
-                {[...Array(20)].map((_, i) => (
-                    <div key={i} className="radar-grid-particle" 
-                         style={{ 
-                            left: `${Math.random()*100}%`, 
-                            top: `${Math.random()*100}%`, 
-                            animationDelay: `${Math.random()*10}s`,
-                            opacity: Math.random()*0.3
-                         }} />
-                ))}
-            </div>
-
-            <div style={{ position: 'absolute', top: 30, left: 30, zIndex: 10 }} className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.5)] flex items-center justify-center">
-                        <span className="material-icons-round text-white text-2xl">radar</span>
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-white tracking-widest uppercase italic">Radar de Tráfico</h2>
-                        <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 tracking-[0.2em]">
-                            <span className="flex h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-                            SISTEMA DE MONITOREO ACTIVO
-                        </div>
-                    </div>
-                </div>
-
-                <div className="glass px-6 py-4 rounded-[24px] flex items-center gap-8 border border-white/5 shadow-2xl backdrop-blur-3xl mt-4">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Estado SIP</span>
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                            <span className="text-xs font-black text-white">CONECTADO</span>
-                        </div>
-                    </div>
-                    <div className="w-px h-8 bg-white/10" />
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Latencia Global</span>
-                        <div className="text-xs font-black text-white">~12ms</div>
-                    </div>
+            <div style={{ position: 'absolute', top: 20, left: 24, zIndex: 10, display:'flex', alignItems:'center', gap:10 }}>
+                <span className="material-icons-round" style={{ color: 'var(--accent)', fontSize: 24 }}>hub</span>
+                <div>
+                    <h2 style={{ fontSize:15, fontWeight:900, color:'var(--text)', margin:0, textTransform:'uppercase', letterSpacing:1 }}>Radar de Tráfico</h2>
+                    <div style={{ fontSize:10, color:'var(--muted)', fontWeight:700 }}>Flujo de llamadas en tiempo real</div>
                 </div>
             </div>
 
@@ -2922,14 +2860,14 @@ function ViewRadar({ data, toast }) {
                 nodes={nodes} 
                 edges={edges}
                 nodeTypes={radarNodeTypes}
+                edgeTypes={radarEdgeTypes}
                 fitView
-                zoomOnScroll={false}
-                zoomOnPinch={true}
+                zoomOnScroll={true}
                 panOnDrag={true}
                 minZoom={0.5}
                 maxZoom={1.5}
             >
-                {Background && <Background variant="dots" color="rgba(255,255,255,0.03)" gap={40} size={1} />}
+                {Background && <Background color="rgba(255,255,255,0.03)" gap={30} size={1} />}
                 {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
             </ReactFlow>
         </div>
