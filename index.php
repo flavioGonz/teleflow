@@ -2769,10 +2769,10 @@ const RadarAgentNode = ({ data }) => {
 
 // ─── CUSTOM EDGE ─ DATA FLOW ───
 const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, animated }) => {
-    const rf = window.ReactFlow;
-    if (!rf || !rf.getBezierPath) return null;
+    const rfLib = window.ReactFlow;
+    if (!rfLib || !rfLib.getBezierPath) return null;
     
-    const [edgePath, labelX, labelY] = rf.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const [edgePath, labelX, labelY] = rfLib.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
     return (
         <>
@@ -2813,8 +2813,8 @@ const radarEdgeTypes = {
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewRadar({ data, toast }) {
-    const rf = window.ReactFlow;
-    if (!rf) return (
+    const rfCompObj = window.ReactFlow;
+    if (!rfCompObj) return (
         <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
             <span className="material-icons-round text-6xl">running_with_errors</span>
             <div className="text-xl font-bold">React Flow no cargado</div>
@@ -2822,9 +2822,9 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const RFComp = rf.ReactFlow || rf.default || rf;
-    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = rf;
-    const ReactFlow = RFComp;
+    const utils = rfCompObj.default || rfCompObj;
+    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = utils;
+    const ReactFlow = rfCompObj.ReactFlow || rfCompObj.default || rfCompObj;
 
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
