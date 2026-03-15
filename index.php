@@ -2689,17 +2689,19 @@ const RadarCoreNode = ({ data }) => (
 );
 
 const RadarGroupNode = ({ data }) => (
-    <div className="glass" style={{ 
-        padding: '12px 24px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', 
-        border: '1px dashed rgba(255,255,255,0.1)', minWidth: 200, textAlign: 'center' 
+    <div className="glass box-shadow-premium" style={{ 
+        width: 130, height: 130, borderRadius: '50%', background: 'rgba(139,92,246,0.03)', 
+        border: '1.5px dashed rgba(139,92,246,0.4)', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 15,
+        boxShadow: '0 0 20px rgba(139,92,246,0.05)'
     }}>
-        <div style={{ fontSize:10, fontWeight:900, color:'var(--muted)', textTransform:'uppercase', letterSpacing:2 }}>{data.label}</div>
+        <span className="material-icons-round" style={{ fontSize: 24, color: '#8b5cf6', opacity: 0.6, marginBottom: 4 }}>workspaces</span>
+        <div style={{ fontSize:9, fontWeight:900, color:'var(--text)', textTransform:'uppercase', letterSpacing:1.5, lineHeight: 1.2 }}>{data.label}</div>
         {data.Handle && (
             <>
-                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
-                <data.Handle type="target" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
-                <data.Handle type="source" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
-                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
+                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
+                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
+                <data.Handle type="source" position={data.Position?.Bottom} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />
             </>
         )}
     </div>
@@ -2708,26 +2710,29 @@ const RadarGroupNode = ({ data }) => (
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
     return (
-        <div className={`glass box-shadow-light anim-pulse-border-${hasCalls ? 'amber' : 'none'}`} style={{ 
-            border:`1.5px solid ${hasCalls ? '#f59e0b' : 'var(--border)'}`, 
-            borderRadius:20, padding:15, width:240, background:'var(--surface)',
-            transition:'all 0.3s'
+        <div className={`glass box-shadow-premium anim-pulse-border-${hasCalls ? 'amber' : 'none'}`} style={{ 
+            width: 150, height: 150, borderRadius: '50%',
+            border:`2.5px solid ${hasCalls ? '#f59e0b' : '#3b82f6'}`, 
+            background:'var(--surface)', display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center', textAlign: 'center',
+            padding: 15, transition:'all 0.3s',
+            boxShadow: hasCalls ? '0 0 30px rgba(245,158,11,0.2)' : '0 0 20px rgba(59,130,246,0.1)'
         }}>
-             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: hasCalls ? '#f59e0b' : '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
-             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                <div style={{ width:34, height:34, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span className="material-icons-round" style={{ fontSize:18, color:'#f59e0b' }}>hub</span>
-                </div>
-                <div style={{ flex:1 }}>
-                    <div style={{ fontSize:8, fontWeight:900, color:'#f59e0b', textTransform:'uppercase' }}>COLA #{data.id}</div>
-                    <div style={{ fontSize:13, fontWeight:800, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{data.name}</div>
-                </div>
+             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: hasCalls ? '#f59e0b' : '#3b82f6', width: 10, height: 10, border: '2.5px solid var(--surface)' }} />}
+             
+             <div style={{ width:40, height:40, background:hasCalls?'rgba(245,158,11,0.15)':'rgba(59,130,246,0.1)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', marginBottom: 6 }}>
+                <span className="material-icons-round" style={{ fontSize:22, color: hasCalls ? '#f59e0b' : '#3b82f6' }}>hub</span>
              </div>
-             <div style={{ background:'var(--surface2)', borderRadius:10, padding:'6px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontSize:9, fontWeight:700, color:'var(--muted)' }}>Llamadas en espera:</span>
-                <span style={{ fontSize:14, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
+             
+             <div style={{ fontSize:8, fontWeight:900, color: hasCalls ? '#f59e0b' : '#3b82f6', textTransform:'uppercase', letterSpacing: 1 }}>COLA #{data.id}</div>
+             <div style={{ fontSize:12, fontWeight:800, color:'var(--text)', maxWidth: 120, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{data.name}</div>
+             
+             <div style={{ marginTop: 8, display:'flex', flexDirection: 'column', alignItems:'center' }}>
+                <div style={{ fontSize:18, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)', lineHeight: 1 }}>{data.calls_waiting}</div>
+                <div style={{ fontSize:7, fontWeight:700, color:'var(--muted)', textTransform: 'uppercase' }}>En espera</div>
              </div>
-             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: hasCalls ? '#f59e0b' : '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
+
+             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: hasCalls ? '#f59e0b' : '#3b82f6', width: 10, height: 10, border: '2.5px solid var(--surface)' }} />}
         </div>
     );
 };
