@@ -2729,42 +2729,51 @@ const RadarAgentNode = ({ data }) => {
     const isOffline = data.agent.status === 'OFFLINE';
     const isRinging = call && call.state !== 'Up';
     
-    // Status en español
-    const statusEsp = isRinging ? 'MARCANDO' : (isBusy ? 'EN LLAMADA' : (isOffline ? 'OFFLINE' : 'DISPONIBLE'));
     const statusColor = isRinging ? '#f59e0b' : (isBusy ? '#ef4444' : '#22c55e');
 
     return (
-        <div className={`glass anim-pulse-border-${isRinging ? 'amber' : (isBusy ? 'red' : 'none')}`} style={{ 
-            border:`1.5px solid ${statusColor}`, 
-            borderRadius:18, padding:10, width:260, background:'var(--surface)', 
-            display:'flex', alignItems:'center', gap:10,
-            transition: 'all 0.4s'
-        }}>
+        <div style={{ position:'relative', width:80, height:80, display:'flex', alignItems:'center', justifyContent:'center' }}>
             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-            <div style={{ position:'relative' }}>
-                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-xs font-black text-white shadow-lg overflow-hidden`}>
-                    <img src={data.agent.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} />
-                    <span style={{ display:'none' }}>{data.initials(data.agent.name)}</span>
-                </div>
-                {!isOffline && <div style={{ position:'absolute', bottom:-2, right:-2, width:13, height:13, borderRadius:'50%', border:'2px solid var(--surface)', background:statusColor }} />}
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12, fontWeight:800, color:'var(--text)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span>#{data.agent.ext}</span>
-                    <span style={{ fontSize:7, fontWeight:900, textTransform:'uppercase', color:statusColor }}>{statusEsp}</span>
-                </div>
-                <div style={{ fontSize:9, color:'var(--muted)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{data.agent.name}</div>
-                {call && (
-                    <div style={{ marginTop:4, display:'flex', alignItems:'center', gap:4 }}>
-                        <div style={{ fontSize:8, fontWeight:800, color:'var(--accent)', background:'var(--surface2)', padding:'2px 6px', borderRadius:4 }}>
-                            {call.duration || '00:00'}
-                        </div>
-                        <div style={{ fontSize:8, color:'var(--muted)', fontWeight:600, truncate:true }}>
-                             {call.from} &rarr; {call.dest}
-                        </div>
-                    </div>
+            
+            {/* Main Circle */}
+            <div className={`glass shadow-xl ${isRinging ? 'anim-vibrate' : ''}`} style={{ 
+                width: 70, height: 70, borderRadius: '50%', 
+                border: `2px solid ${statusColor}`,
+                background: isBusy ? 'rgba(239,68,68,0.1)' : 'var(--surface)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.4s',
+                position: 'relative',
+                boxShadow: isBusy ? `0 0 20px ${statusColor}44` : 'none'
+            }}>
+                <span className={`material-icons-round ${isRinging ? 'anim-phone-ring' : ''}`} style={{ 
+                    fontSize: 32, 
+                    color: statusColor,
+                    textShadow: isRinging ? `0 0 10px ${statusColor}` : 'none'
+                }}>
+                    {isRinging ? 'ring_volume' : (isBusy ? 'call' : 'person')}
+                </span>
+
+                {/* Status indicator dot */}
+                {!isOffline && (
+                    <div style={{ 
+                        position: 'absolute', top: 2, right: 2, 
+                        width: 14, height: 14, borderRadius: '50%', 
+                        background: statusColor, border: '3px solid var(--surface)' 
+                    }} />
                 )}
             </div>
+
+            {/* Label below */}
+            <div style={{ 
+                position: 'absolute', top: 75, left: '50%', transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap', textAlign: 'center', pointerEvents: 'none'
+            }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text)' }}>#{data.agent.ext}</div>
+                <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{data.agent.name}</div>
+                {call && <div style={{ fontSize: 7, color: statusColor, fontWeight: 900, animation: 'pulse 1s infinite' }}>{isRinging ? 'SONANDO' : call.duration}</div>}
+            </div>
+
+            {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
         </div>
     );
 };
@@ -2824,22 +2833,47 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const { ReactFlow: RFComp, Background, Controls, Handle, Position } = rf;
+    const { ReactFlow: RFComp, Background, Controls, Handle, Position, applyNodeChanges } = rf;
     const ReactFlow = RFComp || rf.default || rf;
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
 
+    // Persistencia de posiciones
+    const STORAGE_KEY = 'teleflow_radar_positions';
+    const savePositions = (nodesToSave) => {
+        const positions = {};
+        nodesToSave.forEach(n => {
+            if (n.position) positions[n.id] = n.position;
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
+    };
+
+    const onNodesChange = useCallback(
+        (changes) => {
+            setNodes((nds) => {
+                const nextNodes = applyNodeChanges(changes, nds);
+                savePositions(nextNodes);
+                return nextNodes;
+            });
+        },
+        [applyNodeChanges]
+    );
+
     useEffect(() => {
+        const savedPositions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         const newNodes = [];
         const newEdges = [];
         const nodeDataGlobals = { Handle, Position, initials, getColor };
+
+        // Helper to get position with override
+        const getPos = (id, fallback) => savedPositions[id] || fallback;
 
         // 1. CORE PBX (LEFT)
         newNodes.push({
             id: 'core-pbx',
             type: 'core',
             data: { ...nodeDataGlobals, label: 'PBX SERVER' },
-            position: { x: 50, y: 300 }
+            position: getPos('core-pbx', { x: 50, y: 300 })
         });
 
         // 2. Distribute Queues & Agents in Star/Hub Pattern
@@ -2868,7 +2902,7 @@ function ViewRadar({ data, toast }) {
                 id: groupId,
                 type: 'group',
                 data: { ...nodeDataGlobals, label: q.name },
-                position: { x: xPos, y: yPos },
+                position: getPos(groupId, { x: xPos, y: yPos }),
                 style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)' }
             });
 
@@ -2878,7 +2912,7 @@ function ViewRadar({ data, toast }) {
                 type: 'queue',
                 parentNode: groupId,
                 data: { ...nodeDataGlobals, ...q },
-                position: { x: 20, y: 40 },
+                position: getPos(`q-${q.id}`, { x: 20, y: 40 }),
                 extent: 'parent'
             });
 
@@ -2904,7 +2938,7 @@ function ViewRadar({ data, toast }) {
                     type: 'agent',
                     parentNode: groupId,
                     data: { ...nodeDataGlobals, agent: a, activeCall: call },
-                    position: { x: 280 + (col * 270), y: 40 + (row * 85) },
+                    position: getPos(`a-${a.ext}`, { x: 280 + (col * 270), y: 40 + (row * 85) }),
                     extent: 'parent'
                 });
 
@@ -2938,7 +2972,7 @@ function ViewRadar({ data, toast }) {
                 id: groupId,
                 type: 'group',
                 data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
-                position: { x: xPos, y: yPos },
+                position: getPos(groupId, { x: xPos, y: yPos }),
                 style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,100,100,0.05)' }
             });
 
@@ -2952,7 +2986,7 @@ function ViewRadar({ data, toast }) {
                     type: 'agent',
                     parentNode: groupId,
                     data: { ...nodeDataGlobals, agent: a, activeCall: call },
-                    position: { x: 20 + (col * 270), y: 40 + (row * 85) },
+                    position: getPos(`a-${a.ext}`, { x: 20 + (col * 270), y: 40 + (row * 85) }),
                     extent: 'parent'
                 });
 
@@ -2973,16 +3007,16 @@ function ViewRadar({ data, toast }) {
             else currentYLeft += groupHeight + groupSpacing;
         }
 
-        // 4. Final PBX Core Position (Centered vertically relative to total height)
+        // 4. Final PBX Core Position (Centered vertically relative to total height only if NO saved pos)
         const totalHeight = Math.max(currentYLeft, currentYRight);
         const coreNode = newNodes.find(n => n.id === 'core-pbx');
-        if (coreNode) {
+        if (coreNode && !savedPositions['core-pbx']) {
             coreNode.position = { x: 100, y: (totalHeight / 2) - 70 };
         }
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [data]);
+    }, [data, Handle, Position]); // Aseguramos que se ejecute cuando RF cargue
 
     return (
         <div className="content-area view-enter" style={{ height: 'calc(100vh - 80px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
@@ -3002,6 +3036,22 @@ function ViewRadar({ data, toast }) {
                 }
                 .anim-pulse-border-red { animation: pulse-border-red 2s infinite; }
                 .anim-pulse-border-amber { animation: pulse-border-amber 2s infinite; }
+
+                @keyframes vibrate {
+                    0% { transform: rotate(0deg) translate(0, 0); }
+                    25% { transform: rotate(5deg) translate(1px, -1px); }
+                    50% { transform: rotate(-5deg) translate(-1px, 1px); }
+                    75% { transform: rotate(5deg) translate(1px, 1px); }
+                    100% { transform: rotate(0deg) translate(0, 0); }
+                }
+                .anim-vibrate { animation: vibrate 0.15s infinite linear; }
+
+                @keyframes phone-ring {
+                    0% { transform: scale(1); filter: brightness(1); }
+                    50% { transform: scale(1.1); filter: brightness(1.5); }
+                    100% { transform: scale(1); filter: brightness(1); }
+                }
+                .anim-phone-ring { animation: phone-ring 0.5s infinite ease-in-out; }
             `}</style>
             
             <div style={{ position: 'absolute', top: 20, left: 24, zIndex: 10, display:'flex', alignItems:'center', gap:10 }}>
@@ -3015,6 +3065,7 @@ function ViewRadar({ data, toast }) {
             <ReactFlow 
                 nodes={nodes} 
                 edges={edges}
+                onNodesChange={onNodesChange}
                 nodeTypes={radarNodeTypes}
                 edgeTypes={radarEdgeTypes}
                 fitView
