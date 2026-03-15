@@ -1378,8 +1378,8 @@ function ViewAgentes({ toast }) {
     const load = useCallback(async () => {
         try {
             const [ar, cr] = await Promise.all([
-                fetch('api/index.php?action=get_full_data').then(r=>r.json()).catch(()=>({success:false})),
-                fetch('api/index.php?action=get_active_calls').then(r=>r.json()).catch(()=>({success:false}))
+                fetch('api/index.php?action=get_full_data', { credentials: 'include' }).then(r=>r.json()).catch(()=>({success:false})),
+                fetch('api/index.php?action=get_active_calls', { credentials: 'include' }).then(r=>r.json()).catch(()=>({success:false}))
             ]);
             // Full data returns extensions in pbx.extensions
             if (ar.pbx?.extensions) setAgents(ar.pbx.extensions);
@@ -2813,8 +2813,8 @@ const radarEdgeTypes = {
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewRadar({ data, toast }) {
-    const rfCompObj = window.ReactFlow;
-    if (!rfCompObj) return (
+    const rfObj = window.ReactFlow;
+    if (!rfObj) return (
         <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
             <span className="material-icons-round text-6xl">running_with_errors</span>
             <div className="text-xl font-bold">React Flow no cargado</div>
@@ -2822,9 +2822,17 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const utils = rfCompObj.default || rfCompObj;
-    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = utils;
-    const ReactFlow = rfCompObj.ReactFlow || rfCompObj.default || rfCompObj;
+    // Estrategia de extracción ultra-robusta
+    const getUtil = (name) => rfObj[name] || (rfObj.default && rfObj.default[name]);
+    
+    const Background = getUtil('Background');
+    const Controls = getUtil('Controls');
+    const Handle = getUtil('Handle');
+    const Position = getUtil('Position');
+    const applyNodeChanges = getUtil('applyNodeChanges');
+    const applyEdgeChanges = getUtil('applyEdgeChanges');
+    const addEdge = getUtil('addEdge');
+    const ReactFlow = rfObj.ReactFlow || rfObj.default || rfObj;
 
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
