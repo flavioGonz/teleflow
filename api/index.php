@@ -274,69 +274,78 @@ if ($action === 'get_full_data') {
     $pjsip_c = ami_cmd('pjsip show contacts');
 
     $exts = [];
-    $pjsip_e = ami_cmd('pjsip show endpoints');
     $lines = explode("\n", $pjsip_e);
     foreach ($lines as $line) {
-        // Regex mejorada: el CID (/...) es opcional
         if (preg_match('/^\s+Endpoint:\s+(\d+)(?:\/.*?)?\s+(Not in use|Unavailable|In use|Busy|Ringing|Unknown)\s+(\d+)/i', $line, $m)) {
             $ext  = $m[1];
-            $name = $ext; // Fallback al mismo interno si no hay CID
+            $name = $ext;
             $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=714B67&color=fff&size=80';
             if (file_exists($avatar_dir . $ext . '.jpg')) $avatar = "uploads/avatars/$ext.jpg?" . time();
             $st = strtoupper(trim($m[2]));
             $status = ($st==='NOT IN USE')?'ONLINE':($st==='UNAVAILABLE'?'OFFLINE':'BUSY');
-            $exts[$ext] = ['ext'=>$ext,'name'=>$name,'status'=>$status,'ip'=>'—','rtt'=>'—','mac'=>'—','avatar'=>$avatar,'recording'=>'dontcare'];
+            $exts[$ext] = [
+                'ext'=>$ext, 'name'=>$name, 'status'=>$status, 
+                'ip'=>'—', 'rtt'=>'—', 'rtt_ms'=>999, 'mac'=>'—', 
+                'avatar'=>$avatar, 'recording'=>'dontcare', 'device_type'=>'softphone'
+            ];
         }
     }
-    // Parse contacts for IP+RTT from pjsip show contacts
+
     foreach (explode("\n", $pjsip_c) as $line) {
-        // "      Contact:  1001/sip:1001@192.168.1.120:63899;ob       9f160908de Avail         1.979"
         if (preg_match('/Contact:\s+(\d+)\/sip:\S+@([\d\.]+):(\d+)\S*\s+\S+\s+Avail\s+([\d\.]+)/i', $line, $m)) {
             $ext = $m[1];
             if (isset($exts[$ext])) {
                 if ($exts[$ext]['status'] !== 'BUSY') $exts[$ext]['status'] = 'ONLINE';
                 $exts[$ext]['ip']  = $m[2];
-                $exts[$ext]['rtt'] = round((float)$m[4]) . 'ms';
+                $ms = round((float)$m[4] * 1000); // Usually Asterisk returns seconds in "avail 0.002"
+                if ($ms < 1) $ms = round((float)$m[4]); // Fallback if it's already ms
+                $exts[$ext]['rtt'] = $ms . 'ms';
+                $exts[$ext]['rtt_ms'] = $ms;
             }
         }
     }
 
-    // DB fallback: include extensions from DB that aren't registered yet
     try {
         $db2 = mysql_pbx();
         $db_devs = $db2->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
+        
+        $sip_transp = $db2->query("SELECT id, data FROM sip WHERE keyword='transport'")->fetchAll(PDO::FETCH_KEY_PAIR);
+
         foreach ($db_devs as $dev) {
-            if (!isset($exts[$dev['ext']])) {
-                $n = $dev['name'] ?: $dev['ext'];
+            $ext_v = $dev['ext'];
+            if (!isset($exts[$ext_v])) {
+                $n = $dev['name'] ?: $ext_v;
                 $avatar = 'https://ui-avatars.com/api/?name=' . urlencode($n) . '&background=714B67&color=fff&size=80';
-                $exts[$dev['ext']] = ['ext'=>$dev['ext'],'name'=>$n,'status'=>'OFFLINE','ip'=>'—','rtt'=>'—','mac'=>'—','avatar'=>$avatar,'recording'=>'dontcare'];
-            } elseif (empty(trim($exts[$dev['ext']]['name'])) || $exts[$dev['ext']]['name'] === $dev['ext']) {
-                $exts[$dev['ext']]['name'] = $dev['name'] ?: $exts[$dev['ext']]['name'];
+                $exts[$ext_v] = [
+                   'ext'=>$ext_v, 'name'=>$n, 'status'=>'OFFLINE', 
+                   'ip'=>'—', 'rtt'=>'—', 'rtt_ms'=>999, 'mac'=>'—', 
+                   'avatar'=>$avatar, 'recording'=>'dontcare', 'device_type'=>'phone'
+                ];
+            } elseif (empty(trim($exts[$ext_v]['name'])) || $exts[$ext_v]['name'] === $ext_v) {
+                $exts[$ext_v]['name'] = $dev['name'] ?: $exts[$ext_v]['name'];
             }
+            
+            // Detect device type
+            $t = $sip_transp[$ext_v] ?? '';
+            if (strpos($t, 'wss') !== false) $exts[$ext_v]['device_type'] = 'softphone';
+            else $exts[$ext_v]['device_type'] = 'phone';
         }
-        // Recording config per extension
         $rec_rows = $db2->query("SELECT extension as id, recording as data FROM users")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rec_rows as $r) { if (isset($exts[$r['id']])) $exts[$r['id']]['recording'] = $r['data']; }
     } catch (Exception $e) {}
 
-    // Active calls → mark BUSY
     $ch_raw = ami_cmd('core show channels verbose');
     preg_match_all('/^(PJSIP|SIP)\/((\d+)-\w+)/m', $ch_raw, $mc);
     foreach (($mc[3] ?? []) as $busy_ext) {
         if (isset($exts[$busy_ext])) $exts[$busy_ext]['status'] = 'BUSY';
     }
 
-    // Recordings (last 20)
     $recordings = [];
     try {
         $db  = mysql_pbx('asteriskcdrdb');
-        $recordings = $db->query(
-            "SELECT calldate,src,dst,duration,billsec,disposition,recordingfile,clid
-             FROM cdr WHERE recordingfile!='' ORDER BY calldate DESC LIMIT 20"
-        )->fetchAll(PDO::FETCH_ASSOC);
+        $recordings = $db->query("SELECT calldate,src,dst,duration,billsec,disposition,recordingfile,clid FROM cdr WHERE recordingfile!='' ORDER BY calldate DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {}
 
-    // System metrics
     $uptime = str_replace('up ', '', trim(shell_exec('uptime -p 2>/dev/null') ?: ''));
     $ram_raw = shell_exec("free -m | awk 'NR==2{print $3*100/$2 }'");
     $ram = round((float)$ram_raw);
@@ -345,14 +354,19 @@ if ($action === 'get_full_data') {
     $conn_raw = shell_exec("netstat -an | grep ESTABLISHED | wc -l");
     $conn = (int)trim($conn_raw);
 
-    // Active calls detail
     $live_calls = [];
-    $ch_raw = ami_cmd('core show channels verbose');
     $lines = explode("\n", $ch_raw);
     foreach($lines as $line) {
-        // Example: PJSIP/1001-00000001  (None)  Up  AppDial  (Outgoing Line)
-        if (preg_match('/^(PJSIP|SIP)\/(\d+)-\w+\s+\S+\s+(\S+)\s+(\S+)/i', $line, $m)) {
-             $live_calls[] = ['ext' => $m[2], 'state' => $m[3], 'app' => $m[4]];
+        if (preg_match('/^((?:PJSIP|SIP)\/(\d+)-\w+)\s+\S+\s+(\S+)\s+(\S+)\s+(.*?)\s+(\S+)\s+(\d+:\d{2}:\d{2}|\d+:\d{2})/', $line, $m)) {
+             $live_calls[] = [
+                 'channel' => $m[1],
+                 'ext' => $m[2], 
+                 'state' => $m[3], 
+                 'app' => $m[4],
+                 'dest' => $m[5],
+                 'duration' => $m[7],
+                 'callerid' => $m[6]
+             ];
         }
     }
 
@@ -362,6 +376,7 @@ if ($action === 'get_full_data') {
     ]);
     exit;
 }
+
 
 
 // ─── EXTENSIONES: GET DETAIL ─────────────────────────────────────────────────
@@ -1145,5 +1160,36 @@ if ($action === 'apply_ivr_flow') {
     echo json_encode(['success' => true]);
     exit;
 }
+
+// ─── AGENT HISTORY peek ──────────────────────────────────────────────────────
+if ($action === 'get_agent_history') {
+    $ext = preg_replace('/\D/', '', $_GET['ext'] ?? '');
+    if (!$ext) { echo json_encode(['success' => false]); exit; }
+    try {
+        $db = mysql_pbx('asteriskcdrdb');
+        $stmt = $db->prepare("SELECT calldate, src, dst, duration, disposition FROM cdr 
+                              WHERE src=? OR dst=? ORDER BY calldate DESC LIMIT 5");
+        $stmt->execute([$ext, $ext]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'history' => $rows]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── REDIRECT CALL (Transfer) ────────────────────────────────────────────────
+if ($action === 'redirect_call') {
+    $channel = $_POST['channel'] ?? '';
+    $ext     = $_POST['ext'] ?? '';
+    if (!$channel || !$ext) { echo json_encode(['success' => false, 'error' => 'Canal o destino inválido']); exit; }
+    
+    // channel redirect <channel> <context>,<exten>,<priority>
+    $cmd = "channel redirect $channel from-internal,$ext,1";
+    ami_cmd($cmd);
+    echo json_encode(['success' => true, 'message' => "Transferencia a $ext iniciada"]);
+    exit;
+}
+
 
 echo json_encode(['status' => 'error', 'message' => 'Acción desconocida: ' . $action]);

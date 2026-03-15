@@ -1366,16 +1366,6 @@ function ViewExtensiones({ data, toast }) {
 }
 
 // ─────────────────────────────────────────────
-// UTIL: Timer para llamadas
-// ─────────────────────────────────────────────
-function AgentCallTimer({ seconds }) {
-    const [elapsed, setElapsed] = useState(seconds||0);
-    useEffect(()=>{ setElapsed(seconds||0); const t=setInterval(()=>setElapsed(s=>s+1),1000); return()=>clearInterval(t); },[seconds]);
-    const fmt=s=>{const m=Math.floor(s/60),ss=s%60;return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;}
-    return <span style={{fontFamily:'monospace',fontWeight:800,color:'#f59e0b',fontSize:13}}>{fmt(elapsed)}</span>;
-}
-
-// ─────────────────────────────────────────────
 // VISTA: AGENTES - Dashboard Activo
 // ─────────────────────────────────────────────
 function ViewAgentes({ toast }) {
@@ -1388,6 +1378,12 @@ function ViewAgentes({ toast }) {
     const [isGrid, setIsGrid] = useState(true);
     const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
     const [actionLoading, setActionLoading] = useState(null);
+    
+    // UI Enhancements state
+    const [contextMenu, setContextMenu] = useState(null);
+    const [peekHistory, setPeekHistory] = useState(null);
+    const [historyData, setHistoryData] = useState({});
+    const menuRef = useRef(null);
 
     useEffect(() => {
         localStorage.setItem('tf_supervisor_ext', supervisorExt);
@@ -1396,24 +1392,32 @@ function ViewAgentes({ toast }) {
     const load = useCallback(async () => {
         try {
             const [ar, cr] = await Promise.all([
-                fetch('api/agents.php?action=get_agents_data').then(r=>r.json()).catch(()=>({success:false})),
+                fetch('api/index.php?action=get_full_data').then(r=>r.json()).catch(()=>({success:false})),
                 fetch('api/index.php?action=get_active_calls').then(r=>r.json()).catch(()=>({success:false}))
             ]);
-            if (ar.success) setAgents(ar.agents);
+            // Full data returns extensions in pbx.extensions
+            if (ar.pbx?.extensions) setAgents(ar.pbx.extensions);
             if (cr.success) setActiveCalls(cr.calls||[]);
         } catch {}
         setLoading(false);
     }, []);
 
     useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
+    
+    // Close context menu on click outside
+    useEffect(() => {
+        const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setContextMenu(null); };
+        document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+    }, []);
 
     const handleAction = async (agent, type) => {
+        setContextMenu(null);
         const callInfo = activeCalls.find(c => c.ext === String(agent.ext));
-        if (!callInfo && type === 'spy') {
+        if (!callInfo && (type === 'spy' || type === 'whisper' || type === 'hangup')) {
             toast('El agente no está en una llamada activa', 'warning');
             return;
         }
-        if (type === 'spy' && !supervisorExt) {
+        if ((type === 'spy' || type === 'whisper') && !supervisorExt) {
             toast('Configura tu extensión de supervisor primero', 'error');
             return;
         }
@@ -1435,7 +1439,42 @@ function ViewAgentes({ toast }) {
         setActionLoading(null);
     };
 
+    const fetchHistory = async (ext) => {
+        if (historyData[ext]) { setPeekHistory(ext); return; }
+        try {
+            const r = await fetch(`api/index.php?action=get_agent_history&ext=${ext}`);
+            const d = await r.json();
+            if (d.success) {
+                setHistoryData(prev => ({...prev, [ext]: d.history}));
+                setPeekHistory(ext);
+            }
+        } catch {}
+    };
+
+    const onDropTransfer = async (e, targetExt) => {
+        e.preventDefault();
+        const callData = JSON.parse(e.dataTransfer.getData('call') || '{}');
+        if (!callData.channel) return;
+        
+        toast(`Transfiriendo llamada ${callData.ext} -> ${targetExt}...`, 'info');
+        try {
+            const fd = new FormData();
+            fd.append('channel', callData.channel);
+            fd.append('ext', targetExt);
+            const r = await fetch('api/index.php?action=redirect_call', { method:'POST', body:fd });
+            const d = await r.json();
+            if (d.success) toast(d.message, 'success');
+            else toast(d.error, 'error');
+        } catch { toast('Error al transferir', 'error'); }
+    };
+
     const getCallInfo = (ext) => activeCalls.find(c => c.ext === String(ext));
+    const getLatencyRef = (rtt) => {
+        const ms = parseInt(rtt) || 999;
+        if (ms < 50) return { color: '#22c55e', label: 'Excelente' };
+        if (ms < 150) return { color: '#f59e0b', label: 'Medio' };
+        return { color: '#ef4444', label: 'Pobre' };
+    };
 
     const filtered = agents.filter(a =>
         (a.name.toLowerCase().includes(search.toLowerCase()) || String(a.ext).includes(search)) &&
@@ -1483,7 +1522,7 @@ function ViewAgentes({ toast }) {
 
                 <div className="glass" style={{display:'flex', alignItems:'center', gap:10, padding:'4px 12px', borderRadius:16}}>
                     <span className="material-icons-round" style={{fontSize:16, color:'#6b7280'}}>admin_panel_settings</span>
-                    <input type="text" placeholder="Mi Ext" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" />
+                    <input type="text" placeholder="Mi Ext" title="Tu extensión para Spy/Whisper" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" />
                 </div>
 
                 <select className="input-tf py-3 px-6 rounded-2xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
@@ -1493,12 +1532,6 @@ function ViewAgentes({ toast }) {
                     <option value="OFFLINE">Desconectados</option>
                 </select>
             </div>
-
-            {!isGrid && (
-                <div style={{display:'grid',gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr',padding:'8px 18px',fontSize:10,fontWeight:800,color:'#4b5563',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:8}}>
-                    <span>Agente</span><span style={{textAlign:'center'}}>Estado</span><span style={{textAlign:'center'}}>Llamada</span><span style={{textAlign:'center'}}>Rendimiento</span><span style={{textAlign:'right'}}>Red</span>
-                </div>
-            )}
 
             {loading ? (
                 <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
@@ -1511,33 +1544,67 @@ function ViewAgentes({ toast }) {
                         const isBusy = agent.status === 'BUSY' || !!callInfo;
                         const isOffline = agent.status === 'OFFLINE';
                         const statusColor = isBusy ? '#ef4444' : (isOffline ? '#4b5563' : '#22c55e');
+                        const rttInfo = getLatencyRef(agent.rtt_ms || agent.rtt);
+                        
                         return (
-                            <div key={agent.ext} className="group relative flex flex-col items-center" onClick={() => setSelected(agent)} style={{cursor:'pointer'}}>
+                            <div key={agent.ext} className="group relative flex flex-col items-center" 
+                                 onContextMenu={(e)=>{ e.preventDefault(); setContextMenu({x:e.clientX, y:e.clientY, agent}); }}
+                                 onDragOver={(e)=>e.preventDefault()}
+                                 onDrop={(e)=>onDropTransfer(e, agent.ext)}
+                                 onMouseEnter={()=>fetchHistory(agent.ext)}
+                                 onMouseLeave={()=>setPeekHistory(null)}
+                                 style={{cursor:'pointer'}}>
+                                
                                 <div className="relative mb-4">
-                                    <div className={`w-20 h-20 rounded-[24px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
+                                    <div className={`w-20 h-20 rounded-[28px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
                                          style={{
-                                             boxShadow: isBusy ? `0 10px 30px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 30px rgba(34,197,94,0.2)`),
+                                             boxShadow: isBusy ? `0 10px 40px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 40px rgba(34,197,94,0.2)`),
                                              border: `2px solid ${statusColor}44`,
-                                             filter: isOffline ? 'grayscale(0.8) opacity(0.6)' : 'none'
+                                             filter: isOffline ? 'grayscale(0.8) opacity-0.6' : 'none',
+                                             background: `url(${agent.avatar}) center/cover`
                                          }}>
-                                        {initials(agent.name)}
+                                        {!agent.avatar.includes('uploads') && initials(agent.name)}
                                     </div>
-                                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor}}>
-                                        <span className="material-icons-round text-[12px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
+
+                                    {/* Status Badge */}
+                                    <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor}}>
+                                        <span className="material-icons-round text-[14px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
                                             {isBusy ? 'call' : (isOffline ? 'cloud_off' : 'check')}
                                         </span>
                                     </div>
-                                    <div className="absolute inset-0 rounded-[24px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
-                                        <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
-                                            <span className="material-icons-round" style={{fontSize:24}}>headphones</span>
-                                        </button>
+
+                                    {/* Latency Dot */}
+                                    {!isOffline && (
+                                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0b0b14] flex items-center justify-center shadow-lg" 
+                                             title={`Latencia: ${agent.rtt} (${rttInfo.label})`}
+                                             style={{background: rttInfo.color}}>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                        </div>
+                                    )}
+
+                                    {/* Device Badge */}
+                                    <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-lg bg-surface2 border border-white/5 flex items-center justify-center text-gray-400">
+                                        <span className="material-icons-round text-[12px]">{agent.device_type === 'softphone' ? 'laptop_mac' : 'phone_android'}</span>
+                                    </div>
+
+                                    {/* Quick Hover Actions Overlay */}
+                                    <div className="absolute inset-0 rounded-[28px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
+                                        <div className="flex gap-2">
+                                            <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} title="Espiar" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
+                                                <span className="material-icons-round" style={{fontSize:20}}>headphones</span>
+                                            </button>
+                                            <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'whisper'); }} title="Susurrar" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
+                                                <span className="material-icons-round" style={{fontSize:20}}>record_voice_over</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+
                                 <div className="text-center group-hover:translate-y-[-4px] transition-transform">
                                     <div style={{fontSize:13, fontWeight:900, color:'white'}}>#{agent.ext}</div>
                                     <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{agent.name}</div>
                                     {isBusy && (
-                                        <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5">
+                                        <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5 justify-center">
                                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                                             <AgentCallTimer seconds={callInfo?.elapsed_sec || agent.in_call || 0} />
                                         </div>
@@ -2026,14 +2093,18 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
     );
 }
 
-function ViewColas({ toast, onReport }) {
+function ViewColas({ toast, onReport, data }) {
     const [queues,setQueues]=useState([]);
     const [drawer,setDrawer]=useState(null);
+    const extensions = data?.pbx?.extensions || [];
+    
     const load=async()=>{
         try{const d=await(await fetch('api/index.php?action=get_queues')).json();if(d.success)setQueues(d.queues);}catch{}
     };
     useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
+    
     const stratLabel={ringall:'Simultáneo',rrmemory:'Round Robin',leastrecent:'Menos reciente',fewestcalls:'Menos llamadas',random:'Aleatorio',linear:'Lineal'};
+    
     return(
         <div className="content-area view-enter">
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
@@ -2048,23 +2119,25 @@ function ViewColas({ toast, onReport }) {
             </div>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 anim-fadeup">
                 {queues.map((q,i)=>{
-                    const isActive = (q.calls_waiting||0) > 0;
-                    const isCritical = isActive && q.max_wait > 30;
-                    const isWarning = isActive && q.max_wait > 15 && !isCritical;
+                    const waiting = q.calls_waiting||0;
+                    const isActive = waiting > 0;
+                    const isCritical = isActive && q.max_wait > 40;
+                    const isWarning = isActive && q.max_wait > 20 && !isCritical;
                     const statusColor = isCritical ? '#ef4444' : (isWarning ? '#f59e0b' : (isActive ? '#22c55e' : '#374151'));
 
                     return(
-                    <div key={i} className={`glass group relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${isCritical ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-black animate-pulse' : ''}`}
+                    <div key={i} className={`glass group relative overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${isCritical ? 'animate-pulse' : ''}`}
                          style={{
                              padding:24, borderRadius:24, 
-                             border: `1px solid ${isCritical ? '#ef4444' : (isWarning ? '#f59e0b' : 'var(--border)')}`,
-                             background: isCritical ? 'rgba(239,68,68,0.05)' : 'var(--surface)'
+                             border: `1px solid ${isCritical ? 'rgba(239,68,68,0.5)' : (isWarning ? 'rgba(245,158,11,0.5)' : 'var(--border)')}`,
+                             background: isCritical ? 'rgba(239,68,68,0.05)' : 'var(--surface)',
+                             boxShadow: isCritical ? '0 0 30px rgba(239,68,68,0.15)' : 'none'
                          }}>
                         
                         {/* Heatmap intensity indicator */}
                         <div style={{
-                            position:'absolute', top:0, right:0, width:100, height:100,
-                            background: `radial-gradient(circle at top right, ${statusColor}22, transparent)`,
+                            position:'absolute', top:0, right:0, width:140, height:140,
+                            background: `radial-gradient(circle at top right, ${statusColor}33, transparent)`,
                             zIndex: 0
                         }} />
 
@@ -2088,7 +2161,13 @@ function ViewColas({ toast, onReport }) {
                                     </div>
                                 </div>
 
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
+                                <div className="flex gap-2">
+                                    {waiting > 1 && (
+                                        <div className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg shadow-red-500/20">
+                                            <span className="material-icons-round" style={{fontSize:12}}>call</span>
+                                            {waiting}
+                                        </div>
+                                    )}
                                     <button title="Ajustes" onClick={()=>setDrawer(q)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
                                         <span className="material-icons-round" style={{fontSize:18}}>settings</span>
                                     </button>
@@ -2097,7 +2176,7 @@ function ViewColas({ toast, onReport }) {
 
                             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20}}>
                                 <div className="glass" style={{padding:'15px 10px', textAlign:'center', borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
-                                    <div style={{fontSize:38, fontWeight:900, color:statusColor, lineHeight:1, letterSpacing:'-2px'}}>{q.calls_waiting||0}</div>
+                                    <div style={{fontSize:38, fontWeight:900, color:statusColor, lineHeight:1, letterSpacing:'-2px'}}>{waiting}</div>
                                     <div style={{fontSize:9, color:'#6b7280', fontWeight:800, textTransform:'uppercase', marginTop:4, letterSpacing:'1px'}}>En Espera</div>
                                 </div>
                                 <div className="glass" style={{padding:'15px 10px', textAlign:'center', borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
@@ -2107,32 +2186,44 @@ function ViewColas({ toast, onReport }) {
                             </div>
 
                             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
-                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800, textTransform:'uppercase'}}>Agentes Logueados</div>
+                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800, textTransform:'uppercase'}}>Agentes de la Cola</div>
                                 <div style={{fontSize:10, color:'#4b5563', fontWeight:800}}>{q.members?.length || 0} Total</div>
                             </div>
 
-                            <div style={{display:'flex', flexWrap:'wrap', gap:4, minHeight:32}}>
-                                {q.members?.slice(0, 8).map((m,j)=>(
-                                    <div key={j} className="w-8 h-8 rounded-lg border border-white/5 flex items-center justify-center relative group/member" 
-                                         style={{background:m.status==='ONLINE'?'rgba(34,197,94,0.1)':(m.status==='BUSY'?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.05)')}}
-                                         title={`${m.ext} - ${m.status}`}>
-                                        <span style={{fontSize:10, fontWeight:700, color:m.status==='ONLINE'?'#4ade80':(m.status==='BUSY'?'#f59e0b':'#4b5563')}}>{m.ext.slice(-2)}</span>
-                                        <span style={{position:'absolute', bottom:-2, right:-2, width:8, height:8, borderRadius:'50%', background:m.status==='ONLINE'?'#22c55e':(m.status==='BUSY'?'#f59e0b':'#374151'), border:'2px solid var(--surface)'}} />
-                                    </div>
-                                ))}
-                                {q.members?.length > 8 && <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-gray-500">+{q.members.length-8}</div>}
+                            <div style={{display:'flex', flexWrap:'wrap', gap:6, minHeight:34}}>
+                                {q.members?.slice(0, 10).map((m,j)=>{
+                                    const extInfo = extensions.find(e => e.ext === m.ext);
+                                    const av = extInfo?.avatar || `https://ui-avatars.com/api/?name=${m.ext}&background=714B67&color=fff&size=40`;
+                                    return (
+                                        <div key={j} className="relative group/member">
+                                            <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/5 transition-transform hover:scale-110" 
+                                                 style={{boxShadow: m.status==='ONLINE'?'0 0 10px rgba(34,197,94,0.1)':(m.status==='BUSY'?'0 0 10px rgba(245,158,11,0.1)':'none')}}>
+                                                <img src={av} style={{width:'100%', height:'100%', objectFit:'cover', opacity: m.status==='OFFLINE'?0.5:1}} />
+                                            </div>
+                                            <div style={{position:'absolute', bottom:-2, right:-2, width:10, height:10, borderRadius:'50%', background:m.status==='ONLINE'?'#22c55e':(m.status==='BUSY'?'#f59e0b':'#374151'), border:'2px solid var(--surface)'}} />
+                                            
+                                            {/* Member tooltip */}
+                                            <div className="absolute left-1/2 -top-1 px-2 py-1 bg-black/90 text-white text-[9px] font-bold rounded -translate-x-1/2 -translate-y-full opacity-0 group-hover/member:opacity-100 pointer-events-none transition-opacity z-10 whitespace-nowrap border border-white/10">
+                                                #{m.ext} · {extInfo?.name || m.ext}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {q.members?.length > 10 && <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-gray-500">+{q.members.length-10}</div>}
                             </div>
 
                             {/* Floating Hover Actions */}
-                            <div className="absolute inset-x-0 -bottom-2 translate-y-full group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 flex justify-center gap-2 pb-4 pt-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none group-hover:pointer-events-auto">
-                                <button className="btn-primary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800}} onClick={()=>toast('Función habilitada pronto','info')}>
-                                    LOGUEAR AGENTE
-                                </button>
-                                <button className="btn-secondary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800, background:'var(--surface2)', color:'white', border:'1px solid var(--border)'}} onClick={()=>toast('Estrategia: '+q.strategy,'info')}>
-                                    ESTRATEGIA
-                                </button>
-                                <button className="btn-secondary" style={{padding:'6px 12px', borderRadius:8, fontSize:10, fontWeight:800, background:'var(--surface2)', color:'white', border:'1px solid var(--border)'}} onClick={()=>onReport(q.id)}>
-                                    REPORTE
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[6px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2 rounded-2xl pointer-events-none group-hover:pointer-events-auto">
+                                <div style={{display:'flex', gap:8}}>
+                                    <button className="btn-primary" style={{padding:'8px 16px', borderRadius:10, fontSize:11, fontWeight:800}} onClick={()=>toast('Función habilitada pronto','info')}>
+                                        LOGUEAR AGENTE
+                                    </button>
+                                    <button className="btn-secondary" style={{padding:'8px 16px', borderRadius:10, fontSize:11, fontWeight:800, background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid rgba(255,255,255,0.1)'}} onClick={()=>onReport(q.id)}>
+                                        REPORTE
+                                    </button>
+                                </div>
+                                <button className="text-[10px] font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-widest mt-1" onClick={()=>toast('Estrategia: '+q.strategy,'info')}>
+                                    Estrategia: {q.strategy}
                                 </button>
                             </div>
                         </div>
@@ -2143,6 +2234,7 @@ function ViewColas({ toast, onReport }) {
         </div>
     );
 }
+
 
 // ─────────────────────────────────────────────
 // VISTA: GRUPOS DE TIMBRADO (con CRUD + numero + animación)
@@ -2584,7 +2676,8 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    const { ReactFlow, Background, Controls } = rf;
+    const { ReactFlow: RFComp, Background, Controls } = rf;
+    const ReactFlow = RFComp || rf.default || rf;
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
 
@@ -2776,12 +2869,17 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
     };
 
     return (
-        <div className="relative group anim-fadeup" style={{ marginBottom: 14 }}>
+        <div className="relative group anim-fadeup" style={{ marginBottom: 14 }}
+             draggable="true" 
+             onDragStart={(e) => {
+                e.dataTransfer.setData('call', JSON.stringify({ channel: call.channel, ext: call.ext }));
+                e.dataTransfer.effectAllowed = 'move';
+             }}>
             {/* Accent Glow */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-accent to-brand-success rounded-xl blur opacity-10 group-hover:opacity-20 transition duration-500"></div>
             
             {/* Main Card Body */}
-            <div className="relative glass-effect rounded-xl p-4 flex items-center justify-between transition-all duration-300 hover:bg-white/[0.05]" style={{background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)'}}>
+            <div className="relative glass-effect rounded-xl p-4 flex items-center justify-between transition-all duration-300 hover:bg-white/[0.05] cursor-grab active:cursor-grabbing" style={{background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)'}}>
                 <div className="flex items-center gap-10">
                     {/* Connection Path */}
                     <div className="flex items-center gap-4">
@@ -4203,7 +4301,7 @@ function App() {
             case 'radar':       return <ViewRadar data={data} toast={showToast} />;
             case 'cdr':         return <ViewCDR toast={showToast} />;
             case 'reportes':    return <ViewReportes toast={showToast} queue={reportQueue} onClearQueue={()=>setReportQueue(null)} />;
-            case 'colas':       return <ViewColas toast={showToast} onReport={(qid)=>{setReportQueue(qid);setView('reportes');}} />;
+            case 'colas':       return <ViewColas toast={showToast} data={data} onReport={(qid)=>{setReportQueue(qid);setView('reportes');}} />;
             case 'grupos':      return <ViewGrupos toast={showToast} />;
             case 'ivr':         return <ViewIVR toast={showToast} />;
 // El Softphone ahora es una PWA independiente en /softphone/
