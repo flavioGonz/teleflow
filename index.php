@@ -2611,7 +2611,43 @@ function ViewGrupos({ toast }) {
                         <div
                             key={i}
                             className="glass glass-hover"
-                            style={{padd// ─── RADAR NODES ─ MISSION CONTROL STYLE ───
+                            style={{padding:20, borderTop:`2px solid ${active?'#ef4444':'#374151'}`, transition:'border-color .3s', position:'relative', overflow:'hidden', cursor:'pointer'}}
+                            onClick={() => setEditing(g)}
+                        >
+                            {active && <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
+                            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
+                                <div style={{width:40,height:40,borderRadius:12,background:active?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .3s'}}>
+                                    <span className="material-icons-round" style={{fontSize:20,color:active?'#f87171':'#60a5fa',animation:active?'blink 1s infinite':'none'}}>ring_volume</span>
+                                </div>
+                                <div style={{flex:1}}>
+                                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                        <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
+                                        <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
+                                    </div>
+                                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s · {g.members?.length||0} miembros</div>
+                                </div>
+                                <span className="material-icons-round" style={{fontSize:18, color:'#4b5563'}}>chevron_right</span>
+                            </div>
+                            <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                                {(g.members||[]).map((m,j) => {
+                                    const onCall = activeCalls.some(c => c.ext === m);
+                                    return (
+                                        <div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
+                                            {onCall && <span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
+                                            #{m}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+// ─── RADAR NODES ─ MISSION CONTROL STYLE ───
 const RadarTrunkNode = ({ data }) => (
     <div className="radar-node-trunk relative p-8 flex flex-col items-center justify-center gap-4 group">
         <div className="absolute inset-0 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
@@ -2684,52 +2720,7 @@ const radarNodeTypes = {
     queue: RadarQueueNode,
     agent: RadarAgentNode
 };
-sition={data.Position?.Left} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
-             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 relative group">
-                {hasCalls && <div className="absolute inset-[-4px] rounded-full border border-amber-500 animate-ping opacity-20" />}
-                <span className="material-icons-round text-amber-500 text-2xl group-hover:rotate-45 transition-transform">hub</span>
-            </div>
-            <div className="text-center">
-                <div className="text-[14px] font-black text-white leading-none mb-0.5">{data.name}</div>
-                <div className="text-[10px] text-gray-500 font-bold">COLA #{data.id}</div>
-            </div>
-            {hasCalls && (
-                <div className="mt-1 px-3 py-1 rounded-full bg-amber-500 text-black text-[12px] font-black flex items-center gap-2 shadow-lg shadow-amber-500/40">
-                    <span className="material-icons-round text-[14px]">call</span>
-                    {data.calls_waiting} ESPERANDO
-                </div>
-            )}
-            {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
-        </div>
-    );
-};
 
-const RadarAgentNode = ({ data }) => {
-    const isBusy = data.agent.status === 'BUSY';
-    const isOffline = data.agent.status === 'OFFLINE';
-    return (
-        <div className={`radar-node-glass p-3 border rounded-[24px] shadow-2xl flex items-center gap-3 w-56 transition-all ${isBusy?'border-red-500/50 shadow-red-500/20 bg-red-500/5':'border-white/5'}`}>
-            {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ background:isBusy?'#ef4444':'#22c55e', border:'2px solid #050508', width:10, height:10 }} />}
-            <div className="relative flex-shrink-0">
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-[13px] font-black text-white shadow-xl group-hover:scale-110 transition-transform`}>
-                    {data.initials(data.agent.name)}
-                </div>
-                {!isOffline && <div className={`absolute bottom-[-1px] right-[-1px] w-4 h-4 rounded-full border-2 border-black flex items-center justify-center ${isBusy?'bg-red-500 animate-pulse':'bg-green-500 shadow-[0_0_8px_#22c55e]'}`} />}
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-black text-white leading-none mb-1 group-hover:text-purple-400 transition-colors">#{data.agent.ext}</div>
-                <div className="text-[10px] text-gray-500 font-bold uppercase truncate">{data.agent.name}</div>
-                {isBusy && <div className="text-[9px] text-red-400 font-black animate-pulse mt-0.5">LÍNEA OCUPADA</div>}
-            </div>
-        </div>
-    );
-};
-
-const radarNodeTypes = {
-    trunk: RadarTrunkNode,
-    queue: RadarQueueNode,
-    agent: RadarAgentNode
-};
 
 // ─────────────────────────────────────────────
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
