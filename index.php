@@ -2797,7 +2797,6 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
 const radarNodeTypes = {
     core: RadarCoreNode,
     group: RadarGroupNode,
-    trunk: RadarTrunkNode,
     queue: RadarQueueNode,
     agent: RadarAgentNode
 };
@@ -2829,113 +2828,140 @@ function ViewRadar({ data, toast }) {
         const newEdges = [];
         const nodeDataGlobals = { Handle, Position, initials, getColor };
 
-        // 1. CORE PBX (CENTER)
+        // 1. CORE PBX (LEFT)
         newNodes.push({
             id: 'core-pbx',
             type: 'core',
             data: { ...nodeDataGlobals, label: 'PBX SERVER' },
-            position: { x: 350, y: 300 }
+            position: { x: 50, y: 300 }
         });
 
-        // 2. Trunk Connections
-        newNodes.push({
-            id: 'trunk-main',
-            type: 'trunk',
-            data: { ...nodeDataGlobals },
-            position: { x: 20, y: 300 }
-        });
-        newEdges.push({
-            id: 'e-trunk-core',
-            source: 'trunk-main',
-            target: 'core-pbx',
-            type: 'animatedData',
-            animated: data?.pbx?.calls?.length > 0
-        });
-
-        // 3. Queues Group
+        // 2. Queues & Hierarchical Nesting
         const queues = data?.pbx?.queues || [];
-        newNodes.push({
-            id: 'group-queues',
-            type: 'group',
-            data: { label: 'COLAS DE ATENCIÓN' },
-            position: { x: 700, y: 50 },
-        });
-        newEdges.push({
-            id: 'e-core-gq',
-            source: 'core-pbx',
-            target: 'group-queues',
-            type: 'animatedData',
-            animated: queues.some(q => q.calls_waiting > 0)
-        });
+        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
+        const activeCalls = data?.pbx?.calls || [];
+
+        let currentY = 50;
+        const processedAgents = new Set();
 
         queues.forEach((q, idx) => {
-            const y = 140 + (idx * 160);
+            const queueAgents = agents.filter(a => {
+                // Heurística simple: si el agente está en los miembros de la cola o tiene la cola como destino
+                return q.members?.includes(a.ext) || activeCalls.some(c => c.ext === a.ext && (c.dest === q.id || c.from === q.id));
+            });
+
+            const groupHeight = 120 + (Math.ceil(queueAgents.length / 2) * 90);
+            const groupId = `parent-q-${q.id}`;
+
+            // Nodo Padre (Grupo)
+            newNodes.push({
+                id: groupId,
+                type: 'group',
+                data: { label: q.name },
+                position: { x: 450, y: currentY },
+                style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.1)' }
+            });
+
+            // Nodo Info de Cola
             newNodes.push({
                 id: `q-${q.id}`,
                 type: 'queue',
+                parentNode: groupId,
                 data: { ...nodeDataGlobals, ...q },
-                position: { x: 700, y: y }
+                position: { x: 20, y: 40 },
+                extent: 'parent'
             });
+
+            // Conexión Core -> Grupo
             newEdges.push({
-                id: `e-gq-q-${q.id}`,
-                source: 'group-queues',
-                target: `q-${q.id}`,
+                id: `e-core-${groupId}`,
+                source: 'core-pbx',
+                target: groupId,
                 type: 'animatedData',
-                animated: q.calls_waiting > 0,
-                style: { stroke: q.calls_waiting > 0 ? '#f59e0b' : 'rgba(255,255,255,0.05)' }
+                animated: q.calls_waiting > 0 || queueAgents.some(a => activeCalls.some(c => c.ext === a.ext)),
+                style: { stroke: '#8b5cf6', strokeWidth: 2 }
             });
+
+            // Agentes dentro de la cola
+            queueAgents.forEach((a, aIdx) => {
+                processedAgents.add(a.ext);
+                const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
+                const col = aIdx % 2;
+                const row = Math.floor(aIdx / 2);
+                
+                newNodes.push({
+                    id: `a-${a.ext}`,
+                    type: 'agent',
+                    parentNode: groupId,
+                    data: { ...nodeDataGlobals, agent: a, activeCall: call },
+                    position: { x: 280 + (col * 270), y: 40 + (row * 85) },
+                    extent: 'parent'
+                });
+
+                if (call) {
+                    newEdges.push({
+                        id: `e-q-a-${a.ext}`,
+                        source: `q-${q.id}`,
+                        target: `a-${a.ext}`,
+                        type: 'animatedData',
+                        animated: true,
+                        data: { duration: call.duration },
+                        style: { stroke: call.state === 'Up' ? '#ef4444' : '#f59e0b', strokeWidth: 2.5 }
+                    });
+                }
+            });
+
+            currentY += groupHeight + 40;
         });
 
-        // 4. Agents Group
-        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
-        const activeCalls = data?.pbx?.calls || [];
-        
-        newNodes.push({
-            id: 'group-agents',
-            type: 'group',
-            data: { label: 'INTERNOS / AGENTES' },
-            position: { x: 1100, y: 50 },
-        });
-        newEdges.push({
-            id: 'e-core-ga',
-            source: 'core-pbx',
-            target: 'group-agents',
-            type: 'animatedData',
-            animated: activeCalls.length > 0
-        });
+        // 3. Agentes Huérfanos (No están en ninguna cola activa)
+        const orphanAgents = agents.filter(a => !processedAgents.has(a.ext));
+        if (orphanAgents.length > 0) {
+            const groupHeight = 80 + (Math.ceil(orphanAgents.length / 2) * 90);
+            const groupId = 'parent-orphans';
 
-        agents.forEach((a, idx) => {
-            const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
-            const y = 140 + (idx * 85);
-            
             newNodes.push({
-                id: `a-${a.ext}`,
-                type: 'agent',
-                data: { ...nodeDataGlobals, agent: a, activeCall: call },
-                position: { x: 1100, y: y }
+                id: groupId,
+                type: 'group',
+                data: { label: 'OTROS INTERNOS' },
+                position: { x: 450, y: currentY },
+                style: { width: 560, height: groupHeight, backgroundColor: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,100,100,0.05)' }
             });
 
-            const isActive = !!call;
-            const fromQueue = call ? queues.find(q => call.dest === q.id || call.from === q.id) : null;
-            const sourceId = fromQueue ? `q-${fromQueue.id}` : 'group-agents';
+            orphanAgents.forEach((a, aIdx) => {
+                const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
+                const col = aIdx % 2;
+                const row = Math.floor(aIdx / 2);
 
-            newEdges.push({
-                id: `e-ga-a-${a.ext}`,
-                source: sourceId,
-                target: `a-${a.ext}`,
-                type: 'animatedData',
-                animated: isActive,
-                data: { duration: call?.duration },
-                style: { stroke: isActive ? (call.state === 'Up' ? '#ef4444' : '#f59e0b') : 'rgba(255,255,255,0.03)' }
+                newNodes.push({
+                    id: `a-${a.ext}`,
+                    type: 'agent',
+                    parentNode: groupId,
+                    data: { ...nodeDataGlobals, agent: a, activeCall: call },
+                    position: { x: 20 + (col * 270), y: 40 + (row * 85) },
+                    extent: 'parent'
+                });
+
+                if (call) {
+                    newEdges.push({
+                        id: `e-core-a-${a.ext}`,
+                        source: 'core-pbx',
+                        target: `a-${a.ext}`,
+                        type: 'animatedData',
+                        animated: true,
+                        data: { duration: call.duration },
+                        style: { stroke: '#8b5cf6', strokeWidth: 2 }
+                    });
+                }
             });
-        });
+        }
 
         setNodes(newNodes);
         setEdges(newEdges);
     }, [data]);
 
     return (
-        <div className="content-area view-enter" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
+        <div className="content-area view-enter" style={{ height: 'calc(100vh - 80px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
             <style>{`
                 .react-flow__background { background: var(--bg); }
                 .react-flow__edge-path { transition: all 0.5s; }
