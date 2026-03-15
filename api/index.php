@@ -370,9 +370,35 @@ if ($action === 'get_full_data') {
         }
     }
 
+    $queues = [];
+    $ringgroups = [];
+    $ivrs = [];
+    try {
+        $db2 = mysql_pbx();
+        $queues = $db2->query("SELECT extension as id, descr as name FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($queues as &$q) {
+            $q['members'] = $db2->query("SELECT queue_pos, membername FROM queues_details WHERE id='{$q['id']}'")->fetchAll(PDO::FETCH_COLUMN, 1);
+            $q_status = ami_cmd("queue show {$q['id']}");
+            preg_match('/strategy\s+\w+\s+has\s+(\d+)\s+calls/i', $q_status, $mq);
+            $q['calls_waiting'] = (int)($mq[1] ?? 0);
+        }
+        $ringgroups = $db2->query("SELECT grpnum as id, description as name, grplist as members FROM ringgroups")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($ringgroups as &$rg) {
+            $rg['members'] = explode('-', $rg['members']);
+        }
+        $ivrs = $db2->query("SELECT id, name FROM ivr_details")->fetchAll(PDO::FETCH_ASSOC);
+    } catch(Exception $e) {}
+
     echo json_encode([
         'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime, 'ram' => $ram, 'disk' => $disk, 'connections' => $conn],
-        'pbx'    => ['extensions' => array_values($exts), 'recordings' => $recordings, 'live_calls' => $live_calls],
+        'pbx'    => [
+            'extensions' => array_values($exts), 
+            'recordings' => $recordings, 
+            'live_calls' => $live_calls,
+            'queues' => $queues,
+            'ringgroups' => $ringgroups,
+            'ivrs' => $ivrs
+        ],
     ]);
     exit;
 }

@@ -2689,23 +2689,18 @@ const RadarCoreNode = ({ data }) => (
 );
 
 const RadarGroupNode = ({ data }) => (
-    <div style={{ position:'relative', pointerEvents:'none' }}>
-        <div className="glass box-shadow-premium" style={{ 
-            width: 130, height: 130, borderRadius: '50%', background: 'rgba(139,92,246,0.05)', 
-            border: '2px solid #8b5cf6', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 15,
-            boxShadow: '0 0 30px rgba(139,92,246,0.2)',
-            position: 'absolute', left: 0, top: 0
+    <div style={{ position:'relative', pointerEvents:'none', width:0, height:0 }}>
+        {/* Title positioned at top of group circle */}
+        <div style={{ 
+            position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
+            fontSize: 14, fontWeight: 900, color: '#8b5cf6', textTransform: 'uppercase',
+            letterSpacing: 2, whiteSpace: 'nowrap', opacity: 0.8
         }}>
-            <span className="material-icons-round" style={{ fontSize: 32, color: '#8b5cf6', marginBottom: 4 }}>workspaces</span>
-            <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1.5, lineHeight: 1.2 }}>{data.label}</div>
+            {data.label}
         </div>
-        {data.Handle && (
-            <>
-                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: 65, top: 0 }} />
-                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: 65, top: 130 }} />
-            </>
-        )}
+        {/* Central Anchor for connections */}
+        <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />
+        <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 10, height: 10, border: '2px solid var(--surface)', left: -5, top: -5 }} />
     </div>
 );
 
@@ -2937,143 +2932,140 @@ function ViewRadar({ data, toast }) {
             dragHandle: '.radar-node-glass' 
         });
 
-        // 2. Distribute Queues & Agents in Star/Hub Pattern
+        // Distribute Queues, Ring Groups, IVR & Agents
         const queues = data?.pbx?.queues || [];
+        const rgs = data?.pbx?.ringgroups || [];
+        const ivrs = data?.pbx?.ivrs || [];
         const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
-        const activeCalls = data?.pbx?.calls || [];
+        const activeCalls = data?.pbx?.live_calls || [];
 
-        let currentYLeft = 0;
-        let currentYRight = 0;
+        let currentY = 0;
         const processedAgents = new Set();
-        const groupSpacing = 40;
+        const groupSpacing = 100;
 
-        queues.forEach((q, idx) => {
-            const queueAgents = agents.filter(a => {
-                return q.members?.includes(a.ext) || activeCalls.some(c => c.ext === a.ext && (c.dest === q.id || c.from === q.id));
-            });
+        const categories = [
+            { id: 'q', list: queues, label: 'COLAS DE ATENCIÓN' },
+            { id: 'rg', list: rgs, label: 'GRUPOS DE TIMBRADO' },
+            { id: 'ivr', list: ivrs, label: 'IVR / MENÚS' }
+        ];
 
-            const groupHeight = 120 + (Math.ceil(queueAgents.length / 2) * 90);
-            const groupId = `parent-q-${q.id}`;
-            const side = idx % 2 === 0 ? 'right' : 'left';
-            const xPos = side === 'right' ? 450 : -650;
-            const yPos = side === 'right' ? currentYRight : currentYLeft;
-
-            // Nodo Padre (Grupo)
-            newNodes.push({
-                id: groupId,
-                type: 'group',
-                data: { ...nodeDataGlobals, label: q.name },
-                position: getPos(groupId, { x: xPos, y: yPos }),
-                style: { width: 620, height: Math.max(groupHeight, 350), backgroundColor: 'rgba(139,92,246,0.015)', border: '2px dashed rgba(139,92,246,0.15)', borderRadius: '50%' }
-            });
-
-            // Nodo Info de Cola
-            newNodes.push({
-                id: `q-${q.id}`,
-                type: 'queue',
-                parentNode: groupId,
-                data: { ...nodeDataGlobals, ...q },
-                position: getPos(`q-${q.id}`, { x: 20, y: 40 }),
-                extent: 'parent'
-            });
-
-            // Conexión Core -> Grupo
-            newEdges.push({
-                id: `e-core-${groupId}`,
-                source: 'core-pbx',
-                target: groupId,
-                type: 'animatedData',
-                animated: q.calls_waiting > 0 || queueAgents.some(a => activeCalls.some(c => c.ext === a.ext)),
-                style: { stroke: '#8b5cf6', strokeWidth: 2 }
-            });
-
-            // Agentes dentro de la cola
-            queueAgents.forEach((a, aIdx) => {
-                processedAgents.add(a.ext);
-                const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
-                const col = aIdx % 2;
-                const row = Math.floor(aIdx / 2);
-                
-                newNodes.push({
-                    id: `a-${a.ext}`,
-                    type: 'agent',
-                    parentNode: groupId,
-                    data: { ...nodeDataGlobals, agent: a, activeCall: call },
-                    position: getPos(`a-${a.ext}`, { x: 280 + (col * 270), y: 40 + (row * 85) }),
-                    extent: 'parent'
+        categories.forEach((cat) => {
+            cat.list.forEach((item, idx) => {
+                const itemAgents = agents.filter(a => {
+                    if (processedAgents.has(a.ext)) return false;
+                    const isMember = (item.members || []).includes(a.ext);
+                    const isInCall = activeCalls.some(c => (c.ext === a.ext || c.dest === a.ext) && (c.dest === item.id || c.from === item.id || c.app.toLowerCase().includes(cat.id)));
+                    return isMember || isInCall;
                 });
 
-                if (call) {
-                    newEdges.push({
-                        id: `e-q-a-${a.ext}`,
-                        source: `q-${q.id}`,
-                        target: `a-${a.ext}`,
-                        type: 'animatedData',
-                        animated: true,
-                        data: { duration: call.duration },
-                        style: { stroke: call.state === 'Up' ? '#ef4444' : '#f59e0b', strokeWidth: 2.5 }
+                if (itemAgents.length === 0 && cat.id !== 'q') return; // Skip empty RGs/IVRs unless it's a Queue with waiting calls
+
+                const agentCount = itemAgents.length;
+                const circleSize = Math.max(400, 200 + (Math.sqrt(agentCount) * 150));
+                const groupId = `parent-${cat.id}-${item.id}`;
+                const xPos = 500;
+                const yPos = currentY;
+
+                newNodes.push({
+                    id: groupId,
+                    type: 'group',
+                    data: { ...nodeDataGlobals, label: `${item.name || item.id}` },
+                    position: getPos(groupId, { x: xPos, y: yPos }),
+                    style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(139,92,246,0.01)', border: '2px dashed rgba(139,92,246,0.2)', borderRadius: '50%' }
+                });
+
+                // Anchor Node for connections (Hidden, in the center of the big circle)
+                const anchorId = `anchor-${groupId}`;
+                newNodes.push({
+                    id: anchorId,
+                    type: 'group', // Using group type for label
+                    parentNode: groupId,
+                    data: { ...nodeDataGlobals, label: item.name },
+                    position: { x: circleSize/2, y: circleSize/2 },
+                    style: { width: 0, height: 0, visibility: 'hidden' }
+                });
+
+                if (cat.id === 'q') {
+                    newNodes.push({
+                        id: `q-${item.id}`,
+                        type: 'queue',
+                        parentNode: groupId,
+                        data: { ...nodeDataGlobals, ...item },
+                        position: getPos(`q-${item.id}`, { x: circleSize/2 - 75, y: circleSize/2 - 75 }),
+                        extent: 'parent'
                     });
                 }
-            });
 
-            if (side === 'right') currentYRight += groupHeight + groupSpacing;
-            else currentYLeft += groupHeight + groupSpacing;
+                newEdges.push({
+                    id: `e-core-${groupId}`,
+                    source: 'core-pbx',
+                    target: groupId,
+                    type: 'animatedData',
+                    animated: true,
+                    style: { stroke: '#8b5cf6', strokeWidth: 2 }
+                });
+
+                itemAgents.forEach((a, aIdx) => {
+                    processedAgents.add(a.ext);
+                    const angle = (aIdx / agentCount) * 2 * Math.PI;
+                    const radius = (circleSize / 2) - 60;
+                    const ax = (circleSize / 2) + radius * Math.cos(angle) - 40;
+                    const ay = (circleSize / 2) + radius * Math.sin(angle) - 40;
+
+                    newNodes.push({
+                        id: `a-${a.ext}`,
+                        type: 'agent',
+                        parentNode: groupId,
+                        data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext)) },
+                        position: getPos(`a-${a.ext}`, { x: ax, y: ay }),
+                        extent: 'parent'
+                    });
+
+                    newEdges.push({
+                        id: `e-g-a-${a.ext}`,
+                        source: cat.id === 'q' ? `q-${item.id}` : groupId,
+                        target: `a-${a.ext}`,
+                        type: 'animatedData',
+                        animated: activeCalls.some(c => c.ext === a.ext),
+                        style: { stroke: '#8b5cf6', strokeWidth: 1.5, opacity: 0.4 }
+                    });
+                });
+
+                currentY += circleSize + groupSpacing;
+            });
         });
 
-        // 3. Orphand Agents Group
+        // Orphan Agents
         const orphanAgents = agents.filter(a => !processedAgents.has(a.ext));
         if (orphanAgents.length > 0) {
-            const groupHeight = 80 + (Math.ceil(orphanAgents.length / 2) * 90);
+            const circleSize = Math.max(400, 200 + (Math.sqrt(orphanAgents.length) * 150));
             const groupId = 'parent-orphans';
-            const side = (queues.length % 2 === 0) ? 'right' : 'left';
-            const xPos = side === 'right' ? 450 : -650;
-            const yPos = side === 'right' ? currentYRight : currentYLeft;
-
             newNodes.push({
                 id: groupId,
                 type: 'group',
                 data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
-                position: getPos(groupId, { x: xPos, y: yPos }),
-                style: { width: 620, height: Math.max(groupHeight, 350), backgroundColor: 'rgba(139,92,246,0.015)', border: '2px dashed rgba(139,92,246,0.15)', borderRadius: '50%' }
+                position: getPos(groupId, { x: 500, y: currentY }),
+                style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(156,163,175,0.01)', border: '2px dashed rgba(156,163,175,0.2)', borderRadius: '50%' }
             });
 
             orphanAgents.forEach((a, aIdx) => {
-                const call = activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
-                const col = aIdx % 2;
-                const row = Math.floor(aIdx / 2);
-
+                const angle = (aIdx / orphanAgents.length) * 2 * Math.PI;
+                const radius = (circleSize / 2) - 60;
                 newNodes.push({
                     id: `a-${a.ext}`,
                     type: 'agent',
                     parentNode: groupId,
-                    data: { ...nodeDataGlobals, agent: a, activeCall: call },
-                    position: getPos(`a-${a.ext}`, { x: 20 + (col * 270), y: 40 + (row * 85) }),
+                    data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext)) },
+                    position: getPos(`a-${a.ext}`, { x: (circleSize/2) + radius*Math.cos(angle) - 40, y: (circleSize/2) + radius*Math.sin(angle) - 40 }),
                     extent: 'parent'
                 });
-
-                if (call) {
-                    newEdges.push({
-                        id: `e-core-a-${a.ext}`,
-                        source: 'core-pbx',
-                        target: `a-${a.ext}`,
-                        type: 'animatedData',
-                        animated: true,
-                        data: { duration: call.duration },
-                        style: { stroke: '#8b5cf6', strokeWidth: 2 }
-                    });
-                }
             });
-            
-            if (side === 'right') currentYRight += groupHeight + groupSpacing;
-            else currentYLeft += groupHeight + groupSpacing;
+            currentY += circleSize + groupSpacing;
         }
 
-        // 4. Final PBX Core Position (Centered vertically relative to total height only if NO saved pos)
-        const totalHeight = Math.max(currentYLeft, currentYRight);
+        const totalHeight = currentY;
         const coreNode = newNodes.find(n => n.id === 'core-pbx');
-        if (coreNode && !savedPositions['core-pbx']) {
-            coreNode.position = { x: 100, y: (totalHeight / 2) - 70 };
-        }
+        if (coreNode && !savedPositions['core-pbx']) coreNode.position = { x: -100, y: totalHeight / 2 - 70 };
 
         setNodes(newNodes);
         setEdges(newEdges);
