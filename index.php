@@ -2649,6 +2649,17 @@ function ViewGrupos({ toast }) {
 
 // ─── RADAR NODES ─ IVR AESTHETIC ───
 // ─── RADAR NODES ─ HIERARCHICAL PBX STYLE ───
+const RadarTrunkNode = ({ data }) => (
+    <div className="glass box-shadow-premium" style={{ border:`2px solid #3b82f6`, borderRadius:20, padding:20, width:140, textAlign:'center', background:'var(--surface)' }}>
+        <div style={{ padding:10, background:'rgba(59,130,246,0.1)', borderRadius:12, marginBottom:10 }}>
+            <span className="material-icons-round text-blue-500" style={{ fontSize:32 }}>public</span>
+        </div>
+        <div style={{ fontSize:10, fontWeight:900, color:'#3b82f6', textTransform:'uppercase', letterSpacing:1 }}>Uplink</div>
+        <div style={{ fontSize:14, fontWeight:800, color:'var(--text)', marginTop:4 }}>SIP TRUNK</div>
+        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+    </div>
+);
+
 const RadarCoreNode = ({ data }) => (
     <div className="glass box-shadow-premium" style={{ 
         width: 140, height: 140, borderRadius: '50%', background: 'var(--surface)', 
@@ -2661,10 +2672,10 @@ const RadarCoreNode = ({ data }) => (
         </div>
         <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1 }}>PBX CORE</div>
         {/* Handles for connections */}
-        <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Top} style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Top} style={{ opacity: 0 }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Bottom} style={{ opacity: 0 }} />}
     </div>
 );
 
@@ -2674,8 +2685,8 @@ const RadarGroupNode = ({ data }) => (
         border: '1px dashed rgba(255,255,255,0.1)', minWidth: 200, textAlign: 'center' 
     }}>
         <div style={{ fontSize:10, fontWeight:900, color:'var(--muted)', textTransform:'uppercase', letterSpacing:2 }}>{data.label}</div>
-        <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
     </div>
 );
 
@@ -2687,7 +2698,7 @@ const RadarQueueNode = ({ data }) => {
             borderRadius:20, padding:15, width:240, background:'var(--surface)',
             transition:'all 0.3s'
         }}>
-             <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
                 <div style={{ width:34, height:34, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <span className="material-icons-round" style={{ fontSize:18, color:'#f59e0b' }}>hub</span>
@@ -2701,7 +2712,7 @@ const RadarQueueNode = ({ data }) => {
                 <span style={{ fontSize:9, fontWeight:700, color:'var(--muted)' }}>Llamadas en espera:</span>
                 <span style={{ fontSize:14, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
              </div>
-             <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
         </div>
     );
 };
@@ -2723,7 +2734,7 @@ const RadarAgentNode = ({ data }) => {
             display:'flex', alignItems:'center', gap:10,
             transition: 'all 0.4s'
         }}>
-            <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+            {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
             <div style={{ position:'relative' }}>
                 <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-xs font-black text-white shadow-lg overflow-hidden`}>
                     <img src={data.agent.avatar} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} />
