@@ -2830,10 +2830,15 @@ function ViewRadar({ data, toast }) {
         </div>
     );
 
-    // Estrategia de extracción UMD estándar compatible con v11
-    const rfStore = rf.default || rf;
+    // Estrategia de extracción ultra-robusta redundante
     const ReactFlow = rf.ReactFlow || rf.default || rf;
-    const { Background, Controls, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } = rfStore;
+    const Background = rf.Background || (rf.default && rf.default.Background) || ReactFlow.Background;
+    const Controls = rf.Controls || (rf.default && rf.default.Controls) || ReactFlow.Controls;
+    const Handle = rf.Handle || (rf.default && rf.default.Handle) || ReactFlow.Handle;
+    const Position = rf.Position || (rf.default && rf.default.Position) || ReactFlow.Position;
+    const applyNodeChanges = rf.applyNodeChanges || (rf.default && rf.default.applyNodeChanges) || ReactFlow.applyNodeChanges;
+    const applyEdgeChanges = rf.applyEdgeChanges || (rf.default && rf.default.applyEdgeChanges) || ReactFlow.applyEdgeChanges;
+    const addEdge = rf.addEdge || (rf.default && rf.default.addEdge) || ReactFlow.addEdge;
 
     const [nodes, setNodes] = useState([]);
     const [edges, setEdges] = useState([]);
