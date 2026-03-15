@@ -429,6 +429,15 @@ const { useState, useEffect, useRef, useCallback } = React;
 // HELPERS
 // ─────────────────────────────────────────────
 const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function AgentCallTimer({ seconds }) {
+    const [elapsed, setElapsed] = useState(seconds);
+    useEffect(() => { setElapsed(seconds); }, [seconds]);
+    useEffect(() => {
+        const t = setInterval(() => setElapsed(e => e + 1), 1000);
+        return () => clearInterval(t);
+    }, []);
+    return <span className="font-mono font-bold tracking-tight">{fmtTime(elapsed)}</span>;
+}
 const avatarColors = ['from-violet-500 to-purple-700','from-blue-500 to-cyan-600','from-rose-500 to-red-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-600','from-pink-500 to-fuchsia-600'];
 const getColor = (n) => avatarColors[(n?.charCodeAt(0) || 0) % avatarColors.length];
 const initials = (n='') => n.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();
