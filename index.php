@@ -2611,64 +2611,80 @@ function ViewGrupos({ toast }) {
                         <div
                             key={i}
                             className="glass glass-hover"
-                            style={{padding:20, borderTop:`2px solid ${active?'#ef4444':'#374151'}`, transition:'border-color .3s', position:'relative', overflow:'hidden', cursor:'pointer'}}
-                            onClick={() => setEditing(g)}
-                        >
-                            {active && <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ef4444,#f59e0b,#ef4444)',backgroundSize:'200% 100%',animation:'callActive 1.5s linear infinite'}} />}
-                            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
-                                <div style={{width:40,height:40,borderRadius:12,background:active?'rgba(239,68,68,0.15)':'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .3s'}}>
-                                    <span className="material-icons-round" style={{fontSize:20,color:active?'#f87171':'#60a5fa',animation:active?'blink 1s infinite':'none'}}>ring_volume</span>
-                                </div>
-                                <div style={{flex:1}}>
-                                    <div style={{display:'flex', alignItems:'center', gap:8}}>
-                                        <div style={{padding:'2px 8px',borderRadius:6,background:'rgba(59,130,246,0.12)',border:'1px solid rgba(59,130,246,.25)',fontSize:10,fontWeight:800,color:'#60a5fa',fontFamily:'monospace'}}>#{g.grpnum}</div>
-                                        <div style={{fontSize:14,fontWeight:800,color:'var(--text)'}}>{g.description}</div>
-                                    </div>
-                                    <div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{strategyLabel[g.strategy]||g.strategy} · {g.grptime}s · {g.members?.length||0} miembros</div>
-                                </div>
-                                <span className="material-icons-round" style={{fontSize:18, color:'#4b5563'}}>chevron_right</span>
-                            </div>
-                            <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
-                                {(g.members||[]).map((m,j) => {
-                                    const onCall = activeCalls.some(c => c.ext === m);
-                                    return (
-                                        <div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
-                                            {onCall && <span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
-                                            #{m}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
+                            style={{padd// ─── RADAR NODES ─ MISSION CONTROL STYLE ───
+const RadarTrunkNode = ({ data }) => (
+    <div className="radar-node-trunk relative p-8 flex flex-col items-center justify-center gap-4 group">
+        <div className="absolute inset-0 bg-blue-500/5 rounded-full blur-3xl animate-pulse" />
+        <div className="radar-node-glass relative w-24 h-24 rounded-full border-2 border-blue-500/40 flex items-center justify-center overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.2)]">
+            <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(59,130,246,0.2))] animate-[spin_4s_linear_infinite]" />
+            <div className="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center backdrop-blur-md z-10 transition-transform group-hover:scale-110">
+                <span className="material-icons-round text-blue-400 text-4xl">public</span>
             </div>
         </div>
-    );
-}
-
-
-
-// ─── RADAR NODES ───
-const RadarTrunkNode = ({ data }) => (
-    <div className="radar-node-glass p-5 border border-blue-500/30 rounded-[28px] shadow-2xl flex flex-col items-center gap-3 w-40">
-        <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-blue-400/10 animate-pulse" />
-            <span className="material-icons-round text-blue-400 text-3xl z-10">public</span>
+        <div className="text-center z-10">
+            <div className="text-[12px] font-black uppercase text-blue-400 tracking-[0.3em] mb-1">TRONCAL GWAY</div>
+            <div className="text-[10px] text-gray-500 font-black tracking-widest opacity-60">PSTN UPLINK</div>
         </div>
-        <div className="text-center">
-            <div className="text-[11px] font-black uppercase text-blue-400 tracking-widest leading-none mb-1">TRONCAL SIP</div>
-            <div className="text-[9px] text-gray-500 font-bold">PSTN GATEWAY</div>
-        </div>
-        {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ background:'#3b82f6', border:'2px solid #050508', width:12, height:12 }} />}
+        {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
     </div>
 );
 
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
     return (
-        <div className={`radar-node-glass p-4 border rounded-[30px] shadow-2xl flex flex-col items-center gap-2 w-48 transition-all ${hasCalls?'border-amber-500 shadow-amber-500/20':'border-amber-500/20'}`}>
-             {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
+        <div className={`radar-node-glass relative p-5 flex flex-col items-center gap-3 transition-all duration-500 ${hasCalls ? 'border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.25)]' : 'border-white/10'}`} 
+             style={{ clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', width: 200, height: 180, border: '1px solid rgba(255,255,255,0.1)' }}>
+             {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+             <div className="mt-4 w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/30 relative">
+                {hasCalls && <div className="absolute inset-0 rounded-xl border-2 border-amber-500 animate-ping opacity-40" />}
+                <span className="material-icons-round text-amber-500 text-3xl">hub</span>
+            </div>
+            <div className="text-center">
+                <div className="text-[14px] font-black text-white leading-none uppercase tracking-tighter mb-1">{data.name}</div>
+                <div className="text-[28px] font-black text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">
+                    {String(data.calls_waiting).padStart(2, '0')}
+                </div>
+                <div className="text-[10px] text-gray-500 font-bold tracking-widest">COLA ACTIVA</div>
+            </div>
+            {data.Handle?.source && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+        </div>
+    );
+};
+
+const RadarAgentNode = ({ data }) => {
+    const isBusy = data.agent.status === 'BUSY';
+    const isOffline = data.agent.status === 'OFFLINE';
+    return (
+        <div className={`radar-node-glass relative p-3 border-l-4 rounded-xl shadow-2xl flex items-center gap-4 w-64 transition-all ${isBusy?'border-red-500 bg-red-500/5 shadow-red-500/10':'border-green-500 bg-green-500/5 shadow-green-500/5'}`}>
+            {data.Handle?.target && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+            <div className="relative">
+                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${data.getColor(data.agent.name)} flex items-center justify-center text-lg font-black text-white shadow-2xl overflow-hidden`}>
+                    <img src={data.agent.avatar} className="w-full h-full object-cover" 
+                         onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                    <span style={{display:'none'}}>{data.initials(data.agent.name)}</span>
+                </div>
+                {!isOffline && <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-[#050508] ${isBusy?'bg-red-500 animate-pulse':'bg-green-500'}`} />}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                    <span className="text-[15px] font-black text-white tracking-tight">#{data.agent.ext}</span>
+                    <span className="text-[9px] font-black text-gray-500 uppercase">{data.agent.status}</span>
+                </div>
+                <div className="text-[11px] text-gray-400 font-bold uppercase truncate">{data.agent.name}</div>
+                {isBusy && <div className="mt-2 h-1 w-full bg-red-500/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-500 animate-[loading-shimmer_1.5s_infinite]" style={{ width: '60%' }} />
+                </div>}
+            </div>
+        </div>
+    );
+};
+
+const radarNodeTypes = {
+    trunk: RadarTrunkNode,
+    queue: RadarQueueNode,
+    agent: RadarAgentNode
+};
+sition={data.Position?.Left} style={{ background:'#f59e0b', border:'2px solid #050508', width:10, height:10 }} />}
              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20 relative group">
                 {hasCalls && <div className="absolute inset-[-4px] rounded-full border border-amber-500 animate-ping opacity-20" />}
                 <span className="material-icons-round text-amber-500 text-2xl group-hover:rotate-45 transition-transform">hub</span>
@@ -2817,53 +2833,97 @@ function ViewRadar({ data, toast }) {
         <div className="content-area view-enter bg-[#050508]" style={{ height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
             <style>{`
                 .radar-node-glass {
-                    background: rgba(13, 13, 20, 0.7);
-                    backdrop-filter: blur(12px) saturate(180%);
-                    -webkit-backdrop-filter: blur(12px) saturate(180%);
-                    transition: transform 0.2s, background 0.3s;
+                    background: rgba(13, 14, 25, 0.4);
+                    backdrop-filter: blur(20px) saturate(180%);
+                    -webkit-backdrop-filter: blur(20px) saturate(180%);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 }
                 .radar-node-glass:hover {
-                    background: rgba(20, 20, 30, 0.9);
-                    transform: scale(1.02);
+                    background: rgba(13, 14, 25, 0.8);
+                    transform: translateY(-8px) scale(1.05);
+                    border-color: rgba(255,255,255,0.2);
                 }
                 .react-flow__edge-path {
                     transition: stroke 0.3s, stroke-width 0.3s;
+                    filter: drop-shadow(0 0 5px currentColor);
                 }
                 @keyframes radar-scan {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
+                    from { transform: translate(-50%, -50%) rotate(0deg); }
+                    to { transform: translate(-50%, -50%) rotate(360deg); }
+                }
+                @keyframes particle-flow {
+                    from { stroke-dashoffset: 100; }
+                    to { stroke-dashoffset: 0; }
+                }
+                @keyframes loading-shimmer {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(100%); }
+                }
+                .radar-grid-particle {
+                    position: absolute;
+                    width: 2px;
+                    height: 2px;
+                    background: #fff;
+                    border-radius: 50%;
+                    opacity: 0.2;
+                    animation: float-particle 20s linear infinite;
+                }
+                @keyframes float-particle {
+                    from { transform: translateY(0) translateX(0); }
+                    to { transform: translateY(-100vh) translateX(50px); }
                 }
             `}</style>
             
-            {/* Radar Background Decor */}
-            <div className="absolute inset-0 pointer-events-none opacity-20">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-blue-500/20 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-blue-500/10 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] border border-blue-500/5 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 h-[600px] w-[1px] bg-gradient-to-t from-transparent via-blue-500 to-transparent origin-top animate-[radar-scan_10s_linear_infinite]" />
+            {/* Radar Background Decor - Mission Control */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] border border-white/[0.02] rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-white/[0.03] rounded-full shadow-[inset_0_0_100px_rgba(59,130,246,0.02)]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-blue-500/[0.05] rounded-full" />
+                
+                {/* Scanning Beam */}
+                <div className="absolute top-1/2 left-1/2 w-[600px] h-[600px] origin-top-left animate-[radar-scan_4s_linear_infinite]" 
+                     style={{ background: 'conic-gradient(from 0deg, transparent 0deg, rgba(59,130,246,0.1) 60deg, transparent 61deg)', borderRadius: '50%' }} />
+                
+                {/* Data Particles */}
+                {[...Array(20)].map((_, i) => (
+                    <div key={i} className="radar-grid-particle" 
+                         style={{ 
+                            left: `${Math.random()*100}%`, 
+                            top: `${Math.random()*100}%`, 
+                            animationDelay: `${Math.random()*10}s`,
+                            opacity: Math.random()*0.3
+                         }} />
+                ))}
             </div>
 
-            <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }} className="flex gap-4">
-                <div className="glass px-5 py-3 rounded-2xl flex items-center gap-6 border border-white/5 shadow-2xl backdrop-blur-2xl">
-                    <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_12px_#3b82f6]" />
-                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Inbound</span>
+            <div style={{ position: 'absolute', top: 30, left: 30, zIndex: 10 }} className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.5)] flex items-center justify-center">
+                        <span className="material-icons-round text-white text-2xl">radar</span>
                     </div>
-                    <div className="w-px h-6 bg-white/5" />
-                    <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_#f59e0b]" />
-                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Strategy</span>
-                    </div>
-                    <div className="w-px h-6 bg-white/5" />
-                    <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_12px_#22c55e]" />
-                        <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">Endpoints</span>
+                    <div>
+                        <h2 className="text-2xl font-black text-white tracking-widest uppercase italic">Radar de Tráfico</h2>
+                        <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 tracking-[0.2em]">
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+                            SISTEMA DE MONITOREO ACTIVO
+                        </div>
                     </div>
                 </div>
-                
-                <div className="glass px-5 py-3 rounded-2xl flex items-center gap-3 border border-red-500/30 shadow-2xl bg-red-500/5">
-                    <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-[11px] font-black text-red-500 uppercase tracking-widest">LIVE TRAFFIC</span>
+
+                <div className="glass px-6 py-4 rounded-[24px] flex items-center gap-8 border border-white/5 shadow-2xl backdrop-blur-3xl mt-4">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Estado SIP</span>
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="text-xs font-black text-white">CONECTADO</span>
+                        </div>
+                    </div>
+                    <div className="w-px h-8 bg-white/10" />
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Latencia Global</span>
+                        <div className="text-xs font-black text-white">~12ms</div>
+                    </div>
                 </div>
             </div>
 
@@ -2875,10 +2935,10 @@ function ViewRadar({ data, toast }) {
                 zoomOnScroll={false}
                 zoomOnPinch={true}
                 panOnDrag={true}
-                minZoom={0.2}
-                maxZoom={2}
+                minZoom={0.5}
+                maxZoom={1.5}
             >
-                {Background && <Background variant="lines" color="rgba(255,255,255,0.02)" gap={40} size={1} />}
+                {Background && <Background variant="dots" color="rgba(255,255,255,0.03)" gap={40} size={1} />}
                 {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
             </ReactFlow>
         </div>
