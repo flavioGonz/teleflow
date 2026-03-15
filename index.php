@@ -2649,17 +2649,6 @@ function ViewGrupos({ toast }) {
 
 // ─── RADAR NODES ─ IVR AESTHETIC ───
 // ─── RADAR NODES ─ HIERARCHICAL PBX STYLE ───
-const RadarTrunkNode = ({ data }) => (
-    <div className="glass box-shadow-premium" style={{ border:`2px solid #3b82f6`, borderRadius:20, padding:20, width:140, textAlign:'center', background:'var(--surface)' }}>
-        <div style={{ padding:10, background:'rgba(59,130,246,0.1)', borderRadius:12, marginBottom:10 }}>
-            <span className="material-icons-round text-blue-500" style={{ fontSize:32 }}>public</span>
-        </div>
-        <div style={{ fontSize:10, fontWeight:900, color:'#3b82f6', textTransform:'uppercase', letterSpacing:1 }}>Uplink</div>
-        <div style={{ fontSize:14, fontWeight:800, color:'var(--text)', marginTop:4 }}>SIP TRUNK</div>
-        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
-    </div>
-);
-
 const RadarCoreNode = ({ data }) => (
     <div className="glass box-shadow-premium" style={{ 
         width: 140, height: 140, borderRadius: '50%', background: 'var(--surface)', 
@@ -2672,10 +2661,10 @@ const RadarCoreNode = ({ data }) => (
         </div>
         <div style={{ fontSize:10, fontWeight:900, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:1 }}>PBX CORE</div>
         {/* Handles for connections */}
-        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Top} style={{ opacity: 0 }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Bottom} style={{ opacity: 0 }} />}
+        {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Top} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
+        {data.Handle && <data.Handle type="source" position={data.Position?.Bottom} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
     </div>
 );
 
@@ -2687,10 +2676,10 @@ const RadarGroupNode = ({ data }) => (
         <div style={{ fontSize:10, fontWeight:900, color:'var(--muted)', textTransform:'uppercase', letterSpacing:2 }}>{data.label}</div>
         {data.Handle && (
             <>
-                <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />
-                <data.Handle type="target" position={data.Position?.Right} style={{ opacity: 0 }} />
-                <data.Handle type="source" position={data.Position?.Left} style={{ opacity: 0 }} />
-                <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />
+                <data.Handle type="target" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
+                <data.Handle type="target" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
+                <data.Handle type="source" position={data.Position?.Left} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
+                <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 6, height: 6, border: '1px solid var(--surface)' }} />
             </>
         )}
     </div>
@@ -2704,7 +2693,7 @@ const RadarQueueNode = ({ data }) => {
             borderRadius:20, padding:15, width:240, background:'var(--surface)',
             transition:'all 0.3s'
         }}>
-             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ opacity: 0 }} />}
+             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: hasCalls ? '#f59e0b' : '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
                 <div style={{ width:34, height:34, background:hasCalls?'rgba(245,158,11,0.2)':'var(--surface2)', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
                     <span className="material-icons-round" style={{ fontSize:18, color:'#f59e0b' }}>hub</span>
@@ -2718,7 +2707,7 @@ const RadarQueueNode = ({ data }) => {
                 <span style={{ fontSize:9, fontWeight:700, color:'var(--muted)' }}>Llamadas en espera:</span>
                 <span style={{ fontSize:14, fontWeight:900, color:hasCalls?'#f59e0b':'var(--text)' }}>{data.calls_waiting}</span>
              </div>
-             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ opacity: 0 }} />}
+             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: hasCalls ? '#f59e0b' : '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         </div>
     );
 };
@@ -2824,15 +2813,6 @@ const radarEdgeTypes = {
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewRadar({ data, toast }) {
-    const rf = window.ReactFlow;
-    if (!rf) return (
-        <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
-            <span className="material-icons-round text-6xl">running_with_errors</span>
-            <div className="text-xl font-bold">React Flow no cargado</div>
-            <p className="text-sm">Verifica la conexión a internet o la carga del CDN.</p>
-        </div>
-    );
-
     const rf = window.ReactFlow;
     if (!rf) return (
         <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
