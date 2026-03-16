@@ -2843,12 +2843,12 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
     const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
     const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-') || id.startsWith('man-');
-    const defaultColor = isIvr ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.08)';
-    const activeColor = isIvr ? '#22c55e' : '#f43f5e';
+    const defaultColor = isIvr ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)';
+    const activeColor = isIvr ? '#22c55e' : '#f43f5e'; 
 
     return (
         <>
-            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 4 : 2, stroke: animated ? activeColor : (style.stroke || defaultColor), filter: animated ? `drop-shadow(0 0 8px ${activeColor})` : 'none' }} />
+            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 4 : 1.5, stroke: animated ? activeColor : (style.stroke || defaultColor), filter: animated ? `drop-shadow(0 0 8px ${activeColor})` : 'none', opacity: animated ? 1 : 0.4 }} />
             {animated && (
                 <>
                     <circle r="5" fill={activeColor} style={{ filter: `drop-shadow(0 0 5px ${activeColor})` }}>
@@ -3023,26 +3023,31 @@ function ViewRadar({ data, toast }) {
                 const agentCount = itemAgents.length;
                 const circleSize = Math.max(400, 200 + (Math.sqrt(agentCount) * 150));
                 const groupId = `parent-${cat.id}-${item.id}`;
-                const xPos = 600;
+                const xPos = 400; // Ajuste de margen lateral
                 const yPos = currentY;
 
-                newNodes.push({
-                    id: groupId,
-                    type: 'group',
-                    data: { ...nodeDataGlobals, label: `${item.name || item.id}` },
-                    position: getPos(groupId, { x: xPos, y: yPos }),
-                    style: { width: circleSize, height: circleSize, backgroundColor: 'transparent', border: 'none', pointerEvents: 'none' }
-                });
-
                 if (cat.id === 'q') {
+                    const queueNodeId = `q-${item.id}`;
                     newNodes.push({
-                        id: `q-${item.id}`,
+                        id: queueNodeId,
                         type: 'queue',
-                        parentNode: groupId,
                         data: { ...nodeDataGlobals, ...item },
-                        position: getPos(`q-${item.id}`, { x: circleSize/2 - 75, y: circleSize/2 - 75 }),
-                        extent: 'parent'
+                        position: getPos(queueNodeId, { x: xPos + circleSize/2 - 75, y: yPos + circleSize/2 - 75 }),
                     });
+
+                    // Sistema: Conexión dinámica desde el PBX Core al elemento central (Cola)
+                    if (activeCalls.length > 0) {
+                        newEdges.push({
+                            id: `sys-core-q-${item.id}`,
+                            source: 'core-pbx',
+                            sourceHandle: 'r',
+                            target: queueNodeId,
+                            targetHandle: 'l',
+                            type: 'animatedData',
+                            animated: activeCalls.some(c => c.dest === item.id || c.from === item.id),
+                            style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.2 }
+                        });
+                    }
                 }
 
                 // Sistema: Conexión dinámica (Opcional, desactivada por defecto para evitar ruido)
@@ -3070,23 +3075,21 @@ function ViewRadar({ data, toast }) {
                     newNodes.push({
                         id: nodeAgentId,
                         type: 'agent',
-                        parentNode: groupId,
                         data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext)) },
-                        position: getPos(nodeAgentId, { x: ax, y: ay }),
-                        extent: 'parent',
+                        position: getPos(nodeAgentId, { x: xPos + ax, y: yPos + ay }),
                         className: isActive ? 'anim-phone-ring' : ''
                     });
 
                     // Conexión dinámica del sistema entre el item y el agente
                     newEdges.push({
                         id: `sys-g-a-${item.id}-${a.ext}`,
-                        source: cat.id === 'q' ? `q-${item.id}` : groupId,
+                        source: cat.id === 'q' ? `q-${item.id}` : 'core-pbx',
                         sourceHandle: 'sr',
                         target: nodeAgentId,
                         targetHandle: 'l',
                         type: 'animatedData',
                         animated: isActive,
-                        style: { stroke: isActive ? '#f43f5e' : '#8b5cf6', strokeWidth: isActive ? 2 : 1.5, opacity: isActive ? 0.8 : 0.2 }
+                        style: { stroke: isActive ? '#f43f5e' : '#8b5cf6', strokeWidth: isActive ? 2 : 1.5, opacity: isActive ? 0.8 : 0.1 }
                     });
                 });
 
