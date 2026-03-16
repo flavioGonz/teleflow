@@ -1117,13 +1117,14 @@ if ($action === 'apply_ivr_flow') {
     $menuNodes = array_filter($nodes, function($n) { return $n['type'] === 'menu'; });
     foreach ($menuNodes as $menu) {
         $audio = $menu['data']['audio'] ?? '';
-        // Robust audio name handling: remove extension and add custom/ prefix
         $audioClean = preg_replace('/\.(wav|WAV|gsm|sln|mp3)$/i', '', $audio);
-        $audioStr = $audioClean ? "custom/$audioClean" : "dir-intro";
+        // Use absolute path to bypass language prefixes
+        $audioStr = $audioClean ? "/var/lib/asterisk/sounds/custom/$audioClean" : "dir-intro";
         
         $conf .= "[ivr-node-{$menu['id']}]\n";
         $conf .= "exten => s,1,NoOp(IVR Menu {$menu['data']['label']})\n";
         $conf .= "exten => s,n,Answer()\n";
+        $conf .= "exten => s,n,Wait(1)\n";
         $conf .= "exten => s,n(loop),Background({$audioStr})\n";
         $conf .= "exten => s,n,WaitExten(5)\n";
         
