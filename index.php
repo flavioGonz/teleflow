@@ -2842,9 +2842,9 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
     
     const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-') || id.startsWith('man-'); // Added 'man-' for manual IVR connections
-    const defaultColor = isIvr ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)';
-    const activeColor = isIvr ? '#22c55e' : '#f43f5e'; // Rojo más intenso para llamadas en Radar
+    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-') || id.startsWith('man-');
+    const defaultColor = isIvr ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.08)';
+    const activeColor = isIvr ? '#22c55e' : '#f43f5e';
 
     return (
         <>
@@ -4227,9 +4227,9 @@ function IVRDesignerApp({ toast }) {
                                                     <select value={opt.destination||''} onChange={e=>{
                                                         const o = [...selectedNode.data.options]; o[i].destination = e.target.value; updateNodeData('options', o);
                                                     }} style={{width:'100%', padding:'8px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:6, color:'var(--muted)', fontSize:11, outline:'none'}}>
-                                                        <option value="">-- Destino --</option>
                                                         <optgroup label="Extensiones">{ivrData.extensions.map(e=><option key={e.ext} value={`Ext: ${e.ext}`}>{e.ext} - {e.name}</option>)}</optgroup>
                                                         <optgroup label="Colas">{ivrData.queues.map(q=><option key={q.ext} value={`Cola: ${q.ext}`}>{q.name}</option>)}</optgroup>
+                                                        <optgroup label="Grupos">{ivrData.ringgroups.map(g=><option key={g.ext} value={`Grupo: ${g.ext}`}>{g.name}</option>)}</optgroup>
                                                         <option value="Colgar Llamada">Colgar Llamada</option>
                                                     </select>
                                                 </div>
@@ -4246,13 +4246,14 @@ function IVRDesignerApp({ toast }) {
                                         const val = e.target.value;
                                         let icon = 'phone_forwarded', color = '#3b82f6', colorbg = 'rgba(59,130,246,0.1)';
                                         if(val.startsWith('Cola:')) { icon = 'trending_up'; color = '#6366f1'; colorbg = 'rgba(99,102,241,0.1)'; }
-                                        if(val.startsWith('Grupo:')) { icon = 'payments'; color = '#8b5cf6'; colorbg = 'rgba(139,92,246,0.1)'; }
+                                        if(val.startsWith('Grupo:')) { icon = 'groups'; color = '#8b5cf6'; colorbg = 'rgba(139,92,246,0.1)'; }
                                         if(val === 'Colgar Llamada') { icon = 'call_end'; color = '#ef4444'; colorbg = 'rgba(239,68,68,0.1)'; }
                                         updateNodeData('label', val); updateNodeData('icon', icon); updateNodeData('color', color); updateNodeData('colorbg', colorbg);
                                     }} style={{width:'100%', padding:'12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:10, color:'var(--text)', outline:'none', fontWeight:600}}>
                                         <option value="">-- Seleccionar --</option>
                                         <optgroup label="Extensiones">{ivrData.extensions.map(e=><option key={e.ext} value={`Ext: ${e.ext}`}>{e.ext} - {e.name}</option>)}</optgroup>
                                         <optgroup label="Colas">{ivrData.queues.map(q=><option key={q.ext} value={`Cola: ${q.ext}`}>{q.name}</option>)}</optgroup>
+                                        <optgroup label="Grupos">{ivrData.ringgroups.map(g=><option key={g.ext} value={`Grupo: ${g.ext}`}>{g.name}</option>)}</optgroup>
                                         <option value="Colgar Llamada">Colgar Llamada</option>
                                     </select>
                                 </div>
