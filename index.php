@@ -3720,21 +3720,19 @@ function SIPLogLine({ line, idx }) {
     );
 }
 
-const _rfc_lib = window.ReactFlow || {};
-const ReactFlowComp = _rfc_lib.ReactFlow || _rfc_lib.default || _rfc_lib;
-const _rf_umd = _rfc_lib.default || _rfc_lib;
+const _rfc_main = window.ReactFlow || {};
+const ReactFlowComp = _rfc_main.ReactFlow || _rfc_main.default || _rfc_main;
+const _rf_u = _rfc_main.default || _rfc_main;
 
-const Background = _rf_umd.Background || ReactFlowComp.Background || (() => null);
-const Controls = _rf_umd.Controls || ReactFlowComp.Controls || (() => null);
-const Handle = _rf_umd.Handle || (ReactFlowComp && ReactFlowComp.Handle) || (() => null);
-const Position = _rf_umd.Position || (ReactFlowComp && ReactFlowComp.Position) || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
-const ReactFlowProvider = _rf_umd.ReactFlowProvider || ReactFlowComp.ReactFlowProvider || (({children}) => children);
-const MiniMap = _rf_umd.MiniMap || ReactFlowComp.MiniMap || (() => null);
-const getBezierPath = _rf_umd.getBezierPath || (ReactFlowComp && ReactFlowComp.getBezierPath);
-const getSimpleBezierPath = _rf_umd.getSimpleBezierPath || (ReactFlowComp && ReactFlowComp.getSimpleBezierPath);
+const Background = _rfc_main.Background || _rf_u.Background || (() => null);
+const Controls = _rfc_main.Controls || _rf_u.Controls || (() => null);
+const MiniMap = _rfc_main.MiniMap || _rf_u.MiniMap || (() => null);
+const Handle = _rfc_main.Handle || _rf_u.Handle || (ReactFlowComp && ReactFlowComp.Handle) || (() => null);
+const Position = _rfc_main.Position || _rf_u.Position || (ReactFlowComp && ReactFlowComp.Position) || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
+const ReactFlowProvider = _rfc_main.ReactFlowProvider || _rf_u.ReactFlowProvider || (({children}) => children);
 
-const applyIvrNodeChanges = typeof (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
-    ? (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
+const applyIvrNodeChanges = typeof (_rf_u.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
+    ? (_rf_u.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
     : (changes, nds) => {
         return nds.map(node => {
             const pos = changes.find(c => c.id === node.id && c.type === 'position');
@@ -3746,14 +3744,14 @@ const applyIvrNodeChanges = typeof (_rf_umd.applyNodeChanges || ReactFlowComp.ap
         });
     };
 
-const applyIvrEdgeChanges = typeof (_rf_umd.applyEdgeChanges || ReactFlowComp.applyEdgeChanges) === 'function'
-    ? (_rf_umd.applyEdgeChanges || ReactFlowComp.applyEdgeChanges)
+const applyIvrEdgeChanges = typeof (_rf_u.applyEdgeChanges || ReactFlowComp.applyEdgeChanges) === 'function'
+    ? (_rf_u.applyEdgeChanges || ReactFlowComp.applyEdgeChanges)
     : (changes, eds) => {
         return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
     };
 
-const addIvrEdge = typeof (_rf_umd.addEdge || ReactFlowComp.addEdge) === 'function'
-    ? (_rf_umd.addEdge || ReactFlowComp.addEdge)
+const addIvrEdge = typeof (_rf_u.addEdge || ReactFlowComp.addEdge) === 'function'
+    ? (_rf_u.addEdge || ReactFlowComp.addEdge)
     : (params, eds) => {
         return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
     };
@@ -3800,11 +3798,11 @@ const NodeMenu = ({ data, selected }) => {
                 {(data.options || []).map(opt => (
                     <div key={opt.digit} style={{display:'flex', alignItems:'center', padding:8, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, position:'relative'}}>
                         <div style={{width:24, height:24, background:'var(--bg)', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'var(--text)', marginRight:10, flexShrink:0}}>{opt.digit}</div>
-                        <div style={{display:'flex', flexDirection:'column'}}>
+                        <div style={{display:'flex', flexDirection:'column', flex:1}}>
                             <div style={{fontSize:12, fontWeight:700, color:'var(--text)'}}>{opt.label}</div>
                             {opt.destination && <div style={{fontSize:10, color:'var(--muted)', marginTop:2, fontWeight:600}}>&rarr; {opt.destination}</div>}
                         </div>
-                        {Handle && <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-20, top:'50%', width:12, height:12, background:'var(--surface)', border:`1px solid ${isLive ? '#22c55e' : 'var(--border)'}`}} />}
+                        <Handle type="source" position={Position.Right} id={`opt-${opt.digit}`} style={{right:-8, width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`, zIndex:20}} />
                     </div>
                 ))}
             </div>
