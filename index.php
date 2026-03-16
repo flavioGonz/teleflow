@@ -2821,29 +2821,41 @@ const RadarAgentNode = ({ data }) => {
 
 // ─── CUSTOM EDGE ─ DATA FLOW ───
 const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style = {}, animated }) => {
-    const rfLib = window.ReactFlow;
-    if (!rfLib || !rfLib.getBezierPath) return null;
+    const rfLib = window.ReactFlow || {};
+    const getPath = rfLib.getBezierPath || (rfLib.default && rfLib.default.getBezierPath) || ((p) => ["", 0, 0]);
     
-    const [edgePath, labelX, labelY] = rfLib.getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+
+    // En IVR queremos líneas visibles siempre. En Radar son más tenues.
+    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-');
+    const defaultColor = isIvr ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)';
+    const activeColor = isIvr ? '#22c55e' : '#8b5cf6';
 
     return (
         <>
-            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 2 : 1, strokeDasharray: animated ? '4 4' : 'none', stroke: animated ? '#8b5cf6' : 'rgba(255,255,255,0.05)' }} />
+            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 3 : 2, strokeDasharray: animated ? 'none' : 'none', stroke: animated ? activeColor : (style.stroke || defaultColor) }} />
             {animated && (
                 <>
-                    <circle r="3" fill="#8b5cf6">
-                        <animateMotion dur="1s" repeatCount="indefinite" path={edgePath} />
+                    <circle r="4" fill={activeColor}>
+                        <animateMotion dur="1.5s" repeatCount="indefinite" path={edgePath} />
                     </circle>
-                    <foreignObject width={100} height={40} x={labelX - 50} y={labelY - 20} className="pointer-events-none">
-                        <div style={{ 
-                            background: 'rgba(139,92,246,0.9)', color: 'white', 
-                            fontSize: 9, fontWeight: 900, padding: '2px 8px', 
-                            borderRadius: 20, textAlign: 'center', backdropFilter: 'blur(4px)',
-                            border: '1px solid rgba(255,255,255,0.2)'
-                        }}>
-                            {data?.duration || 'VOZ'}
-                        </div>
-                    </foreignObject>
+                    {isIvr && (
+                        <circle r="4" fill={activeColor}>
+                            <animateMotion dur="1.5s" begin="0.75s" repeatCount="indefinite" path={edgePath} />
+                        </circle>
+                    )}
+                    {!isIvr && (
+                        <foreignObject width={100} height={40} x={labelX - 50} y={labelY - 20} className="pointer-events-none">
+                            <div style={{ 
+                                background: 'rgba(139,92,246,0.9)', color: 'white', 
+                                fontSize: 9, fontWeight: 900, padding: '2px 8px', 
+                                borderRadius: 20, textAlign: 'center', backdropFilter: 'blur(4px)',
+                                border: '1px solid rgba(255,255,255,0.2)'
+                            }}>
+                                {data?.duration || 'VOZ'}
+                            </div>
+                        </foreignObject>
+                    )}
                 </>
             )}
         </>
@@ -3020,17 +3032,19 @@ function ViewRadar({ data, toast }) {
                     });
                 }
 
-                // Sistema: Conexión dinámica
-                newEdges.push({
-                    id: `sys-core-${groupId}`,
-                    source: 'core-pbx',
-                    sourceHandle: 'r',
-                    target: groupId,
-                    targetHandle: 'l',
-                    type: 'animatedData',
-                    animated: true,
-                    style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.3 }
-                });
+                // Sistema: Conexión dinámica (Opcional, desactivada por defecto para evitar ruido)
+                if (activeCalls.length > 0) {
+                    newEdges.push({
+                        id: `sys-core-${groupId}`,
+                        source: 'core-pbx',
+                        sourceHandle: 'r',
+                        target: groupId,
+                        targetHandle: 'l',
+                        type: 'animatedData',
+                        animated: true,
+                        style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.15 } // Más tenue
+                    });
+                }
 
                 itemAgents.forEach((a, aIdx) => {
                     processedAgents.add(a.ext);
@@ -3742,6 +3756,8 @@ const Handle = _rf_umd.Handle || (ReactFlowComp && ReactFlowComp.Handle) || (() 
 const Position = _rf_umd.Position || (ReactFlowComp && ReactFlowComp.Position) || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
 const ReactFlowProvider = _rf_umd.ReactFlowProvider || ReactFlowComp.ReactFlowProvider || (({children}) => children);
 const MiniMap = _rf_umd.MiniMap || ReactFlowComp.MiniMap || (() => null);
+const getBezierPath = _rf_umd.getBezierPath || (ReactFlowComp && ReactFlowComp.getBezierPath);
+const getSimpleBezierPath = _rf_umd.getSimpleBezierPath || (ReactFlowComp && ReactFlowComp.getSimpleBezierPath);
 
 const applyIvrNodeChanges = typeof (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
     ? (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
@@ -3784,7 +3800,7 @@ const NodeStart = ({ data }) => {
                 <span className="material-icons-round" style={{fontSize:18, color:isLive ? '#22c55e' : 'inherit'}}>play_arrow</span>
                 IVR: {ivrNum}
             </div>
-            {Handle && <Handle type="source" position={Position.Right} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
+            {Handle && <Handle type="source" position={Position.Right} id="source" style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
         </div>
     );
 };
@@ -3793,7 +3809,7 @@ const NodeMenu = ({ data, selected }) => {
     const isLive = data.isLive;
     return (
         <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
-            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
+            {Handle && <Handle type="target" position={Position.Left} id="target" style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
                 <div style={{width:32, height:32, background: isLive ? 'rgba(34,197,94,0.2)' : 'var(--accent)', borderRadius:8, color: isLive ? '#22c55e' : 'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
                     <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 1s infinite' : 'none'}}>splitscreen</span>
@@ -3826,7 +3842,7 @@ const NodeAction = ({ data, selected }) => {
     const isLive = data.isLive;
     return (
         <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:200, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(0,0,0,0.05)' : 'none'), transition: 'all 0.3s'}}>
-            {Handle && <Handle type="target" position={Position.Left} style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
+            {Handle && <Handle type="target" position={Position.Left} id="target" style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
                 <div style={{width:28, height:28, background: isLive ? 'rgba(34,197,94,0.2)' : (data.colorbg || 'rgba(59,130,246,0.1)'), borderRadius:8, color: isLive ? '#22c55e' : (data.color || '#3b82f6'), display:'flex', alignItems:'center', justifyContent:'center'}}>
                     <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 1s infinite' : 'none'}}>{data.icon || 'phone_forwarded'}</span>
@@ -3843,6 +3859,10 @@ const ivrNodeTypes = {
     start: NodeStart,
     menu: NodeMenu,
     action: NodeAction
+};
+
+const ivrEdgeTypes = {
+    animatedData: AnimatedDataEdge
 };
 
 const ivrInitialNodes = [
@@ -3875,6 +3895,7 @@ function IVRDesignerApp({ toast }) {
     const onConnect = useCallback((params) => {
         setEdges((eds) => addIvrEdge({ 
             ...params, 
+            type: 'animatedData',
             animated: isIvrActiveRef.current, 
             style: isIvrActiveRef.current ? { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' } : { stroke: 'var(--accent)', strokeWidth: 2 } 
         }, eds));
@@ -3948,9 +3969,9 @@ function IVRDesignerApp({ toast }) {
                             const isActiveEdge = edgesToAnimate.has(e.id);
                             if (e.animated !== isActiveEdge) changed = true;
                             return isActiveEdge ? {
-                                ...e, animated: true, style: { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' }
+                                ...e, type: 'animatedData', animated: true, style: { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' }
                             } : {
-                                ...e, animated: false, style: { stroke: 'var(--accent)', strokeWidth: 2, filter: 'none' }
+                                ...e, type: 'animatedData', animated: false, style: { stroke: 'var(--accent)', strokeWidth: 2, filter: 'none' }
                             };
                         });
                         return changed ? newEds : eds;
@@ -4089,6 +4110,7 @@ function IVRDesignerApp({ toast }) {
                     onDragOver={onDragOver}
                     onSelectionChange={onSelectionChange}
                     nodeTypes={ivrNodeTypes}
+                    edgeTypes={ivrEdgeTypes}
                     fitView
                     snapToGrid={true}
                     snapGrid={[15, 15]}
