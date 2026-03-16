@@ -2866,7 +2866,7 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
                                 border: '1px solid rgba(255,255,255,0.3)',
                                 boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
                             }}>
-                                {data?.duration || 'LIVE'}
+                                {data?.duration || 'VOZ'}
                             </div>
                         </foreignObject>
                     )}
@@ -3031,7 +3031,7 @@ function ViewRadar({ data, toast }) {
                     type: 'group',
                     data: { ...nodeDataGlobals, label: `${item.name || item.id}` },
                     position: getPos(groupId, { x: xPos, y: yPos }),
-                    style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(139,92,246,0.01)', border: '2px dashed rgba(139,92,246,0.2)', borderRadius: '50%' }
+                    style: { width: circleSize, height: circleSize, backgroundColor: 'transparent', border: 'none', pointerEvents: 'none' }
                 });
 
                 if (cat.id === 'q') {
@@ -3915,7 +3915,16 @@ function IVRDesignerApp({ toast }) {
         const checkCalls = () => {
             fetch('api/index.php?action=get_active_calls', { credentials: 'include' }).then(r=>r.json()).then(d => {
                 if(d.success && d.calls) {
-                    const activeTokens = d.calls.reduce((acc, c) => [...acc, c.dest, c.ext], []).filter(Boolean);
+                    const startNodes = nodesRef.current.filter(n => n.type === 'start');
+                    const ivrNumbers = startNodes.map(n => String(n.data.ivrNumber || '7777'));
+                    
+                    const ivrCalls = d.calls.filter(c => 
+                        (c.context && c.context.startsWith('ivr-node-')) || 
+                        (c.dest && ivrNumbers.includes(String(c.dest))) ||
+                        (c.from && ivrNumbers.includes(String(c.from)))
+                    );
+
+                    const activeTokens = ivrCalls.reduce((acc, c) => [...acc, c.dest, c.ext], []).filter(Boolean);
                     
                     const currentNodes = nodesRef.current;
                     const currentEdges = edgesRef.current;
@@ -3923,8 +3932,8 @@ function IVRDesignerApp({ toast }) {
                     let ivrNumberCalled = false;
                     currentNodes.forEach(n => {
                         if (n.type === 'start') {
-                            const ivrNum = n.data.ivrNumber || '7777';
-                            if (activeTokens.includes(ivrNum.toString())) ivrNumberCalled = true;
+                            const ivrNum = String(n.data.ivrNumber || '7777');
+                            if (activeTokens.includes(ivrNum)) ivrNumberCalled = true;
                         }
                     });
                     
