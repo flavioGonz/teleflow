@@ -3729,35 +3729,39 @@ function SIPLogLine({ line, idx }) {
 }
 
 const _rfc = window.ReactFlow || {};
-const ReactFlow = _rfc.ReactFlow || _rfc.default || _rfc;
+const ReactFlowComp = _rfc.ReactFlow || _rfc.default || _rfc;
 const _rfu = _rfc.default || _rfc;
 
-const Background = _rfu.Background || ReactFlow.Background;
-const Controls = _rfu.Controls || ReactFlow.Controls;
-const Handle = _rfu.Handle || ReactFlow.Handle;
-const Position = _rfu.Position || ReactFlow.Position;
+const Background = _rfu.Background || ReactFlowComp.Background || (() => null);
+const Controls = _rfu.Controls || ReactFlowComp.Controls || (() => null);
+const Handle = _rfu.Handle || ReactFlowComp.Handle || (() => null);
+const Position = _rfu.Position || ReactFlowComp.Position || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
+const ReactFlowProvider = _rfu.ReactFlowProvider || ReactFlowComp.ReactFlowProvider || (({children}) => children);
 
-const _anc_ivr = _rfu.applyNodeChanges || ReactFlow.applyNodeChanges;
-const applyNodeChanges = typeof _anc_ivr === 'function' ? _anc_ivr : (changes, nds) => {
-    return nds.map(node => {
-        const pos = changes.find(c => c.id === node.id && c.type === 'position');
-        const sel = changes.find(c => c.id === node.id && c.type === 'select');
-        let next = { ...node };
-        if (pos && pos.position) next.position = pos.position;
-        if (sel) next.selected = sel.selected;
-        return next;
-    });
-};
+const applyIvrNodeChanges = typeof (_rfu.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
+    ? (_rfu.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
+    : (changes, nds) => {
+        return nds.map(node => {
+            const pos = changes.find(c => c.id === node.id && c.type === 'position');
+            const sel = changes.find(c => c.id === node.id && c.type === 'select');
+            let next = { ...node };
+            if (pos && pos.position) next.position = pos.position;
+            if (sel) next.selected = sel.selected;
+            return next;
+        });
+    };
 
-const _aec_ivr = _rfu.applyEdgeChanges || ReactFlow.applyEdgeChanges;
-const applyEdgeChanges = typeof _aec_ivr === 'function' ? _aec_ivr : (changes, eds) => {
-    return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
-};
+const applyIvrEdgeChanges = typeof (_rfu.applyEdgeChanges || ReactFlowComp.applyEdgeChanges) === 'function'
+    ? (_rfu.applyEdgeChanges || ReactFlowComp.applyEdgeChanges)
+    : (changes, eds) => {
+        return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
+    };
 
-const _ae_ivr = _rfu.addEdge || ReactFlow.addEdge;
-const addEdge = typeof _ae_ivr === 'function' ? _ae_ivr : (params, eds) => {
-    return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
-};
+const addIvrEdge = typeof (_rfu.addEdge || ReactFlowComp.addEdge) === 'function'
+    ? (_rfu.addEdge || ReactFlowComp.addEdge)
+    : (params, eds) => {
+        return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
+    };
 
 let ivrNodeIdCounter = 0;
 const getIvrNodeId = () => `node-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -3858,13 +3862,13 @@ function IVRDesignerApp({ toast }) {
     }, [nodes, edges]);
 
     const onNodesChange = useCallback((changes) => {
-        setNodes((nds) => applyNodeChanges(changes, nds));
-    }, [applyNodeChanges]);
+        setNodes((nds) => applyIvrNodeChanges(changes, nds));
+    }, []);
     const onEdgesChange = useCallback((changes) => {
-        setEdges((eds) => applyEdgeChanges(changes, eds));
-    }, [applyEdgeChanges]);
+        setEdges((eds) => applyIvrEdgeChanges(changes, eds));
+    }, []);
     const onConnect = useCallback((params) => {
-        setEdges((eds) => addEdge({ 
+        setEdges((eds) => addIvrEdge({ 
             ...params, 
             animated: isIvrActiveRef.current, 
             style: isIvrActiveRef.current ? { stroke: '#22c55e', strokeWidth: 3, filter: 'drop-shadow(0 0 4px #22c55e)' } : { stroke: 'var(--accent)', strokeWidth: 2 } 
@@ -4060,7 +4064,7 @@ function IVRDesignerApp({ toast }) {
 
             {/* Diagram */}
             <div style={{flex: 1, position:'relative', order: 1}} ref={reactFlowWrapper}>
-                <ReactFlow
+                <ReactFlowComp
                     nodes={nodes}
                     edges={edges}
                     onNodesChange={onNodesChange}
@@ -4073,9 +4077,9 @@ function IVRDesignerApp({ toast }) {
                     nodeTypes={ivrNodeTypes}
                     fitView
                 >
-                    {Background && <Background color="var(--border)" gap={20} size={1.5} />}
+                    {Background && <Background color="rgba(255,255,255,0.05)" gap={20} size={1.5} />}
                     {Controls && <Controls style={{background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}} />}
-                </ReactFlow>
+                </ReactFlowComp>
 
                 <div style={{position:'absolute', top:20, left:20, zIndex:10, background:'var(--surface)', padding:'10px 20px', borderRadius:12, border:'1px solid var(--border)', display:'flex', gap:12, boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
                     <button onClick={()=>{ 
@@ -4275,7 +4279,7 @@ function IVRDesignerApp({ toast }) {
 }
 
 function ViewIVR({ toast }) {
-    if (!ReactFlow) {
+    if (!ReactFlowComp) {
         return (
             <div className="content-area view-enter" style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>
                 <div style={{textAlign:'center', color:'var(--muted)'}}>
@@ -4288,9 +4292,9 @@ function ViewIVR({ toast }) {
     
     return (
         <div className="content-area view-enter" style={{display:'flex', flexDirection:'column', padding: 0, height: '100%', borderRadius: 16, overflow: 'hidden'}}>
-            <ReactFlowComponents.ReactFlowProvider>
+            <ReactFlowProvider>
                 <IVRDesignerApp toast={toast} />
-            </ReactFlowComponents.ReactFlowProvider>
+            </ReactFlowProvider>
         </div>
     );
 }
