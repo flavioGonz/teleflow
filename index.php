@@ -11,15 +11,23 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script>
         // Blindaje contra errores de React DevTools hook corrupto
-        try {
-            if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-                const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-                if (typeof hook.on !== 'function') hook.on = function(){};
-                if (typeof hook.off !== 'function') hook.off = function(){};
-                if (typeof hook.emit !== 'function') hook.emit = function(){};
-                if (!hook.renderers) hook.renderers = new Map();
-            }
-        } catch(e) {}
+        (function() {
+            try {
+                if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                    const h = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+                    const stubs = ['on', 'off', 'emit', 'inject', 'sub', 'unsub'];
+                    stubs.forEach(s => { if (typeof h[s] !== 'function') h[s] = function(){}; });
+                    if (!h.renderers || typeof h.renderers.get !== 'function') h.renderers = new Map();
+                } else {
+                    // Pre-instalar hook vacío para evitar que extensiones lo rompan a medias
+                    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+                        renderers: new Map(),
+                        on: function(){}, off: function(){}, emit: function(){},
+                        inject: function(){}, sub: function(){}, unsub: function(){}
+                    };
+                }
+            } catch(e) {}
+        })();
     </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
@@ -3724,13 +3732,9 @@ function SIPLogLine({ line, idx }) {
     );
 }
 
-const _rfc = window.ReactFlow || {};
-const ReactFlowComp = _rfc.ReactFlow || _rfc.default || _rfc;
-const _rfu = _rfc.default || _rfc;
-
-const _rfc = window.ReactFlow || {};
-const ReactFlowComp = _rfc.ReactFlow || _rfc.default || _rfc;
-const _rf_umd = _rfc.default || _rfc;
+const _rfc_lib = window.ReactFlow || {};
+const ReactFlowComp = _rfc_lib.ReactFlow || _rfc_lib.default || _rfc_lib;
+const _rf_umd = _rfc_lib.default || _rfc_lib;
 
 const Background = _rf_umd.Background || ReactFlowComp.Background || (() => null);
 const Controls = _rf_umd.Controls || ReactFlowComp.Controls || (() => null);
@@ -3739,8 +3743,8 @@ const Position = _rf_umd.Position || (ReactFlowComp && ReactFlowComp.Position) |
 const ReactFlowProvider = _rf_umd.ReactFlowProvider || ReactFlowComp.ReactFlowProvider || (({children}) => children);
 const MiniMap = _rf_umd.MiniMap || ReactFlowComp.MiniMap || (() => null);
 
-const applyIvrNodeChanges = typeof (_rfu.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
-    ? (_rfu.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
+const applyIvrNodeChanges = typeof (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) === 'function' 
+    ? (_rf_umd.applyNodeChanges || ReactFlowComp.applyNodeChanges) 
     : (changes, nds) => {
         return nds.map(node => {
             const pos = changes.find(c => c.id === node.id && c.type === 'position');
@@ -3752,14 +3756,14 @@ const applyIvrNodeChanges = typeof (_rfu.applyNodeChanges || ReactFlowComp.apply
         });
     };
 
-const applyIvrEdgeChanges = typeof (_rfu.applyEdgeChanges || ReactFlowComp.applyEdgeChanges) === 'function'
-    ? (_rfu.applyEdgeChanges || ReactFlowComp.applyEdgeChanges)
+const applyIvrEdgeChanges = typeof (_rf_umd.applyEdgeChanges || ReactFlowComp.applyEdgeChanges) === 'function'
+    ? (_rf_umd.applyEdgeChanges || ReactFlowComp.applyEdgeChanges)
     : (changes, eds) => {
         return eds.filter(edge => !changes.find(c => c.id === edge.id && c.type === 'remove'));
     };
 
-const addIvrEdge = typeof (_rfu.addEdge || ReactFlowComp.addEdge) === 'function'
-    ? (_rfu.addEdge || ReactFlowComp.addEdge)
+const addIvrEdge = typeof (_rf_umd.addEdge || ReactFlowComp.addEdge) === 'function'
+    ? (_rf_umd.addEdge || ReactFlowComp.addEdge)
     : (params, eds) => {
         return [...eds, { ...params, id: `e-${params.source}-${params.target}-${Date.now()}` }];
     };
