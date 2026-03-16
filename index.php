@@ -2744,11 +2744,12 @@ const RadarGroupNode = ({ data }) => {
 };
 
 const RadarQueueNode = ({ data }) => {
+    const H = data.Handle || null; 
+    const P = data.Position || null;
     const hasCalls = data.calls_waiting > 0;
-    const H = data.Handle;
-    const P = data.Position;
+    
     return (
-        <div className={`glass box-shadow-premium anim-pulse-border-${hasCalls ? 'amber' : 'none'}`} style={{ 
+        <div className={`glass box-shadow-premium ${hasCalls ? 'anim-vibrate' : ''}`} style={{ 
             width: 150, height: 150, borderRadius: '50%',
             border:`2.5px solid ${hasCalls ? '#f59e0b' : '#3b82f6'}`, 
             background:'var(--surface)', display:'flex', flexDirection:'column',
@@ -2758,10 +2759,10 @@ const RadarQueueNode = ({ data }) => {
             position: 'relative'
         }}>
              <div style={{ width:40, height:40, background:hasCalls?'rgba(245,158,11,0.15)':'rgba(59,130,246,0.1)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', marginBottom: 6 }}>
-                <span className="material-icons-round" style={{ fontSize:22, color: hasCalls ? '#f59e0b' : '#3b82f6' }}>hub</span>
+                <span className={`material-icons-round ${hasCalls ? 'anim-phone-ring' : ''}`} style={{ fontSize:22, color: hasCalls ? '#f59e0b' : '#3b82f6' }}>hub</span>
              </div>
              
-             <div style={{ fontSize:8, fontWeight:900, color: hasCalls ? '#f59e0b' : '#3b82f6', textTransform:'uppercase', letterSpacing: 1 }}>COLA #{data.id}</div>
+             <div style={{ fontSize:8, fontWeight:900, color: hasCalls ? '#f59e0b' : '#3b82f6', textTransform:'uppercase', letterSpacing: 1 }}>{hasCalls ? 'LLAMADA EN COLA' : `COLA #${data.id}`}</div>
              <div style={{ fontSize:12, fontWeight:800, color:'var(--text)', maxWidth: 120, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{data.name}</div>
              
              <div style={{ marginTop: 8, display:'flex', flexDirection: 'column', alignItems:'center' }}>
@@ -2771,11 +2772,11 @@ const RadarQueueNode = ({ data }) => {
 
              {H && (
                  <>
-                    <H type="target" position={P?.Top} id="t" style={{ background: '#f59e0b', opacity: 0.5 }} />
-                    <H type="target" position={P?.Bottom} id="b" style={{ background: '#f59e0b', opacity: 0.5 }} />
-                    <H type="target" position={P?.Left} id="l" style={{ background: '#f59e0b', opacity: 0.5 }} />
-                    <H type="target" position={P?.Right} id="r" style={{ background: '#f59e0b', opacity: 0.5 }} />
-                    <H type="source" position={P?.Right} id="sr" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                    <H type="target" position={P?.Top} id="t" style={{ background: '#f59e0b', opacity: 0.1 }} />
+                    <H type="target" position={P?.Bottom} id="b" style={{ background: '#f59e0b', opacity: 0.1 }} />
+                    <H type="target" position={P?.Left} id="l" style={{ background: '#f59e0b', opacity: 0.1 }} />
+                    <H type="target" position={P?.Right} id="r" style={{ background: '#f59e0b', opacity: 0.1 }} />
+                    <H type="source" position={P?.Right} id="sr" style={{ background: '#f59e0b', opacity: 0.1 }} />
                  </>
              )}
         </div>
@@ -2787,33 +2788,48 @@ const RadarAgentNode = ({ data }) => {
     const isBusy = data.agent.status === 'BUSY' || !!call;
     const isOffline = data.agent.status === 'OFFLINE';
     const isRinging = call && call.state !== 'Up';
-    const statusColor = isRinging ? '#f59e0b' : (isBusy ? '#ef4444' : '#22c55e');
+    const isTalking = call && call.state === 'Up';
+    const statusColor = isRinging ? '#f59e0b' : (isTalking ? '#22c55e' : (isBusy ? '#ef4444' : '#22c55e'));
+    const badgeColor = isRinging ? '#f59e0b' : (isTalking ? '#22c55e' : '#ef4444');
 
     return (
-        <div style={{ position:'relative', width:80, height:80, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <div className={`glass shadow-xl ${isRinging ? 'anim-vibrate' : ''}`} style={{ 
-                width: 70, height: 70, borderRadius: '50%', border: `2px solid ${statusColor}`,
-                background: isBusy ? 'rgba(239,68,68,0.1)' : 'var(--surface)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.4s', position: 'relative'
+        <div style={{ position:'relative', width:100, height:100, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            {call && (
+                <div style={{ 
+                    position: 'absolute', top: -15, left: '50%', transform: 'translateX(-50%)',
+                    background: badgeColor, color: 'white', padding: '2px 10px', borderRadius: 12,
+                    fontSize: 9, fontWeight: 900, whiteSpace: 'nowrap', zIndex: 10,
+                    boxShadow: `0 4px 10px ${badgeColor}44`, display:'flex', alignItems:'center', gap:4
+                }}>
+                    <span className="material-icons-round" style={{fontSize:10}}>{isRinging ? 'notifications_active' : 'record_voice_over'}</span>
+                    {isRinging ? 'TIMBRANDO...' : `HABLANDO (${call.duration})`}
+                </div>
+            )}
+            
+            <div className={`glass shadow-xl ${isRinging ? 'anim-vibrate anim-phone-ring' : ''} ${isTalking ? 'anim-pulse-border-green' : ''}`} style={{ 
+                width: 75, height: 75, borderRadius: '50%', border: `3px solid ${statusColor}`,
+                background: isBusy ? 'rgba(239,68,68,0.05)' : 'var(--surface)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.4s', position: 'relative',
+                boxShadow: (isRinging || isTalking) ? `0 0 25px ${statusColor}33` : 'none'
             }}>
-                <span className={`material-icons-round ${isRinging ? 'anim-phone-ring' : ''}`} style={{ fontSize: 32, color: statusColor }}>
-                    {isRinging ? 'ring_volume' : (isBusy ? 'call' : 'person')}
+                <span className={`material-icons-round ${isRinging ? 'anim-phone-ring' : ''}`} style={{ fontSize: 36, color: statusColor }}>
+                    {isRinging ? 'ring_volume' : (isTalking ? 'record_voice_over' : (isBusy ? 'call' : 'person'))}
                 </span>
                 {!isOffline && <div style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: statusColor, border: '3px solid var(--surface)' }} />}
 
                 {data.Handle && (
                     <>
-                        <data.Handle type="target" position={data.Position?.Top} id="t" style={{ background: statusColor, opacity: 0.1 }} />
-                        <data.Handle type="target" position={data.Position?.Bottom} id="b" style={{ background: statusColor, opacity: 0.1 }} />
-                        <data.Handle type="target" position={data.Position?.Left} id="l" style={{ background: statusColor, opacity: 0.1 }} />
-                        <data.Handle type="target" position={data.Position?.Right} id="r" style={{ background: statusColor, opacity: 0.1 }} />
+                        <data.Handle type="target" position={data.Position?.Top} id="t" style={{ background: statusColor, opacity: 0.05 }} />
+                        <data.Handle type="target" position={data.Position?.Bottom} id="b" style={{ background: statusColor, opacity: 0.05 }} />
+                        <data.Handle type="target" position={data.Position?.Left} id="l" style={{ background: statusColor, opacity: 0.05 }} />
+                        <data.Handle type="target" position={data.Position?.Right} id="r" style={{ background: statusColor, opacity: 0.05 }} />
                         <data.Handle type="source" position={data.Position?.Right} id="sr" style={{ background: statusColor, opacity: 0 }} />
                     </>
                 )}
             </div>
-            <div style={{ position: 'absolute', top: 75, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', textAlign: 'center', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', bottom: -25, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', textAlign: 'center', pointerEvents: 'none' }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text)' }}>#{data.agent.ext}</div>
-                <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{data.agent.name}</div>
+                <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing:0.5 }}>{data.agent.name}</div>
             </div>
         </div>
     );
@@ -2826,7 +2842,7 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
     
     const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-');
+    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-') || id.startsWith('man-'); // Added 'man-' for manual IVR connections
     const defaultColor = isIvr ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)';
     const activeColor = isIvr ? '#22c55e' : '#f43f5e'; // Rojo más intenso para llamadas en Radar
 
@@ -3118,6 +3134,12 @@ function ViewRadar({ data, toast }) {
                     100% { transform: scale(1); filter: brightness(1); }
                 }
                 .anim-phone-ring { animation: phone-ring 0.5s infinite ease-in-out; }
+                @keyframes pulse-border-green {
+                    0% { border-color: rgba(34, 197, 94, 0.4); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+                    70% { border-color: rgba(34, 197, 94, 1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+                    100% { border-color: rgba(34, 197, 94, 0.4); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+                }
+                .anim-pulse-border-green { animation: pulse-border-green 2s infinite; }
             `}</style>
             
             <div style={{ position: 'absolute', top: 20, left: 24, zIndex: 10, display:'flex', alignItems:'center', gap:10 }}>
@@ -3763,9 +3785,9 @@ const NodeStart = ({ data }) => {
     const isLive = data.isLive;
     const ivrNum = data.ivrNumber || '7777';
     return (
-        <div style={{background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`, borderRadius:16, padding:16, width:160, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : '0 10px 25px rgba(0,0,0,0.1)', transition:'all 0.3s'}}>
+        <div className={isLive ? 'anim-phone-ring' : ''} style={{background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`, borderRadius:16, padding:16, width:160, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : '0 10px 25px rgba(0,0,0,0.1)', transition:'all 0.3s'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
-                <span style={{fontSize:10, fontWeight:900, color:isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{isLive ? 'Running...' : 'Trigger'}</span>
+                <span style={{fontSize:10, fontWeight:900, color:isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{isLive ? 'ACTIVO' : 'TRIGGER'}</span>
                 <div style={{width:8, height:8, background:isLive ? '#22c55e' : '#6b7280', borderRadius:'50%', boxShadow: isLive ? '0 0 8px #22c55e' : 'none', animation: isLive ? 'pulse-red 1s infinite' : 'none'}}></div>
             </div>
             <div style={{fontSize:14, fontWeight:700, color:'var(--text)', display:'flex', alignItems:'center', gap:6}}>
@@ -3780,14 +3802,14 @@ const NodeStart = ({ data }) => {
 const NodeMenu = ({ data, selected }) => {
     const isLive = data.isLive;
     return (
-        <div style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 20px rgba(34,197,94,0.4), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
+        <div className={isLive ? 'anim-vibrate anim-phone-ring' : ''} style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 30px rgba(34,197,94,0.5), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
             {Handle && <Handle type="target" position={Position.Left} id="target" style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
                 <div style={{width:32, height:32, background: isLive ? 'rgba(34,197,94,0.2)' : 'var(--accent)', borderRadius:8, color: isLive ? '#22c55e' : 'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 1s infinite' : 'none'}}>splitscreen</span>
+                    <span className="material-icons-round" style={{fontSize:16, animation: isLive ? 'pulse-red 0.5s infinite' : 'none'}}>splitscreen</span>
                 </div>
-                <span style={{flex:1, fontSize:11, fontWeight:900, color: isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{data.label || 'Menu'}</span>
-                {isLive && <div style={{width:8, height:8, background:'#22c55e', borderRadius:'50%', boxShadow:'0 0 8px #22c55e', animation: 'pulse-red 1s infinite'}}></div>}
+                <span style={{flex:1, fontSize:11, fontWeight:900, color: isLive ? '#22c55e' : 'var(--accent)', textTransform:'uppercase', letterSpacing:2}}>{isLive ? 'LLAMADA ACTIVA' : (data.label || 'Menu')}</span>
+                {isLive && <div style={{width:8, height:8, background:'#22c55e', borderRadius:'50%', boxShadow:'0 0 8px #22c55e', animation: 'pulse-red 0.5s infinite'}}></div>}
             </div>
             <div style={{background: isLive ? 'rgba(34,197,94,0.1)' : 'var(--surface2)', padding:8, borderRadius:8, fontSize:12, color:'var(--text)', textAlign:'center', border:`1px solid ${isLive ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`, marginBottom:12}}>
                 <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle', marginRight:4, color: isLive ? '#22c55e' : 'var(--muted)'}}>graphic_eq</span>
