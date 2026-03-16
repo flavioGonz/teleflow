@@ -2688,35 +2688,47 @@ const RadarCoreNode = ({ data }) => (
         alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 50px rgba(124,58,237,0.3)',
         position: 'relative', zIndex: 10
     }}>
-        {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Top} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
-        {data.Handle && <data.Handle type="source" position={data.Position?.Bottom} style={{ background: '#8b5cf6', width: 8, height: 8, border: '2px solid var(--surface)' }} />}
+        <div style={{ position: 'absolute', top: -30, width: '100%', textAlign: 'center', fontSize: 10, fontWeight: 900, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: 2 }}>Master Node</div>
+        <span className="material-icons-round" style={{ fontSize: 50, color: '#7c3aed' }}>hub</span>
+        <div style={{ fontSize: 13, fontWeight: 900, color: 'white', marginTop: 5 }}>CORE PBX</div>
+        
+        {data.Handle && (
+            <>
+                <data.Handle type="source" position={data.Position?.Top} id="t" style={{ background: '#7c3aed' }} />
+                <data.Handle type="source" position={data.Position?.Bottom} id="b" style={{ background: '#7c3aed' }} />
+                <data.Handle type="source" position={data.Position?.Left} id="l" style={{ background: '#7c3aed' }} />
+                <data.Handle type="source" position={data.Position?.Right} id="r" style={{ background: '#7c3aed' }} />
+            </>
+        )}
     </div>
 );
 
 const RadarGroupNode = ({ data }) => {
     const H = data.Handle;
     const P = data.Position;
+    // Si el nodo padre es circular, el contenido se dibuja en el centro si usamos top:50%, left:50%
     return (
-        <div style={{ position:'relative', pointerEvents:'none', width:0, height:0 }}>
+        <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%, -50%)', pointerEvents:'none', width:0, height:0 }}>
             {/* Title positioned at top of group circle */}
             <div style={{ 
-                position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
+                position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%)',
                 fontSize: 14, fontWeight: 900, color: '#8b5cf6', textTransform: 'uppercase',
                 letterSpacing: 2, whiteSpace: 'nowrap', opacity: 0.8
             }}>
                 {data.label}
             </div>
-            {/* Multi-side handles for manual routing */}
+            {/* Multi-side handles for manual and system routing */}
             {H && (
                 <>
                     <H type="target" position={P?.Top} id="t" style={{ background: '#8b5cf6' }} />
                     <H type="target" position={P?.Bottom} id="b" style={{ background: '#8b5cf6' }} />
                     <H type="target" position={P?.Left} id="l" style={{ background: '#8b5cf6' }} />
                     <H type="target" position={P?.Right} id="r" style={{ background: '#8b5cf6' }} />
-                    {/* Source handles too to allow linking outward */}
-                    <H type="source" position={P?.Top} id="st" style={{ background: '#8b5cf6', top: 5 }} />
-                    <H type="source" position={P?.Bottom} id="sb" style={{ background: '#8b5cf6', bottom: 5 }} />
+
+                    <H type="source" position={P?.Top} id="st" style={{ background: '#8b5cf6' }} />
+                    <H type="source" position={P?.Bottom} id="sb" style={{ background: '#8b5cf6' }} />
+                    <H type="source" position={P?.Left} id="sl" style={{ background: '#8b5cf6' }} />
+                    <H type="source" position={P?.Right} id="sr" style={{ background: '#8b5cf6' }} />
                 </>
             )}
         </div>
@@ -2725,6 +2737,8 @@ const RadarGroupNode = ({ data }) => {
 
 const RadarQueueNode = ({ data }) => {
     const hasCalls = data.calls_waiting > 0;
+    const H = data.Handle;
+    const P = data.Position;
     return (
         <div className={`glass box-shadow-premium anim-pulse-border-${hasCalls ? 'amber' : 'none'}`} style={{ 
             width: 150, height: 150, borderRadius: '50%',
@@ -2732,10 +2746,9 @@ const RadarQueueNode = ({ data }) => {
             background:'var(--surface)', display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center', textAlign: 'center',
             padding: 15, transition:'all 0.3s',
-            boxShadow: hasCalls ? '0 0 30px rgba(245,158,11,0.2)' : '0 0 20px rgba(59,130,246,0.1)'
+            boxShadow: hasCalls ? '0 0 30px rgba(245,158,11,0.2)' : '0 0 20px rgba(59,130,246,0.1)',
+            position: 'relative'
         }}>
-             {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: hasCalls ? '#f59e0b' : '#3b82f6', width: 10, height: 10, border: '2.5px solid var(--surface)' }} />}
-             
              <div style={{ width:40, height:40, background:hasCalls?'rgba(245,158,11,0.15)':'rgba(59,130,246,0.1)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', marginBottom: 6 }}>
                 <span className="material-icons-round" style={{ fontSize:22, color: hasCalls ? '#f59e0b' : '#3b82f6' }}>hub</span>
              </div>
@@ -2748,7 +2761,15 @@ const RadarQueueNode = ({ data }) => {
                 <div style={{ fontSize:7, fontWeight:700, color:'var(--muted)', textTransform: 'uppercase' }}>En espera</div>
              </div>
 
-             {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: hasCalls ? '#f59e0b' : '#3b82f6', width: 10, height: 10, border: '2.5px solid var(--surface)' }} />}
+             {H && (
+                 <>
+                    <H type="target" position={P?.Top} id="t" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                    <H type="target" position={P?.Bottom} id="b" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                    <H type="target" position={P?.Left} id="l" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                    <H type="target" position={P?.Right} id="r" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                    <H type="source" position={P?.Right} id="sr" style={{ background: '#f59e0b', opacity: 0.5 }} />
+                 </>
+             )}
         </div>
     );
 };
@@ -2758,63 +2779,34 @@ const RadarAgentNode = ({ data }) => {
     const isBusy = data.agent.status === 'BUSY' || !!call;
     const isOffline = data.agent.status === 'OFFLINE';
     const isRinging = call && call.state !== 'Up';
-    
     const statusColor = isRinging ? '#f59e0b' : (isBusy ? '#ef4444' : '#22c55e');
 
     return (
         <div style={{ position:'relative', width:80, height:80, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            {data.Handle && <data.Handle type="target" position={data.Position?.Left} style={{ background: statusColor, width: 8, height: 8, border: '2px solid var(--surface)' }} />}
-            
-            {/* Main Circle */}
             <div className={`glass shadow-xl ${isRinging ? 'anim-vibrate' : ''}`} style={{ 
-                width: 70, height: 70, borderRadius: '50%', 
-                border: `2px solid ${statusColor}`,
+                width: 70, height: 70, borderRadius: '50%', border: `2px solid ${statusColor}`,
                 background: isBusy ? 'rgba(239,68,68,0.1)' : 'var(--surface)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.4s',
-                position: 'relative',
-                boxShadow: isBusy ? `0 0 20px ${statusColor}44` : 'none'
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.4s', position: 'relative'
             }}>
-                <span className={`material-icons-round ${isRinging ? 'anim-phone-ring' : ''}`} style={{ 
-                    fontSize: 32, 
-                    color: statusColor,
-                    textShadow: isRinging ? `0 0 10px ${statusColor}` : 'none'
-                }}>
+                <span className={`material-icons-round ${isRinging ? 'anim-phone-ring' : ''}`} style={{ fontSize: 32, color: statusColor }}>
                     {isRinging ? 'ring_volume' : (isBusy ? 'call' : 'person')}
                 </span>
+                {!isOffline && <div style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: statusColor, border: '3px solid var(--surface)' }} />}
 
-                {/* Status indicator dot */}
-                {!isOffline && (
-                    <div style={{ 
-                        position: 'absolute', top: 2, right: 2, 
-                        width: 14, height: 14, borderRadius: '50%', 
-                        background: statusColor, border: '3px solid var(--surface)' 
-                    }} />
-                )}
-
-                {/* Handles on all sides */}
                 {data.Handle && (
                     <>
                         <data.Handle type="target" position={data.Position?.Top} id="t" style={{ background: statusColor, opacity: 0.1 }} />
                         <data.Handle type="target" position={data.Position?.Bottom} id="b" style={{ background: statusColor, opacity: 0.1 }} />
                         <data.Handle type="target" position={data.Position?.Left} id="l" style={{ background: statusColor, opacity: 0.1 }} />
                         <data.Handle type="target" position={data.Position?.Right} id="r" style={{ background: statusColor, opacity: 0.1 }} />
-                        <data.Handle type="source" position={data.Position?.Top} id="st" style={{ background: '#7c3aed', opacity: 0 }} />
+                        <data.Handle type="source" position={data.Position?.Right} id="sr" style={{ background: statusColor, opacity: 0 }} />
                     </>
                 )}
             </div>
-
-            {/* Label below */}
-            <div style={{ 
-                position: 'absolute', top: 75, left: '50%', transform: 'translateX(-50%)',
-                whiteSpace: 'nowrap', textAlign: 'center', pointerEvents: 'none'
-            }}>
+            <div style={{ position: 'absolute', top: 75, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', textAlign: 'center', pointerEvents: 'none' }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text)' }}>#{data.agent.ext}</div>
                 <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{data.agent.name}</div>
-                {call && <div style={{ fontSize: 7, color: statusColor, fontWeight: 900, animation: 'pulse 1s infinite' }}>{isRinging ? 'SONANDO' : call.duration}</div>}
             </div>
-
-            {data.Handle && <data.Handle type="source" position={data.Position?.Right} style={{ background: statusColor, width: 8, height: 8, border: '2px solid var(--surface)' }} />}
         </div>
     );
 };
@@ -3020,14 +3012,16 @@ function ViewRadar({ data, toast }) {
                     });
                 }
 
-                // Sistema: Conexión dinámica (No persistente en localStorage, se regenera)
+                // Sistema: Conexión dinámica
                 newEdges.push({
                     id: `sys-core-${groupId}`,
                     source: 'core-pbx',
+                    sourceHandle: 'r',
                     target: groupId,
+                    targetHandle: 'l',
                     type: 'animatedData',
                     animated: true,
-                    style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.6 }
+                    style: { stroke: '#8b5cf6', strokeWidth: 2, opacity: 0.3 }
                 });
 
                 itemAgents.forEach((a, aIdx) => {
@@ -3050,10 +3044,12 @@ function ViewRadar({ data, toast }) {
                     newEdges.push({
                         id: `sys-g-a-${a.ext}`,
                         source: cat.id === 'q' ? `q-${item.id}` : groupId,
+                        sourceHandle: cat.id === 'q' ? 'sr' : 'sr',
                         target: `a-${a.ext}`,
+                        targetHandle: 'l',
                         type: 'animatedData',
                         animated: activeCalls.some(c => c.ext === a.ext),
-                        style: { stroke: '#8b5cf6', strokeWidth: 1.5, opacity: 0.4 }
+                        style: { stroke: '#8b5cf6', strokeWidth: 1.5, opacity: 0.2 }
                     });
                 });
 
