@@ -2826,33 +2826,31 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
     
     const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-    // En IVR queremos líneas visibles siempre. En Radar son más tenues.
     const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-');
-    const defaultColor = isIvr ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)';
-    const activeColor = isIvr ? '#22c55e' : '#8b5cf6';
+    const defaultColor = isIvr ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)';
+    const activeColor = isIvr ? '#22c55e' : '#f43f5e'; // Rojo más intenso para llamadas en Radar
 
     return (
         <>
-            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 3 : 2, strokeDasharray: animated ? 'none' : 'none', stroke: animated ? activeColor : (style.stroke || defaultColor) }} />
+            <path id={id} className="react-flow__edge-path" d={edgePath} style={{ ...style, fill:'none', strokeWidth: animated ? 4 : 2, stroke: animated ? activeColor : (style.stroke || defaultColor), filter: animated ? `drop-shadow(0 0 8px ${activeColor})` : 'none' }} />
             {animated && (
                 <>
-                    <circle r="4" fill={activeColor}>
-                        <animateMotion dur="1.5s" repeatCount="indefinite" path={edgePath} />
+                    <circle r="5" fill={activeColor} style={{ filter: `drop-shadow(0 0 5px ${activeColor})` }}>
+                        <animateMotion dur="1.2s" repeatCount="indefinite" path={edgePath} />
                     </circle>
-                    {isIvr && (
-                        <circle r="4" fill={activeColor}>
-                            <animateMotion dur="1.5s" begin="0.75s" repeatCount="indefinite" path={edgePath} />
-                        </circle>
-                    )}
+                    <circle r="3" fill="#fff">
+                        <animateMotion dur="1.2s" repeatCount="indefinite" path={edgePath} />
+                    </circle>
                     {!isIvr && (
                         <foreignObject width={100} height={40} x={labelX - 50} y={labelY - 20} className="pointer-events-none">
                             <div style={{ 
-                                background: 'rgba(139,92,246,0.9)', color: 'white', 
-                                fontSize: 9, fontWeight: 900, padding: '2px 8px', 
+                                background: activeColor, color: 'white', 
+                                fontSize: 10, fontWeight: 900, padding: '3px 10px', 
                                 borderRadius: 20, textAlign: 'center', backdropFilter: 'blur(4px)',
-                                border: '1px solid rgba(255,255,255,0.2)'
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
                             }}>
-                                {data?.duration || 'VOZ'}
+                                {data?.duration || 'LIVE'}
                             </div>
                         </foreignObject>
                     )}
@@ -2999,8 +2997,7 @@ function ViewRadar({ data, toast }) {
         categories.forEach((cat) => {
             cat.list.forEach((item, idx) => {
                 const itemAgents = agents.filter(a => {
-                    if (processedAgents.has(a.ext)) return false;
-                    const isMember = (item.members || []).includes(a.ext);
+                    const isMember = (item.members || []).some(m => (typeof m === 'string' ? m === a.ext : m.ext === a.ext));
                     const isInCall = activeCalls.some(c => (c.ext === a.ext || c.dest === a.ext) && (c.dest === item.id || c.from === item.id));
                     return isMember || isInCall;
                 });
@@ -3047,31 +3044,33 @@ function ViewRadar({ data, toast }) {
                 }
 
                 itemAgents.forEach((a, aIdx) => {
-                    processedAgents.add(a.ext);
                     const angle = (aIdx / agentCount) * 2 * Math.PI;
                     const radius = (circleSize / 2) - 60;
                     const ax = (circleSize / 2) + radius * Math.cos(angle) - 40;
                     const ay = (circleSize / 2) + radius * Math.sin(angle) - 40;
+                    const nodeAgentId = `a-${cat.id}-${item.id}-${a.ext}`;
+                    const isActive = activeCalls.some(c => c.ext === String(a.ext) || c.dest === String(a.ext));
 
                     newNodes.push({
-                        id: `a-${a.ext}`,
+                        id: nodeAgentId,
                         type: 'agent',
                         parentNode: groupId,
-                        data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext)) },
-                        position: getPos(`a-${a.ext}`, { x: ax, y: ay }),
-                        extent: 'parent'
+                        data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext)) },
+                        position: getPos(nodeAgentId, { x: ax, y: ay }),
+                        extent: 'parent',
+                        className: isActive ? 'anim-phone-ring' : ''
                     });
 
                     // Conexión dinámica del sistema entre el item y el agente
                     newEdges.push({
-                        id: `sys-g-a-${a.ext}`,
+                        id: `sys-g-a-${item.id}-${a.ext}`,
                         source: cat.id === 'q' ? `q-${item.id}` : groupId,
-                        sourceHandle: cat.id === 'q' ? 'sr' : 'sr',
-                        target: `a-${a.ext}`,
+                        sourceHandle: 'sr',
+                        target: nodeAgentId,
                         targetHandle: 'l',
                         type: 'animatedData',
-                        animated: activeCalls.some(c => c.ext === a.ext),
-                        style: { stroke: '#8b5cf6', strokeWidth: 1.5, opacity: 0.2 }
+                        animated: isActive,
+                        style: { stroke: isActive ? '#f43f5e' : '#8b5cf6', strokeWidth: isActive ? 2 : 1.5, opacity: isActive ? 0.8 : 0.2 }
                     });
                 });
 
@@ -3079,32 +3078,7 @@ function ViewRadar({ data, toast }) {
             });
         });
 
-        // Otros Internos
-        const orphanAgents = agents.filter(a => !processedAgents.has(a.ext));
-        if (orphanAgents.length > 0) {
-            const circleSize = Math.max(400, 200 + (Math.sqrt(orphanAgents.length) * 150));
-            const groupId = 'parent-orphans';
-            newNodes.push({
-                id: groupId,
-                type: 'group',
-                data: { ...nodeDataGlobals, label: 'OTROS INTERNOS' },
-                position: getPos(groupId, { x: 600, y: currentY }),
-                style: { width: circleSize, height: circleSize, backgroundColor: 'rgba(156,163,175,0.01)', border: '2px dashed rgba(156,163,175,0.2)', borderRadius: '50%' }
-            });
-
-            orphanAgents.forEach((a, aIdx) => {
-                const angle = (aIdx / orphanAgents.length) * 2 * Math.PI;
-                const radius = (circleSize / 2) - 60;
-                newNodes.push({
-                    id: `a-${a.ext}`,
-                    type: 'agent',
-                    parentNode: groupId,
-                    data: { ...nodeDataGlobals, agent: a, activeCall: activeCalls.find(c => c.ext === String(a.ext)) },
-                    position: getPos(`a-${a.ext}`, { x: (circleSize/2) + radius*Math.cos(angle) - 40, y: (circleSize/2) + radius*Math.sin(angle) - 40 }),
-                    extent: 'parent'
-                });
-            });
-        }
+        // Eliminado: Sección de Otros Internos por solicitud del usuario
 
         setNodes(newNodes);
         setEdges(newEdges);
