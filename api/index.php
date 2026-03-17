@@ -387,6 +387,7 @@ if ($action === 'get_full_data') {
             $rg['members'] = explode('-', $rg['members']);
         }
         $ivrs = $db2->query("SELECT id, name FROM ivr_details")->fetchAll(PDO::FETCH_ASSOC);
+        $trunks = $db2->query("SELECT trunkid as id, name FROM trunks WHERE disabled='off'")->fetchAll(PDO::FETCH_ASSOC);
     } catch(Exception $e) {}
 
     echo json_encode([
@@ -397,7 +398,8 @@ if ($action === 'get_full_data') {
             'live_calls' => $live_calls,
             'queues' => $queues,
             'ringgroups' => $ringgroups,
-            'ivrs' => $ivrs
+            'ivrs' => $ivrs,
+            'trunks' => $trunks
         ],
     ]);
     exit;

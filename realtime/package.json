@@ -1,0 +1,14 @@
+{
+  "name": "teleflow-realtime-hub",
+  "version": "1.0.0",
+  "description": "Real-time AMI hub for Teleflow Radar",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "asterisk-manager": "^0.2.0",
+    "socket.io": "^4.7.2",
+    "dotenv": "^16.3.1"
+  }
+}
