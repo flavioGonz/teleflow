@@ -1,5 +1,6 @@
 const io = require('socket.io')(3001, {
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    path: '/teleflow-socket'
 });
 const AsteriskManager = require('asterisk-manager');
 require('dotenv').config();

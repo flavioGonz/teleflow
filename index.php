@@ -2973,7 +2973,12 @@ function ViewRadar({ data, toast }) {
 
     // 🔌 SOCKET.IO CONNECTION
     useEffect(() => {
-        const socket = io('http://' + window.location.hostname + ':3001', { transports: ['websocket'] });
+        // Connect via standard port (443/80) using a path that Nginx can proxy
+        const socket = io('/', { 
+            path: '/teleflow-socket', 
+            transports: ['websocket'],
+            upgrade: true
+        });
         socketRef.current = socket;
 
         socket.on('connect', () => { setOffline(false); toast('Conectado al Hub Realtime', 'success'); });
@@ -3058,10 +3063,10 @@ function ViewRadar({ data, toast }) {
                 const members = p.members || [];
                 const isMember = members.some(m => {
                     const mStr = String(typeof m === 'object' ? m.ext : m);
-                    // Match digits only to handle "PJSIP/1001" or "1001" correctly
+                    // Match ONLY digits to avoid "PJSIP/1001" vs "1001" issues
                     const cleanM = mStr.replace(/\D/g, '');
                     const cleanA = String(a.ext).replace(/\D/g, '');
-                    return cleanM === cleanA && cleanA !== '';
+                    return cleanM === cleanA && cleanA !== '' && cleanM.length >= 3;
                 });
                 
                 if (isMember || (activeCall && (activeCall.dest === p.id || activeCall.from === p.id))) {

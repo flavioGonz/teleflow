@@ -384,7 +384,8 @@ if ($action === 'get_full_data') {
         }
         $ringgroups = $db2->query("SELECT grpnum as id, description as name, grplist as members FROM ringgroups")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($ringgroups as &$rg) {
-            $rg['members'] = explode('-', $rg['members']);
+            // Split by hyphen, newline, or comma
+            $rg['members'] = preg_split('/[-,\n\r]+/', $rg['members'], -1, PREG_SPLIT_NO_EMPTY);
         }
         $ivrs = $db2->query("SELECT id, name FROM ivr_details")->fetchAll(PDO::FETCH_ASSOC);
         $trunks = $db2->query("SELECT trunkid as id, name FROM trunks WHERE disabled='off'")->fetchAll(PDO::FETCH_ASSOC);
