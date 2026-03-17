@@ -60,7 +60,7 @@
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://unpkg.com/zustand@4.4.1/umd/zustand.umd.js"></script>
+    <script src="https://unpkg.com/zustand@4.4.1/dist/umd/zustand.umd.js"></script>
     <style>
         :root {
             --bg: #07070d;
@@ -3024,6 +3024,7 @@ function ViewRadar({ data, toast }) {
             localStorage.setItem('tf_radar_pos_v2', JSON.stringify(pos));
             return n;
         });
+    }, [rf]);
     const onEdgesChange = useCallback((changes) => {
         setEdges((eds) => rf.applyEdgeChanges(changes, eds));
     }, [rf]);
