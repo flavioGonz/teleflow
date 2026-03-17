@@ -377,8 +377,8 @@
             const [showInCallKeypad, setShowInCallKeypad] = useState(false);
             const [isNear, setIsNear] = useState(false);
             const [updateStatus, setUpdateStatus] = useState('idle'); // 'idle', 'checking', 'up-to-date', 'available'
-            const appVersion = "1.3.8"; 
-            const appVersionNumeric = 138;
+            const appVersion = "1.4.0"; 
+            const appVersionNumeric = 140;
 
             // Audio/Video Refs
             const audioContextRef = useRef(null);
