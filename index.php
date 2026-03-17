@@ -2895,9 +2895,9 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
     
     const [edgePath, labelX, labelY] = getPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-    const isIvr = id.startsWith('e-node-') || id.startsWith('ivr-') || id.startsWith('man-');
-    const defaultColor = isIvr ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)';
-    const activeColor = isIvr ? '#22c55e' : '#f43f5e'; 
+    const isProcessing = id.includes('-p-'); // Trunk to Processing or Processing to Agent
+    const defaultColor = isProcessing ? 'rgba(79,70,229,0.2)' : 'rgba(255,255,255,0.15)';
+    const activeColor = isProcessing ? '#3b82f6' : '#22c55e'; 
 
     return (
         <>
@@ -3031,10 +3031,14 @@ function ViewRadar({ data, toast }) {
             // Auto-connect from trunks to processing for aesthetic
             trunks.forEach(t => {
                 newEdges.push({
-                    id: `e-t-${t.id}-p-${p.id}`, source: `trunk-${t.id}`, target: id,
+                    id: `e-t-${t.id}-p-${p.type}-${p.id}`, 
+                    source: `trunk-${t.id}`, 
+                    target: id,
+                    sourceHandle: 'r',
+                    targetHandle: 'l',
                     type: 'animatedData',
                     animated: realtimeCalls.some(c => c.dest === p.id),
-                    style: { stroke: 'rgba(59,130,246,0.2)', strokeWidth: 1 }
+                    style: { stroke: 'rgba(59,130,246,0.3)', strokeWidth: 1.5 }
                 });
             });
         });
@@ -3059,12 +3063,16 @@ function ViewRadar({ data, toast }) {
                 
                 if (isMember || (activeCall && (activeCall.dest === p.id || activeCall.from === p.id))) {
                     newEdges.push({
-                        id: `sys-p-${p.type}-${p.id}-a-${a.ext}`, source: `proc-${p.type}-${p.id}`, target: id,
+                        id: `sys-p-${p.type}-${p.id}-a-${a.ext}`, 
+                        source: `proc-${p.type}-${p.id}`, 
+                        target: id,
+                        sourceHandle: 'r',
+                        targetHandle: 'l',
                         type: 'animatedData',
                         animated: !!activeCall && (activeCall.from === a.ext || activeCall.dest === a.ext),
                         data: { duration: activeCall?.duration },
                         style: { 
-                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.02)'), 
+                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'), 
                             strokeWidth: activeCall ? 2 : 1 
                         }
                     });
