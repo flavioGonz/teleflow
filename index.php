@@ -2796,12 +2796,37 @@ const RadarQueueNode = ({ data }) => {
                 <span className={`text-2xl font-black ${hasCalls ? 'text-orange-500' : 'text-white'}`}>{data.calls_waiting || 0}</span>
                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">En Espera</span>
             </div>
+            <div className="absolute -bottom-2 text-[10px] font-bold text-indigo-400 bg-black/50 px-2 rounded-full">#{data.id}</div>
             
             {H && (
                 <>
                     <H type="target" position={P?.Left} id="l" style={{ background: '#6366f1' }} />
                     <H type="source" position={P?.Right} id="r" style={{ background: '#6366f1' }} />
                     <H type="source" position={P?.Bottom} id="b" style={{ background: '#6366f1' }} />
+                </>
+            )}
+        </div>
+    );
+};
+
+const RadarGroupNode = ({ data }) => {
+    const H = data.Handle;
+    const P = data.Position;
+    return (
+        <div className="radar-node-glass border-teal-500/50" style={{ 
+            width: 140, height: 140, borderRadius: '2rem', background: 'rgba(20,184,166,0.05)', 
+            border: '2px solid rgba(20,184,166,0.4)', display: 'flex', flexDirection: 'column', 
+            alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)'
+        }}>
+            <div className="absolute -top-3 px-3 py-1 bg-teal-600 rounded-full text-[9px] font-black text-white tracking-widest uppercase">Ring Group</div>
+            <span className="material-icons-round text-4xl text-teal-400 mb-2">groups</span>
+            <div className="text-sm font-bold text-white uppercase text-center px-2 leading-none">{data.name || 'GRUPO'}</div>
+            <div className="text-[10px] text-teal-300 opacity-60 mt-1">NÚMERO: {data.id}</div>
+            
+            {H && (
+                <>
+                    <H type="target" position={P?.Left} id="l" style={{ background: '#14b8a6' }} />
+                    <H type="source" position={P?.Right} id="r" style={{ background: '#14b8a6' }} />
                 </>
             )}
         </div>
@@ -2914,6 +2939,7 @@ const radarNodeTypes = {
     trunk: RadarTrunkNode,
     ivr: RadarIVRNode,
     queue: RadarQueueNode,
+    group: RadarGroupNode,
     agent: RadarAgentNode
 };
 const radarEdgeTypes = {
@@ -2973,7 +2999,9 @@ function ViewRadar({ data, toast }) {
         const trunks = data?.pbx?.trunks || [];
         const ivrs = data?.pbx?.ivrs || [];
         const queues = data?.pbx?.queues || [];
-        const agents = data?.pbx?.extensions?.filter(a => a.status !== 'OFFLINE') || [];
+        const ringgroups = data?.pbx?.ringgroups || [];
+        // Show ALL extensions as requested, even offline ones, to reflect "possible numbers"
+        const agents = data?.pbx?.extensions || [];
         const realtimeCalls = Object.values(calls);
 
         // -- ZONE 1: INBOUND (TRUNKS) --
@@ -2986,8 +3014,12 @@ function ViewRadar({ data, toast }) {
             });
         });
 
-        // -- ZONE 2: PROCESSING (IVR / QUEUES) --
-        const procNodes = [...ivrs.map(v => ({...v, type:'ivr'})), ...queues.map(q => ({...q, type:'queue'}))];
+        // -- ZONE 2: PROCESSING (IVR / QUEUES / GROUPS) --
+        const procNodes = [
+            ...ivrs.map(v => ({...v, type:'ivr'})), 
+            ...queues.map(q => ({...q, type:'queue'})),
+            ...ringgroups.map(g => ({...g, type:'group'}))
+        ];
         procNodes.forEach((p, i) => {
             const id = `proc-${p.type}-${p.id}`;
             newNodes.push({
@@ -3019,14 +3051,22 @@ function ViewRadar({ data, toast }) {
 
             // Connect from IVR/Queue if the agent is member or has call
             procNodes.forEach(p => {
-                const isMember = (p.members || []).some(m => (typeof m === 'string' ? m === a.ext : m.ext === a.ext));
+                const members = p.members || [];
+                const isMember = members.some(m => {
+                    const memberExt = typeof m === 'object' ? m.ext : String(m);
+                    return memberExt === String(a.ext);
+                });
+                
                 if (isMember || (activeCall && (activeCall.dest === p.id || activeCall.from === p.id))) {
                     newEdges.push({
-                        id: `sys-p-${p.id}-a-${a.ext}`, source: `proc-${p.type}-${p.id}`, target: id,
+                        id: `sys-p-${p.type}-${p.id}-a-${a.ext}`, source: `proc-${p.type}-${p.id}`, target: id,
                         type: 'animatedData',
-                        animated: !!activeCall,
+                        animated: !!activeCall && (activeCall.from === a.ext || activeCall.dest === a.ext),
                         data: { duration: activeCall?.duration },
-                        style: { stroke: activeCall ? '#22c55e' : 'rgba(139,92,246,0.1)', strokeWidth: activeCall ? 2 : 1 }
+                        style: { 
+                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.02)'), 
+                            strokeWidth: activeCall ? 2 : 1 
+                        }
                     });
                 }
             });
