@@ -60,7 +60,7 @@
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://unpkg.com/zustand@4.4.1/dist/umd/zustand.umd.js"></script>
+    <script src="https://unpkg.com/zustand@4.4.1/umd/index.production.js"></script>
     <style>
         :root {
             --bg: #07070d;
@@ -467,7 +467,7 @@ const initials = (n='') => n.split(' ').map(x=>x[0]).join('').substring(0,2).toU
 // ─────────────────────────────────────────────
 // STORE: TRÁFICO REALTIME (ZUSTAND)
 // ─────────────────────────────────────────────
-const { create } = window.zustand;
+const create = window.zustand?.create || window.zustand;
 const useRadarStore = create((set) => ({
     calls: {},
     isOffline: true,
