@@ -66,6 +66,7 @@
             --text: #ffffff;
             --muted: #9ca3af;
             --border: rgba(255,255,255,0.08);
+            --p-glow: rgba(139, 92, 246, 0.4);
         }
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -306,12 +307,12 @@
             height: 40px;
         }
         .wave-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             background: var(--primary);
             border-radius: 50%;
-            transition: transform 0.05s ease, opacity 0.1s ease;
-            box-shadow: 0 0 10px var(--primary);
+            transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.1s ease;
+            box-shadow: 0 0 15px var(--p-glow);
         }
         .call-timer-big {
             font-size: 64px;
@@ -1656,22 +1657,6 @@
                                     </div>
                                 )}
 
-                                {/* In-Call Keypad Overlay */}
-                                {showInCallKeypad && (
-                                    <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[300] flex flex-col pt-20 animate-fadeIn overflow-y-auto">
-                                        <div className="flex justify-end p-6">
-                                            <button onClick={() => setShowInCallKeypad(false)} className="text-white opacity-50"><span className="material-symbols-outlined">close</span></button>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-6 px-12 max-w-md mx-auto">
-                                            {['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => (
-                                                <button key={d} className="dial-btn border border-white/10" onClick={() => playDTMF(d)}>
-                                                    <span className="text-2xl font-semibold">{d}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <button onClick={() => setShowInCallKeypad(false)} className="mt-auto mb-20 self-center px-10 py-3 bg-white/10 rounded-full text-white font-bold">Ocultar</button>
-                                    </div>
-                                )}
 
                                 {/* Additional Actions */}
                                 <div className="flex justify-center mb-6 gap-10">
@@ -1720,6 +1705,30 @@
                                     </button>
                                 </div>
                             </div>
+                            {/* Keypad */}
+                            {showInCallKeypad && (
+                                <div className="fixed inset-0 bg-slate-950/98 backdrop-blur-3xl z-[500] flex flex-col pt-20 animate-fadeIn transition-all">
+                                    <div className="flex flex-col items-center mb-10">
+                                        <div className="size-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4 border border-white/10">
+                                            <span className="material-symbols-outlined text-primary text-3xl">dialpad</span>
+                                        </div>
+                                        <h2 className="text-white text-xl font-bold tracking-widest uppercase opacity-80">Tonos DTMF</h2>
+                                        <p className="text-slate-500 text-[10px] font-bold mt-1 tracking-tighter">PARA MARCACIÓN INTERNA</p>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-y-8 gap-x-10 px-12 max-w-sm mx-auto">
+                                        {['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => (
+                                            <button key={d} className="dial-btn border border-white/10 size-16 bg-white/5 active:bg-primary transition-colors flex items-center justify-center rounded-full" onClick={() => { playDTMF(d); haptic('light'); }}>
+                                                <span className="text-3xl font-bold">{d}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="mt-auto mb-24 flex justify-center w-full px-10">
+                                        <button onClick={() => setShowInCallKeypad(false)} className="w-full max-w-xs py-4 glass-panel border border-white/10 rounded-full text-white font-bold uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">
+                                            Cerrar Teclado
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
