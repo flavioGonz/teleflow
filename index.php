@@ -2947,7 +2947,7 @@ function ViewRadar({ data, toast }) {
 
     // 🔌 SOCKET.IO CONNECTION
     useEffect(() => {
-        const socket = io('http://' + window.location.hostname + ':3001');
+        const socket = io('http://' + window.location.hostname + ':3001', { transports: ['websocket'] });
         socketRef.current = socket;
 
         socket.on('connect', () => { setOffline(false); toast('Conectado al Hub Realtime', 'success'); });
