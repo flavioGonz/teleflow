@@ -1314,7 +1314,7 @@
                         )}
 
                         {activeTab==='dashboard' && (
-                          <div className="page-enter flex flex-col px-5 pb-40">
+                          <div className="page-enter flex flex-col px-5 pb-24">
                             <section className="flex flex-col items-center gap-4 text-center mt-6">
                                 <div className="relative">
                                     <div className="w-32 h-32 rounded-full border-2 border-primary/30 p-1">
@@ -1382,8 +1382,8 @@
 
                         {/* ──────────────── TAB: DIALPAD ──────────────── */}
                         {activeTab==='dialpad' && (
-                          <div className="page-enter flex flex-col pb-40">
-                            <div className="flex-1 flex flex-col justify-center pb-5">
+                          <div className="page-enter flex flex-col pb-24">
+                            <div className="flex-1 flex flex-col justify-end pb-8">
                                 {/* Display Number */}
                                 <div className="text-center px-5 min-h-[120px] flex items-center justify-center">
                                     <input type="tel" 
@@ -1403,7 +1403,7 @@
                             </div>
                             
                             {/* Action Tools (Call & Backspace) */}
-                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 50px 30px'}}>
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0 50px 10px'}}>
                                 <div style={{width:60}}></div> {/* Spacer to center call btn */}
                                 
                                 <div style={{display:'flex', gap:'15px'}}>
