@@ -1119,7 +1119,7 @@ if ($action === 'apply_ivr_flow') {
         $audio = $menu['data']['audio'] ?? '';
         $audioClean = preg_replace('/\.(wav|WAV|gsm|sln|mp3)$/i', '', $audio);
         // Use absolute path to bypass language prefixes
-        $audioStr = $audioClean ? "/var/lib/asterisk/sounds/custom/$audioClean" : "dir-intro";
+        $audioStr = $audioClean ? "custom/$audioClean" : "dir-intro";
         
         $conf .= "[ivr-node-{$menu['id']}]\n";
         $conf .= "exten => s,1,NoOp(IVR Menu {$menu['data']['label']})\n";

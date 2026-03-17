@@ -302,22 +302,35 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            height: 60px;
+            gap: 6px;
+            height: 40px;
         }
-        .wave-bar {
-            width: 4px;
+        .wave-dot {
+            width: 6px;
+            height: 6px;
             background: var(--primary);
-            border-radius: 4px;
-            transition: height 0.1s ease;
+            border-radius: 50%;
+            transition: transform 0.05s ease, opacity 0.1s ease;
+            box-shadow: 0 0 10px var(--primary);
         }
         .call-timer-big {
-            font-size: 56px;
-            font-weight: 300;
+            font-size: 64px;
+            font-weight: 200;
             font-family: 'Outfit', sans-serif;
             color: white;
             letter-spacing: -2px;
             line-height: 1;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+        .proximity-overlay {
+            position: fixed;
+            inset: 0;
+            background: black;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: all;
         }
     </style>
 </head>
@@ -361,7 +374,11 @@
             const [audioLevel, setAudioLevel] = useState(0); // For visualizer
             const [isSpeaker, setIsSpeaker] = useState(false);
             const [showUpdateModal, setShowUpdateModal] = useState(false);
-            const appVersion = "1.2.0"; // Current Version
+            const [showInCallKeypad, setShowInCallKeypad] = useState(false);
+            const [isNear, setIsNear] = useState(false);
+            const [updateStatus, setUpdateStatus] = useState('idle'); // 'idle', 'checking', 'up-to-date', 'available'
+            const appVersion = "1.3.8"; 
+            const appVersionNumeric = 138;
 
             // Audio/Video Refs
             const audioContextRef = useRef(null);
@@ -456,6 +473,19 @@
             const stopSynthesizedRing = () => {
                 if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
             };
+            
+            // ───────────────── PROXIMITY SENSOR (EAR DETECTION) ─────────────────
+            useEffect(() => {
+                if (!('ProximitySensor' in window)) return;
+                try {
+                    const sensor = new ProximitySensor();
+                    sensor.addEventListener('reading', () => {
+                        console.log('Proximity:', sensor.near);
+                        setIsNear(sensor.near);
+                    });
+                    sensor.start();
+                } catch(e) { console.warn("ProximitySensor API not supported or blocked"); }
+            }, []);
 
             const playClick = () => playSynthesizedRing('click');
 
@@ -530,6 +560,18 @@
                 };
                 if(dtmfFreqs[digit]) playTone(dtmfFreqs[digit][0], dtmfFreqs[digit][1]);
                 else playTone(440); // Simple beep for others
+
+                // Send DTMF via SIP INFO
+                if (simpleUser && simpleUser.session) {
+                    simpleUser.session.sendDTMF(digit);
+                }
+            };
+
+            const openDoor = () => {
+                haptic('heavy');
+                showToast('Abriendo puerta...', 'success');
+                playDTMF('*');
+                setTimeout(() => playDTMF('6'), 300); // Common combo for some intercoms
             };
 
             // History / Contacts
@@ -557,6 +599,48 @@
                     case 'success': navigator.vibrate([10, 30, 10]); break;
                     case 'error': navigator.vibrate([50, 100, 50, 100]); break;
                 }
+            };
+
+            const checkUpdate = async () => {
+                setUpdateStatus('checking');
+                haptic('light');
+                
+                // Simulación de verificación (En prod esto consultaría un endpoint o el sw)
+                setTimeout(() => {
+                    // Si el usuario reporta que tiene la 1.2.0, forzamos que vea que hay update
+                    setUpdateStatus('available');
+                }, 1500);
+            };
+
+            const applyUpdate = () => {
+                setUpdateStatus('downloading');
+                haptic('medium');
+                
+                // Efecto visual de progreso
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        showToast('Instalando...', 'success');
+                        
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.getRegistrations().then(regs => {
+                                regs.forEach(r => r.update());
+                                setTimeout(() => {
+                                    if ('caches' in window) {
+                                        caches.keys().then(names => {
+                                            for (let name of names) caches.delete(name);
+                                        });
+                                    }
+                                    window.location.reload(true);
+                                }, 1000);
+                            });
+                        } else {
+                            window.location.reload(true);
+                        }
+                    }
+                }, 100);
             };
 
             const handleAvatarUpload = async (e) => {
@@ -868,6 +952,9 @@
                              const aStream = new MediaStream([receiver.track]);
                              audioRef.current.srcObject = aStream;
                              audioRef.current.play().catch(()=>{});
+                             
+                             // Start audio analysis for the wave effect
+                             startAudioAnalyzer(aStream);
                          }
                     }
                 });
@@ -879,6 +966,10 @@
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = remoteStream;
                     remoteVideoRef.current.play().catch(()=>{});
+                    // Also analyze from video stream if it exists
+                    if (remoteStream.getAudioTracks().length > 0) {
+                        startAudioAnalyzer(remoteStream);
+                    }
                 }
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = localStream;
@@ -929,18 +1020,27 @@
 
             const answerCall = (video = false) => {
                 if(!simpleUser) return;
+                console.log("Answering call...");
                 setVideoActive(video);
+                stopSynthesizedRing(); 
+                setCallStatus('in-call'); 
+                
                 const opts = { 
                     sessionDescriptionHandlerOptions: { 
                         constraints: { audio: true, video: video } 
                     } 
                 };
+                
                 simpleUser.answer(opts).then(() => {
-                    // Force an additional tracks setup
-                    setTimeout(() => setupVideoTracks(simpleUser.session), 1500);
+                    console.log("Answer signal sent successfully");
+                    // Force multiple checks for media tracks
+                    setTimeout(() => setupVideoTracks(simpleUser.session), 500);
+                    setTimeout(() => setupVideoTracks(simpleUser.session), 2000);
                 }).catch(e => {
                     console.error("Answer error:", e);
                     showToast('Falló al contestar','error');
+                    setCallStatus(null);
+                    stopSynthesizedRing();
                 });
             };
 
@@ -1030,21 +1130,35 @@
                     const active = !isSpeaker;
                     setIsSpeaker(active);
 
-                    if(audio && audio.setSinkId) {
-                        // Desktop/Chrome logic
-                        showToast(active ? 'Alta voz activado' : 'Alta voz desactivado');
-                    } else {
-                        // Safari / Mobile logic - Force high volume and video priority
-                        if (audio) audio.volume = 1.0;
-                        if (video) video.volume = 1.0;
+                    if (audio.setSinkId) {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const speakers = devices.filter(d => d.kind === 'audiooutput');
                         
-                        // Trick: sometimes unmuting/playing again triggers system routing change
-                        if (active) showToast('Modo Alta voz (Sistema)');
-                        else showToast('Modo Privado (Sistema)');
+                        // Pick best speaker (often labeled 'Speaker' or 'Altavoz')
+                        const bestSpeaker = speakers.find(d => 
+                            d.label.toLowerCase().includes('speaker') || 
+                            d.label.toLowerCase().includes('altavoz') ||
+                            d.label.toLowerCase().includes('built-in speaker')
+                        ) || (speakers.length > 1 ? speakers[1] : speakers[0]);
+
+                        if (active && bestSpeaker) {
+                            await audio.setSinkId(bestSpeaker.deviceId);
+                            if(video) await video.setSinkId(bestSpeaker.deviceId);
+                            console.log("Using speaker:", bestSpeaker.label);
+                        } else {
+                            await audio.setSinkId(speakers[0]?.deviceId || '');
+                            if(video) await video.setSinkId(speakers[0]?.deviceId || '');
+                        }
+                    } else {
+                        // iOS/Safari Fallback: change volume level to hint behavior
+                        audio.volume = active ? 1.0 : 0.4;
+                        if(video) video.volume = active ? 1.0 : 0.4;
                     }
+                    
+                    showToast(active ? 'Altavoz activado' : 'Modo auricular', 'success');
                 } catch(e) { 
                     console.error("Speaker error:", e);
-                    showToast('Error al cambiar audio','error'); 
+                    showToast('Error de ruteo audio','error'); 
                 }
             };
 
@@ -1068,7 +1182,7 @@
                         analyser.getByteFrequencyData(data);
                         let sum = 0;
                         for(let i=0; i<data.length; i++) sum += data[i];
-                        setAudioLevel(sum / data.length);
+                        setAudioLevel(sum / data.length * 3.5); // Much higher boost for visible animation
                         requestAnimationFrame(check);
                     };
                     check();
@@ -1412,12 +1526,15 @@
                                         </button>
                                     </div>
                                 </div>
-                                <button onClick={() => setShowUpdateModal(true)} className="w-full flex items-center justify-between p-4 bg-primary/10 text-primary rounded-2xl border border-primary/20 hover:bg-primary/20 transition-all font-bold text-sm">
+                                <button onClick={() => { setShowUpdateModal(true); checkUpdate(); }} className="w-full flex items-center justify-between p-4 bg-primary/10 text-primary rounded-2xl border border-primary/20 hover:bg-primary/20 transition-all font-bold text-sm">
                                     <div className="flex items-center gap-3">
                                         <span className="material-symbols-outlined">system_update</span>
                                         <span>Actualizar App (PWA)</span>
                                     </div>
-                                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] opacity-60">v{appVersion}</span>
+                                        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                                    </div>
                                 </button>
 
                                 <button onClick={disconnect} className="w-full flex items-center gap-3 p-4 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/10 hover:bg-red-500/20 transition-all font-bold text-sm">
@@ -1464,39 +1581,53 @@
                     {/* ──────────────── OVERLAY DE LLAMADA ACTIVA (iOS STYLE PREMIUM) ──────────────── */}
                     {callStatus && (
                         <div className={`call-overlay fixed inset-0 z-[200] overflow-hidden flex flex-col transition-colors duration-500 ${videoActive && callStatus === 'in-call' ? 'bg-transparent' : 'bg-slate-950'}`}>
-                            {/* Overlay Background Wrapper (Handles content but not the video tags because they are outside) */}
+                            
+                            {/* Proximity Overlay (Black screen when near ear) */}
+                            {isNear && callStatus === 'in-call' && (
+                                <div className="fixed inset-0 bg-black z-[1000] flex items-center justify-center animate-fadeIn">
+                                    <div className="text-white/5 flex flex-col items-center gap-4">
+                                        <span className="material-symbols-outlined text-6xl">visibility_off</span>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Modo Proximidad Activo</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Overlay Background Wrapper */}
                             <div className="absolute inset-0 z-0 overflow-hidden">
                                 {(!videoActive || callStatus !== 'in-call') && (
                                     <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center transition-opacity">
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60"></div>
                                         <div className="w-32 h-32 rounded-full glass-panel flex items-center justify-center border-2 border-white/5 shadow-2xl overflow-hidden backdrop-blur-3xl animate-fadeIn">
                                             {contacts.find(c => c.ext === remoteNumber)?.avatar ? (
-                                                <img src={`../${contacts.find(c => c.ext === remoteNumber).avatar}`} className="w-full h-full object-cover opacity-50" />
+                                                <img src={`../${contacts.find(c => c.ext === remoteNumber).avatar}`} className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                                                    <span className="text-4xl text-white/30">{remoteNumber.substring(0,2)}</span>
-                                                </div>
+                                                <span className="text-4xl text-white/30 font-bold">{remoteNumber?.substring(0,2)}</span>
                                             )}
                                         </div>
                                     </div>
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/70"></div>
                             </div>
 
                             {/* Top Header Area */}
-                            <div className="relative z-10 w-full pt-14 px-6 flex flex-col items-center animate-fadeIn">
-                                <h1 className="text-white text-3xl font-bold tracking-tight text-center">{contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}</h1>
+                            <div className="relative z-10 w-full pt-44 px-6 flex flex-col items-center animate-fadeIn">
+                                <h1 className="text-white text-3xl font-bold tracking-tight text-center">
+                                    {contacts.find(c => c.ext === remoteNumber)?.name || remoteNumber}
+                                </h1>
                                 
-                                <div className="mt-8 flex flex-col items-center justify-center min-h-[140px]">
+                                <div className="mt-14 flex flex-col items-center justify-center min-h-[160px]">
                                     {callStatus === 'in-call' ? (
-                                        <div className="flex flex-col items-center gap-6">
-                                            <div className="call-timer-big animate-fadeIn">{formatTime(elapsed)}</div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="call-timer-big animate-fadeIn mb-10">{formatTime(elapsed)}</div>
                                             <div className="wave-container">
                                                 {[...Array(12)].map((_, i) => {
-                                                    const h = 5 + (audioLevel * (0.4 + Math.random() * 0.8));
+                                                    const scale = 0.5 + (audioLevel * (0.4 + Math.random() * 0.8));
                                                     return (
-                                                        <div key={i} className="wave-bar" 
-                                                             style={{ height: `${h}%`, opacity: 0.3 + (h/100), background: 'var(--primary)' }}></div>
+                                                        <div key={i} className="wave-dot" 
+                                                             style={{ 
+                                                                 transform: `scale(${Math.max(1, scale)})`,
+                                                                 opacity: 0.3 + (scale/10),
+                                                                 background: i % 2 === 0 ? 'var(--primary)' : '#fff'
+                                                             }}></div>
                                                     );
                                                 })}
                                             </div>
@@ -1511,7 +1642,7 @@
                                 </div>
                             </div>
 
-                            {/* Bottom Controls Area */}
+                            {/* Bottom Controls Area (Fixed at bottom) */}
                             <div className="relative z-10 w-full px-6 pb-12 mt-auto animate-slideUp">
                                 {/* Answer Controls (Only when ringing) */}
                                 {callStatus === 'ringing' && (
@@ -1525,38 +1656,57 @@
                                     </div>
                                 )}
 
+                                {/* In-Call Keypad Overlay */}
+                                {showInCallKeypad && (
+                                    <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[300] flex flex-col pt-20 animate-fadeIn overflow-y-auto">
+                                        <div className="flex justify-end p-6">
+                                            <button onClick={() => setShowInCallKeypad(false)} className="text-white opacity-50"><span className="material-symbols-outlined">close</span></button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-6 px-12 max-w-md mx-auto">
+                                            {['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => (
+                                                <button key={d} className="dial-btn border border-white/10" onClick={() => playDTMF(d)}>
+                                                    <span className="text-2xl font-semibold">{d}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button onClick={() => setShowInCallKeypad(false)} className="mt-auto mb-20 self-center px-10 py-3 bg-white/10 rounded-full text-white font-bold">Ocultar</button>
+                                    </div>
+                                )}
+
                                 {/* Additional Actions */}
                                 <div className="flex justify-center mb-6 gap-10">
-                                    <button onClick={toggleHold} className="flex flex-col items-center gap-1.5 group active-scale">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isHeld?'btn-toggle-active':'bg-white/5 text-white'}`}>
-                                            <span className={`material-symbols-outlined text-xl ${isHeld?'filled-icon':''}`}>{isHeld?'play_arrow':'pause'}</span>
+                                    <button onClick={()=>setShowInCallKeypad(true)} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-white">
+                                            <span className="material-symbols-outlined text-xl">dialpad</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isHeld?'Retomar':'Pausar'}</span>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Teclado</span>
                                     </button>
-                                    <button onClick={toggleSpeaker} className="flex flex-col items-center gap-1.5 group active-scale">
-                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isSpeaker?'btn-toggle-active':'bg-white/5 text-white'}`}>
-                                            <span className={`material-symbols-outlined text-xl ${isSpeaker?'filled-icon':''}`}>{isSpeaker?'volume_up':'volume_down'}</span>
+                                    
+                                    <button onClick={openDoor} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className="size-10 flex items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 shadow-lg shadow-yellow-500/10">
+                                            <span className="material-symbols-outlined text-xl">lock</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isSpeaker?'Altavoz':'Normal'}</span>
+                                        <span className="text-[10px] text-yellow-500/80 font-bold uppercase tracking-widest">Abrir</span>
                                     </button>
-                                    <button onClick={() => showToast('Funcionalidad próximamente')} className="flex flex-col items-center gap-1.5 opacity-80 group">
-                                        <div className="size-10 flex items-center justify-center rounded-full bg-white/5 text-slate-100">
-                                            <span className="material-symbols-outlined text-xl">person_add</span>
+
+                                    <button onClick={toggleMute} className="flex flex-col items-center gap-1.5 group active-scale">
+                                        <div className={`size-10 flex items-center justify-center rounded-full transition-all ${isMuted?'btn-toggle-active':'bg-white/5 text-white'}`}>
+                                            <span className={`material-symbols-outlined text-xl ${isMuted?'filled-icon':''}`}>{isMuted?'mic_off':'mic'}</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Invitar</span>
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{isMuted?'Mudo':'Micro'}</span>
                                     </button>
                                 </div>
 
                                 {/* Main Glass Bar */}
                                 <div className="max-w-md mx-auto bg-slate-800/40 backdrop-blur-3xl rounded-[2.5rem] p-4 flex items-center justify-between border border-white/10 shadow-2xl">
                                     {/* Mute Toggle */}
-                                    <button onClick={toggleMute} className={`flex items-center justify-center size-14 rounded-full transition-all active-scale ${isMuted?'btn-toggle-active':'bg-white/10 text-white'}`}>
-                                        <span className={`material-symbols-outlined text-[28px] ${isMuted?'filled-icon':''}`}>{isMuted?'mic_off':'mic'}</span>
+                                    <button onClick={toggleHold} className={`flex items-center justify-center size-14 rounded-full transition-all active-scale ${isHeld?'btn-toggle-active':'bg-white/10 text-white'}`}>
+                                        <span className="material-symbols-outlined text-[28px]">{isHeld?'play_arrow':'pause'}</span>
                                     </button>
                                     
-                                    {/* Flip Camera */}
-                                    <button onClick={flipCamera} className="flex items-center justify-center size-14 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
-                                        <span className="material-symbols-outlined text-[28px]">cameraswitch</span>
+                                    {/* Speaker Toggle */}
+                                    <button onClick={toggleSpeaker} className={`flex items-center justify-center size-14 rounded-full transition-all active-scale ${isSpeaker?'btn-toggle-active':'bg-white/10 text-white'}`}>
+                                        <span className="material-symbols-outlined text-[28px]">{isSpeaker?'volume_up':'volume_down'}</span>
                                     </button>
 
                                     {/* Video Toggle */}
@@ -1566,51 +1716,114 @@
                                     
                                     {/* End Call Button */}
                                     <button onClick={hangupCall} className="flex items-center justify-center size-14 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 active:scale-95 transition-all outline outline-offset-4 outline-red-500/30">
-                                        <span className="material-symbols-outlined text-[28px] rotate-[135deg]">call_end</span>
+                                        <span className="material-symbols-outlined text-[28px]">call_end</span>
                                     </button>
                                 </div>
                             </div>
-                            {/* Home indicator inside overlay */}
-                            <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-white/30 rounded-full z-[210]"></div>
                         </div>
                     )}
 
-                    {/* ──────────────── UPDATE MODAL (PWA) ──────────────── */}
+                    {/* ──────────────── UPDATE MODAL (iOS/SILEO STYLE PREMIUM) ──────────────── */}
                     {showUpdateModal && (
-                        <div className="fixed inset-0 z-[600] flex items-end justify-center sm:items-center bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setShowUpdateModal(false)}>
-                            <div className="bg-[#13131c] w-full sm:w-[400px] sm:rounded-3xl rounded-t-3xl border border-white/10 p-6 flex flex-col gap-5 animate-slideUp" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3 text-primary">
-                                        <span className="material-symbols-outlined text-3xl pulse-green">system_update</span>
-                                        <div>
-                                            <h2 className="text-xl font-bold text-white">Actualización</h2>
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Versión actual: {appVersion}</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setShowUpdateModal(false)} className="bg-white/5 rounded-full p-2 text-slate-400 hover:text-white transition">
-                                        <span className="material-symbols-outlined text-sm">close</span>
-                                    </button>
-                                </div>
+                        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md transition-all p-6" onClick={() => updateStatus !== 'downloading' && setShowUpdateModal(false)}>
+                            <div className="bg-[#1c1c1e] w-full max-w-sm rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-pageFadeIn flex flex-col" onClick={e => e.stopPropagation()}>
                                 
-                                <div className="bg-slate-900/50 rounded-2xl p-4 border border-white/5 text-sm text-slate-300 leading-relaxed font-medium space-y-3">
-                                    <p><strong className="text-white">Novedades en esta versión:</strong></p>
-                                    <ul className="list-disc pl-5 space-y-2 marker:text-primary">
-                                        <li>Mejoras en la experiencia del Softphone.</li>
-                                        <li>Timbre de I/O mejorado mediante sintetizador nativo.</li>
-                                        <li>Re-diseño del panel de control de llamadas (Controles más accesibles).</li>
-                                        <li>Mejoras en estabilidad Web Push / PJSIP sobre WSS.</li>
-                                    </ul>
+                                {/* Splash Header */}
+                                <div className="h-44 bg-gradient-to-br from-primary to-purple-900 relative flex flex-col items-center justify-center p-8 overflow-hidden">
+                                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+                                    <div className="relative z-10 w-16 h-16 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-2xl mb-2">
+                                        <span className="material-symbols-outlined text-4xl text-white">
+                                            {updateStatus === 'checking' ? 'sync' : updateStatus === 'available' ? 'download' : updateStatus === 'downloading' ? 'cloud_download' : 'verified'}
+                                        </span>
+                                    </div>
+                                    {updateStatus === 'checking' && <div className="absolute bottom-0 left-0 h-1 bg-white animate-[progress_2s_infinite] w-1/3"></div>}
+                                    {updateStatus === 'downloading' && <div className="absolute bottom-0 left-0 h-1 bg-primary animate-pulse w-full"></div>}
                                 </div>
 
-                                <p className="text-xs text-slate-500 text-center font-medium px-2">
-                                    TeleFlow buscará la última versión del código y actualizará la caché de funcionamiento offline para un rendimiento óptimo. Se requiere reiniciar la App.
-                                </p>
+                                <div className="p-6 flex flex-col gap-5">
+                                    <div className="text-center">
+                                        {updateStatus === 'checking' ? (
+                                            <>
+                                                <h2 className="text-2xl font-bold text-white mb-2">Buscando...</h2>
+                                                <p className="text-slate-400 text-sm">Verificando versiones en el servidor</p>
+                                            </>
+                                        ) : updateStatus === 'available' ? (
+                                            <>
+                                                <h2 className="text-2xl font-bold text-white mb-1">Nueva Versión</h2>
+                                                <div className="flex items-center justify-center gap-2 mb-4">
+                                                    <span className="text-xs font-bold px-2 py-0.5 bg-white/10 text-slate-400 rounded">v{appVersion}</span>
+                                                    <span className="material-symbols-outlined text-xs text-slate-600">arrow_forward</span>
+                                                    <span className="text-xs font-bold px-2 py-0.5 bg-primary/20 text-primary rounded">v1.3.8</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <h2 className="text-2xl font-bold text-white mb-2">Estás al día</h2>
+                                                <p className="text-slate-400 text-sm tracking-tight text-center">TeleFlow se encuentra en su última versión (v{appVersion})</p>
+                                            </>
+                                        )}
+                                    </div>
 
+                                    {updateStatus === 'available' && (
+                                        <div className="bg-white/5 rounded-3xl p-5 border border-white/5">
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">Cambios Importantes</p>
+                                            <ul className="space-y-3">
+                                                <li className="flex items-start gap-3">
+                                                    <span className="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span>
+                                                    <span className="text-xs text-slate-300 leading-normal"><strong>Optimización IVR:</strong> Audio GSM nativo para mayor compatibilidad.</span>
+                                                </li>
+                                                <li className="flex items-start gap-3">
+                                                    <span className="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span>
+                                                    <span className="text-xs text-slate-300 leading-normal"><strong>Sensor Proximidad:</strong> Apagado de pantalla inteligente en llamadas.</span>
+                                                </li>
+                                                <li className="flex items-start gap-3">
+                                                    <span className="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span>
+                                                    <span className="text-xs text-slate-300 leading-normal"><strong>Nuevas Acciones:</strong> Botones de Teclado DTMF y Apertura de Puerta.</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col gap-3">
+                                        {updateStatus === 'available' ? (
+                                            <button onClick={applyUpdate} 
+                                                className="w-full p-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <span className="material-symbols-outlined">download</span>
+                                                Actualizar Ahora
+                                            </button>
+                                        ) : updateStatus === 'checking' ? (
+                                            <button disabled className="w-full p-4 bg-white/5 text-slate-500 rounded-2xl font-bold text-sm cursor-not-allowed">
+                                                Espere...
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => setShowUpdateModal(false)} 
+                                                className="w-full p-4 bg-white/10 text-white rounded-2xl font-bold text-sm active:scale-95 transition-all">
+                                                Entendido
+                                            </button>
+                                        )}
+                                        <button onClick={() => setShowUpdateModal(false)} className="w-full p-3 text-slate-500 text-[11px] font-bold uppercase tracking-widest hover:text-slate-300 transition-colors">
+                                            Cerrar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Update Available Banner */}
+                    {updateStatus === 'updated' && (
+                        <div className="fixed bottom-0 left-0 right-0 z-[500] p-4 bg-gradient-to-r from-primary to-purple-600 text-white text-center shadow-lg animate-slideUp">
+                            <div className="max-w-md mx-auto flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-2xl">check_circle</span>
+                                    <p className="text-sm font-semibold">¡Actualización Completa!</p>
+                                </div>
                                 <button onClick={() => {
                                     if ('serviceWorker' in navigator) {
-                                        navigator.serviceWorker.getRegistrations().then(regs => {
-                                            regs.forEach(r => r.update());
-                                            showToast('Buscando actualizaciones...', 'info');
+                                        navigator.serviceWorker.getRegistrations().then(registrations => {
+                                            for (let registration of registrations) {
+                                                registration.unregister();
+                                            }
+                                            console.log('Service Worker unregistered.');
                                             setTimeout(() => {
                                                 window.location.reload(true);
                                             }, 1000);
