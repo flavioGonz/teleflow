@@ -2910,7 +2910,7 @@ const AnimatedDataEdge = ({ id, data, sourceX, sourceY, targetX, targetY, source
                     <circle r="3" fill="#fff">
                         <animateMotion dur="1.2s" repeatCount="indefinite" path={edgePath} />
                     </circle>
-                    {!isIvr && (
+                    {!isProcessing && (
                         <foreignObject width={100} height={40} x={labelX - 50} y={labelY - 20} className="pointer-events-none">
                             <div style={{ 
                                 background: activeColor, color: 'white', 
@@ -3057,8 +3057,11 @@ function ViewRadar({ data, toast }) {
             procNodes.forEach(p => {
                 const members = p.members || [];
                 const isMember = members.some(m => {
-                    const memberExt = typeof m === 'object' ? m.ext : String(m);
-                    return memberExt === String(a.ext);
+                    const mStr = String(typeof m === 'object' ? m.ext : m);
+                    // Match digits only to handle "PJSIP/1001" or "1001" correctly
+                    const cleanM = mStr.replace(/\D/g, '');
+                    const cleanA = String(a.ext).replace(/\D/g, '');
+                    return cleanM === cleanA && cleanA !== '';
                 });
                 
                 if (isMember || (activeCall && (activeCall.dest === p.id || activeCall.from === p.id))) {
@@ -3072,8 +3075,8 @@ function ViewRadar({ data, toast }) {
                         animated: !!activeCall && (activeCall.from === a.ext || activeCall.dest === a.ext),
                         data: { duration: activeCall?.duration },
                         style: { 
-                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'), 
-                            strokeWidth: activeCall ? 2 : 1 
+                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'), 
+                            strokeWidth: activeCall ? 2 : 1.5 
                         }
                     });
                 }
