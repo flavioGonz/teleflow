@@ -60,7 +60,6 @@
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://unpkg.com/zustand@4.4.1/umd/index.production.js"></script>
     <style>
         :root {
             --bg: #07070d;
@@ -465,10 +464,31 @@ const getColor = (n) => avatarColors[(n?.charCodeAt(0) || 0) % avatarColors.leng
 const initials = (n='') => n.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();
 
 // ─────────────────────────────────────────────
-// STORE: TRÁFICO REALTIME (ZUSTAND)
 // ─────────────────────────────────────────────
-const create = window.zustand?.create || window.zustand;
-const useRadarStore = create((set) => ({
+// STORE HELPER (MINIMAL ZUSTAND REPLACEMENT)
+// ─────────────────────────────────────────────
+const createStore = (config) => {
+    let state;
+    const listeners = new Set();
+    const setState = (partial, replace) => {
+        const nextState = typeof partial === 'function' ? partial(state) : partial;
+        if (nextState !== state) {
+            state = replace ? nextState : { ...state, ...nextState };
+            listeners.forEach((l) => l(state));
+        }
+    };
+    const getState = () => state;
+    const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); };
+    const api = { setState, getState, subscribe };
+    state = config(setState, getState, api);
+    return (selector) => {
+        const [, forceUpdate] = React.useReducer((c) => c + 1, 0);
+        React.useEffect(() => subscribe(() => forceUpdate()), []);
+        return selector ? selector(state) : state;
+    };
+};
+
+const useRadarStore = createStore((set) => ({
     calls: {},
     isOffline: true,
     setOffline: (v) => set({ isOffline: v }),
