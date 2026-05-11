@@ -3407,6 +3407,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [showRtspModal, setShowRtspModal] = useState(false);
     const [showRecModal, setShowRecModal] = useState(false);
     const [lightboxShot, setLightboxShot] = useState(null);
+    // HORIZON v5: Info básica inicia disabled, se habilita con el lápiz
+    const [editing, setEditing] = useState(() => !ext); // si es nuevo, ya está editando
 
     // HORIZON: Tabs para ficha — Datos / Historial / Agentes
     const [activeTab, setActiveTab] = useState('datos');
@@ -3545,30 +3547,45 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 )}
             </div>
 
-            {/* ─── TABS — Datos / Historial / Agentes ─────────────────── */}
+            {/* ─── TABS + acciones a la derecha (Cancelar / Guardar) ─── */}
             {!isNew && (
-                <div className="flex items-center gap-1 border-b mb-5" style={{borderColor:'var(--border)'}}>
-                    {[
-                        { id:'datos',     icon:'tune',           label:'Datos' },
-                        { id:'historial', icon:'history',        label:'Historial de llamadas' },
-                        { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
-                    ].map(t => (
-                        <button
-                            key={t.id}
-                            onClick={()=>setActiveTab(t.id)}
-                            className={cn(
-                                "px-4 py-2.5 -mb-px flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
-                                activeTab === t.id ? "border-primary" : "border-transparent hover:bg-accent/50"
-                            )}
-                            style={{
-                                borderBottomColor: activeTab === t.id ? 'var(--primary)' : 'transparent',
-                                color: activeTab === t.id ? 'var(--primary)' : 'var(--muted-foreground)'
-                            }}
-                        >
-                            <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>
-                            {t.label}
-                        </button>
-                    ))}
+                <div className="flex items-center justify-between gap-2 border-b mb-5 flex-wrap" style={{borderColor:'var(--border)'}}>
+                    <div className="flex items-center gap-1">
+                        {[
+                            { id:'datos',     icon:'tune',           label:'Datos' },
+                            { id:'historial', icon:'history',        label:'Historial de llamadas' },
+                            { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
+                        ].map(t => (
+                            <button
+                                key={t.id}
+                                onClick={()=>setActiveTab(t.id)}
+                                className={cn(
+                                    "px-4 py-2.5 -mb-px flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
+                                    activeTab === t.id ? "border-primary" : "border-transparent hover:bg-accent/50"
+                                )}
+                                style={{
+                                    borderBottomColor: activeTab === t.id ? 'var(--primary)' : 'transparent',
+                                    color: activeTab === t.id ? 'var(--primary)' : 'var(--muted-foreground)'
+                                }}
+                            >
+                                <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Action icons (mismo estilo que Eliminar interno) */}
+                    {activeTab === 'datos' && (
+                        <div className="flex items-center gap-2 pb-2">
+                            <Button variant="outline" size="sm" onClick={()=>{ if (editing) setEditing(false); else onBack?.(); }} title={editing ? 'Cancelar edición' : 'Volver'}>
+                                <span className="material-icons-round mr-1.5" style={{fontSize:16}}>close</span>
+                                Cancelar
+                            </Button>
+                            <Button size="sm" onClick={save} disabled={saving || !editing} title={editing ? 'Guardar cambios' : 'Activá edición (lápiz) primero'}>
+                                <span className="material-icons-round mr-1.5" style={{fontSize:16, animation: saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
+                                {saving ? 'Guardando…' : 'Guardar cambios'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -3705,20 +3722,45 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
             {/* ─── TAB: DATOS (form shadcn) ──────────────────────────── */}
             {(isNew || activeTab === 'datos') && (
-            <div className="grid gap-5" style={{gridTemplateColumns:'minmax(0, 1fr) 320px'}}>
+            <div className="grid gap-5">
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
                     {/* ─── 4 Cards independientes v4 (Info | Categoría+Tecno | ÚltimoAcceso+RTSP-modal | Estado+Grabación-modal) ─── */}
                     <div className="grid gap-4 lg:grid-cols-4">
 
-                        {/* ─── Card 1: Información básica ─── */}
+                        {/* ─── Card 1: Información básica (con lápiz + basura) ─── */}
                         <Card>
-                            <CardHeader className="pb-3">
+                            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2 space-y-0">
                                 <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
                                     <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
                                     Información básica
                                 </CardTitle>
+                                {!isNew && (
+                                    <div className="flex items-center gap-1">
+                                        <button type="button" onClick={()=>setEditing(v=>!v)}
+                                                title={editing ? 'Bloquear edición' : 'Editar campos'}
+                                                className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
+                                                style={{
+                                                    background: editing ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'color-mix(in srgb, var(--muted) 30%, transparent)',
+                                                    color: editing ? 'var(--primary)' : 'var(--muted-foreground)',
+                                                    border: '1px solid ' + (editing ? 'color-mix(in srgb, var(--primary) 30%, transparent)' : 'var(--border)')
+                                                }}>
+                                            <span className="material-icons-round" style={{fontSize:15}}>{editing ? 'lock_open' : 'edit'}</span>
+                                        </button>
+                                        <button type="button" onClick={remove} disabled={deleting}
+                                                title="Eliminar interno"
+                                                className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
+                                                style={{
+                                                    background: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
+                                                    color: 'var(--destructive)',
+                                                    border: '1px solid color-mix(in srgb, var(--destructive) 30%, transparent)',
+                                                    opacity: deleting ? 0.5 : 1, cursor: deleting ? 'wait' : 'pointer'
+                                                }}>
+                                            <span className="material-icons-round" style={{fontSize:15}}>{deleting ? 'autorenew' : 'delete'}</span>
+                                        </button>
+                                    </div>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div className="space-y-1.5">
@@ -3728,16 +3770,16 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="ext-name">Nombre o alias</Label>
-                                    <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
+                                    <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} disabled={!editing} placeholder="Recepción"/>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="ext-mail">Correo electrónico</Label>
-                                    <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
+                                    <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} disabled={!editing} placeholder="usuario@empresa.com"/>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
                                     <div className="relative">
-                                        <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
+                                        <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} disabled={!editing} className="pr-9 font-mono"/>
                                         <button type="button" onClick={()=>setShowPass(!showPass)}
                                                 className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
                                                 style={{color:'var(--muted-foreground)'}}>
@@ -3745,6 +3787,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                         </button>
                                     </div>
                                 </div>
+                                {!editing && !isNew && (
+                                    <p className="text-[10px] flex items-center gap-1 pt-1" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:11}}>lock</span>
+                                        Click en el lápiz para habilitar la edición
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
 
@@ -3891,14 +3939,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </Card>
 
                     </div>
-                    {/* ─── Action bar ─── */}
-                    <div className="flex items-center justify-end gap-2.5 pt-1">
-                        <Button variant="outline" onClick={onBack}>Cancelar</Button>
-                        <Button onClick={save} disabled={saving}>
-                            <span className="material-icons-round mr-1.5" style={{fontSize:16, animation: saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
-                            {saving ? 'Guardando…' : 'Guardar cambios'}
-                        </Button>
-                    </div>
+                    {/* (Action bar moved to tabs row) */}
                     {/* ─── Modal RTSP config ─── */}
                     <Dialog open={showRtspModal} onOpenChange={setShowRtspModal}>
                         <DialogHeader>
@@ -4022,60 +4063,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
                 </div>
 
-                {/* COLUMNA LATERAL */}
-                <div className="flex flex-col gap-5">
-                    {/* Foto de perfil */}
-                    <Card>
-                        <CardHeader className="pb-3 items-center text-center">
-                            <CardTitle className="flex items-center justify-center gap-2 text-sm">
-                                <span className="material-icons-round" style={{fontSize:16,color:'#ec4899'}}>photo_camera</span>
-                                Foto de perfil
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center gap-2">
-                            <AvatarUploader ext={form.ext} name={form.name} onUploaded={u=>setAvatarUrl(u)} size={100}/>
-                            <p className="text-[10px] text-center leading-relaxed mt-1" style={{color:'var(--muted-foreground)'}}>
-                                JPG/PNG hasta 2MB.<br/>Aparece en toda la app.
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Tip aplicar cambios */}
-                    <div className="rounded-md border px-3 py-3 flex gap-2.5 items-start"
-                         style={{
-                             borderColor:'color-mix(in srgb, var(--primary) 25%, transparent)',
-                             background:'color-mix(in srgb, var(--primary) 6%, transparent)'
-                         }}>
-                        <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--primary)',marginTop:1}}>info</span>
-                        <p className="text-xs leading-relaxed" style={{color:'var(--muted-foreground)'}}>
-                            Los cambios aplicarán un <strong style={{color:'var(--foreground)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.
-                        </p>
-                    </div>
-
-                    {/* Quick actions (solo si no es nuevo) */}
-                    {!isNew && ext && (
-                        <Card>
-                            <CardHeader className="pb-2 items-center text-center">
-                                <CardTitle className="flex items-center justify-center gap-2 text-sm">
-                                    <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)'}}>flash_on</span>
-                                    Acciones rápidas
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-1.5 pt-1">
-                                <Button variant="ghost" size="sm" className="w-full justify-start"
-                                        onClick={()=>setActiveTab('historial')}>
-                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>history</span>
-                                    Ver llamadas de este interno
-                                </Button>
-                                <Button variant="ghost" size="sm" className="w-full justify-start"
-                                        onClick={()=>setActiveTab('agentes')}>
-                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>support_agent</span>
-                                    Sesiones de agentes
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
+                {/* (Sidebar 5ta columna removida) */}
             </div>
             )}
         </div>
