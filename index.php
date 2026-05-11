@@ -1545,13 +1545,18 @@ function Dialog({ open, onOpenChange, children }) {
         if (!open) return;
         const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
         document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
     }, [open, onOpenChange]);
     if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+    const content = (
+        <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9999}}>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
-            <div className="relative z-50 grid w-full max-w-lg gap-4 border border-border bg-background p-6 shadow-lg rounded-lg animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="relative grid w-full max-w-lg gap-4 border bg-card text-card-foreground p-6 rounded-lg animate-fade-in" style={{borderColor:'var(--border)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6)'}} onClick={e => e.stopPropagation()}>
                 {children}
                 <button onClick={() => onOpenChange?.(false)} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity">
                     <span className="material-icons-round text-base">close</span>
@@ -1559,6 +1564,9 @@ function Dialog({ open, onOpenChange, children }) {
             </div>
         </div>
     );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
 }
 function DialogHeader({ children, className, ...props }) {
     return <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props}>{children}</div>;
@@ -1579,19 +1587,27 @@ function Sheet({ open, onOpenChange, side = 'right', children, size = 'default' 
         if (!open) return;
         const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
         document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
     }, [open, onOpenChange]);
     if (!open) return null;
     const widths = { sm: 'sm:max-w-sm', default: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl', '3xl': 'sm:max-w-3xl', '4xl': 'sm:max-w-4xl' };
     const sideClass = side === 'right'
         ? `right-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-l animate-slide-in`
         : `left-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-r animate-slide-in`;
-    return (
-        <div className="fixed inset-0 z-50 animate-fade-in">
+    const content = (
+        <div className="fixed inset-0 animate-fade-in" style={{zIndex:9999, pointerEvents:'auto'}}>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
-            <div className={cn("fixed bg-background shadow-lg flex flex-col", sideClass)}>{children}</div>
+            <div className={cn("fixed bg-background shadow-2xl flex flex-col", sideClass)} style={{borderColor:'var(--border)'}}>{children}</div>
         </div>
     );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
 }
 function SheetHeader({ children, className, ...props }) {
     return <div className={cn("flex flex-col space-y-2 text-left p-6", className)} {...props}>{children}</div>;
@@ -1666,7 +1682,6 @@ function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '
         if (!open) return;
         const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
         document.addEventListener('keydown', onKey);
-        // Bloquear scroll del body cuando el modal está abierto
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         return () => {
@@ -1675,16 +1690,18 @@ function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '
         };
     }, [open, onClose]);
     if (!open) return null;
-    return (
+    // HORIZON: render via portal en #tf-modal-root para escapar stacking contexts
+    // (transform/filter de ancestors rompen position: fixed)
+    const content = (
         <div
             onClick={onClose}
-            className="fixed inset-0 z-[1000] flex items-center justify-center animate-fade-in"
-            style={{background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:'4vh 20px', overflowY:'auto'}}
+            className="fixed inset-0 flex items-center justify-center animate-fade-in"
+            style={{background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', padding:'4vh 20px', overflowY:'auto', zIndex:9999, pointerEvents:'auto'}}
         >
             <div
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
-                    "relative bg-card text-card-foreground border border-border rounded-lg shadow-2xl",
+                    "relative bg-card text-card-foreground border rounded-lg shadow-2xl",
                     "flex flex-col overflow-hidden animate-fade-in",
                     className
                 )}
@@ -1692,14 +1709,18 @@ function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '
                     maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth,
                     width: '100%',
                     maxHeight,
-                    /* min-height: 0 + flex permite que los hijos con flex:1 puedan scrollear internamente */
-                    minHeight: 0
+                    minHeight: 0,
+                    borderColor: 'var(--border)',
+                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6), 0 0 0 1px var(--border)'
                 }}
             >
                 {children}
             </div>
         </div>
     );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
 }
 
 
@@ -2596,6 +2617,34 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [deleting, setDeleting] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(ext?.avatar || null);
 
+    // HORIZON: Tabs para ficha — Datos / Historial / Agentes
+    const [activeTab, setActiveTab] = useState('datos');
+    const [callHistory, setCallHistory] = useState(null);
+    const [agentHistory, setAgentHistory] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    useEffect(() => {
+        if (isNew || !ext?.ext) return;
+        if (activeTab === 'historial' && !callHistory) {
+            setHistoryLoading(true);
+            const today = new Date(); const past = new Date(); past.setDate(past.getDate()-30);
+            const from = past.toISOString().split('T')[0];
+            const to = today.toISOString().split('T')[0];
+            fetch(`api/reports.php?action=calls&ext=${ext.ext}&from=${from}&to=${to}&limit=300`, {credentials:'include'})
+                .then(r=>r.json()).then(d=>{ setCallHistory(d.calls || []); setHistoryLoading(false); })
+                .catch(()=>setHistoryLoading(false));
+        }
+        if (activeTab === 'agentes' && !agentHistory) {
+            setHistoryLoading(true);
+            const today = new Date(); const past = new Date(); past.setDate(past.getDate()-90);
+            const from = past.toISOString().split('T')[0];
+            const to = today.toISOString().split('T')[0];
+            fetch(`api/reports.php?action=agent_sessions&agent=${ext.ext}&from=${from}&to=${to}`, {credentials:'include'})
+                .then(r=>r.json()).then(d=>{ setAgentHistory(d.sessions || []); setHistoryLoading(false); })
+                .catch(()=>setHistoryLoading(false));
+        }
+    }, [activeTab, ext?.ext, isNew]);
+
     useEffect(() => {
         if (!isNew && ext.ext) {
             fetch(`api/index.php?action=get_extension&ext=${ext.ext}`, { credentials: 'include' })
@@ -2725,6 +2774,168 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 </div>
             </div>
 
+            {/* HORIZON: TABS — Datos / Historial / Agentes (solo si no es nuevo) */}
+            {!isNew && (
+                <div className="flex items-center gap-1 border-b mb-4" style={{borderColor:'var(--border)'}}>
+                    {[
+                        { id:'datos',     icon:'tune',           label:'Datos' },
+                        { id:'historial', icon:'history',        label:'Historial de llamadas' },
+                        { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
+                    ].map(t => (
+                        <button
+                            key={t.id}
+                            onClick={()=>setActiveTab(t.id)}
+                            className={cn(
+                                "px-4 py-2.5 -mb-px flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
+                                activeTab === t.id
+                                    ? "border-primary"
+                                    : "border-transparent hover:bg-accent/50"
+                            )}
+                            style={{
+                                borderBottomColor: activeTab === t.id ? 'var(--primary)' : 'transparent',
+                                color: activeTab === t.id ? 'var(--primary)' : 'var(--muted-foreground)'
+                            }}
+                        >
+                            <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* TAB: HISTORIAL DE LLAMADAS */}
+            {!isNew && activeTab === 'historial' && (
+                <div className="rounded-lg border bg-card text-card-foreground overflow-hidden" style={{borderColor:'var(--border)'}}>
+                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{borderColor:'var(--border)'}}>
+                        <div>
+                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Historial de llamadas — últimos 30 días</div>
+                            <div className="text-xs" style={{color:'var(--muted-foreground)'}}>Todas las llamadas donde esta extensión figura como origen o destino</div>
+                        </div>
+                        <div className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>
+                            {callHistory ? `${callHistory.length} llamadas` : ''}
+                        </div>
+                    </div>
+                    {historyLoading && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
+                            <div className="mt-2 text-sm">Cargando historial…</div>
+                        </div>
+                    )}
+                    {!historyLoading && callHistory && callHistory.length === 0 && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:40, opacity:0.4}}>phone_disabled</span>
+                            <div className="mt-2 text-sm font-bold">Sin llamadas en el período</div>
+                        </div>
+                    )}
+                    {!historyLoading && callHistory && callHistory.length > 0 && (
+                        <div className="overflow-auto" style={{maxHeight:'65vh'}}>
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                    <tr>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha/Hora</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Origen</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Destino</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>CallerID</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Hablado</th>
+                                        <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grab.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {callHistory.map((c,i) => {
+                                        const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                                        const isInbound = String(c.dst) === String(ext.ext);
+                                        return (
+                                            <tr key={c.uniqueid || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                                <td className="px-3 py-2 font-mono text-xs">{c.calldate}</td>
+                                                <td className="px-3 py-2 font-mono">
+                                                    {isInbound ? <span style={{color:'var(--muted-foreground)'}}>{c.src}</span> : <strong style={{color:'var(--primary)'}}>{c.src}</strong>}
+                                                </td>
+                                                <td className="px-3 py-2 font-mono">
+                                                    {isInbound ? <strong style={{color:'var(--primary)'}}>{c.dst}</strong> : <span style={{color:'var(--muted-foreground)'}}>{c.dst}</span>}
+                                                </td>
+                                                <td className="px-3 py-2 text-xs truncate" style={{color:'var(--muted-foreground)', maxWidth:200}}>{c.clid}</td>
+                                                <td className="px-3 py-2"><Badge variant={variant}>{c.disposition}</Badge></td>
+                                                <td className="px-3 py-2 text-right font-mono">{c.billsec}s</td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {c.recordingfile
+                                                        ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" style={{color:'var(--primary)'}}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a>
+                                                        : <span style={{color:'var(--muted-foreground)'}}>—</span>}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB: HISTORIAL DE AGENTES LOGUEADOS */}
+            {!isNew && activeTab === 'agentes' && (
+                <div className="rounded-lg border bg-card text-card-foreground overflow-hidden" style={{borderColor:'var(--border)'}}>
+                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{borderColor:'var(--border)'}}>
+                        <div>
+                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Agentes logueados — últimos 90 días</div>
+                            <div className="text-xs" style={{color:'var(--muted-foreground)'}}>Sesiones de agentes que ocuparon este interno</div>
+                        </div>
+                        <div className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>
+                            {agentHistory ? `${agentHistory.length} sesiones` : ''}
+                        </div>
+                    </div>
+                    {historyLoading && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
+                            <div className="mt-2 text-sm">Cargando historial…</div>
+                        </div>
+                    )}
+                    {!historyLoading && agentHistory && agentHistory.length === 0 && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:40, opacity:0.4}}>person_off</span>
+                            <div className="mt-2 text-sm font-bold">Sin sesiones de agente</div>
+                            <div className="mt-1 text-xs">Ningún agente se ha logueado en esta extensión en los últimos 90 días</div>
+                        </div>
+                    )}
+                    {!historyLoading && agentHistory && agentHistory.length > 0 && (
+                        <div className="overflow-auto" style={{maxHeight:'65vh'}}>
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                    <tr>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Agente</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Login</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Logout</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Duración</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Llamadas</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Talk</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {agentHistory.map((s,i) => {
+                                        const active = !s.logout_time;
+                                        return (
+                                            <tr key={s.session_id || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                                <td className="px-3 py-2"><Badge variant={active ? 'success' : 'secondary'}>{active ? 'ACTIVA' : 'CERRADA'}</Badge></td>
+                                                <td className="px-3 py-2"><strong style={{color:'var(--primary)'}}>#{s.agent_number || '—'}</strong></td>
+                                                <td className="px-3 py-2 font-mono text-xs">{s.login_time}</td>
+                                                <td className="px-3 py-2 font-mono text-xs">{s.logout_time || '—'}</td>
+                                                <td className="px-3 py-2 text-right font-mono"><span style={{color:'#3b82f6'}}>{tfFmtSecs(s.duration_sec)}</span></td>
+                                                <td className="px-3 py-2 text-right">{s.total_calls || 0}</td>
+                                                <td className="px-3 py-2 text-right font-mono">{s.total_talk_time ? tfFmtSecs(s.total_talk_time) : '—'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB: DATOS (form existente) */}
+            {(isNew || activeTab === 'datos') && (
+            <>
             {/* FORM en grid 2 columnas */}
             <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14}}>
                 {/* COLUMNA PRINCIPAL */}
@@ -2862,6 +3073,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     </div>
                 </div>
             </div>
+            </>
+            )}
         </div>
     );
 }

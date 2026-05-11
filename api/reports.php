@@ -188,12 +188,14 @@ try {
         $disposition = $_GET['disposition'] ?? '';
         $src = $_GET['src'] ?? '';
         $dst = $_GET['dst'] ?? '';
+        $ext = $_GET['ext'] ?? '';
         $min_dur = (int)($_GET['min_dur'] ?? 0);
         $where = "calldate BETWEEN ? AND ?";
         $params = [$from, $to];
         if ($disposition && in_array($disposition, ['ANSWERED','NO ANSWER','BUSY','FAILED'])) { $where .= " AND disposition = ?"; $params[] = $disposition; }
         if ($src && preg_match('/^[0-9]+$/', $src)) { $where .= " AND src = ?"; $params[] = $src; }
         if ($dst && preg_match('/^[0-9]+$/', $dst)) { $where .= " AND dst = ?"; $params[] = $dst; }
+        if ($ext && preg_match('/^[0-9]+$/', $ext)) { $where .= " AND (src = ? OR dst = ?)"; $params[] = $ext; $params[] = $ext; }
         if ($min_dur > 0) { $where .= " AND billsec >= ?"; $params[] = $min_dur; }
         $cdr = pbx_db();
         $st = $cdr->prepare("SELECT calldate, src, dst, clid, disposition, duration, billsec, recordingfile, uniqueid, linkedid, did FROM cdr WHERE $where ORDER BY calldate DESC LIMIT $limit");
