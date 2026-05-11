@@ -830,6 +830,25 @@ header('Expires: 0');
             60% { transform: translateX(-1.4px) rotate(-0.6deg); }
             80% { transform: translateX(1.4px) rotate(0.6deg); }
         }
+        @keyframes tf-status-shake {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-8deg) scale(1.05); }
+            75% { transform: rotate(8deg) scale(1.05); }
+        }
+        @keyframes tf-status-breath {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px currentColor); }
+            50% { transform: scale(1.06); filter: drop-shadow(0 0 16px currentColor); }
+        }
+        .tf-tooltip::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: -4px;
+            width: 8px;
+            height: 8px;
+            transform: translateX(-50%) rotate(45deg);
+            background: inherit;
+        }
         @keyframes phone-shake {
             0%, 100% { transform: rotate(0deg); }
             25% { transform: rotate(-12deg); }
@@ -1516,6 +1535,42 @@ function Badge({ children, variant = 'default', className, ...props }) {
 }
 
 // ─── Separator ──────────────────────────────────────────────────────────────
+// ─── ActionIconButton: icon button cuadrado con tooltip animado al hover ───
+function ActionIconButton({ icon, label, onClick, disabled, tone = 'default', size = 36 }) {
+    const tones = {
+        default:    { bg:'color-mix(in srgb, var(--muted) 30%, var(--card))', fg:'var(--muted-foreground)', border:'var(--border)' },
+        primary:    { bg:'color-mix(in srgb, var(--primary) 15%, transparent)', fg:'var(--primary)', border:'color-mix(in srgb, var(--primary) 35%, transparent)' },
+        success:    { bg:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', fg:'var(--horizon-green)', border:'color-mix(in srgb, var(--horizon-green) 35%, transparent)' },
+        destructive:{ bg:'color-mix(in srgb, var(--destructive) 10%, transparent)', fg:'var(--destructive)', border:'color-mix(in srgb, var(--destructive) 35%, transparent)' },
+        warning:    { bg:'color-mix(in srgb, var(--warning) 12%, transparent)', fg:'var(--warning)', border:'color-mix(in srgb, var(--warning) 35%, transparent)' },
+    };
+    const t = tones[tone] || tones.default;
+    return (
+        <div className="relative inline-block group">
+            <button type="button" onClick={onClick} disabled={disabled}
+                    className="rounded-lg border flex items-center justify-center transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                        width: size, height: size,
+                        background: t.bg, color: t.fg, borderColor: t.border
+                    }}
+                    aria-label={label}>
+                <span className="material-icons-round" style={{fontSize: Math.round(size*0.5)}}>{icon}</span>
+            </button>
+            {/* Tooltip animado */}
+            <span className="absolute z-50 left-1/2 -translate-x-1/2 -bottom-9 px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap pointer-events-none opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 tf-tooltip"
+                  style={{
+                      background:'var(--foreground)',
+                      color:'var(--background)',
+                      boxShadow:'0 4px 12px rgba(0,0,0,0.2)'
+                  }}>
+                {label}
+                <span className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 rotate-45"
+                      style={{background:'var(--foreground)'}}/>
+            </span>
+        </div>
+    );
+}
+
 function Separator({ className, orientation = 'horizontal', ...props }) {
     return (
         <div className={cn(
@@ -3148,6 +3203,73 @@ function ViewDashboard({ data }) {
 // ─────────────────────────────────────────────
 // COMPONENTE: AvatarUploader (drag&drop + click)
 // ─────────────────────────────────────────────
+// ─── InlineAvatarUploader: botón cuadrado para subir avatar inline (al lado del input nombre) ───
+function InlineAvatarUploader({ ext, name, avatarUrl, onUploaded }) {
+    const inputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+    const [bust, setBust] = useState(Date.now());
+
+    const handleFile = async (file) => {
+        if (!file || !ext) return;
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('ext', ext);
+            fd.append('avatar', file);
+            const r = await fetch('api/index.php?action=upload_avatar', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.success || j.status === 'ok') {
+                setBust(Date.now());
+                onUploaded?.(j.url || `uploads/avatars/${ext}.jpg?v=${Date.now()}`);
+            }
+        } catch(e) {}
+        setUploading(false);
+    };
+
+    const url = ext ? `uploads/avatars/${ext}.jpg?v=${bust}` : null;
+    const hasAvatar = !!avatarUrl || url;
+    const ini = (name||ext||'?').split(/[\s\-_]+/).filter(s=>s.length>0).map(s=>s[0]||'').join('').substring(0,2).toUpperCase() || '?';
+
+    return (
+        <div className="relative inline-block group shrink-0">
+            <button type="button"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={uploading}
+                    className="rounded-lg border overflow-hidden flex items-center justify-center transition-all hover:shadow-md relative"
+                    style={{
+                        width:36, height:36,
+                        borderColor:'var(--border)',
+                        background: hasAvatar ? 'transparent' : `linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                        cursor: uploading ? 'wait' : 'pointer'
+                    }}
+                    aria-label="Subir foto de avatar">
+                {hasAvatar ? (
+                    <img src={url} alt={name} className="w-full h-full object-cover"
+                         onError={e=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}}/>
+                ) : null}
+                <div className="absolute inset-0 flex items-center justify-center text-white font-black"
+                     style={{fontSize:11, display: hasAvatar ? 'none' : 'flex'}}>
+                    {ini}
+                </div>
+                {/* Hover overlay */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                     style={{background:'rgba(0,0,0,0.55)'}}>
+                    <span className="material-icons-round text-white" style={{fontSize:16}}>
+                        {uploading ? 'autorenew' : 'photo_camera'}
+                    </span>
+                </div>
+            </button>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                   onChange={(e)=>handleFile(e.target.files?.[0])}/>
+            {/* Tooltip */}
+            <span className="absolute z-50 left-1/2 -translate-x-1/2 -bottom-9 px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap pointer-events-none opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200"
+                  style={{background:'var(--foreground)', color:'var(--background)', boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+                {uploading ? 'Subiendo…' : (hasAvatar ? 'Cambiar foto' : 'Subir foto')}
+            </span>
+        </div>
+    );
+}
+
 function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
     const fileRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -3230,12 +3352,19 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
         const m = String(ext.rtt).match(/(\d+(?:\.\d+)?)/);
         return m ? parseFloat(m[1]) : null;
     }, [ext?.rtt]);
-    // Threshold: <60 verde, 60-150 amarillo, >150 rojo
     const rttGrade = rttMs === null ? null : (rttMs < 60 ? 'good' : (rttMs < 150 ? 'mid' : 'bad'));
     const rttColor = rttGrade === 'good' ? '#22c55e' : (rttGrade === 'mid' ? '#f59e0b' : (rttGrade === 'bad' ? '#ef4444' : 'var(--muted-foreground)'));
     const rttPulseSpeed = rttGrade === 'good' ? '2.4s' : (rttGrade === 'mid' ? '1.4s' : '0.8s');
 
     const hasRtsp = !!form?.rtsp_url;
+
+    // Icono grande según estado del interno
+    const statusIconMap = {
+        BUSY:    { icon:'phone_in_talk',     animation:'tf-status-shake 0.6s ease-in-out infinite' },
+        ONLINE:  { icon:'check_circle',      animation:'tf-status-breath 2.4s ease-in-out infinite' },
+        OFFLINE: { icon:'power_settings_new',animation:'none' }
+    };
+    const sIcon = statusIconMap[ext?.status] || statusIconMap.OFFLINE;
 
     return (
         <div className="flex flex-col gap-3">
@@ -3244,32 +3373,38 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
                 <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label}/>
             )}
 
-            {/* Avatar + nombre + status */}
-            <div className="flex flex-col items-center gap-2">
-                <div className="relative shrink-0">
-                    {form.ext && avatarUrl ? (
-                        <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
-                             className="rounded-full object-cover"
-                             style={{width: hasRtsp ? 52 : 72, height: hasRtsp ? 52 : 72, border:'3px solid var(--background)', boxShadow:'0 4px 12px rgba(0,0,0,.15)'}}
-                             onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
-                    ) : null}
-                    <div className="rounded-full flex items-center justify-center font-black text-white"
-                         style={{
-                             width: hasRtsp ? 52 : 72, height: hasRtsp ? 52 : 72, fontSize: hasRtsp ? 17 : 22,
-                             background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
-                             display: form.ext && avatarUrl ? 'none' : 'flex',
-                             boxShadow:'0 4px 12px rgba(0,0,0,.15)'
-                         }}>{ini}</div>
-                    <div className="absolute rounded-full"
-                         style={{
-                             bottom:0, right:0,
-                             width: hasRtsp ? 14 : 18, height: hasRtsp ? 14 : 18,
-                             background: statusColor,
-                             border:'3px solid var(--card)',
-                             animation: ext?.status === 'BUSY' ? 'pulse 1.4s ease-in-out infinite' : 'none'
-                         }}/>
-                </div>
-                <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
+            {/* Bloque de estado — icono GRANDE animado de background + badge encima */}
+            <div className="relative rounded-lg border overflow-hidden flex flex-col items-center justify-center"
+                 style={{
+                     borderColor:`color-mix(in srgb, ${statusColor} 30%, var(--border))`,
+                     background:`linear-gradient(135deg, color-mix(in srgb, ${statusColor} 6%, var(--card)) 0%, var(--card) 100%)`,
+                     minHeight: hasRtsp ? 112 : 140,
+                     padding:'18px 14px'
+                 }}>
+                {/* Icono enorme al fondo (decorativo) */}
+                <span className="material-icons-round absolute pointer-events-none"
+                      style={{
+                          fontSize: hasRtsp ? 120 : 150,
+                          color: statusColor,
+                          opacity: 0.12,
+                          bottom: -16, right: -10,
+                          animation: sIcon.animation,
+                          transformOrigin: 'center'
+                      }}>
+                    {sIcon.icon}
+                </span>
+                {/* Icono en foreground (más pequeño pero claro, alineado con animación) */}
+                <span className="material-icons-round relative z-10"
+                      style={{
+                          fontSize: hasRtsp ? 44 : 56,
+                          color: statusColor,
+                          filter:`drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 55%, transparent))`,
+                          animation: sIcon.animation
+                      }}>
+                    {sIcon.icon}
+                </span>
+                {/* Badge de estado */}
+                <Badge variant="outline" className="font-bold uppercase text-[10px] mt-2 relative z-10" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
                     {statusLabel}
                 </Badge>
             </div>
@@ -3671,10 +3806,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 </nav>
                 <div className="flex-1"/>
                 {!isNew && (
-                    <Button variant="destructive" size="sm" onClick={remove} disabled={deleting}>
-                        <span className="material-icons-round mr-1.5" style={{fontSize:16}}>delete_outline</span>
-                        {deleting?'Eliminando…':'Eliminar interno'}
-                    </Button>
+                    <ActionIconButton icon={deleting ? 'autorenew' : 'delete_outline'}
+                                       label={deleting ? 'Eliminando…' : 'Eliminar interno'}
+                                       onClick={remove} disabled={deleting} tone="destructive"/>
                 )}
             </div>
 
@@ -3704,31 +3838,43 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </button>
                         ))}
                     </div>
-                    {/* Action icons (mismo estilo que Eliminar interno) */}
+                    {/* Action icons: Cancelar / Guardar — icon-only con tooltip animado */}
                     {activeTab === 'datos' && (
                         <div className="flex items-center gap-2 pb-2">
-                            <Button variant="outline" size="sm" onClick={()=>{ if (editing) setEditing(false); else onBack?.(); }} title={editing ? 'Cancelar edición' : 'Volver'}>
-                                <span className="material-icons-round mr-1.5" style={{fontSize:16}}>close</span>
-                                Cancelar
-                            </Button>
-                            <Button size="sm" onClick={save} disabled={saving || !editing} title={editing ? 'Guardar cambios' : 'Activá edición (lápiz) primero'}>
-                                <span className="material-icons-round mr-1.5" style={{fontSize:16, animation: saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
-                                {saving ? 'Guardando…' : 'Guardar cambios'}
-                            </Button>
+                            <ActionIconButton icon="close"
+                                              label={editing ? 'Cancelar edición' : 'Volver al listado'}
+                                              onClick={()=>{ if (editing) setEditing(false); else onBack?.(); }}
+                                              tone="default"/>
+                            <ActionIconButton icon={saving ? 'autorenew' : 'save'}
+                                              label={saving ? 'Guardando…' : (editing ? 'Guardar cambios' : 'Activá edición primero (lápiz en Info básica)')}
+                                              onClick={save}
+                                              disabled={saving || !editing}
+                                              tone="success"/>
                         </div>
                     )}
                 </div>
             )}
 
             {/* ─── TAB: HISTORIAL DE LLAMADAS ────────────────────────── */}
-            {!isNew && activeTab === 'historial' && (
+            {!isNew && activeTab === 'historial' && (() => {
+                const today = new Date().toISOString().split('T')[0];
+                const past = new Date(); past.setDate(past.getDate()-30);
+                const fromD = past.toISOString().split('T')[0];
+                const expUrl = (fmt) => `api/reports_export.php?type=calls&format=${fmt}&from=${fromD}&to=${today}&ext=${encodeURIComponent(ext.ext)}`;
+                return (
                 <Card className="overflow-hidden">
-                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-                        <div>
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 gap-3">
+                        <div className="flex-1 min-w-0">
                             <CardTitle className="text-base">Historial de llamadas — últimos 30 días</CardTitle>
                             <CardDescription>Todas las llamadas donde esta extensión figura como origen o destino</CardDescription>
                         </div>
-                        {callHistory && <Badge variant="secondary">{callHistory.length} llamadas</Badge>}
+                        <div className="flex items-center gap-2 shrink-0">
+                            {callHistory && <Badge variant="secondary" className="font-mono text-[10px]">{callHistory.length} llamadas</Badge>}
+                            <ActionIconButton icon="picture_as_pdf" label="Exportar a PDF" tone="destructive" size={32}
+                                onClick={()=>window.open(expUrl('pdf'),'_blank')}/>
+                            <ActionIconButton icon="table_chart" label="Exportar a Excel" tone="success" size={32}
+                                onClick={()=>window.open(expUrl('xlsx'),'_blank')}/>
+                        </div>
                     </CardHeader>
                     {historyLoading && (
                         <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
@@ -3815,7 +3961,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                     )}
                 </Card>
-            )}
+                );
+            })()}
 
             {/* ─── TAB: HISTORIAL DE AGENTES ────────────────────────── */}
             {!isNew && activeTab === 'agentes' && (
@@ -3926,7 +4073,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="ext-name">Nombre o alias</Label>
-                                    <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} disabled={!editing} placeholder="Recepción"/>
+                                    <div className="flex items-center gap-2">
+                                        <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} disabled={!editing} placeholder="Recepción" className="flex-1"/>
+                                        {!isNew && (
+                                            <InlineAvatarUploader ext={form.ext} name={form.name} avatarUrl={avatarUrl} onUploaded={u=>setAvatarUrl(u)}/>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="ext-mail">Correo electrónico</Label>

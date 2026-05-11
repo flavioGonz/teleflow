@@ -111,8 +111,10 @@ function fetch_data($type, $from, $to) {
     }
     if ($type === 'calls') {
         $disposition = $_GET['disposition'] ?? '';
+        $ext = preg_replace('/[^0-9]/', '', $_GET['ext'] ?? '');
         $where = "calldate BETWEEN ? AND ?"; $params = [$from, $to];
         if ($disposition) { $where .= " AND disposition = ?"; $params[] = $disposition; }
+        if ($ext)         { $where .= " AND (src = ? OR dst = ?)"; $params[] = $ext; $params[] = $ext; }
         $cdr = pbx_db();
         $st = $cdr->prepare("SELECT calldate, src, dst, clid, disposition, duration, billsec, recordingfile FROM cdr WHERE $where ORDER BY calldate DESC LIMIT 5000");
         $st->execute($params);
