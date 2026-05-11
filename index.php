@@ -2558,24 +2558,25 @@ function ViewDashboard({ data }) {
     ];
 
     const KPIBig = ({label, value, sub, icon, color}) => (
-        <div className="glass" style={{padding:'18px 20px',borderRadius:16,position:'relative',overflow:'hidden',border:`1px solid ${color}33`,background:`linear-gradient(135deg,${color}15,transparent 70%),var(--surface)`}}>
-            <div style={{position:'absolute',top:-15,right:-15,width:90,height:90,borderRadius:'50%',background:`radial-gradient(circle,${color}33,transparent 70%)`,pointerEvents:'none'}}/>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
-                <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 16px ${color}55`}}>
+        <div className="rounded-lg border bg-card text-card-foreground p-5 relative overflow-hidden transition-colors hover:bg-muted/30" style={{borderColor:'var(--border)'}}>
+            <div style={{position:'absolute',top:-20,right:-20,width:80,height:80,borderRadius:'50%',background:`radial-gradient(circle,${color}22,transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,position:'relative'}}>
+                <div style={{width:36,height:36,borderRadius:9,background:`linear-gradient(135deg,${color},${color}cc)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 2px 8px ${color}40`}}>
                     <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{icon}</span>
                 </div>
-                <span style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{label}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</span>
             </div>
-            <div style={{fontSize:28,fontWeight:900,color,lineHeight:1,letterSpacing:'-0.6px'}}>{value}</div>
-            {sub && <div style={{fontSize:11,color:'var(--muted)',marginTop:6,fontWeight:600}}>{sub}</div>}
+            <div className="text-3xl font-black leading-none tracking-tight" style={{color,fontVariantNumeric:'tabular-nums'}}>{value}</div>
+            {sub && <div className="text-[11px] font-semibold mt-2" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
         </div>
     );
 
     return (
         <div className="content-area">
             {/* Hero — pulse del callcenter */}
-            <div className="anim-fadeup" style={{padding:'20px 24px',marginBottom:14,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.10),rgba(34,197,94,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:18,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
-                <div style={{width:62,height:62,borderRadius:16,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 10px 28px rgba(139,92,246,0.4)',position:'relative'}}>
+            <div className="anim-fadeup rounded-xl border bg-card p-5 mb-4 flex flex-wrap items-center gap-4 relative overflow-hidden" style={{borderColor:'var(--border)'}}>
+                <div style={{position:'absolute',top:-30,right:-30,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%)',pointerEvents:'none'}}/>
+                <div style={{width:60,height:60,borderRadius:14,background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #3b82f6))',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 16px color-mix(in srgb, var(--primary) 35%, transparent)',position:'relative',zIndex:1}}>
                     <span className="material-icons-round" style={{color:'#fff',fontSize:30}}>insights</span>
                     <span style={{position:'absolute',top:-3,right:-3,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'3px solid var(--surface)',boxShadow:'0 0 10px #22c55e'}}/>
                 </div>
@@ -10120,6 +10121,38 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
     const [agentsLogged, setAgentsLogged] = useState(0);
     const [mobileOpen, setMobileOpen] = useState(false);
 
+    // HORIZON: Extension de escucha (ChanSpy destination). Persiste en localStorage
+    const [spyExt, setSpyExt] = useState(() => { try { return localStorage.getItem('tf_spy_ext') || ''; } catch(e) { return ''; } });
+    useEffect(() => { try { localStorage.setItem('tf_spy_ext', spyExt); window._tfSpyExt = spyExt; } catch(e) {} }, [spyExt]);
+
+    // Listener global del evento tf-spy-call disparado desde el toast Sileo
+    useEffect(() => {
+        const onSpy = async (e) => {
+            const call = e.detail;
+            const my = (window._tfSpyExt || localStorage.getItem('tf_spy_ext') || '').trim();
+            if (!my || !/^\d+$/.test(my)) {
+                window.shToast?.('Configurá una extensión de escucha en la barra superior antes de espiar', 'destructive');
+                return;
+            }
+            if (!call?.channel) {
+                window.shToast?.('Llamada sin canal — no se puede espiar', 'destructive');
+                return;
+            }
+            try {
+                const fd = new FormData();
+                fd.append('channel', call.channel);
+                fd.append('my_ext', my);
+                fd.append('mode', 'spy');
+                const r = await fetch('api/hotdesking.php?action=spy_call', { method:'POST', body: fd, credentials: 'include' });
+                const j = await r.json();
+                if (j.status === 'ok') window.shToast?.(`Escuchando en ext ${my}…`, 'success');
+                else window.shToast?.('Error: '+(j.message||''), 'destructive');
+            } catch(err) { window.shToast?.('Error de red', 'destructive'); }
+        };
+        window.addEventListener('tf-spy-call', onSpy);
+        return () => window.removeEventListener('tf-spy-call', onSpy);
+    }, []);
+
     const liveCalls = data?.pbx?.live_calls || [];
     const queues = data?.pbx?.queues || [];
     const exts = data?.pbx?.extensions || [];
@@ -10256,6 +10289,15 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
             )}
 
             <div className="tfbar-spacer" />
+
+            <div className="tfbar-pill" title="Extensión donde recibís las escuchas (ChanSpy)" style={{padding:'4px 8px', gap:6}} onClick={e=>e.stopPropagation()}>
+                <span className="material-icons-round" style={{fontSize:14, color:'var(--horizon-green)'}}>headset_mic</span>
+                <input type="text" value={spyExt} onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
+                    placeholder="Ext. escucha"
+                    title="Tu extensión SIP — al apretar Escuchar en un toast de llamada entrante, llama acá y vos escuchás la conversación"
+                    style={{width:90, padding:'3px 6px', border:'1px solid var(--border)', borderRadius:6, background:'var(--background)', color:'var(--foreground)', fontSize:11, fontFamily:'monospace', fontWeight:700, outline:'none'}}/>
+                {spyExt && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)'}} title="Configurada"/>}
+            </div>
 
                         <button className="tfbar-pill" onClick={()=>setShowSysModal(true)} title="Estado de la PBX">
                 <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 6px rgba(34,197,94,.6)'}}/>

@@ -404,6 +404,57 @@ try {
             break;
         }
 
+        case 'spy_call': {
+            // POST {channel, my_ext} — origina ChanSpy desde my_ext hacia channel
+            // Modo whisper/spy: el supervisor escucha sin ser oído.
+            $channel = trim($_POST['channel'] ?? $_GET['channel'] ?? '');
+            $my_ext  = preg_replace('/\D/', '', $_POST['my_ext'] ?? $_GET['my_ext'] ?? '');
+            $mode    = $_POST['mode'] ?? 'spy';  // spy | whisper | barge
+            if (!$channel || !$my_ext) { http_response_code(400); echo json_encode(['status'=>'error','message'=>'falta channel o my_ext']); exit; }
+
+            // Validar mode
+            $spy_opts = ['spy'=>'q', 'whisper'=>'qw', 'barge'=>'qB'];
+            $opts = $spy_opts[$mode] ?? 'q';
+
+            $s = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $en, $es, 3);
+            if (!$s) { echo json_encode(['status'=>'error','message'=>'AMI no disponible']); exit; }
+            stream_set_timeout($s, 3); fgets($s);
+            fwrite($s, "Action: Login\r\nUsername: $AMI_USER\r\nSecret: $AMI_PASS\r\nEvents: off\r\n\r\n");
+            $st=microtime(true); while(microtime(true)-$st<2){$l=fgets($s);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
+
+            // Extraer ext del canal target (ej. SIP/533-00001234 → 533)
+            $target_ext = '';
+            if (preg_match('/^(?:SIP|PJSIP)\/(\d+)/', $channel, $m)) $target_ext = $m[1];
+
+            // AMI Originate hacia my_ext, que al contestar pasa a Application ChanSpy
+            $action_id = uniqid('spy_');
+            $payload = "Action: Originate\r\n";
+            $payload .= "ActionID: $action_id\r\n";
+            $payload .= "Channel: Local/$my_ext@from-internal\r\n";
+            $payload .= "CallerID: <SPY-$target_ext>\r\n";
+            $payload .= "Application: ChanSpy\r\n";
+            $payload .= "Data: " . ($target_ext ? "SIP/$target_ext,$opts" : "$channel,$opts") . "\r\n";
+            $payload .= "Timeout: 30000\r\n";
+            $payload .= "Async: true\r\n\r\n";
+            fwrite($s, $payload);
+
+            $st=microtime(true); $resp=''; $ok=false;
+            while(microtime(true)-$st<2){
+                $l=fgets($s); if(!$l) break; $resp.=$l;
+                if (strpos($l,'Response: Success')!==false) $ok = true;
+                if (strpos($l,'Response: Error')!==false) break;
+                if (trim($l)==='' && $ok) break;
+            }
+            fwrite($s, "Action: Logoff\r\n\r\n"); fclose($s);
+
+            if ($ok) {
+                echo json_encode(['status'=>'ok','message'=>"Originando spy a $my_ext (target $target_ext)",'mode'=>$mode]);
+            } else {
+                echo json_encode(['status'=>'error','message'=>'AMI Originate falló','raw'=>substr($resp,0,400)]);
+            }
+            break;
+        }
+
         case 'hangup_call': {
             // POST {ext} — colgar la llamada actual de una extensión
             $ext = preg_replace('/\D/', '', $_POST['ext'] ?? $_GET['ext'] ?? '');
