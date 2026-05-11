@@ -9588,30 +9588,92 @@ function ViewHotdesking({ data, toast }) {
                             )}
                         </div>
 
-                        {/* RIGHT: agentes logueados — grid 4 filas vertical */}
-                        <div className="rounded-xl border bg-card/40 p-3" style={{borderColor:'var(--border)'}}>
-                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingLeft:4}}>
-                                <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
-                                <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{loggedAgents.length} logueado{loggedAgents.length!==1?'s':''}</span>
+                        {/* RIGHT: agentes logueados — panel destacado con header tipo card shadcn */}
+                        <div className="rounded-xl border overflow-hidden" style={{
+                            borderColor:'color-mix(in srgb, var(--horizon-green) 25%, var(--border))',
+                            background:'linear-gradient(180deg, color-mix(in srgb, var(--horizon-green) 6%, var(--card)) 0%, var(--card) 100%)',
+                            boxShadow:'0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px color-mix(in srgb, var(--horizon-green) 8%, transparent)'
+                        }}>
+                            {/* Header del panel — separado con border-bottom */}
+                            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b" style={{
+                                borderColor:'color-mix(in srgb, var(--horizon-green) 18%, var(--border))',
+                                background:'color-mix(in srgb, var(--horizon-green) 7%, transparent)'
+                            }}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div style={{
+                                        width:30, height:30, borderRadius:9,
+                                        background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 70%, #16a34a))',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        boxShadow:'0 2px 8px color-mix(in srgb, var(--horizon-green) 40%, transparent)',
+                                        flexShrink:0
+                                    }}>
+                                        <span className="material-icons-round" style={{color:'#fff', fontSize:17}}>support_agent</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div style={{fontSize:12, fontWeight:800, color:'var(--foreground)', letterSpacing:'-.01em', lineHeight:1.1}}>Logueados</div>
+                                        <div style={{fontSize:10, color:'var(--muted-foreground)', fontWeight:600, marginTop:1, lineHeight:1.2}}>Activos en tiempo real</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span style={{
+                                        display:'inline-flex', alignItems:'center', gap:5,
+                                        padding:'3px 9px', borderRadius:9999,
+                                        background:'color-mix(in srgb, var(--horizon-green) 18%, transparent)',
+                                        color:'var(--horizon-green)',
+                                        fontSize:11, fontWeight:800, fontFamily:'monospace',
+                                        border:'1px solid color-mix(in srgb, var(--horizon-green) 30%, transparent)'
+                                    }}>
+                                        {loggedAgents.length > 0 && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>}
+                                        {loggedAgents.length}
+                                    </span>
+                                </div>
                             </div>
-                            {loggedAgents.length > 0 ? (
-                                <div style={{
-                                    display:'grid',
-                                    gridTemplateRows:'repeat(4, minmax(72px, auto))',
-                                    gridAutoFlow:'column',
-                                    gridAutoColumns:'minmax(320px, 1fr)',
-                                    gap:8,
-                                    overflowX:'auto',
-                                    overflowY:'hidden',
-                                    paddingBottom:4
-                                }}>
-                                    {loggedAgents.map(renderLogged)}
-                                </div>
-                            ) : (
-                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
-                                    Ningún agente logueado
-                                </div>
-                            )}
+
+                            {/* Body */}
+                            <div className="p-3">
+                                {loggedAgents.length > 0 ? (
+                                    <div style={{
+                                        display:'grid',
+                                        gridTemplateRows:'repeat(4, minmax(72px, auto))',
+                                        gridAutoFlow:'column',
+                                        gridAutoColumns:'minmax(320px, 1fr)',
+                                        gap:8,
+                                        overflowX:'auto',
+                                        overflowY:'hidden',
+                                        paddingBottom:6,
+                                        scrollbarWidth:'thin'
+                                    }}>
+                                        {loggedAgents.map(renderLogged)}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+                                        <div style={{
+                                            width:64, height:64, borderRadius:'50%',
+                                            background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)',
+                                            border:'2px dashed color-mix(in srgb, var(--horizon-green) 35%, transparent)',
+                                            display:'flex', alignItems:'center', justifyContent:'center',
+                                            marginBottom:14
+                                        }}>
+                                            <span className="material-icons-round" style={{fontSize:30, color:'var(--horizon-green)', opacity:0.7}}>person_off</span>
+                                        </div>
+                                        <div style={{fontSize:13, fontWeight:800, color:'var(--foreground)', marginBottom:4}}>Ningún agente logueado</div>
+                                        <div style={{fontSize:11, color:'var(--muted-foreground)', maxWidth:240, lineHeight:1.5, marginBottom:14}}>
+                                            Los agentes pueden loguearse marcando <strong style={{color:'var(--foreground)', fontFamily:'monospace'}}>*7700</strong> desde su teléfono, o vos podés hacerlo desde la lista de la izquierda.
+                                        </div>
+                                        <div className="flex items-center gap-3" style={{fontSize:10, color:'var(--muted-foreground)'}}>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>circle</span>
+                                                Tiempo real
+                                            </div>
+                                            <div style={{width:3, height:3, borderRadius:'50%', background:'var(--muted-foreground)', opacity:0.5}}/>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>auto_awesome</span>
+                                                {offlineAgents.length} disponibles para loguear
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 );
