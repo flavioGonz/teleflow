@@ -1,3 +1,4 @@
+
 <?php
 /**
  * API: Agents Monitoring
@@ -31,10 +32,28 @@ $action = $_GET['action'] ?? '';
 if ($action === 'get_agents_data') {
     try {
         // Obtener datos de Asterisk via CLI con ancho forzado
-        $cmd_prefix = "COLUMNS=200 ";
-        $endpoints = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'pjsip show endpoints' 2>/dev/null");
-        $channels = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'core show channels verbose' 2>/dev/null");
-        $contacts = shell_exec($cmd_prefix . "/usr/sbin/asterisk -rx 'pjsip show contacts' 2>/dev/null");
+        require_once __DIR__ . '/index.php'; // para reusar ami_cmd
+        // ^ no, mejor incluir solo la función. Hago AMI inline:
+        require_once __DIR__ . '/../config.php';
+        function _hzn_ami($cmd) {
+            global $AMI_HOST, $AMI_PORT, $AMI_USER, $AMI_PASS;
+            $sock = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $errno, $errstr, 3);
+            if (!$sock) return '';
+            stream_set_timeout($sock, 4);
+            fgets($sock);
+            fwrite($sock, "Action: Login\r\nUsername: $AMI_USER\r\nSecret: $AMI_PASS\r\nEvents: off\r\n\r\n");
+            $r=''; $st=microtime(true); $ok=false;
+            while (microtime(true)-$st<2) { $l=fgets($sock); if($l===false) break; $r.=$l; if(strpos($r,'Authentication accepted')!==false){$ok=true;break;} if(strpos($r,'Authentication failed')!==false){break;} }
+            if(!$ok){fclose($sock);return '';}
+            fwrite($sock, "Action: Command\r\nCommand: $cmd\r\n\r\n");
+            $out=''; $st=microtime(true);
+            while (microtime(true)-$st<5) { $l=fgets($sock); if($l===false) break; if(strpos($l,'--END COMMAND--')!==false) break; if(preg_match('/^(Response|Privilege|ActionID|Message):/i',$l)) continue; if(stripos($l,'Output:')===0){$out.=substr($l,7);continue;} $out.=$l; }
+            fwrite($sock, "Action: Logoff\r\n\r\n"); fclose($sock);
+            return $out;
+        }
+        $endpoints = _hzn_ami('pjsip show endpoints');
+        $channels  = _hzn_ami('core show channels verbose');
+        $contacts  = _hzn_ami('pjsip show contacts');
         
         $agents = array();
         
