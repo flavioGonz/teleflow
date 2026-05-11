@@ -23,7 +23,7 @@ agi_log("logout ext=$ext");
 $ami=@fsockopen('127.0.0.1',5038,$e,$es,3);
 if (!$ami) { agi_set('LOGOUT_OK','0'); exit(0); }
 stream_set_timeout($ami,3); fgets($ami);
-fwrite($ami,"Action: Login\r\nUsername: ".$_AMI_USER."\r\nSecret: ".$_AMI_PASS.\r\nEvents: off\r\n\r\n");
+fwrite($ami,"Action: Login\r\nUsername: ".$_AMI_USER."\r\nSecret: ".$_AMI_PASS."\r\nEvents: off\r\n\r\n");
 $st=microtime(true);while(microtime(true)-$st<2){$l=fgets($ami);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
 fwrite($ami,"Action: Command\r\nCommand: queue show\r\n\r\n");
 $out='';$st=microtime(true);
