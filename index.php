@@ -1266,6 +1266,9 @@ function ViewDashboard({ data }) {
     const todayAns = ts.answered || 0;
     const eff = todayTotal > 0 ? Math.round((todayAns/todayTotal)*100) : 0;
 
+    // HORIZON: grabaciones recientes para el panel "Últimas Grabaciones"
+    const recs = data?.pbx?.recordings || [];
+
     // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
     const systemStats = [
         { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
