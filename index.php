@@ -5362,6 +5362,242 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
     );
 }
 
+function ReportTabSummary({ data }) {
+    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
+                <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`Período: ${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
+                <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
+                <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre total ofrecidas" icon="trending_down" color="#ef4444"/>
+                <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
+                <KPICard label="Talk time total" value={tfFmtSecs(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
+                <KPICard label="Sesiones agentes" value={s.sessions||0} sub={`${s.unique_agents||0} únicos · Total login: ${tfFmtSecs(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
+                <KPICard label="Pausas totales" value={p.total_pauses||0} sub={`Tiempo total: ${tfFmtSecs(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
+            </div>
+        </div>
+    );
+}
+
+function ReportTabByAgent({ data, onPick }) {
+    const agents = data.agents || [];
+    const fmt = tfFmtSecs;
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{agents.length} agentes con actividad</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Nombre</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Sesiones</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Login</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>T. Pausa</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Productivo%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Llam.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Talk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {agents.map((a,i)=>(
+                            <tr key={i} onClick={()=>onPick&&onPick(a)} style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:700}}>{a.ext}</td>
+                                <td style={{padding:'8px 10px',color:'#8b5cf6'}}>{a.agent_number||'—'}</td>
+                                <td style={{padding:'8px 10px'}}>{a.name||'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.session_count||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#3b82f6'}}>{fmt(a.login_sec)}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#f59e0b'}}>{fmt(a.pause_sec)}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:a.productive_pct>80?'#22c55e':(a.productive_pct>50?'#f59e0b':'#ef4444')}}>{a.productive_pct!==null?a.productive_pct+'%':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.calls||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{a.answered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.avg_aht!==null?a.avg_aht+'s':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{fmt(a.total_talk)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {agents.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabByQueue({ data }) {
+    const queues = data.queues || []; const sl = data.sl_threshold || 20;
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{queues.length} colas con tráfico · Service Level @ ≤{sl}s</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Cola</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Descripción</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Ofrec.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>SL%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Esp. prom.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Máx. esp.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {queues.map((q,i)=>(
+                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:800}}>{q.queue}</td>
+                                <td style={{padding:'8px 10px',color:'#c4b5fd'}}>{q.descr||'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.offered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{q.answered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#ef4444'}}>{q.abandoned||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.abandon_rate>20?'#ef4444':(q.abandon_rate>10?'#f59e0b':'#22c55e')}}>{q.abandon_rate}%</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.service_level>=80?'#22c55e':(q.service_level>=60?'#f59e0b':'#ef4444')}}>{q.service_level!==null?q.service_level+'%':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.avg_wait!==null?q.avg_wait+'s':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.max_wait||'—'}{q.max_wait?'s':''}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{q.avg_talk?q.avg_talk+'s':'—'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {queues.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabCalls({ data, filters, setFilters }) {
+    const calls = data.calls || [];
+    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:12,borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontSize:11,fontWeight:800,color:'var(--muted)'}}>FILTROS</span>
+                <select value={filters.disposition} onChange={e=>setFilters({...filters,disposition:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}>
+                    <option value="">Todos los estados</option>
+                    <option value="ANSWERED">ANSWERED</option>
+                    <option value="NO ANSWER">NO ANSWER</option>
+                    <option value="BUSY">BUSY</option>
+                    <option value="FAILED">FAILED</option>
+                </select>
+                <input placeholder="Origen" value={filters.src} onChange={e=>setFilters({...filters,src:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
+                <input placeholder="Destino" value={filters.dst} onChange={e=>setFilters({...filters,dst:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
+                <input placeholder="Mín dur (s)" type="number" value={filters.min_dur||''} onChange={e=>setFilters({...filters,min_dur:parseInt(e.target.value)||0})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:90}}/>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{calls.length} resultados</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fecha/Hora</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Origen</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Destino</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>CallerID</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Estado</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Dur.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Hablado</th>
+                            <th style={{padding:'8px 10px',textAlign:'center',color:'var(--muted)',fontWeight:800}}>Grab.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {calls.map((c,i)=>(
+                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{c.calldate}</td>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.src}</td>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.dst}</td>
+                                <td style={{padding:'6px 10px',color:'var(--muted)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.clid}</td>
+                                <td style={{padding:'6px 10px'}}><span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span></td>
+                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.duration}s</td>
+                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</td>
+                                <td style={{padding:'6px 10px',textAlign:'center'}}>{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title={c.recordingfile}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {calls.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin llamadas que coincidan</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabPauses({ data, from, to }) {
+    const pauses = data.pauses || [];
+    // Agrupar por motivo para mini-charts
+    const byMotive = {};
+    pauses.forEach(p => {
+        const k = p.pause_label || p.pause_type_code;
+        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
+        byMotive[k].count++; byMotive[k].total += parseInt(p.duration_seconds || 0);
+    });
+    const motives = Object.values(byMotive).sort((a,b)=>b.total-a.total);
+    const maxTotal = Math.max(1, ...motives.map(m=>m.total));
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {/* Resumen por motivo */}
+            <div className="glass" style={{padding:16,borderRadius:12}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10}}>Distribución por motivo</div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {motives.map((m,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+                            <span style={{minWidth:120,fontSize:11,fontWeight:700}}>{m.label}</span>
+                            <div style={{flex:1,height:18,background:'rgba(255,255,255,0.04)',borderRadius:4,overflow:'hidden',position:'relative'}}>
+                                <div style={{width:`${(m.total/maxTotal)*100}%`,height:'100%',background:m.color||'#8b5cf6'}}/>
+                                <span style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',fontSize:10,fontFamily:'monospace',color:'#fff',fontWeight:700,textShadow:'0 1px 2px rgba(0,0,0,0.5)'}}>{tfFmtSecs(m.total)}</span>
+                            </div>
+                            <span style={{minWidth:50,fontSize:11,fontWeight:800,textAlign:'right'}}>{m.count}x</span>
+                        </div>
+                    ))}
+                </div>
+                {motives.length===0 && <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:12}}>Sin pausas</div>}
+            </div>
+
+            {/* Tabla detallada */}
+            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
+                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{pauses.length} pausas registradas</span>
+                </div>
+                <div style={{overflow:'auto',maxHeight:'50vh'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                        <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                            <tr style={{borderBottom:'1px solid var(--border)'}}>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Motivo</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Inicio</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fin</th>
+                                <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Duración</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pauses.map((p,i)=>(
+                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                    <td style={{padding:'6px 10px',color:'#8b5cf6'}}>{p.agent_number||'—'}</td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{p.agent_ext}</td>
+                                    <td style={{padding:'6px 10px'}}><span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>{p.pause_label||p.pause_type_code}</span></td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_start}</td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_end||<span style={{color:'#22c55e'}}>(activa)</span>}</td>
+                                    <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700}}>{tfFmtSecs(p.duration_seconds)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+
 // HORIZON: KPICard premium reutilizable para drawer y main dashboard
 function KPICard({ label, value, sub, icon, color, compact = false }) {
     const padding = compact ? '12px' : '16px';
