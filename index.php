@@ -8405,6 +8405,12 @@ function ViewConfiguracion() {
                 <button onClick={()=>setActiveTab('pbx')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='pbx'?'var(--surface)':'transparent', color:activeTab==='pbx'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
                     <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>dns</span>PBX
                 </button>
+                <button onClick={()=>setActiveTab('branding')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='branding'?'var(--surface)':'transparent', color:activeTab==='branding'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>palette</span>Branding
+                </button>
+                <button onClick={()=>setActiveTab('softphone')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='softphone'?'var(--surface)':'transparent', color:activeTab==='softphone'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>phone_in_talk</span>Softphone
+                </button>
             </div>
 
             {activeTab === 'notificaciones' && (
@@ -8602,6 +8608,276 @@ function ViewConfiguracion() {
             {activeTab === 'pbx' && (
                 <ViewConfigPBX />
             )}
+
+            {activeTab === 'branding' && <ViewConfigBranding />}
+            {activeTab === 'softphone' && <ViewConfigSoftphone />}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Branding (logos, colores, nombres)
+// ─────────────────────────────────────────────
+function ViewConfigBranding() {
+    const [settings, setSettings] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [dirty, setDirty] = useState({});
+
+    useEffect(() => {
+        fetch('api/app_settings.php', {credentials:'include'})
+            .then(r=>r.json()).then(d => { if (d.status==='ok') setSettings(d.settings || {}); });
+    }, []);
+
+    if (!settings) return <div className="rounded-lg border border-border bg-card p-12 text-center text-muted-foreground">Cargando…</div>;
+
+    const set = (key, val) => { setSettings(s => ({...s, [key]: val})); setDirty(d => ({...d, [key]: true})); };
+
+    const save = async () => {
+        if (Object.keys(dirty).length === 0) return;
+        setSaving(true);
+        const payload = {};
+        Object.keys(dirty).forEach(k => payload[k] = settings[k]);
+        try {
+            const r = await fetch('api/app_settings.php', {
+                method:'POST', credentials:'include',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const j = await r.json();
+            if (j.status === 'ok') {
+                setDirty({});
+                window.shToast?.('Branding guardado · ' + j.count + ' campos', 'success');
+            } else {
+                window.shToast?.('Error: ' + (j.message||''), 'destructive');
+            }
+        } catch(e) { window.shToast?.('Error de red', 'destructive'); }
+        setSaving(false);
+    };
+
+    const Field = ({label, k, type='text', placeholder=''}) => (
+        <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</label>
+            {type === 'color' ? (
+                <div className="flex items-center gap-2">
+                    <input type="color" value={settings[k]||'#11B328'} onChange={e=>set(k, e.target.value)}
+                        style={{width:48, height:38, padding:2, borderRadius:8, border:'1px solid var(--border)', background:'var(--background)', cursor:'pointer'}}/>
+                    <input type="text" value={settings[k]||''} onChange={e=>set(k, e.target.value)}
+                        placeholder="#11B328"
+                        className="flex-1 h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                </div>
+            ) : (
+                <input type={type} value={settings[k]||''} onChange={e=>set(k, e.target.value)} placeholder={placeholder}
+                    className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border bg-card p-5" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-3 mb-1">
+                    <span className="material-icons-round" style={{fontSize:24, color:'var(--horizon-green)'}}>palette</span>
+                    <div>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>Branding del sistema</h3>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Personalizá nombres, textos y colores que aparecen en login, header y reportes</p>
+                    </div>
+                    <div className="flex-1"/>
+                    {Object.keys(dirty).length > 0 && (
+                        <button onClick={save} disabled={saving}
+                            className="h-9 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                            style={{background:'var(--horizon-green)', color:'#fff'}}>
+                            {saving ? 'Guardando…' : `Guardar ${Object.keys(dirty).length} cambio${Object.keys(dirty).length!==1?'s':''}`}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>business</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Identidad</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Nombre de la empresa" k="brand_company_name" placeholder="Horizon Seguridad"/>
+                    <Field label="Nombre de la aplicación" k="brand_app_name" placeholder="TeleFlow"/>
+                    <Field label="Logo — texto principal" k="brand_logo_text" placeholder="HORIZON"/>
+                    <Field label="Logo — subtítulo" k="brand_logo_sub" placeholder="SEGURIDAD"/>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Título del login (tagline)" k="brand_tagline" placeholder="Centro de monitoreo"/>
+                    <Field label="Subtítulo del login" k="brand_subtitle" placeholder="Plataforma unificada…"/>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>color_lens</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Paleta de colores</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Color primario" k="brand_primary_color" type="color"/>
+                    <Field label="Color acento" k="brand_accent_color" type="color"/>
+                </div>
+                <div className="text-xs px-3 py-2 rounded border" style={{color:'var(--muted-foreground)', background:'var(--secondary)', borderColor:'var(--border)'}}>
+                    <span className="material-icons-round mr-1" style={{fontSize:13, verticalAlign:'-2px'}}>info</span>
+                    Los cambios de color requieren recargar la página (Ctrl+Shift+R) para aplicarse globalmente.
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Softphone (defaults WebRTC)
+// ─────────────────────────────────────────────
+function ViewConfigSoftphone() {
+    const [settings, setSettings] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [dirty, setDirty] = useState({});
+    const [devices, setDevices] = useState({ audioin: [], audioout: [] });
+
+    useEffect(() => {
+        fetch('api/app_settings.php', {credentials:'include'})
+            .then(r=>r.json()).then(d => { if (d.status==='ok') setSettings(d.settings || {}); });
+        // Enumerar audio devices del browser
+        if (navigator.mediaDevices?.enumerateDevices) {
+            navigator.mediaDevices.getUserMedia({audio:true}).catch(()=>{}).finally(() => {
+                navigator.mediaDevices.enumerateDevices().then(devs => {
+                    setDevices({
+                        audioin: devs.filter(d => d.kind === 'audioinput'),
+                        audioout: devs.filter(d => d.kind === 'audiooutput'),
+                    });
+                });
+            });
+        }
+    }, []);
+
+    if (!settings) return <div className="rounded-lg border border-border bg-card p-12 text-center text-muted-foreground">Cargando…</div>;
+
+    const set = (k, v) => { setSettings(s => ({...s, [k]: v})); setDirty(d => ({...d, [k]: true})); };
+
+    const save = async () => {
+        if (Object.keys(dirty).length === 0) return;
+        setSaving(true);
+        const payload = {};
+        Object.keys(dirty).forEach(k => payload[k] = settings[k]);
+        try {
+            const r = await fetch('api/app_settings.php', {
+                method:'POST', credentials:'include',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const j = await r.json();
+            if (j.status === 'ok') { setDirty({}); window.shToast?.('Softphone guardado', 'success'); }
+            else window.shToast?.('Error: '+(j.message||''), 'destructive');
+        } catch(e) { window.shToast?.('Error de red', 'destructive'); }
+        setSaving(false);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border bg-card p-5" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-3 mb-1">
+                    <span className="material-icons-round" style={{fontSize:24, color:'var(--primary)'}}>phone_in_talk</span>
+                    <div>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>Softphone WebRTC</h3>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Configuración por defecto del softphone integrado (codecs, audio, comportamiento)</p>
+                    </div>
+                    <div className="flex-1"/>
+                    {Object.keys(dirty).length > 0 && (
+                        <button onClick={save} disabled={saving}
+                            className="h-9 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                            style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>equalizer</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Audio</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Micrófono</label>
+                        <select value={settings.softphone_audio_input||''} onChange={e=>set('softphone_audio_input', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="">(default del browser)</option>
+                            {devices.audioin.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Audio in ${d.deviceId.substring(0,8)}…`}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Altavoces</label>
+                        <select value={settings.softphone_audio_output||''} onChange={e=>set('softphone_audio_output', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="">(default del browser)</option>
+                            {devices.audioout.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Audio out ${d.deviceId.substring(0,8)}…`}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Volumen del ringing ({Math.round((parseFloat(settings.softphone_ringing_volume)||0.7)*100)}%)</label>
+                    <input type="range" min="0" max="1" step="0.05" value={parseFloat(settings.softphone_ringing_volume)||0.7}
+                        onChange={e=>set('softphone_ringing_volume', e.target.value)}
+                        className="w-full" style={{accentColor:'var(--primary)'}}/>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>settings_voice</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Códecs y DTMF</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Códecs preferidos (orden)</label>
+                        <input type="text" value={settings.softphone_default_codec||''} onChange={e=>set('softphone_default_codec', e.target.value)}
+                            placeholder="opus,PCMA,PCMU"
+                            className="w-full h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                        <div className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Coma-separados: opus, PCMA (alaw), PCMU (ulaw), G722, G729</div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Modo DTMF</label>
+                        <select value={settings.softphone_dtmf_mode||'rfc2833'} onChange={e=>set('softphone_dtmf_mode', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="rfc2833">RFC 2833 (RTP events) — Recomendado</option>
+                            <option value="inband">Inband audio</option>
+                            <option value="info">SIP INFO</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>tune</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Comportamiento</h4>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-md border" style={{borderColor:'var(--border)', background:'var(--secondary)'}}>
+                    <div>
+                        <div className="text-sm font-semibold" style={{color:'var(--foreground)'}}>Auto-responder llamadas entrantes</div>
+                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>El softphone contesta automáticamente cuando suena (útil para hot-desk fijos)</div>
+                    </div>
+                    <input type="checkbox" checked={settings.softphone_auto_answer === '1'} onChange={e=>set('softphone_auto_answer', e.target.checked?'1':'0')}
+                        style={{width:18, height:18, accentColor:'var(--primary)', cursor:'pointer'}}/>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Extensiones SIN softphone (separadas por coma)</label>
+                    <input type="text" value={settings.softphone_disabled_extensions||''} onChange={e=>set('softphone_disabled_extensions', e.target.value)}
+                        placeholder="ej: 9999, 8001, 5000"
+                        className="w-full h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                    <div className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Estas extensiones quedan ocultas en el portal de agente (solo teléfono físico).</div>
+                </div>
+            </div>
         </div>
     );
 }
