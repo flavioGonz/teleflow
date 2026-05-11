@@ -226,11 +226,45 @@ try {
                 if ($ext && !$by_agent_ext[$agent_num]['extension']) $by_agent_ext[$agent_num]['extension'] = $ext;
                 if (!in_array($queue, $by_agent_ext[$agent_num]['queues'])) $by_agent_ext[$agent_num]['queues'][] = $queue;
             }
+            // HORIZON: cargar pausas activas (con motivo y duracion) desde agent_pauses + pause_types
+            $active_pauses = [];
+            try {
+                $st = $tf->query("
+                    SELECT ap.agent_ext, ap.agent_number, ap.pause_type_code, ap.pause_start,
+                           pt.label AS pause_label, pt.color AS pause_color,
+                           TIMESTAMPDIFF(SECOND, ap.pause_start, NOW()) AS pause_seconds
+                    FROM agent_pauses ap
+                    LEFT JOIN pause_types pt ON pt.code = ap.pause_type_code
+                    WHERE ap.pause_end IS NULL
+                    ORDER BY ap.pause_start DESC
+                ");
+                foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $p) {
+                    // Indexar por agent_number Y agent_ext (la pausa puede tener cualquiera)
+                    $key = $p['agent_number'] ?: $p['agent_ext'];
+                    if ($key && !isset($active_pauses[$key])) $active_pauses[$key] = $p;
+                    if ($p['agent_ext'] && !isset($active_pauses[$p['agent_ext']])) $active_pauses[$p['agent_ext']] = $p;
+                }
+            } catch (Exception $e) {}
+
             foreach ($rows as &$r) {
                 $info = $by_agent_ext[$r['number']] ?? null;
                 $r['logged_in'] = !empty($info);
                 $r['extension'] = $info['extension'] ?? null;
                 $r['queues']    = $info['queues'] ?? [];
+
+                // HORIZON: estado pausa — buscar por number, luego por extension
+                $p = $active_pauses[$r['number']] ?? null;
+                if (!$p && $r['extension']) $p = $active_pauses[$r['extension']] ?? null;
+                if ($p) {
+                    $r['paused']           = true;
+                    $r['pause_type_code']  = $p['pause_type_code'];
+                    $r['pause_label']      = $p['pause_label'] ?: $p['pause_type_code'];
+                    $r['pause_color']      = $p['pause_color'] ?: '#f59e0b';
+                    $r['pause_start']      = $p['pause_start'];
+                    $r['pause_seconds']    = (int)$p['pause_seconds'];
+                } else {
+                    $r['paused'] = false;
+                }
             }
             echo json_encode(['status'=>'ok','agents'=>$rows]);
             break;
@@ -367,6 +401,88 @@ try {
             // Notificar a todos los clientes conectados via realtime hub
             @file_get_contents('http://127.0.0.1/api/notify.php?event=agent_login&agent='.urlencode($agent).'&ext='.urlencode($ext).'&queues='.urlencode(implode(',',$added)));
             echo json_encode(['status'=>'ok','queues_added'=>$added,'count'=>count($added),'iface'=>$iface]);
+            break;
+        }
+
+        case 'spy_call': {
+            // POST {channel, my_ext} — origina ChanSpy desde my_ext hacia channel
+            // Modo whisper/spy: el supervisor escucha sin ser oído.
+            $channel = trim($_POST['channel'] ?? $_GET['channel'] ?? '');
+            $my_ext  = preg_replace('/\D/', '', $_POST['my_ext'] ?? $_GET['my_ext'] ?? '');
+            $mode    = $_POST['mode'] ?? 'spy';  // spy | whisper | barge
+            if (!$channel || !$my_ext) { http_response_code(400); echo json_encode(['status'=>'error','message'=>'falta channel o my_ext']); exit; }
+
+            // Validar mode
+            $spy_opts = ['spy'=>'q', 'whisper'=>'qw', 'barge'=>'qB'];
+            $opts = $spy_opts[$mode] ?? 'q';
+
+            $s = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $en, $es, 3);
+            if (!$s) { echo json_encode(['status'=>'error','message'=>'AMI no disponible']); exit; }
+            stream_set_timeout($s, 3); fgets($s);
+            fwrite($s, "Action: Login\r\nUsername: $AMI_USER\r\nSecret: $AMI_PASS\r\nEvents: off\r\n\r\n");
+            $st=microtime(true); while(microtime(true)-$st<2){$l=fgets($s);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
+
+            // Extraer ext del canal target (ej. SIP/533-00001234 → 533)
+            $target_ext = '';
+            if (preg_match('/^(?:SIP|PJSIP)\/(\d+)/', $channel, $m)) $target_ext = $m[1];
+
+            // AMI Originate hacia my_ext, que al contestar pasa a Application ChanSpy
+            $action_id = uniqid('spy_');
+            $payload = "Action: Originate\r\n";
+            $payload .= "ActionID: $action_id\r\n";
+            $payload .= "Channel: Local/$my_ext@from-internal\r\n";
+            $payload .= "CallerID: <SPY-$target_ext>\r\n";
+            $payload .= "Application: ChanSpy\r\n";
+            $payload .= "Data: " . ($target_ext ? "SIP/$target_ext,$opts" : "$channel,$opts") . "\r\n";
+            $payload .= "Timeout: 30000\r\n";
+            $payload .= "Async: true\r\n\r\n";
+            fwrite($s, $payload);
+
+            $st=microtime(true); $resp=''; $ok=false;
+            while(microtime(true)-$st<2){
+                $l=fgets($s); if(!$l) break; $resp.=$l;
+                if (strpos($l,'Response: Success')!==false) $ok = true;
+                if (strpos($l,'Response: Error')!==false) break;
+                if (trim($l)==='' && $ok) break;
+            }
+            fwrite($s, "Action: Logoff\r\n\r\n"); fclose($s);
+
+            if ($ok) {
+                echo json_encode(['status'=>'ok','message'=>"Originando spy a $my_ext (target $target_ext)",'mode'=>$mode]);
+            } else {
+                echo json_encode(['status'=>'error','message'=>'AMI Originate falló','raw'=>substr($resp,0,400)]);
+            }
+            break;
+        }
+
+        case 'hangup_call': {
+            // POST {ext} — colgar la llamada actual de una extensión
+            $ext = preg_replace('/\D/', '', $_POST['ext'] ?? $_GET['ext'] ?? '');
+            if (!$ext) { http_response_code(400); echo json_encode(['status'=>'error','message'=>'falta ext']); exit; }
+            // Buscar canal activo de la extension
+            $ch_raw = ami_action(['Action'=>'CoreShowChannels'], 3.0);
+            $channels = [];
+            // Hacer queries hasta obtener match
+            $s = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $en, $es, 3);
+            if (!$s) { echo json_encode(['status'=>'error','message'=>'AMI no disponible']); exit; }
+            stream_set_timeout($s, 3); fgets($s);
+            fwrite($s, "Action: Login\r\nUsername: $AMI_USER\r\nSecret: $AMI_PASS\r\nEvents: off\r\n\r\n");
+            $st=microtime(true); while(microtime(true)-$st<2){$l=fgets($s);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
+            // core show channels concise
+            fwrite($s, "Action: Command\r\nCommand: core show channels concise\r\n\r\n");
+            $resp=''; $st=microtime(true);
+            while(microtime(true)-$st<3){$l=fgets($s);if($l===false)break;$resp.=$l;if(strpos($l,'--END COMMAND--')!==false)break;}
+            $hung = [];
+            foreach (explode("\n", $resp) as $line) {
+                if (preg_match('#^(SIP|PJSIP)/'.preg_quote($ext,'#').'[-!]#', $line)) {
+                    $chan = explode('!', $line)[0];
+                    fwrite($s, "Action: Hangup\r\nChannel: $chan\r\n\r\n");
+                    $hung[] = $chan;
+                    usleep(50000);
+                }
+            }
+            fwrite($s, "Action: Logoff\r\n\r\n"); fclose($s);
+            echo json_encode(['status'=>'ok','hung'=>$hung,'count'=>count($hung)]);
             break;
         }
 

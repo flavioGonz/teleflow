@@ -54,29 +54,6 @@ header('Expires: 0');
             } catch(e) {}
         })();
     </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script>
-        tailwind.config = {
-          theme: {
-            extend: {
-              colors: {
-                brand: {
-                  bg: '#050508',
-                  surface: '#0d0d14',
-                  accent: '#7c3aed',
-                  success: '#10b981',
-                  warning: '#f59e0b',
-                  danger: '#ef4444'
-                }
-              },
-              fontFamily: {
-                sans: ['Inter', 'sans-serif'],
-                mono: ['JetBrains Mono', 'Fira Code', 'monospace']
-              }
-            }
-          }
-        }
-    </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -92,6 +69,602 @@ header('Expires: 0');
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- HORIZON: Tailwind CDN + shadcn tokens (migración progresiva A1) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: 'var(--border)',
+                        input: 'var(--input)',
+                        ring: 'var(--ring)',
+                        background: 'var(--background)',
+                        foreground: 'var(--foreground)',
+                        primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
+                        secondary: { DEFAULT: 'var(--secondary)', foreground: 'var(--secondary-foreground)' },
+                        destructive: { DEFAULT: 'var(--destructive)', foreground: 'var(--destructive-foreground)' },
+                        muted: { DEFAULT: 'var(--muted)', foreground: 'var(--muted-foreground)' },
+                        accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
+                        popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
+                        card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
+                        success: { DEFAULT: 'var(--success)', foreground: 'var(--success-foreground)' },
+                        warning: { DEFAULT: 'var(--warning)', foreground: 'var(--warning-foreground)' },
+                    },
+                    borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+                    fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+                    keyframes: {
+                        'accordion-down': { from: { height: 0 }, to: { height: 'var(--radix-accordion-content-height)' } },
+                        'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: 0 } },
+                    },
+                }
+            }
+        };
+    </script>
+    <style>
+    /* HORIZON: shadcn/ui design tokens (colores completos para compat con legacy var(--x)) */
+    :root, .light {
+        --background: #ffffff;
+        --foreground: #0a0a0a;
+        --card: #ffffff;
+        --card-foreground: #0a0a0a;
+        --popover: #ffffff;
+        --popover-foreground: #0a0a0a;
+        --primary: #7c3aed;             /* morado Horizon */
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #18181b;
+        --muted-foreground: #71717a;
+        --accent-foreground: #18181b;
+        --destructive: #ef4444;
+        --destructive-foreground: #fafafa;
+        --success: #16a34a;
+        --success-foreground: #fafafa;
+        --warning: #f59e0b;
+        --warning-foreground: #18181b;
+        --input: #e4e4e7;
+        --ring: #7c3aed;
+        --radius: 0.5rem;
+        /* Horizon brand colors */
+        --horizon-green: #11B328;
+        --horizon-green-glow: rgba(17, 179, 40, 0.45);
+        --horizon-black: #1A1A1A;
+        --horizon-bg-light: #E6E7E8;
+    }
+    .dark {
+        --background: #0a0a0d;          /* near-black levemente morado */
+        --foreground: #fafafa;
+        --card: #14141a;
+        --card-foreground: #fafafa;
+        --popover: #14141a;
+        --popover-foreground: #fafafa;
+        --primary: #8b5cf6;
+        --primary-foreground: #0a0a0d;
+        --secondary: #1f1f26;
+        --secondary-foreground: #fafafa;
+        --muted-foreground: #a1a1aa;
+        --accent-foreground: #fafafa;
+        --destructive: #ef4444;
+        --destructive-foreground: #fafafa;
+        --success: #22c55e;
+        --success-foreground: #0a0a0d;
+        --warning: #f59e0b;
+        --warning-foreground: #0a0a0d;
+        --input: #2a2a33;
+        --ring: #8b5cf6;
+    }
+    /* IMPORTANTE: --border, --muted, --accent, --text, --bg, --surface, --surface2
+       son tokens legacy (rgba/hex completos) definidos en el primer :root mas abajo.
+       NO los redefinimos acá para no romper var(--border) etc. */
+    /* Animaciones shadcn */
+    @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes slide-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    .animate-slide-in { animation: slide-in-right 0.25s ease-out; }
+    .animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+    /* HORIZON: vibrate ringing — cards de agente/extension con llamada entrante */
+    @keyframes hzn-vibrate {
+        0%, 100% { transform: translate(0, 0); }
+        10% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+        20% { transform: translate(2px, 1px) rotate(0.5deg); }
+        30% { transform: translate(-2px, 1px) rotate(-0.3deg); }
+        40% { transform: translate(2px, -1px) rotate(0.3deg); }
+        50% { transform: translate(-1px, 0) rotate(-0.2deg); }
+        60% { transform: translate(1px, 0) rotate(0.2deg); }
+        70% { transform: translate(-1px, 1px); }
+        80% { transform: translate(1px, -1px); }
+    }
+    @keyframes hzn-ring-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55), 0 0 0 0 rgba(239,68,68,0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(239,68,68,0.0), 0 0 24px 4px rgba(239,68,68,0.55); }
+    }
+    .hzn-ringing {
+        animation: hzn-vibrate 0.5s ease-in-out infinite, hzn-ring-glow 1.5s ease-in-out infinite;
+        border-color: #ef4444 !important;
+    }
+    /* Body: heredar background/foreground del token */
+    body { background-color: var(--background); color: var(--foreground); }
+    
+        /* ═══════════════════════════════════════════════════════════════════════════
+           HORIZON: shadcn/ui — overrides finales para tablas y modales legacy
+           Ningún color hardcoded — todo deriva de HSL tokens (hsl(var(--xxx)))
+           Compatible con theme light/dark automático
+           ═══════════════════════════════════════════════════════════════════════════ */
+
+        /* Tabla shadcn (override de .tf-table) */
+        .tf-table {
+            width: 100%;
+            border-collapse: collapse;
+            caption-side: bottom;
+            font-size: 13px;
+            color: var(--foreground);
+        }
+        .tf-table thead {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+        }
+        .tf-table th {
+            height: 40px;
+            padding: 0 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            vertical-align: middle;
+        }
+        .tf-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.15s ease;
+        }
+        .tf-table tbody tr:last-child {
+            border-bottom: none;
+        }
+        .tf-table tbody tr:hover {
+            background-color: color-mix(in srgb, var(--muted) 50%, transparent);
+        }
+        .tf-table td {
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--foreground);
+            vertical-align: middle;
+            border-bottom: none; /* lo maneja el tr */
+        }
+        body.light .tf-table thead,
+        body.light .tf-table tbody tr:hover {
+            background: transparent;
+        }
+        body.light .tf-table tbody tr:hover {
+            background-color: color-mix(in srgb, var(--muted) 50%, transparent);
+        }
+
+        /* Modal / Drawer backdrops shadcn */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            padding: 16px;
+            animation: fade-in 0.2s ease-out;
+        }
+        .modal-box {
+            background: var(--background);
+            color: var(--foreground);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 24px 48px -12px rgba(0,0,0,0.35), 0 0 0 1px var(--border);
+            animation: fade-in 0.2s ease-out;
+        }
+        .drawer-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            animation: fade-in 0.2s ease-out;
+        }
+        .drawer {
+            position: fixed; right: 0; top: 0; bottom: 0;
+            width: 100%; max-width: 440px;
+            background: var(--background);
+            color: var(--foreground);
+            border-left: 1px solid var(--border);
+            z-index: 9999;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: -12px 0 40px -8px rgba(0,0,0,0.35);
+            animation: slide-in-right 0.25s ease-out;
+        }
+
+        /* Inputs / selects legacy: heredar tokens */
+        .input-tf {
+            background: var(--background) !important;
+            color: var(--foreground) !important;
+            border: 1px solid var(--input) !important;
+            border-radius: calc(var(--radius) - 2px) !important;
+        }
+        .input-tf:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 40%, transparent) !important;
+            border-color: var(--ring) !important;
+        }
+
+        /* Cards legacy con className="glass" — alinear a shadcn Card */
+        .glass {
+            background-color: var(--card);
+            color: var(--card-foreground);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        body.light .glass {
+            background: var(--card) !important;
+        }
+
+        /* Scrollbar shadcn-flavor */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--muted-foreground) 50%, transparent); }
+
+        /* ═══════════════════════════════════════════════════════════════════════════
+           HORIZON LOGIN (infratec-style, brand green #11B328)
+           ═══════════════════════════════════════════════════════════════════════════ */
+        .hzn-login-root {
+            position: fixed; inset: 0;
+            display: grid;
+            grid-template-columns: 2fr 4fr;   /* form 2/6 (izquierda) · imagen 4/6 (derecha) */
+            background: #fff;
+            color: var(--horizon-black);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        /* Form a la IZQUIERDA, imagen a la DERECHA */
+        .hzn-login-form-wrap { order: 1; grid-column: 1; }
+        .hzn-login-hero      { order: 2; grid-column: 2; }
+
+        @media (max-width: 900px) {
+            .hzn-login-root { grid-template-columns: 1fr; }
+            .hzn-login-hero { display: none; }
+            .hzn-login-form-wrap { grid-column: 1; }
+        }
+
+        /* ── HERO (left) ── */
+        .hzn-login-hero {
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        .hzn-login-hero-image {
+            position: absolute; inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: saturate(1.05);
+        }
+        .hzn-login-hero-overlay {
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse at 30% 50%, rgba(17,179,40,0.18), transparent 60%),
+                linear-gradient(135deg, rgba(26,26,26,0.65) 0%, rgba(26,26,26,0.45) 50%, rgba(26,26,26,0.75) 100%);
+        }
+        .hzn-login-hero-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 50px 60px;
+            color: #fff;
+            text-align: right;
+        }
+        .hzn-logo {
+            display: flex; align-items: center; gap: 14px;
+            justify-content: flex-end;
+        }
+        .hzn-logo-mark {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px;
+            background: rgba(255,255,255,0.96);
+            border-radius: 50%;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 4px rgba(17,179,40,0.18);
+        }
+        .hzn-logo-text {
+            font-size: 26px; font-weight: 900;
+            letter-spacing: 0.08em;
+            color: #fff;
+            line-height: 1;
+        }
+        .hzn-logo-sub {
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.32em;
+            color: var(--horizon-green);
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+        .hzn-login-tagline {
+            max-width: 560px;
+            margin-left: auto;     /* push to the right */
+        }
+        .hzn-login-tagline h1 {
+            font-size: 38px; font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin: 14px 0 14px;
+            color: #fff;
+        }
+        .hzn-login-tagline p {
+            font-size: 14.5px; font-weight: 500;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.85);
+            margin: 0 0 20px;
+        }
+        /* Role pill arriba del heading */
+        .hzn-role-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            background: rgba(17,179,40,0.18);
+            border: 1px solid rgba(17,179,40,0.4);
+            border-radius: 100px;
+            font-size: 11px; font-weight: 700;
+            color: var(--horizon-green);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hzn-role-pill[data-variant="agent"] {
+            background: rgba(59,130,246,0.18);
+            border-color: rgba(59,130,246,0.4);
+            color: #60a5fa;
+        }
+        .hzn-role-pill .material-icons-round { font-size: 13px; }
+        /* Feature list */
+        .hzn-feature-list {
+            list-style: none; padding: 0; margin: 8px 0 0;
+            display: flex; flex-direction: column;
+            gap: 12px;
+        }
+        .hzn-feature-list li {
+            display: flex; align-items: flex-start; gap: 12px;
+            justify-content: flex-end;
+        }
+        .hzn-feature-list li > .material-icons-round {
+            order: 2;
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            color: var(--horizon-green);
+            flex-shrink: 0;
+        }
+        .hzn-feature-list li > div {
+            order: 1;
+            text-align: right;
+            display: flex; flex-direction: column;
+            min-width: 0;
+        }
+        .hzn-feature-list li strong {
+            font-size: 13px; font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .hzn-feature-list li span:not(.material-icons-round) {
+            font-size: 11.5px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+
+        /* ── FORM (right) ── */
+        .hzn-login-form-wrap {
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            overflow-y: auto;
+        }
+        @media (max-width: 900px) {
+            .hzn-login-form-wrap {
+                background-image:
+                    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92)),
+                    url('assets/login-bg.jpg');
+                background-size: cover;
+                background-position: center;
+            }
+        }
+        .hzn-login-form-inner {
+            width: 100%;
+            max-width: 420px;
+        }
+        .hzn-login-mobile-logo {
+            display: none;
+            align-items: center; justify-content: center; gap: 12px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 900px) {
+            .hzn-login-mobile-logo { display: flex; }
+        }
+        .hzn-logo-text-mobile {
+            font-size: 22px; font-weight: 900;
+            letter-spacing: 0.08em;
+            color: var(--horizon-black);
+        }
+        .hzn-login-heading {
+            margin-bottom: 28px;
+        }
+        .hzn-login-heading h2 {
+            font-size: 28px; font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--horizon-black);
+            margin: 0;
+            line-height: 1.1;
+        }
+        .hzn-login-heading p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 8px 0 0;
+            line-height: 1.5;
+        }
+
+        /* ── Role tabs ── */
+        .hzn-role-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 4px;
+            background: var(--horizon-bg-light);
+            border-radius: 10px;
+            margin-bottom: 22px;
+        }
+        .hzn-role-tabs button {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 7px;
+            font-size: 12px; font-weight: 700;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .hzn-role-tabs button .material-icons-round { font-size: 16px; }
+        .hzn-role-tabs button:hover { color: var(--horizon-black); }
+        .hzn-role-tabs button.active {
+            background: #fff;
+            color: var(--horizon-black);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+        }
+
+        /* ── Form fields ── */
+        .hzn-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .hzn-field { display: block; }
+        .hzn-label {
+            display: block;
+            font-size: 12px; font-weight: 700;
+            color: var(--horizon-black);
+            margin-bottom: 6px;
+            letter-spacing: 0.01em;
+        }
+        .hzn-input-wrap {
+            position: relative;
+        }
+        .hzn-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px 0 42px;
+            background: #fff;
+            border: 1.5px solid #d4d4d8;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--horizon-black);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            font-family: inherit;
+        }
+        .hzn-input:focus {
+            outline: none;
+            border-color: var(--horizon-green);
+            box-shadow: 0 0 0 3px rgba(17,179,40,0.18);
+        }
+        .hzn-input::placeholder { color: #9ca3af; }
+        .hzn-input.pr-12 { padding-right: 44px; }
+        .hzn-input-icon {
+            position: absolute;
+            left: 13px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #9ca3af;
+            pointer-events: none;
+            transition: color 0.15s ease;
+        }
+        .hzn-input:focus ~ .hzn-input-icon,
+        .hzn-input-wrap:focus-within .hzn-input-icon {
+            color: var(--horizon-green);
+        }
+        .hzn-input-toggle {
+            position: absolute;
+            right: 8px; top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #9ca3af;
+            display: inline-flex;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .hzn-input-toggle:hover {
+            color: var(--horizon-black);
+            background: var(--horizon-bg-light);
+        }
+        .hzn-input-toggle .material-icons-round { font-size: 18px; }
+        .hzn-field-help {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        /* ── Alert ── */
+        .hzn-alert {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.32);
+            border-radius: 8px;
+            font-size: 12.5px; font-weight: 600;
+            color: #b91c1c;
+        }
+        .hzn-alert .material-icons-round { font-size: 18px; color: #dc2626; }
+
+        /* ── Primary button (green Horizon) ── */
+        .hzn-btn-primary {
+            width: 100%;
+            height: 46px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            background: var(--horizon-green);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px; font-weight: 700;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            box-shadow: 0 4px 12px var(--horizon-green-glow), inset 0 -2px 0 rgba(0,0,0,0.08);
+            transition: all 0.18s ease;
+            margin-top: 4px;
+        }
+        .hzn-btn-primary:hover:not(:disabled) {
+            background: #0ea021;
+            box-shadow: 0 6px 18px var(--horizon-green-glow), inset 0 -2px 0 rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .hzn-btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .hzn-btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }
+        .hzn-btn-primary .material-icons-round { font-size: 18px; }
+
+        /* ── Footer ── */
+        .hzn-login-footer {
+            margin-top: 28px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        .hzn-dot { opacity: 0.4; }
+
+
+    </style>
     <style>
         :root {
             --bg: #07070d;
@@ -121,8 +694,8 @@ header('Expires: 0');
         body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f5f7fb; }
         body.light .glass { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         body.light .sidebar { background: linear-gradient(180deg,#fafbff,#f5f7fb) !important; border-right: 1px solid var(--border); }
-        body.light .nav-item:hover { background: rgba(139,92,246,0.08) !important; }
-        body.light .nav-item.active { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)) !important; color: #6d28d9 !important; }
+        body.light .nav-item:hover { background: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
+        body.light .nav-item.active { background: color-mix(in srgb, var(--primary) 14%, transparent) !important; color: var(--primary) !important; }
         body.light .input-tf { background: #ffffff !important; color: #111827 !important; border:1px solid var(--border) !important; }
         body.light .tf-table { color: #111827; }
         body.light .tf-table thead { background: #f0f2f7; }
@@ -338,17 +911,18 @@ header('Expires: 0');
         /* Selects same as inputs */
         select.input-tf option { background: var(--surface); color: var(--text); }
         .btn-primary {
-            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-            color: white;
-            font-weight: 700;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            font-weight: 600;
             border: none;
             cursor: pointer;
-            transition: all .3s;
+            transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
             position: relative;
-            overflow: hidden;
+            border-radius: var(--radius);
         }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(139,92,246,0.45); }
-        .btn-primary::after { content:''; position:absolute; inset:0; background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent); }
+        .btn-primary:hover { background: color-mix(in srgb, var(--primary) 90%, transparent); box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent); }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ── LAYOUT ── */
         #app { display:flex; height:100vh; }
@@ -390,44 +964,45 @@ header('Expires: 0');
         @keyframes tfModalPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         body.tf-modal-open { overflow: hidden; }
 
-        .tf-page-header { display: flex; align-items: center; justify-content: center; padding: 6px 4px 14px; margin: 0 0 12px 0; gap: 14px; flex-wrap: wrap; }
+        .tf-page-header { display: flex; align-items: center; justify-content: center; padding: 10px 4px 14px; margin: 0 0 16px 0; gap: 14px; flex-wrap: wrap; }
         .tf-page-actions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
 
         .tfbar { position: sticky; top: 0; z-index: 90; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; box-shadow: 0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04); backdrop-filter: blur(6px); overflow: visible; }
         .tfbar-logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; cursor: pointer; }
-        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(139,92,246,0.35); }
-        .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
-        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
+        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000)); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
+        .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--foreground); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
+        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
         .tfbar-menu { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; overflow: visible; flex-wrap: nowrap; min-width: 0; }
         .tfbar-menu::-webkit-scrollbar { display: none; }
-        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
-        .tfbar-item:hover { background: rgba(139,92,246,.10); color: var(--text); }
-        .tfbar-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
+        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted-foreground); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
+        .tfbar-item:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--foreground); }
+        .tfbar-item.active { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
         .tfbar-item .material-icons-round { font-size: 17px; }
         .tfbar-item .chev { font-size: 14px; opacity: .55; margin-left: -2px; transition: transform .2s; }
         .tfbar-item.open .chev { transform: rotate(180deg); }
-        .tfbar-dropdown { position: fixed; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.10); padding: 6px; z-index: 9000; animation: tfDrop .18s ease both; overflow: hidden; }
+        .tfbar-dropdown { position: fixed; min-width: 260px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.10); padding: 6px; z-index: 9000; animation: tfDrop .18s ease both; overflow: hidden; color: var(--card-foreground); }
         @keyframes tfDrop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .tfbar-drop-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text); transition: background .12s; }
-        .tfbar-drop-item:hover { background: rgba(139,92,246,.10); }
-        .tfbar-drop-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
-        .tfbar-drop-item .material-icons-round { font-size: 18px; color: var(--muted); flex-shrink: 0; }
-        .tfbar-drop-item.active .material-icons-round { color: #c4b5fd; }
+        .tfbar-drop-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--foreground); transition: background .12s; }
+        .tfbar-drop-item:hover { background: var(--accent); color: var(--accent-foreground); }
+        .tfbar-drop-item.active { background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+        .tfbar-drop-item .material-icons-round { font-size: 18px; color: var(--muted-foreground); flex-shrink: 0; }
+        .tfbar-drop-item.active .material-icons-round { color: var(--primary); }
         .tfbar-drop-item .tfbar-drop-text { flex: 1; min-width: 0; }
-        .tfbar-drop-item .tfbar-drop-sub { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 1px; }
-        .tfbar-badge { background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 9px; min-width: 16px; text-align: center; }
+        .tfbar-drop-item .tfbar-drop-sub { font-size: 10px; font-weight: 500; color: var(--muted-foreground); margin-top: 1px; }
+        .tfbar-badge { background: var(--primary); color: var(--primary-foreground); font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 9px; min-width: 16px; text-align: center; }
         .tfbar-spacer { flex: 1; }
         .tfbar-stat { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 8px; cursor: pointer; transition: background .12s; border: none; background: transparent; color: inherit; }
-        .tfbar-stat:hover { background: rgba(139,92,246,.08); }
+        .tfbar-stat:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
         .tfbar-stat-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
         .tfbar-stat-icon .material-icons-round { font-size: 15px; }
         .tfbar-stat-val { font-size: 12.5px; font-weight: 800; line-height: 1; color: var(--text); }
         .tfbar-stat-lbl { font-size: 8.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; line-height: 1; margin-top: 2px; }
         .tfbar-divider { width: 1px; height: 26px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
-        .tfbar-pill { display: flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 10.5px; font-weight: 700; border: 1px solid rgba(34,197,94,.25); background: rgba(34,197,94,.08); color: #22c55e; }
-        .tfbar-pill:hover { background: rgba(34,197,94,.13); }
-        .tfbar-avatar { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: 0 2px 8px rgba(139,92,246,.30); user-select: none; }
-        .tfbar-avatar:hover { transform: scale(1.04); }
+        .tfbar-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--card); color: var(--card-foreground); transition: background .12s, border-color .12s; }
+        .tfbar-pill:hover { background: var(--accent); }
+        .tfbar-pill:focus-within { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 25%, transparent); }
+        .tfbar-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000)); color: var(--primary-foreground); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 28%, transparent); user-select: none; transition: transform .12s, box-shadow .12s; }
+        .tfbar-avatar:hover { transform: scale(1.06); box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 40%, transparent); }
         .tfbar-mobile-toggle { display: none; }
         @media (max-width: 900px) {
             .tfbar { padding: 0 8px; gap: 8px; }
@@ -473,8 +1048,8 @@ header('Expires: 0');
             margin-bottom: 2px;
             white-space: nowrap;
         }
-        .nav-item:hover { background: rgba(139,92,246,0.1); color: var(--text); }
-        .nav-item.active { background: rgba(139,92,246,0.18); color: #c4b5fd; }
+        .nav-item:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--text); }
+        .nav-item.active { background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary); font-weight: 600; }
         .nav-item .material-icons-round { font-size: 20px; flex-shrink:0; }
         .nav-section { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #374151; text-transform: uppercase; padding: 12px 12px 4px; }
         .sidebar-bottom {
@@ -517,10 +1092,10 @@ header('Expires: 0');
             position: sticky;
             top: 0;
             z-index: 10;
-            background: rgba(7,7,13,0.85);
-            backdrop-filter: blur(20px);
+            background: color-mix(in srgb, var(--background) 90%, transparent);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 14px 28px;
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -528,16 +1103,16 @@ header('Expires: 0');
         }
         .content-area { padding: 24px 28px; flex: 1; }
 
-        /* ── GLASS CARDS ── */
-        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
-        .glass-hover { transition: border-color .2s, transform .2s, box-shadow .2s; }
-        .glass-hover:hover { border-color: rgba(139,92,246,0.35); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(139,92,246,0.1); }
+        /* ── GLASS CARDS — shadcn-flavored ── */
+        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+        .glass-hover { transition: background-color .15s, border-color .15s, transform .15s; }
+        .glass-hover:hover { border-color: color-mix(in srgb, var(--primary) 30%, transparent); background: color-mix(in srgb, var(--primary) 4%, var(--surface)); }
 
-        /* ── STATUS BADGES ── */
-        .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em; }
-        .badge-online { background:rgba(34,197,94,0.15); color:#4ade80; }
-        .badge-offline { background:rgba(107,114,128,0.15); color:#9ca3af; }
-        .badge-busy { background:rgba(245,158,11,0.15); color:#fbbf24; }
+        /* ── STATUS BADGES — alineados a shadcn ── */
+        .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:.02em; }
+        .badge-online { background:color-mix(in srgb, #22c55e 18%, transparent); color:#22c55e; }
+        .badge-offline { background:color-mix(in srgb, #6b7280 18%, transparent); color:#9ca3af; }
+        .badge-busy { background:color-mix(in srgb, #ef4444 18%, transparent); color:#ef4444; }
         .badge-dot { width:6px; height:6px; border-radius:50%; }
         .dot-online { background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
         .dot-offline { background:#6b7280; }
@@ -751,6 +1326,657 @@ header('Expires: 0');
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HORIZON: shadcn/ui primitives — adaptados a JSX inline + Tailwind CDN
+// (sin Radix porque no tenemos build pipeline; comportamiento manual)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Utility para mergear clases tipo cn() de shadcn
+function cn(...classes) {
+    return classes.filter(Boolean).join(' ');
+}
+
+// ─── Theme management ──────────────────────────────────────────────────────
+const ThemeContext = React.createContext({ theme: 'dark', setTheme: () => {} });
+
+function ThemeProvider({ children }) {
+    const [theme, setThemeState] = useState(() => {
+        try { return localStorage.getItem('tf_theme') || 'dark'; } catch(e) { return 'dark'; }
+    });
+    useEffect(() => {
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+        document.body.classList.remove('light', 'dark');
+        document.body.classList.add(theme);
+        try { localStorage.setItem('tf_theme', theme); } catch(e) {}
+    }, [theme]);
+    const setTheme = useCallback((t) => setThemeState(t), []);
+    const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+function useTheme() { return useContext(ThemeContext); }
+
+function ThemeToggle({ className }) {
+    const { theme, setTheme } = useTheme();
+    const next = theme === 'dark' ? 'light' : 'dark';
+    return (
+        <button
+            type="button"
+            onClick={() => setTheme(next)}
+            className={cn(
+                "inline-flex items-center justify-center rounded-md h-9 w-9 transition-colors",
+                "border border-border bg-card hover:bg-accent hover:text-accent-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                className
+            )}
+            title={theme === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
+        >
+            <span className="material-icons-round text-base">
+                {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+            </span>
+        </button>
+    );
+}
+
+// ─── Button ─────────────────────────────────────────────────────────────────
+const BUTTON_VARIANTS = {
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    ghost: 'hover:bg-accent hover:text-accent-foreground',
+    link: 'text-primary underline-offset-4 hover:underline',
+    success: 'bg-green-600 text-white hover:bg-green-700',
+};
+const BUTTON_SIZES = {
+    default: 'h-9 px-4 py-2 text-sm',
+    sm: 'h-8 rounded-md px-3 text-xs',
+    lg: 'h-10 rounded-md px-8 text-sm',
+    icon: 'h-9 w-9',
+};
+function Button({ children, variant = 'default', size = 'default', className, type = 'button', asLink = false, href, target, ...props }) {
+    const cls = cn(
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'disabled:pointer-events-none disabled:opacity-50',
+        BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.default,
+        BUTTON_SIZES[size] || BUTTON_SIZES.default,
+        className
+    );
+    if (asLink) {
+        return <a href={href} target={target} rel={target === '_blank' ? 'noopener noreferrer' : undefined} className={cls} {...props}>{children}</a>;
+    }
+    return <button type={type} className={cls} {...props}>{children}</button>;
+}
+
+// ─── Card ───────────────────────────────────────────────────────────────────
+function Card({ children, className, ...props }) {
+    return <div className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className)} {...props}>{children}</div>;
+}
+function CardHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props}>{children}</div>;
+}
+function CardTitle({ children, className, ...props }) {
+    return <h3 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h3>;
+}
+function CardDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function CardContent({ children, className, ...props }) {
+    return <div className={cn("p-6 pt-0", className)} {...props}>{children}</div>;
+}
+function CardFooter({ children, className, ...props }) {
+    return <div className={cn("flex items-center p-6 pt-0", className)} {...props}>{children}</div>;
+}
+
+// ─── Input ──────────────────────────────────────────────────────────────────
+function Input({ className, type = 'text', ...props }) {
+    return (
+        <input
+            type={type}
+            className={cn(
+                "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm",
+                "transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+                className
+            )}
+            {...props}
+        />
+    );
+}
+
+// ─── Select (HTML nativo con styles shadcn) ─────────────────────────────────
+function Select({ className, children, ...props }) {
+    return (
+        <select
+            className={cn(
+                "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm",
+                "focus:outline-none focus:ring-1 focus:ring-ring",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+                className
+            )}
+            {...props}
+        >{children}</select>
+    );
+}
+
+// ─── Label ──────────────────────────────────────────────────────────────────
+function Label({ children, className, htmlFor, ...props }) {
+    return <label htmlFor={htmlFor} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)} {...props}>{children}</label>;
+}
+
+// ─── Badge ──────────────────────────────────────────────────────────────────
+const BADGE_VARIANTS = {
+    default: 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
+    secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    destructive: 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
+    outline: 'text-foreground border-border',
+    success: 'border-transparent bg-green-500/15 text-green-600 dark:text-green-400',
+    warning: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    info: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400',
+};
+function Badge({ children, variant = 'default', className, ...props }) {
+    return (
+        <span className={cn(
+            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+            BADGE_VARIANTS[variant] || BADGE_VARIANTS.default,
+            className
+        )} {...props}>{children}</span>
+    );
+}
+
+// ─── Separator ──────────────────────────────────────────────────────────────
+function Separator({ className, orientation = 'horizontal', ...props }) {
+    return (
+        <div className={cn(
+            'shrink-0 bg-border',
+            orientation === 'horizontal' ? 'h-[1px] w-full' : 'h-full w-[1px]',
+            className
+        )} {...props}/>
+    );
+}
+
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+function Skeleton({ className, ...props }) {
+    return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props}/>;
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+const TabsContext = React.createContext({ value: '', onChange: () => {} });
+function Tabs({ value, onChange, defaultValue, children, className, ...props }) {
+    const [internal, setInternal] = useState(defaultValue || '');
+    const current = value !== undefined ? value : internal;
+    const setCurrent = (v) => { if (value === undefined) setInternal(v); onChange?.(v); };
+    const ctx = useMemo(() => ({ value: current, onChange: setCurrent }), [current]);
+    return <TabsContext.Provider value={ctx}><div className={cn('', className)} {...props}>{children}</div></TabsContext.Provider>;
+}
+function TabsList({ children, className, ...props }) {
+    return <div role="tablist" className={cn("inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground", className)} {...props}>{children}</div>;
+}
+function TabsTrigger({ value, children, className, ...props }) {
+    const { value: current, onChange } = useContext(TabsContext);
+    const active = current === value;
+    return (
+        <button
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(value)}
+            className={cn(
+                'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:pointer-events-none disabled:opacity-50',
+                active && 'bg-background text-foreground shadow',
+                className
+            )}
+            {...props}
+        >{children}</button>
+    );
+}
+function TabsContent({ value, children, className, ...props }) {
+    const { value: current } = useContext(TabsContext);
+    if (current !== value) return null;
+    return <div role="tabpanel" className={cn('mt-4 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', className)} {...props}>{children}</div>;
+}
+
+// ─── Dialog (modal) ─────────────────────────────────────────────────────────
+function Dialog({ open, onOpenChange, children }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
+        document.addEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [open, onOpenChange]);
+    if (!open) return null;
+    const content = (
+        <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9999}}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
+            <div className="relative grid w-full max-w-lg gap-4 border bg-card text-card-foreground p-6 rounded-lg animate-fade-in" style={{borderColor:'var(--border)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6)'}} onClick={e => e.stopPropagation()}>
+                {children}
+                <button onClick={() => onOpenChange?.(false)} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                    <span className="material-icons-round text-base">close</span>
+                </button>
+            </div>
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+function DialogHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props}>{children}</div>;
+}
+function DialogTitle({ children, className, ...props }) {
+    return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h2>;
+}
+function DialogDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function DialogFooter({ children, className, ...props }) {
+    return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4", className)} {...props}>{children}</div>;
+}
+
+// ─── Sheet (drawer lateral) ─────────────────────────────────────────────────
+function Sheet({ open, onOpenChange, side = 'right', children, size = 'default' }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
+        document.addEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [open, onOpenChange]);
+    if (!open) return null;
+    const widths = { sm: 'sm:max-w-sm', default: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl', '3xl': 'sm:max-w-3xl', '4xl': 'sm:max-w-4xl' };
+    const sideClass = side === 'right'
+        ? `right-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-l animate-slide-in`
+        : `left-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-r animate-slide-in`;
+    const content = (
+        <div className="fixed inset-0 animate-fade-in" style={{zIndex:9999, pointerEvents:'auto'}}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
+            <div className={cn("fixed bg-background shadow-2xl flex flex-col", sideClass)} style={{borderColor:'var(--border)'}}>{children}</div>
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+function SheetHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-2 text-left p-6", className)} {...props}>{children}</div>;
+}
+function SheetTitle({ children, className, ...props }) {
+    return <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props}>{children}</h2>;
+}
+function SheetDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function SheetContent({ children, className, ...props }) {
+    return <div className={cn("flex-1 overflow-auto px-6 pb-6", className)} {...props}>{children}</div>;
+}
+
+// ─── Table ──────────────────────────────────────────────────────────────────
+function ShTable({ children, className, ...props }) {
+    return (
+        <div className="relative w-full overflow-auto">
+            <table className={cn("w-full caption-bottom text-sm", className)} {...props}>{children}</table>
+        </div>
+    );
+}
+function ShTHead({ children, className, ...props }) {
+    return <thead className={cn("[&_tr]:border-b sticky top-0 bg-background z-10", className)} {...props}>{children}</thead>;
+}
+function ShTBody({ children, className, ...props }) {
+    return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props}>{children}</tbody>;
+}
+function ShTR({ children, className, onClick, ...props }) {
+    return <tr onClick={onClick} className={cn("border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", onClick && "cursor-pointer", className)} {...props}>{children}</tr>;
+}
+function ShTH({ children, className, align = 'left', ...props }) {
+    return <th className={cn("h-10 px-3 align-middle font-semibold text-muted-foreground text-xs uppercase tracking-wider", align === 'right' && 'text-right', align === 'center' && 'text-center', className)} {...props}>{children}</th>;
+}
+function ShTD({ children, className, align = 'left', mono = false, ...props }) {
+    return <td className={cn("px-3 py-2 align-middle text-sm", align === 'right' && 'text-right', align === 'center' && 'text-center', mono && 'font-mono text-xs', className)} {...props}>{children}</td>;
+}
+
+// ─── Toaster (sistema simple por window.shToast) ────────────────────────────
+const ToasterContext = React.createContext({ push: () => {}, items: [] });
+function Toaster() {
+    const [items, setItems] = useState([]);
+    useEffect(() => {
+        window.shToast = (msg, variant = 'default', durationMs = 4000) => {
+            const id = Date.now() + Math.random();
+            setItems((arr) => [...arr, { id, msg, variant }]);
+            setTimeout(() => setItems((arr) => arr.filter((t) => t.id !== id)), durationMs);
+        };
+        return () => { delete window.shToast; };
+    }, []);
+    return (
+        <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
+            {items.map((t) => {
+                const cls = t.variant === 'destructive' ? 'border-destructive/40 bg-destructive text-destructive-foreground'
+                          : t.variant === 'success' ? 'border-green-600/40 bg-green-600 text-white'
+                          : 'border-border bg-popover text-popover-foreground';
+                return (
+                    <div key={t.id} className={cn("animate-slide-in pointer-events-auto flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg min-w-[300px] max-w-[420px]", cls)}>
+                        <span className="material-icons-round text-base">{t.variant === 'destructive' ? 'error' : t.variant === 'success' ? 'check_circle' : 'info'}</span>
+                        <span className="flex-1 text-sm">{t.msg}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+
+// HORIZON: RTSP Preview — popup encima del toast Sileo cuando llama un interno con rtsp_url configurado
+function RtspPreviewLayer() {
+    const [previews, setPreviews] = useState([]);
+
+    useEffect(() => {
+        const onOpen = (e) => {
+            const d = e.detail || {};
+            if (!d.url || !d.id) return;
+            setPreviews(prev => prev.find(p => p.id === d.id) ? prev : [...prev, d]);
+        };
+        const onClose = (e) => {
+            const id = e.detail?.id;
+            if (id) setPreviews(prev => prev.filter(p => p.id !== id));
+            else setPreviews([]);
+        };
+        window.addEventListener('tf-rtsp-preview-open', onOpen);
+        window.addEventListener('tf-rtsp-preview-close', onClose);
+        return () => {
+            window.removeEventListener('tf-rtsp-preview-open', onOpen);
+            window.removeEventListener('tf-rtsp-preview-close', onClose);
+        };
+    }, []);
+
+    if (previews.length === 0) return null;
+
+    const content = (
+        <div style={{
+            position:'fixed', top:24, right:24, zIndex:10001,
+            display:'flex', flexDirection:'column', gap:12,
+            pointerEvents:'auto'
+        }}>
+            {previews.map(p => (
+                <RtspPreviewCard
+                    key={p.id}
+                    preview={p}
+                    onClose={() => setPreviews(prev => prev.filter(x => x.id !== p.id))}
+                />
+            ))}
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+
+function RtspPreviewCard({ preview, onClose }) {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [muted, setMuted] = useState(true);
+    const [resolvedUrl, setResolvedUrl] = useState(null);
+    const [resolving, setResolving] = useState(false);
+
+    // Si la URL original es rtsp://, pedir al backend proxy que la convierta a HLS
+    useEffect(() => {
+        const u = preview.url || '';
+        const isRtspNative = /^rtsps?:\/\//i.test(u);
+        if (isRtspNative && preview.ext) {
+            setResolving(true);
+            fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(preview.ext)}`, { credentials: 'include' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'ok' && d.hls_url) setResolvedUrl(d.hls_url);
+                    else setError(d.message || 'Proxy RTSP no disponible');
+                })
+                .catch(() => setError('Error al contactar proxy RTSP'))
+                .finally(() => setResolving(false));
+        }
+    }, [preview.url, preview.ext]);
+
+    // Detectar tipo de stream — usar resolvedUrl si existe (RTSP convertido a HLS), sino la original
+    const url = resolvedUrl || preview.url || '';
+    const isHls = /\.m3u8(\?|$)/i.test(url);
+    const isMp4 = /\.(mp4|webm|ogv)(\?|$)/i.test(url);
+    const isMjpeg = /\.(mjpg|mjpeg|cgi)(\?|$)/i.test(url) || /\/snap|\/mjpg|action=stream/i.test(url);
+    const isRtsp = /^rtsps?:\/\//i.test(url);
+    const isHttp = /^https?:\/\//i.test(url);
+
+    useEffect(() => {
+        if (!isHls || !videoRef.current) return;
+        const video = videoRef.current;
+        // Cargar HLS.js si no está
+        const setupHls = () => {
+            if (!window.Hls) { setError('HLS.js no cargó'); return; }
+            if (window.Hls.isSupported()) {
+                const hls = new window.Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(window.Hls.Events.ERROR, (_, data) => {
+                    if (data.fatal) setError('Stream HLS no disponible');
+                });
+                video._hls = hls;
+                return () => { try { hls.destroy(); } catch(e) {} };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+            } else {
+                setError('Tu browser no soporta HLS');
+            }
+        };
+        if (window.Hls) {
+            return setupHls();
+        } else {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+            s.onload = setupHls;
+            s.onerror = () => setError('No se pudo cargar HLS.js');
+            document.head.appendChild(s);
+        }
+    }, [url, isHls]);
+
+    return (
+        <div style={{
+            width: 340,
+            background: '#0a0a0d',
+            borderRadius: 12,
+            overflow: 'hidden',
+            border: '1px solid var(--border)',
+            boxShadow: '0 20px 50px -10px rgba(0,0,0,0.6), 0 0 0 2px var(--horizon-green), 0 0 30px rgba(17,179,40,0.35)',
+            animation: 'slide-in-right 0.3s ease-out'
+        }}>
+            {/* Header */}
+            <div style={{
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, rgba(17,179,40,0.22), rgba(17,179,40,0.05))',
+                borderBottom: '1px solid rgba(17,179,40,0.35)',
+                display: 'flex', alignItems: 'center', gap: 8
+            }}>
+                <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)', animation:'pulse 1.5s infinite'}}>videocam</span>
+                <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:11, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                        {preview.label || 'Videoportero'}
+                    </div>
+                    <div style={{fontSize:9, color:'rgba(255,255,255,0.6)', fontFamily:'monospace'}}>
+                        ext {preview.ext} · llamada en curso
+                    </div>
+                </div>
+                <button onClick={() => { setMuted(m=>!m); if(videoRef.current) videoRef.current.muted = !muted; }}
+                    title={muted?'Activar audio':'Silenciar'}
+                    style={{padding:4, border:'none', background:'rgba(255,255,255,0.08)', borderRadius:6, cursor:'pointer', color:'#fff'}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>{muted?'volume_off':'volume_up'}</span>
+                </button>
+                <button onClick={onClose} title="Cerrar"
+                    style={{padding:4, border:'none', background:'rgba(255,255,255,0.08)', borderRadius:6, cursor:'pointer', color:'#fff'}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                </button>
+            </div>
+
+            {/* Video area */}
+            <div style={{position:'relative', width:340, height:255, background:'#000', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                {error && (
+                    <div style={{textAlign:'center', color:'#fca5a5', padding:20, fontSize:11}}>
+                        <span className="material-icons-round" style={{fontSize:32, display:'block', marginBottom:6}}>broken_image</span>
+                        {error}
+                    </div>
+                )}
+                {!error && (isHls || isMp4) && (
+                    <video
+                        ref={videoRef}
+                        autoPlay muted={muted} playsInline
+                        src={isMp4 ? url : undefined}
+                        onError={()=>setError('No se pudo cargar el video')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}
+                    />
+                )}
+                {!error && isMjpeg && (
+                    <img src={url} alt="MJPEG stream"
+                        onError={()=>setError('Stream MJPEG no disponible')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                )}
+                {!error && isRtsp && !resolving && (
+                    <div style={{textAlign:'center', color:'#fcd34d', padding:20, fontSize:11}}>
+                        <span className="material-icons-round" style={{fontSize:32, display:'block', marginBottom:6, color:'#f59e0b'}}>warning</span>
+                        <div style={{fontWeight:800, marginBottom:4}}>Stream RTSP no disponible</div>
+                        <div style={{color:'rgba(252,211,77,0.7)', fontSize:10, lineHeight:1.4}}>
+                            El proxy MediaMTX no pudo conectarse a la cámara.<br/>
+                            Verificá que rtsp_url sea accesible.
+                        </div>
+                    </div>
+                )}
+                {resolving && (
+                    <div style={{textAlign:'center', color:'rgba(255,255,255,0.7)', padding:20, fontSize:11}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:28, display:'block', marginBottom:6, color:'var(--horizon-green)'}}>autorenew</span>
+                        Conectando al stream…
+                    </div>
+                )}
+                {!error && !isHls && !isMp4 && !isMjpeg && !isRtsp && isHttp && (
+                    <img src={url} alt="HTTP stream"
+                        onError={()=>setError('Stream no disponible')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                )}
+                {/* Live indicator */}
+                <div style={{position:'absolute', top:8, left:8, padding:'3px 8px', background:'rgba(239,68,68,0.95)', color:'#fff', borderRadius:4, fontSize:9, fontWeight:900, letterSpacing:'.06em', display:'inline-flex', alignItems:'center', gap:4}}>
+                    <span style={{width:6, height:6, borderRadius:'50%', background:'#fff', animation:'pulse 1s infinite'}}/>LIVE
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// HORIZON: wrapper para migrar modales legacy a Dialog shadcn sin reescribir todo el contenido
+function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '90vh', children, className, autoHeight = true }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        document.addEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [open, onClose]);
+    if (!open) return null;
+    // HORIZON: render via portal en #tf-modal-root para escapar stacking contexts
+    // (transform/filter de ancestors rompen position: fixed)
+    const content = (
+        <div
+            onClick={onClose}
+            className="fixed inset-0 flex items-center justify-center animate-fade-in"
+            style={{background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', padding:'4vh 20px', overflowY:'auto', zIndex:9999, pointerEvents:'auto'}}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                    "relative bg-card text-card-foreground border rounded-lg shadow-2xl",
+                    "flex flex-col overflow-hidden animate-fade-in",
+                    className
+                )}
+                style={{
+                    maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth,
+                    width: '100%',
+                    maxHeight,
+                    minHeight: 0,
+                    borderColor: 'var(--border)',
+                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6), 0 0 0 1px var(--border)'
+                }}
+            >
+                {children}
+            </div>
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+
+// HORIZON: ConfirmDialog reusable — confirmaciones estilizadas via shadcn Dialog pattern
+function ConfirmDialog({ open, onCancel, onConfirm, title, message, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', variant = 'default', icon = 'help_outline', loading = false }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') !loading && onCancel?.(); };
+        document.addEventListener('keydown', onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    }, [open, onCancel, loading]);
+    if (!open) return null;
+    const accent = variant === 'destructive' ? '#ef4444' : (variant === 'success' ? '#11B328' : '#3b82f6');
+    const content = (
+        <div onClick={() => !loading && onCancel?.()} className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', padding:'4vh 20px', overflowY:'auto', zIndex:10000}}>
+            <div onClick={e => e.stopPropagation()} className="relative bg-card text-card-foreground rounded-lg border animate-fade-in" style={{width:420, maxWidth:'100%', borderColor:'var(--border)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6), 0 0 0 1px var(--border)'}}>
+                <div style={{padding:'24px 24px 16px'}}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center justify-center rounded-full" style={{width:48, height:48, background:`${accent}1f`}}>
+                            <span className="material-icons-round" style={{color:accent, fontSize:26}}>{icon}</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>{title}</h3>
+                        </div>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{color:'var(--muted-foreground)'}}>{message}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t" style={{borderColor:'var(--border)', background:'var(--secondary)'}}>
+                    <button
+                        onClick={() => !loading && onCancel?.()}
+                        disabled={loading}
+                        className="h-9 px-4 rounded-md text-sm font-medium transition-colors border hover:bg-accent"
+                        style={{borderColor:'var(--border)', background:'var(--background)', color:'var(--foreground)'}}
+                    >{cancelLabel}</button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={loading}
+                        className="h-9 px-4 rounded-md text-sm font-bold transition-colors inline-flex items-center gap-2"
+                        style={{background:accent, color:'#fff', opacity: loading ? 0.65 : 1}}
+                    >
+                        {loading && <span className="material-icons-round animate-spin" style={{fontSize:14}}>autorenew</span>}
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+
+
+
+
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
@@ -830,7 +2056,7 @@ const useRadarStore = createStore((set) => ({
 // LOGIN
 // ─────────────────────────────────────────────
 function Login({ onLogin }) {
-    const [role, setRole] = useState('admin');  // 'admin' | 'agent'
+    const [role, setRole] = useState('admin');
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
     const [callbackExt, setCallbackExt] = useState('');
@@ -863,113 +2089,167 @@ function Login({ onLogin }) {
     };
 
     return (
-        <div className="login-bg h-screen flex items-center justify-center relative overflow-hidden">
-            {/* Orbs decorativos */}
-            <div className="login-orb" style={{width:500,height:500,background:'radial-gradient(circle,rgba(139,92,246,0.2),transparent)',top:'-10%',left:'-5%'}} />
-            <div className="login-orb" style={{width:400,height:400,background:'radial-gradient(circle,rgba(109,40,217,0.15),transparent)',bottom:'-5%',right:'-5%',animationDelay:'4s'}} />
-
-            {/* Líneas de grid decorativas */}
-            <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(139,92,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,0.03) 1px,transparent 1px)',backgroundSize:'50px 50px',pointerEvents:'none'}} />
-
-            <div className="login-card rounded-[32px] p-10 w-full max-w-[420px] relative z-10">
-                {/* Logo */}
-                <div className="anim-fadeup flex flex-col items-center mb-10">
-                    <div style={{width:68,height:68,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'0 0 40px rgba(139,92,246,0.5)'}}>
-                        <span className="material-icons-round" style={{fontSize:34,color:'white'}}>sensors</span>
+        <div className="hzn-login-root">
+            {/* ───────── RIGHT: imagen Horizon ───────── */}
+            <div className="hzn-login-hero">
+                <div className="hzn-login-hero-image" style={{backgroundImage:"url('assets/login-bg.jpg')"}}/>
+                <div className="hzn-login-hero-overlay"/>
+                <div className="hzn-login-hero-content">
+                    <div className="hzn-logo">
+                        <div>
+                            <div className="hzn-logo-text">HORIZON</div>
+                            <div className="hzn-logo-sub">SEGURIDAD</div>
+                        </div>
+                        <div className="hzn-logo-mark">
+                            <svg viewBox="0 0 100 100" width="36" height="36">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
+                                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                            </svg>
+                        </div>
                     </div>
-
-                    {/* Pulse rings */}
-                    <div style={{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',marginBottom:6}}>
-                        <div style={{position:'absolute',width:16,height:16,borderRadius:'50%',background:'var(--accent)',boxShadow:'0 0 12px var(--accent)',animation:'pulse-ring 2s ease-out infinite'}} />
-                        <div style={{position:'absolute',width:16,height:16,borderRadius:'50%',background:'var(--accent)',boxShadow:'0 0 12px var(--accent)',animation:'pulse-ring 2s ease-out infinite',animationDelay:'.6s'}} />
-                    </div>
-
-                    <h1 style={{fontSize:36,fontWeight:900,letterSpacing:-1,color:'white',fontStyle:'italic',marginTop:10}}>TeleFlow</h1>
-                    <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.25em',color:'#6b7280',textTransform:'uppercase',marginTop:4}}>Next-Gen PBX Control · Infratec</p>
+                    {role === 'admin' ? (
+                        <div className="hzn-login-tagline">
+                            <span className="hzn-role-pill"><span className="material-icons-round">shield</span> Acceso administrador</span>
+                            <h1>Panel de control unificado</h1>
+                            <p>Gestioná extensiones, colas, agentes y reportes desde un único lugar. Monitoreo en tiempo real del callcenter y la PBX.</p>
+                            <ul className="hzn-feature-list">
+                                <li><span className="material-icons-round">dashboard</span><div><strong>Dashboard live</strong><span>KPIs y signos vitales del PBX en vivo</span></div></li>
+                                <li><span className="material-icons-round">support_agent</span><div><strong>Hotdesking dinámico</strong><span>Login/logout de agentes sin reaprovisionar SIP</span></div></li>
+                                <li><span className="material-icons-round">analytics</span><div><strong>Reportes detallados</strong><span>Por agente, cola y CDR · export PDF/Excel</span></div></li>
+                                <li><span className="material-icons-round">sensors</span><div><strong>Monitoreo real-time</strong><span>Eventos AMI persistidos vía socket.io</span></div></li>
+                            </ul>
+                        </div>
+                    ) : (
+                        <div className="hzn-login-tagline">
+                            <span className="hzn-role-pill" data-variant="agent"><span className="material-icons-round">headset_mic</span> Portal del agente</span>
+                            <h1>Tu consola de trabajo</h1>
+                            <p>Iniciá sesión con tu número de agente y la extensión del teléfono donde vas a recibir las llamadas hoy.</p>
+                            <ul className="hzn-feature-list">
+                                <li><span className="material-icons-round">badge</span><div><strong>Número de agente</strong><span>El asignado en Issabel (ej. 200)</span></div></li>
+                                <li><span className="material-icons-round">vpn_key</span><div><strong>Contraseña personal</strong><span>La definida en tu perfil del callcenter</span></div></li>
+                                <li><span className="material-icons-round">phone_in_talk</span><div><strong>Extensión callback</strong><span>El teléfono donde vas a operar hoy (ej. 9006)</span></div></li>
+                                <li><span className="material-icons-round">dialpad</span><div><strong>Alternativa por teléfono</strong><span>Marcá *7700 desde tu interno para login + cola</span></div></li>
+                            </ul>
+                        </div>
+                    )}
                 </div>
+            </div>
 
-                {/* Toggle Admin/Agente */}
-                <div className="anim-fadeup-2" style={{display:'flex',background:'rgba(255,255,255,0.04)',border:'1px solid var(--border)',borderRadius:14,padding:4,marginBottom:18}}>
-                    <button type="button" onClick={()=>setRole('admin')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='admin'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='admin'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>shield</span>
-                        Admin
-                    </button>
-                    <button type="button" onClick={()=>setRole('agent')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='agent'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='agent'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>support_agent</span>
-                        Agente
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={submit} className="anim-fadeup-2 space-y-4">
-                    <div style={{position:'relative'}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>{role==='agent'?'badge':'person'}</span>
-                        <input
-                            className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
-                            type="text"
-                            placeholder={role==='agent'?'Número de agente (ej. 200)':'Usuario'}
-                            value={user}
-                            onChange={e=>setUser(e.target.value)}
-                            required
-                        />
+            {/* ───────── LEFT: form (área dominante) ───────── */}
+            <div className="hzn-login-form-wrap">
+                <div className="hzn-login-form-inner">
+                    {/* Logo mobile (visible solo en mobile) */}
+                    <div className="hzn-login-mobile-logo">
+                        <svg viewBox="0 0 100 100" width="44" height="44">
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                        </svg>
+                        <div className="hzn-logo-text-mobile">HORIZON</div>
                     </div>
-                    <div style={{position:'relative'}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>lock</span>
-                        <input
-                            className="input-tf py-3.5 pl-11 pr-12 rounded-[14px] text-sm"
-                            type={showPass?'text':'password'}
-                            placeholder="Contraseña"
-                            value={pass}
-                            onChange={e=>setPass(e.target.value)}
-                            required
-                        />
-                        <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#4b5563',padding:0}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+
+                    <div className="hzn-login-heading">
+                        <h2>Bienvenido</h2>
+                        <p>Iniciá sesión para acceder al panel de control</p>
+                    </div>
+
+                    {/* Toggle Admin / Agente */}
+                    <div className="hzn-role-tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected={role==='admin'} onClick={()=>setRole('admin')} className={role==='admin'?'active':''}>
+                            <span className="material-icons-round">shield</span>
+                            <span>Administrador</span>
+                        </button>
+                        <button type="button" role="tab" aria-selected={role==='agent'} onClick={()=>setRole('agent')} className={role==='agent'?'active':''}>
+                            <span className="material-icons-round">support_agent</span>
+                            <span>Agente</span>
                         </button>
                     </div>
 
-                    {role === 'agent' && (
-                        <div style={{position:'relative'}}>
-                            <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>phone_in_talk</span>
-                            <input
-                                className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
-                                type="text"
-                                placeholder="Extensión callback (ej. SIP/9006 o 9006)"
-                                value={callbackExt}
-                                onChange={e=>setCallbackExt(e.target.value)}
-                                required
-                            />
-                            <div style={{fontSize:10,color:'var(--muted)',marginTop:4,paddingLeft:4}}>El teléfono donde recibirás las llamadas hoy</div>
-                        </div>
-                    )}
+                    <form onSubmit={submit} className="hzn-form">
+                        <label className="hzn-field">
+                            <span className="hzn-label">{role==='agent' ? 'Número de agente' : 'Usuario'}</span>
+                            <div className="hzn-input-wrap">
+                                <span className="material-icons-round hzn-input-icon">{role==='agent'?'badge':'person'}</span>
+                                <input
+                                    className="hzn-input"
+                                    type="text"
+                                    placeholder={role==='agent' ? 'ej. 200' : 'admin'}
+                                    value={user}
+                                    onChange={e=>setUser(e.target.value)}
+                                    autoComplete="username"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                        </label>
 
-                    {err && (
-                        <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#f87171',display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:16}}>error_outline</span>
-                            {err}
-                        </div>
-                    )}
+                        <label className="hzn-field">
+                            <span className="hzn-label">Contraseña</span>
+                            <div className="hzn-input-wrap">
+                                <span className="material-icons-round hzn-input-icon">lock</span>
+                                <input
+                                    className="hzn-input pr-12"
+                                    type={showPass?'text':'password'}
+                                    placeholder="••••••••"
+                                    value={pass}
+                                    onChange={e=>setPass(e.target.value)}
+                                    autoComplete="current-password"
+                                    required
+                                />
+                                <button type="button" onClick={()=>setShowPass(!showPass)} className="hzn-input-toggle" aria-label="Toggle password visibility">
+                                    <span className="material-icons-round">{showPass?'visibility_off':'visibility'}</span>
+                                </button>
+                            </div>
+                        </label>
 
-                    <button type="submit" className="btn-primary w-full py-3.5 rounded-[14px] text-sm uppercase tracking-widest mt-2" disabled={loading}>
-                        {loading
-                            ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,animation:'spin-slow 1s linear infinite'}}>refresh</span> Verificando...
-                              </span>
-                            : 'Acceder al Sistema'}
-                    </button>
-                </form>
+                        {role === 'agent' && (
+                            <label className="hzn-field">
+                                <span className="hzn-label">Extensión de callback</span>
+                                <div className="hzn-input-wrap">
+                                    <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
+                                    <input
+                                        className="hzn-input"
+                                        type="text"
+                                        placeholder="ej. 9006"
+                                        value={callbackExt}
+                                        onChange={e=>setCallbackExt(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="hzn-field-help">El teléfono donde recibirás las llamadas hoy</div>
+                            </label>
+                        )}
 
-                <p className="anim-fadeup-3" style={{textAlign:'center',marginTop:24,fontSize:11,color:'#374151'}}>
-                    TeleFlow v18 · © Infratec {new Date().getFullYear()}
-                </p>
+                        {err && (
+                            <div className="hzn-alert" role="alert">
+                                <span className="material-icons-round">error_outline</span>
+                                <span>{err}</span>
+                            </div>
+                        )}
+
+                        <button type="submit" className="hzn-btn-primary" disabled={loading}>
+                            {loading
+                                ? <>
+                                    <span className="material-icons-round" style={{animation:'spin 1s linear infinite'}}>autorenew</span>
+                                    Verificando…
+                                  </>
+                                : <>
+                                    <span>Iniciar sesión</span>
+                                    <span className="material-icons-round">arrow_forward</span>
+                                  </>}
+                        </button>
+                    </form>
+
+                    <div className="hzn-login-footer">
+                        <span>TeleFlow v18</span>
+                        <span className="hzn-dot">·</span>
+                        <span>© Infratec {new Date().getFullYear()}</span>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────
-// SILEO TOAST (notificaciones premium)
-// ─────────────────────────────────────────────
 const SID = {success:{bg:'linear-gradient(135deg,#052e16,#14532d)',border:'#166534',ic:'check_circle',color:'#4ade80'},error:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#991b1b',ic:'cancel',color:'#f87171'},warning:{bg:'linear-gradient(135deg,#431407,#7c2d12)',border:'#9a3412',ic:'warning',color:'#fb923c'},info:{bg:'linear-gradient(135deg,#0c1445,#1e1b4b)',border:'#3730a3',ic:'info',color:'#a5b4fc'},call:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#dc2626',ic:'call',color:'#fca5a5'}};
 function Toast({ toasts, remove }) {
     return (
@@ -1152,7 +2432,7 @@ function LiveCallNotifications({ calls, extensions }) {
             {notifs.map(n => (
                 <div key={n.id} className="glass glass-hover" style={{
                     width:280, padding:14, borderRadius:18, display:'flex', alignItems:'center', gap:12, 
-                    border:'1px solid rgba(139,92,246,0.3)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
+                    border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
                     animation:'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards'
                 }}>
                     <div style={{position:'relative'}}>
@@ -1231,8 +2511,9 @@ function ViewDashboard({ data }) {
                     if (j.status==='ok') {
                         const ags = j.agents||[];
                         setAgentsLogged(ags.filter(a=>a.logged_in).length);
-                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call).length);
+                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call && !a.paused).length);
                         setAgentsBusy(ags.filter(a=>a.in_call).length);
+                        // setAgentsPaused podría agregarse si hay estado para ello
                     }
                 }).catch(()=>{});
         };
@@ -1266,25 +2547,37 @@ function ViewDashboard({ data }) {
     const todayAns = ts.answered || 0;
     const eff = todayTotal > 0 ? Math.round((todayAns/todayTotal)*100) : 0;
 
+    // HORIZON: grabaciones recientes para el panel "Últimas Grabaciones"
+    const recs = data?.pbx?.recordings || [];
+
+    // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
+    const systemStats = [
+        { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
+        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'rgba(139,92,246,0.12)',  color:'var(--primary)' },
+        { label: 'Disco',       val: `${disk}%`, icon: 'storage',    bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b' },
+        { label: 'Conexiones',  val: conn,       icon: 'cable',      bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
+    ];
+
     const KPIBig = ({label, value, sub, icon, color}) => (
-        <div className="glass" style={{padding:'18px 20px',borderRadius:16,position:'relative',overflow:'hidden',border:`1px solid ${color}33`,background:`linear-gradient(135deg,${color}15,transparent 70%),var(--surface)`}}>
-            <div style={{position:'absolute',top:-15,right:-15,width:90,height:90,borderRadius:'50%',background:`radial-gradient(circle,${color}33,transparent 70%)`,pointerEvents:'none'}}/>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
-                <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 16px ${color}55`}}>
+        <div className="rounded-lg border bg-card text-card-foreground p-5 relative overflow-hidden transition-colors hover:bg-muted/30" style={{borderColor:'var(--border)'}}>
+            <div style={{position:'absolute',top:-20,right:-20,width:80,height:80,borderRadius:'50%',background:`radial-gradient(circle,${color}22,transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,position:'relative'}}>
+                <div style={{width:36,height:36,borderRadius:9,background:`linear-gradient(135deg,${color},${color}cc)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 2px 8px ${color}40`}}>
                     <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{icon}</span>
                 </div>
-                <span style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{label}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</span>
             </div>
-            <div style={{fontSize:28,fontWeight:900,color,lineHeight:1,letterSpacing:'-0.6px'}}>{value}</div>
-            {sub && <div style={{fontSize:11,color:'var(--muted)',marginTop:6,fontWeight:600}}>{sub}</div>}
+            <div className="text-3xl font-black leading-none tracking-tight" style={{color,fontVariantNumeric:'tabular-nums'}}>{value}</div>
+            {sub && <div className="text-[11px] font-semibold mt-2" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
         </div>
     );
 
     return (
         <div className="content-area">
             {/* Hero — pulse del callcenter */}
-            <div className="anim-fadeup" style={{padding:'20px 24px',marginBottom:14,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.10),rgba(34,197,94,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:18,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
-                <div style={{width:62,height:62,borderRadius:16,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 10px 28px rgba(139,92,246,0.4)',position:'relative'}}>
+            <div className="anim-fadeup rounded-xl border bg-card p-5 mb-4 flex flex-wrap items-center gap-4 relative overflow-hidden" style={{borderColor:'var(--border)'}}>
+                <div style={{position:'absolute',top:-30,right:-30,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%)',pointerEvents:'none'}}/>
+                <div style={{width:60,height:60,borderRadius:14,background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #3b82f6))',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 16px color-mix(in srgb, var(--primary) 35%, transparent)',position:'relative',zIndex:1}}>
                     <span className="material-icons-round" style={{color:'#fff',fontSize:30}}>insights</span>
                     <span style={{position:'absolute',top:-3,right:-3,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'3px solid var(--surface)',boxShadow:'0 0 10px #22c55e'}}/>
                 </div>
@@ -1433,7 +2726,7 @@ function ViewDashboard({ data }) {
                 {/* Extensiones activas */}
                 <div className="glass" style={{padding:'20px'}}>
                     <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>group</span>
+                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>group</span>
                         Extensiones Activas
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -1457,7 +2750,7 @@ function ViewDashboard({ data }) {
                 {/* Últimas grabaciones */}
                 <div className="glass" style={{padding:'20px'}}>
                     <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
+                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>mic</span>
                         Últimas Grabaciones
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -1466,7 +2759,7 @@ function ViewDashboard({ data }) {
                                 <div style={{fontSize:11,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
                                 <div style={{fontSize:10,color:'#6b7280',display:'flex',justifyContent:'space-between',marginTop:2}}>
                                     <span>{r.calldate?.substring(0,16)}</span>
-                                    <span style={{color:'#c4b5fd'}}>{r.duration}s</span>
+                                    <span style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>{r.duration}s</span>
                                 </div>
                             </div>
                         ))}
@@ -1549,7 +2842,7 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
                     </div>
                 )}
                 {!uploading && (
-                    <div style={{position:'absolute',bottom:0,right:0,width:size*0.32,height:size*0.32,borderRadius:'50%',background:'#8b5cf6',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--surface)',boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}>
+                    <div style={{position:'absolute',bottom:0,right:0,width:size*0.32,height:size*0.32,borderRadius:'50%',background:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--surface)',boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:size*0.18}}>photo_camera</span>
                     </div>
                 )}
@@ -1568,7 +2861,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ 
         ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '', 
-        tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '' 
+        tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '',
+        rtsp_url: (window._tfExtMeta||{})[ext?.ext]?.rtsp_url || '',
+        rtsp_label: (window._tfExtMeta||{})[ext?.ext]?.rtsp_label || ''
     });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
@@ -1576,6 +2871,34 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(ext?.avatar || null);
+
+    // HORIZON: Tabs para ficha — Datos / Historial / Agentes
+    const [activeTab, setActiveTab] = useState('datos');
+    const [callHistory, setCallHistory] = useState(null);
+    const [agentHistory, setAgentHistory] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    useEffect(() => {
+        if (isNew || !ext?.ext) return;
+        if (activeTab === 'historial' && !callHistory) {
+            setHistoryLoading(true);
+            const today = new Date(); const past = new Date(); past.setDate(past.getDate()-30);
+            const from = past.toISOString().split('T')[0];
+            const to = today.toISOString().split('T')[0];
+            fetch(`api/reports.php?action=calls&ext=${ext.ext}&from=${from}&to=${to}&limit=300`, {credentials:'include'})
+                .then(r=>r.json()).then(d=>{ setCallHistory(d.calls || []); setHistoryLoading(false); })
+                .catch(()=>setHistoryLoading(false));
+        }
+        if (activeTab === 'agentes' && !agentHistory) {
+            setHistoryLoading(true);
+            const today = new Date(); const past = new Date(); past.setDate(past.getDate()-90);
+            const from = past.toISOString().split('T')[0];
+            const to = today.toISOString().split('T')[0];
+            fetch(`api/reports.php?action=agent_sessions&agent=${ext.ext}&from=${from}&to=${to}`, {credentials:'include'})
+                .then(r=>r.json()).then(d=>{ setAgentHistory(d.sessions || []); setHistoryLoading(false); })
+                .catch(()=>setHistoryLoading(false));
+        }
+    }, [activeTab, ext?.ext, isNew]);
 
     useEffect(() => {
         if (!isNew && ext.ext) {
@@ -1596,7 +2919,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     const tipoConfig = {
         '': { color: '#6b7280', icon: 'help_outline', label: 'Sin asignar', desc: 'Sin clasificar' },
-        'horizon': { color: '#8b5cf6', icon: 'business', label: 'Horizon', desc: 'Interno propio' },
+        'horizon': { color:'var(--primary)', icon: 'business', label: 'Horizon', desc: 'Interno propio' },
         'cliente': { color: '#3b82f6', icon: 'person', label: 'Cliente', desc: 'Cliente externo' }
     };
 
@@ -1619,11 +2942,29 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         fd.append('device_type', devType);
         fd.append('recording', recording);
         const action = isNew ? 'create_extension' : 'update_extension';
-        // Guardar tipo en ext_meta si cambió
-        if (form.tipo !== ((window._tfExtMeta||{})[form.ext]?.tipo || '')) {
-            const tfd = new FormData(); tfd.append('ext', form.ext); tfd.append('tipo', form.tipo);
+        // Guardar ext_meta (tipo + rtsp) si cambió alguno
+        const prevMeta = (window._tfExtMeta||{})[form.ext] || {};
+        const metaChanged = form.tipo !== (prevMeta.tipo || '') ||
+                            form.rtsp_url !== (prevMeta.rtsp_url || '') ||
+                            form.rtsp_label !== (prevMeta.rtsp_label || '');
+        if (metaChanged) {
+            const tfd = new FormData();
+            tfd.append('ext', form.ext);
+            tfd.append('tipo', form.tipo);
+            tfd.append('rtsp_url', form.rtsp_url || '');
+            tfd.append('rtsp_label', form.rtsp_label || '');
             fetch('api/index.php?action=set_ext_meta', {method:'POST',body:tfd,credentials:'include'})
-                .then(r=>r.json()).then(j=>{ if(j.success) { window._tfExtMeta = window._tfExtMeta||{}; window._tfExtMeta[form.ext] = {ext:form.ext, tipo:form.tipo}; } });
+                .then(r=>r.json()).then(j=>{
+                    if(j.success) {
+                        window._tfExtMeta = window._tfExtMeta||{};
+                        window._tfExtMeta[form.ext] = {
+                            ext: form.ext,
+                            tipo: form.tipo,
+                            rtsp_url: form.rtsp_url || '',
+                            rtsp_label: form.rtsp_label || ''
+                        };
+                    }
+                });
         }
         try {
             const r = await fetch(`api/index.php?action=${action}`, { method:'POST', body:fd, credentials:'include' });
@@ -1649,200 +2990,474 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* HEADER navegacion */}
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                <button onClick={onBack} style={{padding:8,borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',color:'var(--text)'}}>
+            {/* ─── BREADCRUMB + ACCIONES ─────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+                <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
                     <span className="material-icons-round" style={{fontSize:18}}>arrow_back</span>
-                </button>
-                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Extensiones <span style={{margin:'0 6px'}}>›</span></div>
-                <div style={{fontSize:13,fontWeight:800}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</div>
-                <div style={{flex:1}}/>
-                {!isNew && <button onClick={remove} disabled={deleting} style={{padding:'8px 14px',borderRadius:10,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                    <span className="material-icons-round" style={{fontSize:16}}>delete</span>
-                    {deleting?'Eliminando...':'Eliminar Interno'}
-                </button>}
+                </Button>
+                <nav className="flex items-center gap-1.5 text-sm" style={{color:'var(--muted-foreground)'}}>
+                    <button onClick={onBack} className="hover:underline" style={{color:'var(--muted-foreground)'}}>Extensiones</button>
+                    <span className="material-icons-round" style={{fontSize:14,opacity:0.5}}>chevron_right</span>
+                    <span style={{color:'var(--foreground)',fontWeight:700}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</span>
+                </nav>
+                <div className="flex-1"/>
+                {!isNew && (
+                    <Button variant="destructive" size="sm" onClick={remove} disabled={deleting}>
+                        <span className="material-icons-round mr-1.5" style={{fontSize:16}}>delete_outline</span>
+                        {deleting?'Eliminando…':'Eliminar interno'}
+                    </Button>
+                )}
             </div>
 
-            {/* HERO con avatar + nombre + status pill */}
-            <div className="glass" style={{padding:0,borderRadius:18,marginBottom:14,overflow:'hidden',position:'relative'}}>
-                <div style={{height:88,background:`linear-gradient(135deg, ${statusColor}99 0%, ${statusColor}33 50%, transparent 100%), linear-gradient(45deg, #8b5cf6 0%, #3b82f6 100%)`,position:'relative'}}>
-                    <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at 25% 30%, rgba(255,255,255,0.18), transparent 60%)'}}/>
-                </div>
-                <div style={{padding:'0 24px 20px',display:'flex',alignItems:'flex-end',gap:18,marginTop:-46,position:'relative',flexWrap:'wrap'}}>
-                    <div style={{position:'relative'}}>
-                        {form.ext && avatarUrl ? (
-                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`} 
-                                 style={{width:96,height:96,borderRadius:'50%',objectFit:'cover',border:'5px solid var(--surface)',boxShadow:'0 8px 24px rgba(0,0,0,0.4)'}}
-                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
-                        ) : null}
-                        <div style={{
-                            width:96, height:96, borderRadius:'50%',
-                            background:`linear-gradient(135deg, #8b5cf6, #6d28d9)`,
-                            display: form.ext && avatarUrl ? 'none' : 'flex',
-                            alignItems:'center', justifyContent:'center',
-                            fontSize:32, fontWeight:900, color:'#fff',
-                            border:'5px solid var(--surface)',
-                            boxShadow:'0 8px 24px rgba(0,0,0,0.4)'
-                        }}>{ini}</div>
-                    </div>
-                    <div style={{flex:1,paddingTop:50,minWidth:200}}>
-                        <h1 style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px'}}>{form.name || 'Sin nombre'}</h1>
-                        <div style={{fontFamily:'monospace',fontSize:14,color:'#c4b5fd',fontWeight:800,marginTop:2}}>#{form.ext || '----'}</div>
-                    </div>
-                    <div style={{display:'flex',gap:8,paddingTop:50,flexWrap:'wrap'}}>
-                        {ext?.status && <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:24,background:`${statusColor}22`,border:`1.5px solid ${statusColor}66`,boxShadow:`0 4px 12px ${statusColor}33`}}>
-                            <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 10px ${statusColor}`,animation:ext.status==='BUSY'?'pulse 1s infinite':'none'}}/>
-                            <span style={{fontSize:11,fontWeight:900,color:statusColor,textTransform:'uppercase',letterSpacing:'.05em'}}>{statusLabel}</span>
-                        </div>}
-                        {ext?.ip && ext.ip !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,0.3)'}}>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>IP</span>
-                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#c4b5fd'}}>{ext.ip}</span>
-                        </div>}
-                        {ext?.rtt && ext.rtt !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.25)'}}>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>RTT</span>
-                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#22c55e'}}>{ext.rtt}</span>
-                        </div>}
-                    </div>
-                </div>
-            </div>
-
-            {/* FORM en grid 2 columnas */}
-            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14}}>
-                {/* COLUMNA PRINCIPAL */}
-                <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                    {/* Información Básica */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>info</span>
-                            <h3 style={{fontSize:13,fontWeight:800,letterSpacing:'.02em'}}>Información Básica</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Número de interno</label>
-                                <input className="input-tf" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew} placeholder="Ej: 1000" style={{padding:'10px 14px',borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700}}/>
-                            </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Nombre o alias</label>
-                                <input className="input-tf" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ej: Recepción" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
-                            </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Correo electrónico</label>
-                                <input className="input-tf" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
-                            </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Contraseña SIP <span style={{color:'#f59e0b'}}>(secret)</span></label>
-                                <div style={{position:'relative'}}>
-                                    <input className="input-tf" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} style={{padding:'10px 38px 10px 14px',borderRadius:10,fontSize:13,fontFamily:'monospace'}}/>
-                                    <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--muted)'}}>
-                                        <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Categoría del interno */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Categoría del Interno</h3>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,marginLeft:6}}>(opcional, discrimina Cliente vs Horizon)</span>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginTop:14}}>
-                            {Object.entries(tipoConfig).map(([v,o]) => (
-                                <div key={v} onClick={()=>set('tipo',v)} style={{padding:'14px 10px',borderRadius:12,border:`2px solid ${form.tipo===v?o.color+'cc':'var(--border)'}`,background:form.tipo===v?`${o.color}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s',position:'relative',overflow:'hidden'}}>
-                                    {form.tipo===v && <div style={{position:'absolute',top:6,right:6,width:18,height:18,borderRadius:'50%',background:o.color,display:'flex',alignItems:'center',justifyContent:'center'}}><span className="material-icons-round" style={{fontSize:12,color:'#fff'}}>check</span></div>}
-                                    <span className="material-icons-round" style={{fontSize:24,color:o.color,display:'block',marginBottom:6}}>{o.icon}</span>
-                                    <div style={{fontSize:13,fontWeight:800,color:form.tipo===v?o.color:'var(--text)'}}>{o.label}</div>
-                                    <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{o.desc}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Grabación + Tecnología */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Grabación de llamadas</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:18}}>
-                            {recOptions.map(o => (
-                                <div key={o.v} onClick={()=>setRecording(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${recording===o.v?o.c+'aa':'var(--border)'}`,background:recording===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
-                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
-                                    <div style={{fontSize:12,fontWeight:800,color:recording===o.v?o.c:'var(--text)'}}>{o.l}</div>
-                                </div>
-                            ))}
-                        </div>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>devices</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Tecnología de dispositivo</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-                            {devOptions.map(o => (
-                                <div key={o.v} onClick={()=>setDevType(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${devType===o.v?o.c+'aa':'var(--border)'}`,background:devType===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
-                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
-                                    <div style={{fontSize:12,fontWeight:800,color:devType===o.v?o.c:'var(--text)'}}>{o.l}</div>
-                                    <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>{o.d}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Action bar */}
-                    <div style={{display:'flex',gap:10,justifyContent:'flex-end',padding:'14px 0'}}>
-                        <button onClick={onBack} style={{padding:'12px 22px',borderRadius:12,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancelar</button>
-                        <button onClick={save} disabled={saving} className="btn-primary" style={{padding:'12px 28px',borderRadius:12,fontWeight:800,fontSize:13,cursor:saving?'wait':'pointer',display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:18,animation:saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
+            {/* ─── TABS — Datos / Historial / Agentes ─────────────────── */}
+            {!isNew && (
+                <div className="flex items-center gap-1 border-b mb-5" style={{borderColor:'var(--border)'}}>
+                    {[
+                        { id:'datos',     icon:'tune',           label:'Datos' },
+                        { id:'historial', icon:'history',        label:'Historial de llamadas' },
+                        { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
+                    ].map(t => (
+                        <button
+                            key={t.id}
+                            onClick={()=>setActiveTab(t.id)}
+                            className={cn(
+                                "px-4 py-2.5 -mb-px flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
+                                activeTab === t.id ? "border-primary" : "border-transparent hover:bg-accent/50"
+                            )}
+                            style={{
+                                borderBottomColor: activeTab === t.id ? 'var(--primary)' : 'transparent',
+                                color: activeTab === t.id ? 'var(--primary)' : 'var(--muted-foreground)'
+                            }}
+                        >
+                            <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>
+                            {t.label}
                         </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ─── TAB: HISTORIAL DE LLAMADAS ────────────────────────── */}
+            {!isNew && activeTab === 'historial' && (
+                <Card className="overflow-hidden">
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                        <div>
+                            <CardTitle className="text-base">Historial de llamadas — últimos 30 días</CardTitle>
+                            <CardDescription>Todas las llamadas donde esta extensión figura como origen o destino</CardDescription>
+                        </div>
+                        {callHistory && <Badge variant="secondary">{callHistory.length} llamadas</Badge>}
+                    </CardHeader>
+                    {historyLoading && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
+                            <div className="mt-2 text-sm">Cargando historial…</div>
+                        </div>
+                    )}
+                    {!historyLoading && callHistory && callHistory.length === 0 && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:40, opacity:0.4}}>phone_disabled</span>
+                            <div className="mt-2 text-sm font-bold">Sin llamadas en el período</div>
+                        </div>
+                    )}
+                    {!historyLoading && callHistory && callHistory.length > 0 && (
+                        <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                    <tr>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha/Hora</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Origen</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Destino</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>CallerID</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Hablado</th>
+                                        <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grab.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {callHistory.map((c,i) => {
+                                        const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                                        const isInbound = String(c.dst) === String(ext.ext);
+                                        return (
+                                            <tr key={c.uniqueid || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                                <td className="px-3 py-2 font-mono text-xs">{c.calldate}</td>
+                                                <td className="px-3 py-2 font-mono">
+                                                    {isInbound ? <span style={{color:'var(--muted-foreground)'}}>{c.src}</span> : <strong style={{color:'var(--primary)'}}>{c.src}</strong>}
+                                                </td>
+                                                <td className="px-3 py-2 font-mono">
+                                                    {isInbound ? <strong style={{color:'var(--primary)'}}>{c.dst}</strong> : <span style={{color:'var(--muted-foreground)'}}>{c.dst}</span>}
+                                                </td>
+                                                <td className="px-3 py-2 text-xs truncate" style={{color:'var(--muted-foreground)', maxWidth:200}}>{c.clid}</td>
+                                                <td className="px-3 py-2"><Badge variant={variant}>{c.disposition}</Badge></td>
+                                                <td className="px-3 py-2 text-right font-mono">{c.billsec}s</td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {c.recordingfile
+                                                        ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" style={{color:'var(--primary)'}}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a>
+                                                        : <span style={{color:'var(--muted-foreground)'}}>—</span>}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Card>
+            )}
+
+            {/* ─── TAB: HISTORIAL DE AGENTES ────────────────────────── */}
+            {!isNew && activeTab === 'agentes' && (
+                <Card className="overflow-hidden">
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                        <div>
+                            <CardTitle className="text-base">Agentes logueados — últimos 90 días</CardTitle>
+                            <CardDescription>Sesiones de agentes que ocuparon este interno</CardDescription>
+                        </div>
+                        {agentHistory && <Badge variant="secondary">{agentHistory.length} sesiones</Badge>}
+                    </CardHeader>
+                    {historyLoading && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
+                            <div className="mt-2 text-sm">Cargando historial…</div>
+                        </div>
+                    )}
+                    {!historyLoading && agentHistory && agentHistory.length === 0 && (
+                        <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:40, opacity:0.4}}>person_off</span>
+                            <div className="mt-2 text-sm font-bold">Sin sesiones de agente</div>
+                            <div className="mt-1 text-xs">Ningún agente se ha logueado en esta extensión en los últimos 90 días</div>
+                        </div>
+                    )}
+                    {!historyLoading && agentHistory && agentHistory.length > 0 && (
+                        <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                    <tr>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Agente</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Login</th>
+                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Logout</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Duración</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Llamadas</th>
+                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Talk</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {agentHistory.map((s,i) => {
+                                        const active = !s.logout_time;
+                                        return (
+                                            <tr key={s.session_id || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                                <td className="px-3 py-2"><Badge variant={active ? 'success' : 'secondary'}>{active ? 'ACTIVA' : 'CERRADA'}</Badge></td>
+                                                <td className="px-3 py-2"><strong style={{color:'var(--primary)'}}>#{s.agent_number || '—'}</strong></td>
+                                                <td className="px-3 py-2 font-mono text-xs">{s.login_time}</td>
+                                                <td className="px-3 py-2 font-mono text-xs">{s.logout_time || '—'}</td>
+                                                <td className="px-3 py-2 text-right font-mono"><span style={{color:'#3b82f6'}}>{tfFmtSecs(s.duration_sec)}</span></td>
+                                                <td className="px-3 py-2 text-right">{s.total_calls || 0}</td>
+                                                <td className="px-3 py-2 text-right font-mono">{s.total_talk_time ? tfFmtSecs(s.total_talk_time) : '—'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Card>
+            )}
+
+            {/* ─── TAB: DATOS (form shadcn) ──────────────────────────── */}
+            {(isNew || activeTab === 'datos') && (
+            <div className="grid gap-5" style={{gridTemplateColumns:'minmax(0, 1fr) 320px'}}>
+                {/* COLUMNA PRINCIPAL */}
+                <div className="flex flex-col gap-5">
+
+                    {/* ─── Card combinada: 3 columnas (Info | Categoría | Estado) ─── */}
+                    <Card>
+                        <CardContent className="p-0 grid lg:grid-cols-3 lg:divide-x divide-y lg:divide-y-0" style={{borderColor:'var(--border)'}}>
+
+                            {/* ─── COL 1: Información básica ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Información básica</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-num">Número de interno</Label>
+                                        <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
+                                               placeholder="1000" className="font-mono font-bold"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-name">Nombre o alias</Label>
+                                        <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-mail">Correo electrónico</Label>
+                                        <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
+                                        <div className="relative">
+                                            <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
+                                            <button type="button" onClick={()=>setShowPass(!showPass)}
+                                                    className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
+                                                    style={{color:'var(--muted-foreground)'}}>
+                                                <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ─── COL 2: Categoría del interno ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Categoría</h3>
+                                </div>
+                                <p className="text-[10px] mb-3" style={{color:'var(--muted-foreground)'}}>Opcional · discrimina Cliente vs Horizon</p>
+                                <div className="space-y-2">
+                                    {Object.entries(tipoConfig).map(([v,o]) => (
+                                        <button key={v} type="button" onClick={()=>set('tipo',v)}
+                                                className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                                style={{
+                                                    borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                    background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                                }}>
+                                            <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                                <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                            </div>
+                                            {form.tipo===v && (
+                                                <span className="shrink-0 rounded-full flex items-center justify-center"
+                                                      style={{width:18,height:18,background:o.color}}>
+                                                    <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ─── COL 3: Estado del interno ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Estado del interno</h3>
+                                </div>
+                                {!isNew ? (
+                                <div className="flex flex-col items-center gap-3">
+                                    {/* Avatar centrado */}
+                                    <div className="relative shrink-0">
+                                        {form.ext && avatarUrl ? (
+                                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
+                                                 className="rounded-full object-cover"
+                                                 style={{width:72,height:72,border:'3px solid var(--background)',boxShadow:'0 4px 12px rgba(0,0,0,.15)'}}
+                                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
+                                        ) : null}
+                                        <div className="rounded-full flex items-center justify-center font-black text-white"
+                                             style={{
+                                                 width:72,height:72,fontSize:22,
+                                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                                                 display: form.ext && avatarUrl ? 'none' : 'flex',
+                                                 boxShadow:'0 4px 12px rgba(0,0,0,.15)'
+                                             }}>{ini}</div>
+                                        <div className="absolute rounded-full"
+                                             style={{
+                                                 bottom:0,right:0,width:18,height:18,
+                                                 background:statusColor,
+                                                 border:'3px solid var(--card)',
+                                                 animation:ext?.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
+                                             }}/>
+                                    </div>
+                                    {/* Status badge */}
+                                    <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
+                                        {statusLabel}
+                                    </Badge>
+                                    {/* Métricas en lista vertical */}
+                                    <div className="w-full rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                                        {[
+                                            { l:'IP',  v: ext?.ip,  c:'#3b82f6', icon:'lan' },
+                                            { l:'RTT', v: ext?.rtt, c: ext?.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
+                                            { l:'MAC', v: ext?.mac, c:'var(--muted-foreground)', icon:'memory' }
+                                        ].map((m,i) => (
+                                            <div key={m.l} className="flex items-center justify-between px-3 py-2"
+                                                 style={{
+                                                     borderTop: i>0 ? '1px solid var(--border)' : 'none',
+                                                     background: i%2===0 ? 'color-mix(in srgb, var(--muted) 30%, transparent)' : 'transparent'
+                                                 }}>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>{m.icon}</span>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{m.l}</span>
+                                                </div>
+                                                <span className="font-mono text-xs font-bold" style={{color:m.c}}>{m.v || '—'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                ) : (
+                                <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
+                                    <span className="material-icons-round" style={{fontSize:36,opacity:0.5}}>fiber_new</span>
+                                    <p className="text-xs text-center">Una vez creado el interno,<br/>se mostrará su estado en vivo aquí.</p>
+                                </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Videoportero / RTSP ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
+                                Videoportero / RTSP
+                                <Badge variant="success" className="ml-1 text-[10px] uppercase">Nuevo</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                                Si este interno es un videoportero o cámara, configurá su stream. Cuando llame, aparecerá un preview en vivo encima del toast.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-label">Etiqueta visible</Label>
+                                    <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                           placeholder="Portero entrada principal" maxLength={80}/>
+                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Aparece junto al video</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-url">URL del stream</Label>
+                                    <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                           placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-xs"/>
+                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Acepta rtsp://, rtsps://, http(s)://, .m3u8 (HLS), .mp4</p>
+                                </div>
+                            </div>
+                            {form.rtsp_url && (
+                                <div className="mt-4 flex gap-2.5 items-start rounded-md border px-3 py-2.5"
+                                     style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
+                                             background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
+                                    <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
+                                    <p className="text-xs leading-relaxed" style={{color:'var(--foreground)'}}>
+                                        Stream configurado. Cuando este interno llame, los supervisores logueados verán el preview del video automáticamente.
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Comportamiento y dispositivo (toggle buttons compactos) ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
+                                Comportamiento y dispositivo
+                            </CardTitle>
+                            <CardDescription>Política de grabación y tecnología SIP del endpoint</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</Label>
+                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                                    {recOptions.map(o => (
+                                        <button key={o.v} type="button" onClick={()=>setRecording(o.v)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                                                style={{
+                                                    background: recording===o.v ? 'var(--card)' : 'transparent',
+                                                    color: recording===o.v ? o.c : 'var(--muted-foreground)',
+                                                    boxShadow: recording===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                                }}
+                                                title={o.d}>
+                                            <span className="material-icons-round" style={{fontSize:14,color:recording===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            {o.l}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
+                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                                    {devOptions.map(o => (
+                                        <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                                                style={{
+                                                    background: devType===o.v ? 'var(--card)' : 'transparent',
+                                                    color: devType===o.v ? o.c : 'var(--muted-foreground)',
+                                                    boxShadow: devType===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                                }}
+                                                title={o.d}>
+                                            <span className="material-icons-round" style={{fontSize:14,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            {o.l}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Action bar ─── */}
+                    <div className="flex items-center justify-end gap-2.5 pt-1">
+                        <Button variant="outline" onClick={onBack}>Cancelar</Button>
+                        <Button onClick={save} disabled={saving}>
+                            <span className="material-icons-round mr-1.5" style={{fontSize:16, animation: saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </Button>
                     </div>
                 </div>
 
                 {/* COLUMNA LATERAL */}
-                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div className="flex flex-col gap-5">
                     {/* Foto de perfil */}
-                    <div className="glass" style={{padding:18,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#ec4899'}}>photo_camera</span>
-                            <h3 style={{fontSize:12,fontWeight:800}}>Foto de perfil</h3>
-                        </div>
-                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+                    <Card>
+                        <CardHeader className="pb-3 items-center text-center">
+                            <CardTitle className="flex items-center justify-center gap-2 text-sm">
+                                <span className="material-icons-round" style={{fontSize:16,color:'#ec4899'}}>photo_camera</span>
+                                Foto de perfil
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center gap-2">
                             <AvatarUploader ext={form.ext} name={form.name} onUploaded={u=>setAvatarUrl(u)} size={100}/>
-                            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:6,lineHeight:1.4}}>JPG/PNG hasta 2MB.<br/>Aparece en toda la app.</div>
-                        </div>
-                    </div>
-
-                    {/* Info de red */}
-                    {!isNew && ext && (
-                        <div className="glass" style={{padding:18,borderRadius:16}}>
-                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>lan</span>
-                                <h3 style={{fontSize:12,fontWeight:800}}>Información de red</h3>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:0}}>
-                                {[
-                                    {l:'IP origen', v: ext.ip, c:'#3b82f6'},
-                                    {l:'Latencia', v: ext.rtt, c:'#22c55e'},
-                                    {l:'MAC', v: ext.mac, c:'#9ca3af'},
-                                    {l:'Estado', v: statusLabel, c:statusColor}
-                                ].map(({l,v,c}) => (
-                                    <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
-                                        <span style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{l}</span>
-                                        <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:c}}>{v||'—'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                            <p className="text-[10px] text-center leading-relaxed mt-1" style={{color:'var(--muted-foreground)'}}>
+                                JPG/PNG hasta 2MB.<br/>Aparece en toda la app.
+                            </p>
+                        </CardContent>
+                    </Card>
 
                     {/* Tip aplicar cambios */}
-                    <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd',flexShrink:0,marginTop:1}}>info</span>
-                        <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.45}}>Los cambios aplicarán un <strong style={{color:'var(--text)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.</div>
+                    <div className="rounded-md border px-3 py-3 flex gap-2.5 items-start"
+                         style={{
+                             borderColor:'color-mix(in srgb, var(--primary) 25%, transparent)',
+                             background:'color-mix(in srgb, var(--primary) 6%, transparent)'
+                         }}>
+                        <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--primary)',marginTop:1}}>info</span>
+                        <p className="text-xs leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                            Los cambios aplicarán un <strong style={{color:'var(--foreground)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.
+                        </p>
                     </div>
+
+                    {/* Quick actions (solo si no es nuevo) */}
+                    {!isNew && ext && (
+                        <Card>
+                            <CardHeader className="pb-2 items-center text-center">
+                                <CardTitle className="flex items-center justify-center gap-2 text-sm">
+                                    <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)'}}>flash_on</span>
+                                    Acciones rápidas
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-1.5 pt-1">
+                                <Button variant="ghost" size="sm" className="w-full justify-start"
+                                        onClick={()=>setActiveTab('historial')}>
+                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>history</span>
+                                    Ver llamadas de este interno
+                                </Button>
+                                <Button variant="ghost" size="sm" className="w-full justify-start"
+                                        onClick={()=>setActiveTab('agentes')}>
+                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>support_agent</span>
+                                    Sesiones de agentes
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
+            )}
         </div>
     );
 }
@@ -1942,7 +3557,7 @@ function ExtensionRow({ e, liveCalls, onClick }) {
                 ) : <span style={{color:'var(--muted)',fontSize:11}}>—</span>}
             </td>
             <td><code style={{fontSize:11,color:'#ec4899'}}>{e.ip}</code></td>
-            <td style={{color:'#c4b5fd',fontSize:11,fontFamily:'monospace'}}>{e.rtt}</td>
+            <td style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontSize:11,fontFamily:'monospace'}}>{e.rtt}</td>
             <td>
                 {tipo ? (
                     <span style={{fontSize:10,padding:'3px 9px',borderRadius:5,background:`${tipoColor}22`,color:tipoColor,fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',border:`1px solid ${tipoColor}55`}}>
@@ -2050,32 +3665,93 @@ function ViewExtensiones({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* GRID */}
-            {viewMode==='grid' && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(255px,1fr))',gap:12}}>
-                    {exts.map(e=>(
-                        <div key={e.ext} className="glass glass-hover" style={{padding:'16px',cursor:'pointer'}} onClick={()=>setEditing(e)}>
-                            <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <img src={e.avatar} style={{width:44,height:44,borderRadius:12,objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{ ev.target.style.display='none'; ev.target.nextSibling.style.display='flex'; }} />
-                                <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'none'}}>{initials(e.name)}</div>
-                                <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)',display:'flex',alignItems:'center',gap:6}}>
-                                        #{e.ext}
-                                        {e.recording === 'always' && <span className="material-icons-round" style={{fontSize:14,color:'#ef4444'}}>fiber_manual_record</span>}
+            {/* GRID — split en activas (top) / offline */}
+            {viewMode==='grid' && (() => {
+                const isExtRinging = (e) => liveCalls.some(c => /Ring/i.test(c.state||'') && (String(c.ext)===String(e.ext) || String(c.dest)===String(e.ext)));
+                const isExtBusy = (e) => e.status === 'BUSY' || liveCalls.some(c => /Up/i.test(c.state||'') && (String(c.ext)===String(e.ext) || String(c.dest)===String(e.ext)));
+                const activeExts  = exts.filter(e => e.status === 'ONLINE' || e.status === 'BUSY');
+                const offlineExts = exts.filter(e => e.status !== 'ONLINE' && e.status !== 'BUSY');
+
+                const renderActive = (e) => {
+                    const ringing = isExtRinging(e);
+                    const busy = isExtBusy(e);
+                    const sc = busy ? '#ef4444' : (e.status === 'ONLINE' ? '#22c55e' : '#6b7280');
+                    return (
+                        <div
+                            key={e.ext}
+                            onClick={()=>setEditing(e)}
+                            className={cn(
+                                "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
+                                ringing && "hzn-ringing"
+                            )}
+                            style={{borderColor:'var(--border)', width:200}}
+                        >
+                            <div style={{height:3, background:sc}}/>
+                            <div style={{padding:'14px 14px 12px', textAlign:'center'}}>
+                                <div style={{position:'relative', width:64, height:64, margin:'0 auto 10px'}}>
+                                    <img src={e.avatar} alt={e.name}
+                                        onError={(ev)=>{ev.target.style.display='none'; const n=ev.target.nextSibling; if(n) n.style.display='flex';}}
+                                        style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 14px ${sc}55`}}/>
+                                    <div style={{display:'none', width:64, height:64, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:18, fontWeight:900, border:`2px solid ${sc}`}}>
+                                        {initials(e.name)}
                                     </div>
-                                    <div style={{fontSize:11,color:'#9ca3af',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.name}</div>
+                                    <span style={{position:'absolute', bottom:0, right:6, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:busy?'pulse-ring 1.5s infinite':''}}/>
                                 </div>
-                                <span className={`badge ${badgeCls(e.status)}`}><span className={`badge-dot ${dotCls(e.status)}`} />{e.status}</span>
-                            </div>
-                            <div style={{marginTop:10,display:'flex',gap:14,fontSize:10,color:'#6b7280'}}>
-                                <span>IP: <span style={{color:'#c4b5fd',fontFamily:'monospace'}}>{e.ip}</span></span>
-                                <span>RTT: <span style={{color:'#c4b5fd'}}>{e.rtt}</span></span>
+                                <div style={{fontSize:14, fontWeight:800, color:'var(--text)', marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.name}</div>
+                                <div style={{fontSize:22, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.5px', marginBottom:6}}>#{e.ext}</div>
+                                <div style={{fontSize:9, fontWeight:900, padding:'4px 10px', borderRadius:6, background:`${sc}22`, color:sc, display:'inline-block', letterSpacing:'.1em', marginBottom:8}}>
+                                    {busy ? 'EN LLAMADA' : 'ONLINE'}{ringing ? ' · LLAMADA ENTRANTE' : ''}
+                                </div>
+                                <div style={{display:'flex', gap:14, fontSize:10, color:'var(--muted)', justifyContent:'center'}}>
+                                    {e.ip && e.ip !== '—' && <span style={{fontFamily:'monospace'}}>{e.ip}</span>}
+                                    {e.rtt && e.rtt !== '—' && <span style={{fontFamily:'monospace', opacity:0.7}}>· {e.rtt}</span>}
+                                </div>
                             </div>
                         </div>
-                    ))}
-                    {exts.length===0&&<div style={{color:'#6b7280',gridColumn:'1/-1',textAlign:'center',padding:40}}>Sin extensiones</div>}
-                </div>
-            )}
+                    );
+                };
+
+                const renderOffline = (e) => (
+                    <div key={e.ext} onClick={()=>setEditing(e)} className="rounded-lg border border-border bg-card text-card-foreground cursor-pointer transition-colors hover:bg-muted/40" style={{opacity:0.6}}>
+                        <div style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
+                            <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'flex', width:32, height:32, fontSize:11, flexShrink:0}}>{initials(e.name)}</div>
+                            <div style={{flex:1, minWidth:0}}>
+                                <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.name}</div>
+                                <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{e.ext}</div>
+                            </div>
+                            <span style={{fontSize:9, padding:'2px 7px', borderRadius:4, background:'rgba(107,114,128,0.18)', color:'#9ca3af', fontWeight:800}}>OFFLINE</span>
+                        </div>
+                    </div>
+                );
+
+                return (
+                    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+                        {activeExts.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, justifyContent:'center'}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{activeExts.length} extensione{activeExts.length!==1?'s activas':' activa'}</span>
+                                </div>
+                                <div style={{display:'flex', flexWrap:'wrap', gap:14, justifyContent:'center'}}>
+                                    {activeExts.map(renderActive)}
+                                </div>
+                            </div>
+                        )}
+                        {offlineExts.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineExts.length} offline</span>
+                                </div>
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:8}}>
+                                    {offlineExts.map(renderOffline)}
+                                </div>
+                            </div>
+                        )}
+                        {exts.length === 0 && <div className="rounded-lg border border-border bg-card p-10 text-center text-muted-foreground">Sin extensiones</div>}
+                    </div>
+                );
+            })()}
 
             {/* TABLE — estilo Grandstream UCM */}
             {viewMode==='table' && (
@@ -2254,7 +3930,7 @@ function ViewAgentes({ toast, data }) {
                                     <td>
                                         <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
                                             {a.queues.slice(0,4).map((q,i)=>(
-                                                <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                                <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:700}}>
                                                     Q{q.queue||q}
                                                 </span>
                                             ))}
@@ -2307,7 +3983,7 @@ function ViewAgentes({ toast, data }) {
                         {a.queues.length > 0 && (
                             <div style={{display:'flex',flexWrap:'wrap',gap:3}}>
                                 {a.queues.slice(0,5).map((q,i)=>(
-                                    <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                    <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:700}}>
                                         Q{q.queue || q}
                                     </span>
                                 ))}
@@ -2344,9 +4020,8 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
     const lbl = agent.in_call?'En llamada':(agent.logged_in?'Disponible':'Offline');
     const inits = (agent.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase();
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)',overflow:'hidden'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={560}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 22px',background:`linear-gradient(135deg, ${sc}22, transparent 70%)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:54,height:54,borderRadius:14,background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:18,boxShadow:`0 6px 18px ${sc}55`,position:'relative',flexShrink:0}}>
@@ -2397,13 +4072,13 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
                     {/* Colas asignadas */}
                     <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
                         <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:13,color:'#c4b5fd'}}>queue</span>
+                            <span className="material-icons-round" style={{fontSize:13,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>queue</span>
                             Colas asignadas ({(agent.queues||[]).length})
                         </div>
                         <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                             {(agent.queues||[]).length===0 && <span style={{fontSize:11,color:'var(--muted)',fontStyle:'italic'}}>Sin colas activas</span>}
                             {(agent.queues||[]).map((q,i)=>(
-                                <span key={i} style={{fontSize:10,padding:'4px 10px',borderRadius:6,background:'rgba(139,92,246,0.18)',border:'1px solid rgba(139,92,246,0.3)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>
+                                <span key={i} style={{fontSize:10,padding:'4px 10px',borderRadius:6,background:'color-mix(in srgb, var(--primary) 18%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:800}}>
                                     Q{q.queue || q}
                                 </span>
                             ))}
@@ -2421,9 +4096,8 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
                         Editar agente
                     </button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -2450,8 +4124,8 @@ function ViewVivo({ data }) {
                         <div key={i} className="live-call-card">
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                 <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <div style={{width:36,height:36,borderRadius:10,background:'rgba(139,92,246,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:18,color:'#c4b5fd'}}>call</span>
+                                    <div style={{width:36,height:36,borderRadius:10,background:'color-mix(in srgb, var(--primary) 20%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                        <span className="material-icons-round" style={{fontSize:18,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>call</span>
                                     </div>
                                     <div>
                                         <div style={{fontSize:13,fontWeight:700,color:'white'}}>{c.src} → {c.dst}</div>
@@ -2482,8 +4156,8 @@ function ViewGrabaciones({ data }) {
                         <div key={i} className="glass" style={{padding:'16px 18px'}}>
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                                 <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                                    <div style={{width:34,height:34,borderRadius:9,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd'}}>mic</span>
+                                    <div style={{width:34,height:34,borderRadius:9,background:'color-mix(in srgb, var(--primary) 15%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                        <span className="material-icons-round" style={{fontSize:16,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>mic</span>
                                     </div>
                                     <div>
                                         <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
@@ -2491,7 +4165,7 @@ function ViewGrabaciones({ data }) {
                                     </div>
                                 </div>
                                 <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'rgba(139,92,246,0.12)',color:'#c4b5fd',fontWeight:600}}>{r.duration}s</span>
+                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:600}}>{r.duration}s</span>
                                     <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:r.disposition==='ANSWERED'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)',color:r.disposition==='ANSWERED'?'#4ade80':'#f87171',fontWeight:600}}>{r.disposition}</span>
                                 </div>
                             </div>
@@ -2858,7 +4532,7 @@ function ViewCDR() {
             <div className="glass" style={{overflow:'hidden'}}>
                 <table className="tf-table">
                     <thead>
-                        <tr style={{background:'rgba(139,92,246,0.05)'}}>
+                        <tr style={{background:'color-mix(in srgb, var(--primary) 5%, transparent)'}}>
                             <th style={{padding:'12px 16px'}}><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>schedule</span>Fecha y Hora</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_made</span>Origen</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_received</span>Destino</th>
@@ -2880,8 +4554,8 @@ function ViewCDR() {
                                         </td>
                                         <td>
                                             <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                                <div style={{width:28,height:28,borderRadius:8,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                    <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>call_made</span>
+                                                <div style={{width:28,height:28,borderRadius:8,background:'color-mix(in srgb, var(--primary) 15%, transparent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                    <span className="material-icons-round" style={{fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>call_made</span>
                                                 </div>
                                                 <div>
                                                     <div style={{fontWeight:700,fontSize:13}}>{r.src}</div>
@@ -2910,8 +4584,8 @@ function ViewCDR() {
                                         <td>
                                             {r.recordingfile
                                                 ?<div style={{display:'flex',alignItems:'center',gap:6}}>
-                                                    <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
-                                                    <span style={{fontSize:10,color:'#c4b5fd',fontWeight:600}}>Ver ↓</span>
+                                                    <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>mic</span>
+                                                    <span style={{fontSize:10,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:600}}>Ver ↓</span>
                                                   </div>
                                                 :<span style={{color:'#374151',fontSize:12}}>—</span>
                                             }
@@ -2945,7 +4619,7 @@ function ViewCDR() {
 function HotdeskingWizard({ onClose }) {
     const steps = [
         { 
-            icon:'badge', color:'#8b5cf6',
+            icon:'badge', color:'var(--primary)',
             title:'1. Agente (persona)',
             text:'Cada agente es una persona del callcenter — no una extensión. Se identifica con un número (ej. 200) y un nombre (Brian Perez). Vive en la tabla call_center.agent de la PBX. Lo creás desde el botón "Nuevo Agente".'
         },
@@ -2982,9 +4656,9 @@ function HotdeskingWizard({ onClose }) {
     ];
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:680,maxWidth:'94%',maxHeight:'90vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.4)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={680}>
                 <div style={{padding:'18px 24px',background:'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08))',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>school</span>
@@ -3019,9 +4693,8 @@ function HotdeskingWizard({ onClose }) {
                     <div style={{fontSize:11,color:'var(--muted)'}}>Tip: para alta/baja de agentes usá "Nuevo Agente". Para login manual, click en "Login" en cualquier fila.</div>
                     <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Entendido</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3087,9 +4760,8 @@ function QueueAgentsModal({ open, onClose, queue, queueName, toast, onDone}) {
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:640,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.6)'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={640}>
                 <div style={{padding:'18px 24px',background:'linear-gradient(135deg,rgba(34,197,94,0.18),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>group</span>
@@ -3157,9 +4829,8 @@ function QueueAgentsModal({ open, onClose, queue, queueName, toast, onDone}) {
                     </div>
                     <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Cerrar</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3189,9 +4860,8 @@ function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:520,maxWidth:'92%',maxHeight:'80vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={520}>
                 <div style={{padding:'16px 22px',background:'linear-gradient(135deg,rgba(239,68,68,0.15),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>logout</span>
@@ -3232,9 +4902,8 @@ function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3303,9 +4972,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width: mode==='logout' ? 560 : 880,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.45)',transition:'width .25s ease'}}>
+        <LegacyDialogShell onClose={onClose} maxWidth={mode==='logout' ? 560 : 880}>
                 {/* Header compacto */}
                 <div style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,background:`linear-gradient(135deg, ${mode==='login'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'}, transparent 70%)`}}>
                     <div style={{width:40,height:40,borderRadius:11,background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
@@ -3329,11 +4996,11 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                 </div>
 
                 {/* BODY: 2 columnas en login, 1 columna en logout */}
-                <div style={{flex:1,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
+                <div style={{flex:1,minHeight:0,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
                     {/* COLUMNA IZQUIERDA: Selector de agente */}
-                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
                         <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>person</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>person</span>
                             Agente
                         </label>
                         <div style={{position:'relative',marginBottom:10}}>
@@ -3359,7 +5026,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
 
                     {/* COLUMNA DERECHA: Datos de login (oculta en logout) */}
                     {mode === 'login' && (
-                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
                             <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                                 <span className="material-icons-round" style={{fontSize:14,color:'#3b82f6'}}>dialpad</span>
                                 Extensión donde se sienta
@@ -3422,9 +5089,8 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 function QueueDrawer({ queue, onClose, onSaved, toast }) {
@@ -3609,7 +5275,7 @@ function ViewColas({ toast, onReport, data }) {
                                     <td>
                                         <div style={{display:'flex',gap:4}}>
                                             <button onClick={()=>setLoginModalQ(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer'}}>Login</button>
-                                            {onReport && <button onClick={()=>onReport(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer'}}>Reporte</button>}
+                                            {onReport && <button onClick={()=>onReport(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:10,cursor:'pointer'}}>Reporte</button>}
                                             <button onClick={()=>setDrawer(q)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}>
                                                 <span className="material-icons-round" style={{fontSize:13}}>settings</span>
                                             </button>
@@ -3650,7 +5316,7 @@ function ViewColas({ toast, onReport, data }) {
                                 { icon:'person_add',     label:'Login agente',       color:'#22c55e', onClick:(e)=>{e.stopPropagation(); setLoginModalQ(q.id);} },
                                 { icon:'person_remove',  label:'Logout agente',      color:'#ef4444', onClick:(e)=>{e.stopPropagation(); setLogoutModalQ(q.id);} },
                                 { icon:'group',          label:'Ver agentes online', color:'#3b82f6', onClick:(e)=>{e.stopPropagation(); setQueueAgentsModalQ(q);} },
-                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'#8b5cf6', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
+                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'var(--primary)', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
                                 { icon:'settings',       label:'Configurar cola',    color:'#a1a8b8', onClick:(e)=>{e.stopPropagation(); setDrawer(q);} },
                             ].map((b,i)=>(
                                 <button key={i} type="button" onClick={b.onClick} className="tf-q-btn" style={{width:'100%',maxWidth:200,padding:'10px 14px',borderRadius:10,border:`1px solid ${b.color}55`,background:`linear-gradient(135deg,${b.color}26,${b.color}10)`,color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'all .15s ease',pointerEvents:'auto'}}>
@@ -4035,7 +5701,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                     {/* Row 2: Timeout */}
                     <div style={{marginBottom:20}}>
                         <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>
-                            Tiempo de Timbrado <span style={{color:'#c4b5fd', fontFamily:'monospace'}}>({form.grptime}s)</span>
+                            Tiempo de Timbrado <span style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', fontFamily:'monospace'}}>({form.grptime}s)</span>
                         </label>
                         <div style={{display:'flex', alignItems:'center', gap:12}}>
                             <input
@@ -4113,12 +5779,12 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                                         style={{
                                             display:'flex', alignItems:'center', gap:6,
                                             padding:'6px 10px 6px 14px', borderRadius:10,
-                                            background:'rgba(139,92,246,0.1)',
-                                            border:'1px solid rgba(139,92,246,0.25)',
-                                            fontSize:12, fontWeight:700, color:'#c4b5fd'
+                                            background:'color-mix(in srgb, var(--primary) 10%, transparent)',
+                                            border:'1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
+                                            fontSize:12, fontWeight:700, color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'
                                         }}
                                     >
-                                        <span className="material-icons-round" style={{fontSize:13,color:'#8b5cf6'}}>phone</span>
+                                        <span className="material-icons-round" style={{fontSize:13,color:'var(--primary)'}}>phone</span>
                                         #{m}
                                         <button
                                             onClick={()=>removeMember(m)}
@@ -4140,7 +5806,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                         </div>
                         <input
                             className="input-tf"
-                            style={{marginTop:6, padding:'10px 16px', borderRadius:12, fontSize:12, fontFamily:'monospace', width:'100%', boxSizing:'border-box', color:'#c4b5fd'}}
+                            style={{marginTop:6, padding:'10px 16px', borderRadius:12, fontSize:12, fontFamily:'monospace', width:'100%', boxSizing:'border-box', color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}
                             placeholder="1001-1002-1003"
                             value={form.grplist}
                             onChange={e => set('grplist', e.target.value)}
@@ -4643,7 +6309,7 @@ function ViewRadar({ data, toast }) {
                                 <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
                                     <span className="material-icons-round" style={{fontSize:12}}>record_voice_over</span>Susurro
                                 </button>
-                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
                                     <span className="material-icons-round" style={{fontSize:12}}>group</span>Barge
                                 </button>
                                 <button onClick={()=>handleAssign(c)} title="Asignar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
@@ -4931,7 +6597,7 @@ function ViewVivo2({ data, toast, initialFilter }) {
                                 <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar al agente" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
                                     <span className="material-icons-round" style={{fontSize:14}}>record_voice_over</span>Susurrar
                                 </button>
-                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
                                     <span className="material-icons-round" style={{fontSize:14}}>group</span>Intervenir
                                 </button>
                                 <button onClick={()=>handleAssign(c)} title="Asignar a otra ext/cola" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
@@ -5236,467 +6902,783 @@ function AgentReportPanel({ agentNumber, onClose, embedded }) {
 }
 
 function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent }) {
-    const d=new Date(); d.setDate(d.getDate()-7);
-    const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
-    const [end, setEnd] = useState(() => new Date().toISOString().split('T')[0]);
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const chartRef = useRef(null);
-    const chartInst = useRef(null);
-    const donutRef = useRef(null);
-    const donutInst = useRef(null);
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    const [from, setFrom] = useState(() => d.toISOString().split('T')[0]);
+    const [to, setTo] = useState(() => new Date().toISOString().split('T')[0]);
+    const [tab, setTab] = useState('summary');
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [callFilters, setCallFilters] = useState({ disposition: '', src: '', dst: '', min_dur: 0 });
+    const [agentDetail, setAgentDetail] = useState(null);
 
-    const load = async () => {
-        setLoading(true);
-        try {
-            const qParam = queue ? `&queue=${queue}` : '';
-            const r = await fetch(`api/index.php?action=get_reports&start=${start}&end=${end}${qParam}`);
-            const d = await r.json();
-            if(d.success) setStats(d);
-            else toast(d.error||'Error al cargar reportes','error');
-        } catch { toast('Error de red al obtener reportes','error'); }
-        setLoading(false);
+    const presets = [
+        { label: 'Hoy', from: () => new Date().toISOString().split('T')[0], to: () => new Date().toISOString().split('T')[0] },
+        { label: 'Ayer', from: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; }, to: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; } },
+        { label: '7 días', from: () => { const x=new Date(); x.setDate(x.getDate()-7); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+        { label: '30 días', from: () => { const x=new Date(); x.setDate(x.getDate()-30); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+        { label: 'Mes actual', from: () => { const x=new Date(); x.setDate(1); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+    ];
+
+    const buildParams = () => {
+        const p = new URLSearchParams({ from, to });
+        if (tab === 'calls') {
+            if (callFilters.disposition) p.set('disposition', callFilters.disposition);
+            if (callFilters.src) p.set('src', callFilters.src);
+            if (callFilters.dst) p.set('dst', callFilters.dst);
+            if (callFilters.min_dur > 0) p.set('min_dur', callFilters.min_dur);
+            p.set('limit', '500');
+        }
+        return p.toString();
     };
 
-    useEffect(() => { load(); }, [queue, start, end]);
-
+    // Effect-scoped fetch with proper cancellation guard (fixes pre-existing bug donde el cancel nunca corría)
     useEffect(() => {
-        if (!stats || !chartRef.current || !window.Chart) return;
-        if (chartInst.current) chartInst.current.destroy();
-        
-        const labels = Object.keys(stats.trend);
-        const answered = labels.map(l => stats.trend[l].ANSWERED || 0);
-        const failed = labels.map(l => (stats.trend[l].FAILED || 0) + (stats.trend[l]['NO ANSWER'] || 0) + (stats.trend[l].BUSY || 0));
-        
-        chartInst.current = new window.Chart(chartRef.current, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Contestadas', data: answered, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.2)', fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: '#22c55e', pointBorderColor: '#fff', pointRadius: 4, pointHoverRadius: 6 },
-                    { label: 'Otras/Fallidas', data: failed, borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: true, tension: 0.4, borderWidth: 2, pointBackgroundColor: '#ef4444', pointBorderColor: '#fff', pointRadius: 3, pointHoverRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { family: 'Inter', weight: 600 } } },
-                    tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', borderColor:'rgba(139,92,246,0.3)', borderWidth:1, padding:12, boxPadding:6, usePointStyle:true }
-                },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } }, beginAtZero: true },
-                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } } }
-                }
-            }
-        });
+        let cancelled = false;
+        setLoading(true); setData(null);
+        const params = buildParams();
+        fetch(`api/reports.php?action=${tab}&${params}`, { credentials: 'include' })
+            .then(r => r.json())
+            .then(j => {
+                if (cancelled) return;
+                if (j.status === 'ok') setData(j);
+                else toast?.(j.message || 'Error cargando reporte', 'error');
+            })
+            .catch(() => { if (!cancelled) toast?.('Error de red', 'error'); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur]);
 
-        // Donut chart de distribución por estado
-        if (donutRef.current) {
-            if (donutInst.current) donutInst.current.destroy();
-            const dd = stats.stats || {};
-            donutInst.current = new window.Chart(donutRef.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Contestadas','Sin resp.','Ocupado','Falladas'],
-                    datasets: [{
-                        data: [dd.answered||0, dd.no_answer||0, dd.busy||0, dd.failed||0],
-                        backgroundColor: ['#22c55e','#f59e0b','#ef4444','#6b7280'],
-                        borderColor: 'rgba(0,0,0,0)',
-                        borderWidth: 3,
-                        hoverOffset: 12
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', padding:10 }
-                    }
-                }
-            });
+    const exportUrl = (format, type = tab, extra = {}) => {
+        const p = new URLSearchParams({ type, format, from, to, ...extra });
+        if (type === 'calls') {
+            if (callFilters.disposition) p.set('disposition', callFilters.disposition);
+            if (callFilters.src) p.set('src', callFilters.src);
+            if (callFilters.dst) p.set('dst', callFilters.dst);
         }
-    }, [stats]);
-
-
-    const exportXLSX = () => {
-        if (!stats || !window.XLSX) { toast?.('Sin datos para exportar','error'); return; }
-        const wb = window.XLSX.utils.book_new();
-        const period = `${start} a ${end}`;
-        const total = stats.stats.total||0;
-        const ans = stats.stats.answered||0;
-        const eff = total>0 ? Math.round((ans/total)*100) : 0;
-
-        // Hoja Resumen ejecutivo
-        const summary = [
-            ['TELEFLOW — REPORTE ANALÍTICO', ''],
-            ['Horizon Seguridad', ''],
-            ['Período', period],
-            ['Generado', new Date().toLocaleString('es-UY')],
-            queue ? ['Cola filtrada', '#'+queue] : ['Alcance', 'Todas las colas'],
-            ['', ''],
-            ['INDICADOR', 'VALOR'],
-            ['Llamadas totales', total],
-            ['Contestadas', ans],
-            ['Sin respuesta',(stats.stats.no_answer||0)],
-            ['Ocupado', (stats.stats.busy||0)],
-            ['Falladas', (stats.stats.failed||0)],
-            ['Efectividad %', eff],
-            ['Espera promedio (s)', Math.round(stats.stats.avg_wait||0)],
-            ['Duración promedio (s)', Math.round(stats.stats.avg_duration||0)],
-        ];
-        const ws1 = window.XLSX.utils.aoa_to_sheet(summary);
-        ws1['!cols'] = [{wch:34},{wch:24}];
-        // Estilos: títulos en negrita / fondos color
-        const styleHead = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'8B5CF6'}}, alignment:{vertical:'center'} };
-        const styleSub  = { font:{bold:true,color:{rgb:'1F2937'}}, fill:{fgColor:{rgb:'EDE9FE'}} };
-        const styleNum  = { font:{bold:true,color:{rgb:'059669'}} };
-        ['A1','B1'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleHead; });
-        ['A7','B7'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleSub;  });
-        for (let r=8; r<=15; r++) { const c='B'+r; if(ws1[c]) ws1[c].s = styleNum; }
-        ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:1}},{s:{r:1,c:0},e:{r:1,c:1}}];
-        window.XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
-
-        // Hoja Tendencia diaria
-        const trend = stats.trend || {};
-        const trendRows = [['Fecha','Contestadas','Sin respuesta','Ocupado','Fallidas','Total día']];
-        Object.keys(trend).forEach(d => {
-            const t = trend[d];
-            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
-            trendRows.push([d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot]);
-        });
-        const ws2 = window.XLSX.utils.aoa_to_sheet(trendRows);
-        ws2['!cols'] = [{wch:14},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12}];
-        ['A1','B1','C1','D1','E1','F1'].forEach(c=>{ if(ws2[c]) ws2[c].s = styleHead; });
-        window.XLSX.utils.book_append_sheet(wb, ws2, 'Tendencia diaria');
-
-        // Hoja Top orígenes
-        if (stats.origins?.length) {
-            const oRows = [['#','Origen','Llamadas']];
-            stats.origins.forEach((o,i)=>oRows.push([i+1,o.src,o.count]));
-            const ws3 = window.XLSX.utils.aoa_to_sheet(oRows);
-            ws3['!cols'] = [{wch:5},{wch:24},{wch:12}];
-            ['A1','B1','C1'].forEach(c=>{ if(ws3[c]) ws3[c].s = styleHead; });
-            window.XLSX.utils.book_append_sheet(wb, ws3, 'Top orígenes');
-        }
-        // Hoja Top destinos
-        if (stats.dests?.length) {
-            const dRows = [['#','Destino','Llamadas']];
-            stats.dests.forEach((o,i)=>dRows.push([i+1,o.dst,o.count]));
-            const ws4 = window.XLSX.utils.aoa_to_sheet(dRows);
-            ws4['!cols'] = [{wch:5},{wch:24},{wch:12}];
-            ['A1','B1','C1'].forEach(c=>{ if(ws4[c]) ws4[c].s = styleHead; });
-            window.XLSX.utils.book_append_sheet(wb, ws4, 'Top destinos');
-        }
-
-        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.xlsx`;
-        window.XLSX.writeFile(wb, fname);
-        toast?.('Exportado a Excel','success');
+        return `api/reports_export.php?${p.toString()}`;
     };
 
-    const exportPDF = () => {
-        if (!stats || !window.jspdf) { toast?.('Sin datos para exportar','error'); return; }
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-        const W = 210, H = 297;
-        const total = stats.stats.total||0;
-        const ans   = stats.stats.answered||0;
-        const eff   = total>0 ? Math.round((ans/total)*100) : 0;
-
-        // Banner
-        doc.setFillColor(139,92,246); doc.rect(0,0,W,30,'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont(undefined,'bold');
-        doc.text('TeleFlow', 14, 14);
-        doc.setFontSize(10); doc.setFont(undefined,'normal');
-        doc.text('Reporte Analítico de Callcenter · Horizon Seguridad', 14, 21);
-        doc.setFontSize(8);
-        doc.text(`Período: ${start}  →  ${end}${queue?'  ·  Cola #'+queue:''}`, 14, 26);
-        doc.setTextColor(255,255,255,0.85);
-        doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, W-14, 26, {align:'right'});
-
-        // KPI cards
-        const cards = [
-            { l:'Total', v:total.toLocaleString(), c:[139,92,246] },
-            { l:'Contestadas', v:ans.toLocaleString(), c:[34,197,94] },
-            { l:'Efectividad', v:eff+'%', c:[59,130,246] },
-            { l:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), c:[245,158,11] },
-            { l:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), c:[236,72,153] },
-        ];
-        const cw = (W - 28 - (cards.length-1)*5) / cards.length;
-        let cx = 14, cy = 38;
-        cards.forEach(k => {
-            doc.setFillColor(k.c[0],k.c[1],k.c[2]); doc.setDrawColor(k.c[0],k.c[1],k.c[2]);
-            doc.roundedRect(cx, cy, cw, 22, 3, 3, 'FD');
-            doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
-            doc.text(k.l.toUpperCase(), cx+3, cy+5);
-            doc.setFontSize(13); doc.text(String(k.v), cx+3, cy+15);
-            cx += cw + 5;
-        });
-
-        // Chart como imagen
-        let nextY = cy + 32;
-        try {
-            const canv = chartRef.current;
-            if (canv) {
-                const img = canv.toDataURL('image/png', 1.0);
-                doc.setTextColor(40,40,55); doc.setFont(undefined,'bold'); doc.setFontSize(11);
-                doc.text('Tendencia diaria', 14, nextY);
-                doc.addImage(img, 'PNG', 14, nextY+3, W-28, 60);
-                nextY += 70;
-            }
-        } catch(e) {}
-
-        // Tabla tendencia
-        const trend = stats.trend || {};
-        const tBody = Object.keys(trend).map(d => {
-            const t = trend[d];
-            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
-            return [d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot];
-        });
-        if (tBody.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['Fecha','Contestadas','Sin resp.','Ocupado','Fallidas','Total']],
-                body: tBody,
-                theme: 'grid',
-                headStyles: { fillColor: [99,102,241], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                alternateRowStyles: { fillColor: [248,250,252] },
-                margin: { left: 14, right: 14 }
-            });
-            nextY = doc.lastAutoTable.finalY + 6;
-        }
-
-        // Top orígenes + destinos en 2 columnas
-        const colW = (W-28-6)/2;
-        if (stats.origins?.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['#','Origen','Calls']],
-                body: stats.origins.map((o,i)=>[i+1,o.src,o.count]),
-                theme: 'striped',
-                headStyles: { fillColor: [139,92,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                margin: { left: 14, right: 14 + colW + 6 },
-                tableWidth: colW
-            });
-        }
-        if (stats.dests?.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['#','Destino','Calls']],
-                body: stats.dests.map((d,i)=>[i+1,d.dst,d.count]),
-                theme: 'striped',
-                headStyles: { fillColor: [59,130,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                margin: { left: 14 + colW + 6, right: 14 },
-                tableWidth: colW
-            });
-        }
-
-        // Footer
-        const pages = doc.internal.getNumberOfPages();
-        for (let i=1;i<=pages;i++) {
-            doc.setPage(i);
-            doc.setFontSize(7); doc.setTextColor(140);
-            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad  ·  ${new Date().toLocaleDateString('es-UY')}`, W/2, H-8, {align:'center'});
-        }
-        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.pdf`;
-        doc.save(fname);
-        toast?.('Exportado a PDF','success');
-    };
-
-    const Card = ({ title, value, sub, icon, color, bg }) => (
-        <div className="glass" style={{padding:20,display:'flex',alignItems:'center',gap:16}}>
-            <div style={{width:50,height:50,borderRadius:16,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 8px 24px ${bg}`}}>
-                <span className="material-icons-round" style={{fontSize:24,color:color}}>{icon}</span>
-            </div>
-            <div>
-                <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>{title}</div>
-                <div style={{fontSize:28,fontWeight:900,color:'var(--text)',lineHeight:1}}>{value}</div>
-                <div style={{fontSize:11,color:'#6b7280',marginTop:6,fontWeight:600}}>{sub}</div>
-            </div>
-        </div>
-    );
-
-    if (agentReport && agentReport.number) {
-        return (
-            <div className="content-area view-enter">
-                <PageActions>
-                    <button onClick={onClearAgent} style={{padding:'7px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>arrow_back</span>Volver a Reportes Generales
-                    </button>
-                </PageActions>
-                <AgentReportPanel agentNumber={agentReport.number} embedded={true}/>
-            </div>
-        );
-    }
-
-    return(
-        <div className="content-area view-enter">
-            {/* Filtros (queue back-button) */}
-            <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
-                <div style={{display:'flex', alignItems:'center', gap:10}}>
-                    {queue && (
-                        <button onClick={onClearQueue} style={{width:36, height:36, borderRadius:10, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted)'}}>
-                            <span className="material-icons-round">arrow_back</span>
-                        </button>
-                    )}
-                    {queue && <div style={{fontSize:13,fontWeight:800,color:'#c4b5fd'}}>Cola #{queue}</div>}
+    return (
+        <div className="p-4 md:p-6 space-y-4">
+            {/* Page heading */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                        <span className="material-icons-round" style={{fontSize:22}}>analytics</span>
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight" style={{color:'var(--foreground)'}}>Reportes</h2>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Análisis detallado del callcenter</p>
+                    </div>
                 </div>
-                <PageActions>
-                    <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 6px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10}}>
-                        <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6',marginLeft:4}}>date_range</span>
-                        <input type="date" value={start} onChange={e=>setStart(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
-                        <span style={{color:'var(--muted)',fontSize:10,fontWeight:800,letterSpacing:'.06em'}}>→</span>
-                        <input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
-                    </div>
-                    <button className="btn-primary" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:5,boxShadow:'0 4px 14px rgba(139,92,246,0.3)'}} onClick={load} disabled={loading}>
-                        <span className="material-icons-round" style={{fontSize:15,animation:loading?'spin 1s linear infinite':'none'}}>{loading?'autorenew':'refresh'}</span>{loading?'Cargando':'Actualizar'}
-                    </button>
-                    <button onClick={exportXLSX} disabled={!stats} title="Exportar a Excel" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(34,197,94,0.18),rgba(34,197,94,0.06))',border:'1px solid rgba(34,197,94,0.4)',color:'#22c55e',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>table_chart</span>Excel
-                    </button>
-                    <button onClick={exportPDF} disabled={!stats} title="Exportar a PDF" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(239,68,68,0.06))',border:'1px solid rgba(239,68,68,0.4)',color:'#ef4444',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>picture_as_pdf</span>PDF
-                    </button>
-                </PageActions>
+                {/* Export buttons */}
+                <div className="flex items-center gap-2">
+                    <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
+                        <span className="material-icons-round" style={{fontSize:14}}>picture_as_pdf</span>PDF
+                    </Button>
+                    <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
+                        <span className="material-icons-round" style={{fontSize:14}}>table_chart</span>Excel
+                    </Button>
+                </div>
             </div>
 
-            {loading && !stats && <div style={{textAlign:'center',padding:40,color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:40,animation:'spin-slow 2s linear infinite'}}>refresh</span><div style={{marginTop:10}}>Generando reporte...</div></div>}
+            {/* Tabs + Período en la misma fila (período como pill estilo TabsList) */}
+            <Tabs value={tab} onChange={setTab}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <TabsList className="h-10 p-1" style={{background:'var(--secondary)'}}>
+                        <TabsTrigger value="summary" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>dashboard</span>Resumen
+                        </TabsTrigger>
+                        <TabsTrigger value="by_agent" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>support_agent</span>Por agente
+                        </TabsTrigger>
+                        <TabsTrigger value="by_queue" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>queue</span>Por cola
+                        </TabsTrigger>
+                        <TabsTrigger value="calls" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>phone</span>Llamadas
+                        </TabsTrigger>
+                        <TabsTrigger value="pauses" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>pause_circle</span>Pausas
+                        </TabsTrigger>
+                    </TabsList>
 
-            {stats && (
-                <>
-                    {/* Hero: período + 5 KPI cards */}
-                    <div className="anim-fadeup" style={{padding:'18px 22px',marginBottom:18,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:14,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:14}}>
-                            <div style={{width:54,height:54,borderRadius:14,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(139,92,246,0.35)'}}>
-                                <span className="material-icons-round" style={{color:'#fff',fontSize:26}}>analytics</span>
-                            </div>
-                            <div>
-                                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em'}}>Reporte analítico · {start} → {end}</div>
-                                <div style={{fontSize:22,fontWeight:900,letterSpacing:'-0.5px',marginTop:2,color:'var(--text)'}}>{(stats.stats.total||0).toLocaleString()} llamadas procesadas</div>
-                                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{Object.keys(stats.trend||{}).length} días · {stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad global</div>
-                            </div>
-                        </div>
+                    {/* Período pill — mismo tamaño que TabsList */}
+                    <div className="inline-flex items-center h-10 p-1 rounded-lg gap-1 flex-wrap" style={{background:'var(--secondary)'}}>
+                        {presets.map(p => {
+                            const isActive = p.from() === from && p.to() === to;
+                            return (
+                                <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => { setFrom(p.from()); setTo(p.to()); }}
+                                    className={cn(
+                                        "inline-flex items-center justify-center whitespace-nowrap rounded-md h-8 px-3 text-xs font-medium transition-all",
+                                        isActive ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >{p.label}</button>
+                            );
+                        })}
+                        <span className="mx-1 h-5 w-px" style={{background:'var(--border)'}}/>
+                        <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                            className="h-8 w-[124px] px-2 rounded-md text-xs font-medium bg-background text-foreground border-0 focus:outline-none focus:ring-2 focus:ring-ring"/>
+                        <span className="text-xs mx-0.5" style={{color:'var(--muted-foreground)'}}>→</span>
+                        <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                            className="h-8 w-[124px] px-2 rounded-md text-xs font-medium bg-background text-foreground border-0 focus:outline-none focus:ring-2 focus:ring-ring"/>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:20}} className="anim-fadeup">
-                        {[
-                            {t:'Total', v:(stats.stats.total||0).toLocaleString(), s:'Procesadas', i:'functions', c:'#8b5cf6'},
-                            {t:'Contestadas', v:(stats.stats.answered||0).toLocaleString(), s:`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad`, i:'check_circle', c:'#22c55e'},
-                            {t:'Sin respuesta', v:(stats.stats.no_answer||0).toLocaleString(), s:'No atendidas', i:'phone_missed', c:'#f59e0b'},
-                            {t:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), s:'Hasta atender', i:'hourglass_top', c:'#3b82f6'},
-                            {t:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), s:'Tiempo habla', i:'timer', c:'#ec4899'},
-                        ].map((k,i)=>(
-                            <div key={i} className="glass" style={{padding:'14px 16px',borderRadius:14,position:'relative',overflow:'hidden',border:`1px solid ${k.c}33`,background:`linear-gradient(135deg,${k.c}10,transparent 70%),var(--surface)`}}>
-                                <div style={{position:'absolute',top:-12,right:-12,width:70,height:70,borderRadius:'50%',background:`radial-gradient(circle,${k.c}33,transparent 70%)`,pointerEvents:'none'}}/>
-                                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,position:'relative'}}>
-                                    <div style={{width:30,height:30,borderRadius:9,background:`linear-gradient(135deg,${k.c},${k.c}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 12px ${k.c}55`}}>
-                                        <span className="material-icons-round" style={{color:'#fff',fontSize:16}}>{k.i}</span>
-                                    </div>
-                                    <span style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{k.t}</span>
-                                </div>
-                                <div style={{fontSize:24,fontWeight:900,color:k.c,lineHeight:1,letterSpacing:'-0.5px'}}>{k.v}</div>
-                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4,fontWeight:600}}>{k.s}</div>
-                            </div>
-                        ))}
-                    </div>
+                </div>
 
-                    {/* Layout principal: 2/3 chart + 1/3 donut */}
-                    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:18}} className="anim-fadeup-2">
-                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column'}}>
-                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                    <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>trending_up</span>
-                                    <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Tendencia diaria</span>
-                                </div>
-                                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>{Object.keys(stats.trend||{}).length} días · linea suavizada</div>
-                            </div>
-                            <div style={{flex:1,position:'relative',minHeight:0}}>
-                                <canvas ref={chartRef} />
-                            </div>
-                        </div>
-                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column',alignItems:'center'}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',alignSelf:'flex-start',display:'flex',alignItems:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>donut_large</span>Distribución
-                            </div>
-                            <div style={{flex:1,position:'relative',minHeight:0,width:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <canvas ref={donutRef} style={{maxHeight:240}} />
-                            </div>
-                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,width:'100%',marginTop:10,fontSize:11}}>
-                                {[
-                                    {l:'Contestadas',v:stats.stats.answered||0,c:'#22c55e'},
-                                    {l:'Sin resp.',v:stats.stats.no_answer||0,c:'#f59e0b'},
-                                    {l:'Ocupado',v:stats.stats.busy||0,c:'#ef4444'},
-                                    {l:'Falladas',v:stats.stats.failed||0,c:'#6b7280'},
-                                ].map((d,i)=>(
-                                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',borderRadius:7,background:'var(--surface2)'}}>
-                                        <span style={{width:8,height:8,borderRadius:'50%',background:d.c,flexShrink:0}}/>
-                                        <span style={{flex:1,color:'var(--muted)',fontWeight:700}}>{d.l}</span>
-                                        <span style={{fontWeight:800,color:d.c,fontFamily:'monospace'}}>{d.v.toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                {loading && (
+                    <div className="mt-4 rounded-lg border bg-card text-card-foreground p-16 flex flex-col items-center justify-center" style={{borderColor:'var(--border)'}}>
+                        <span className="material-icons-round animate-spin text-primary" style={{fontSize:36}}>autorenew</span>
+                        <div className="mt-3 text-sm font-medium" style={{color:'var(--muted-foreground)'}}>Cargando reporte…</div>
                     </div>
+                )}
 
-                    {/* Tops */}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}} className="anim-fadeup-3">
-                        {(() => {
-                            const maxOrig = Math.max(1, ...(stats.origins||[]).map(o=>o.count));
-                            const maxDest = Math.max(1, ...(stats.dests||[]).map(d=>d.count));
-                            const TopRow = ({label, count, max, color, idx, total}) => {
-                                const pct = Math.round((count/max)*100);
-                                return (
-                                    <div style={{padding:'10px 14px',borderRadius:12,background:'var(--surface2)',border:'1px solid var(--border)',position:'relative',overflow:'hidden'}}>
-                                        <div style={{position:'absolute',top:0,bottom:0,left:0,width:`${pct}%`,background:`linear-gradient(90deg,${color}15,${color}05)`,zIndex:0}}/>
-                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,position:'relative'}}>
-                                            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
-                                                <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${color}33,${color}11)`,color:color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,flexShrink:0}}>{idx+1}</div>
-                                                <span style={{fontSize:13,fontWeight:700,fontFamily:'monospace',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
-                                            </div>
-                                            <div style={{display:'flex',alignItems:'baseline',gap:5,flexShrink:0}}>
-                                                <span style={{fontSize:14,fontWeight:900,color:color}}>{count}</span>
-                                                <span style={{fontSize:9,color:'var(--muted)',fontFamily:'monospace'}}>{total>0?Math.round((count/total)*100):0}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            };
-                            const totalOrig = (stats.origins||[]).reduce((s,o)=>s+o.count,0);
-                            const totalDest = (stats.dests||[]).reduce((s,d)=>s+d.count,0);
-                            return (<>
-                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span>Top orígenes</div>
-                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.origins||[]).length} únicos</span>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {(stats.origins||[]).map((o,i)=>(<TopRow key={i} label={o.src} count={o.count} max={maxOrig} color="#8b5cf6" idx={i} total={totalOrig}/>))}
-                                {!(stats.origins||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin orígenes registrados</div>}
-                            </div>
-                        </div>
-                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>call_received</span>Top destinos</div>
-                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.dests||[]).length} únicos</span>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {(stats.dests||[]).map((d,i)=>(<TopRow key={i} label={d.dst} count={d.count} max={maxDest} color="#3b82f6" idx={i} total={totalDest}/>))}
-                                {!(stats.dests||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin destinos registrados</div>}
-                            </div>
-                        </div>
-                            </>);
-                        })()}
-                    </div>
-                </>
-            )}
+                {!loading && data && tab === 'summary' && <TabsContent value="summary"><ReportTabSummary data={data}/></TabsContent>}
+                {!loading && data && tab === 'by_agent' && <TabsContent value="by_agent"><ReportTabByAgent data={data} onPick={setAgentDetail}/></TabsContent>}
+                {!loading && data && tab === 'by_queue' && <TabsContent value="by_queue"><ReportTabByQueue data={data}/></TabsContent>}
+                {!loading && data && tab === 'calls' && <TabsContent value="calls"><ReportTabCalls data={data} filters={callFilters} setFilters={setCallFilters}/></TabsContent>}
+                {!loading && data && tab === 'pauses' && <TabsContent value="pauses"><ReportTabPauses data={data} from={from} to={to}/></TabsContent>}
+            </Tabs>
+
+            {agentDetail && <AgentDetailDrawer agent={agentDetail} from={from} to={to} onClose={() => setAgentDetail(null)} toast={toast}/>}
         </div>
     );
 }
+
+// ─── Premium KPI card (shadcn-flavored) ────────────────────────────────────
+function KPICard({ label, value, sub, icon, color = 'primary', compact = false }) {
+    // color puede ser nombre tailwind (primary, destructive, etc.) o hex
+    const isHex = typeof color === 'string' && color.startsWith('#');
+    const iconBg = isHex
+        ? { background: `linear-gradient(135deg, ${color}, ${color}cc)`, boxShadow: `0 4px 12px ${color}44` }
+        : {};
+    const iconClass = isHex ? '' : `bg-${color}/90 text-${color}-foreground shadow-${color}/30`;
+    const valueColor = isHex ? color : undefined;
+    return (
+        <Card className={cn("relative overflow-hidden", compact ? "min-h-[90px]" : "min-h-[110px]")}>
+            <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full opacity-30 pointer-events-none"
+                 style={{background: isHex ? `radial-gradient(circle, ${color}33, transparent 70%)` : undefined}}/>
+            <div className={cn("relative p-4", compact && "p-3")}>
+                <div className="flex items-center gap-2 mb-2">
+                    <div className={cn("flex items-center justify-center rounded-lg flex-shrink-0", compact ? "w-7 h-7" : "w-9 h-9", iconClass)} style={iconBg}>
+                        <span className="material-icons-round text-white" style={{fontSize: compact ? 14 : 18}}>{icon}</span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+                </div>
+                <div className={cn("font-black leading-none tabular-nums truncate", compact ? "text-xl" : "text-2xl")}
+                     style={{color: valueColor}}>{value}</div>
+                {sub && <div className="text-[10px] text-muted-foreground mt-1 font-semibold">{sub}</div>}
+            </div>
+        </Card>
+    );
+}
+
+function fmtDurationCompact(secs) {
+    secs = parseInt(secs || 0);
+    if (secs <= 0) return '0s';
+    if (secs < 60) return `${secs}s`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ${secs%60}s`;
+    if (secs < 86400) {
+        const h = Math.floor(secs/3600);
+        const m = Math.floor((secs%3600)/60);
+        return m ? `${h}h ${String(m).padStart(2,'0')}m` : `${h}h`;
+    }
+    const d = Math.floor(secs/86400);
+    const h = Math.floor((secs%86400)/3600);
+    return h ? `${d}d ${h}h` : `${d}d`;
+}
+
+function fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return ts;
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ─── ReportTab* (shadcn-styled) ────────────────────────────────────────────
+function ReportTabSummary({ data }) {
+    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
+            <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
+            <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre ofrecidas" icon="trending_down" color="#ef4444"/>
+            <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
+            <KPICard label="Talk time total" value={fmtDurationCompact(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
+            <KPICard label="Sesiones" value={s.sessions||0} sub={`${s.unique_agents||0} agentes · Login: ${fmtDurationCompact(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
+            <KPICard label="Pausas" value={p.total_pauses||0} sub={`Total: ${fmtDurationCompact(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
+        </div>
+    );
+}
+
+function ReportTabByAgent({ data, onPick }) {
+    const agents = data.agents || [];
+    return (
+        <Card>
+            <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-sm">Por agente</CardTitle>
+                    <CardDescription className="text-xs">{agents.length} agentes con actividad · click para detalle</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0 pt-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Ext</ShTH>
+                                <ShTH>Agente</ShTH>
+                                <ShTH>Nombre</ShTH>
+                                <ShTH align="right">Sesiones</ShTH>
+                                <ShTH align="right">Login</ShTH>
+                                <ShTH align="right">T. Pausa</ShTH>
+                                <ShTH align="right">Productivo%</ShTH>
+                                <ShTH align="right">Llam.</ShTH>
+                                <ShTH align="right">Contest.</ShTH>
+                                <ShTH align="right">AHT</ShTH>
+                                <ShTH align="right">Talk</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {agents.map((a) => (
+                                <ShTR key={a.ext} onClick={() => onPick?.(a)}>
+                                    <ShTD mono>{a.ext}</ShTD>
+                                    <ShTD><span className="text-primary font-semibold">{a.agent_number||'—'}</span></ShTD>
+                                    <ShTD>{a.name||'—'}</ShTD>
+                                    <ShTD align="right">{a.session_count||0}</ShTD>
+                                    <ShTD align="right" mono><span className="text-blue-500">{fmtDurationCompact(a.login_sec)}</span></ShTD>
+                                    <ShTD align="right" mono><span className="text-amber-500">{fmtDurationCompact(a.pause_sec)}</span></ShTD>
+                                    <ShTD align="right">
+                                        {a.productive_pct !== null
+                                            ? <Badge variant={a.productive_pct > 80 ? 'success' : (a.productive_pct > 50 ? 'warning' : 'destructive')}>{a.productive_pct}%</Badge>
+                                            : '—'}
+                                    </ShTD>
+                                    <ShTD align="right">{a.calls||0}</ShTD>
+                                    <ShTD align="right"><span className="text-green-500">{a.answered||0}</span></ShTD>
+                                    <ShTD align="right">{a.avg_aht !== null ? `${a.avg_aht}s` : '—'}</ShTD>
+                                    <ShTD align="right" mono>{fmtDurationCompact(a.total_talk)}</ShTD>
+                                </ShTR>
+                            ))}
+                        </ShTBody>
+                    </ShTable>
+                    {agents.length === 0 && <EmptyState icon="support_agent" title="Sin datos" subtitle="No hay agentes con actividad en este rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabByQueue({ data }) {
+    const queues = data.queues || []; const sl = data.sl_threshold || 20;
+    return (
+        <Card>
+            <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-sm">Por cola</CardTitle>
+                    <CardDescription className="text-xs">{queues.length} colas con tráfico · SL @ ≤{sl}s</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Cola</ShTH>
+                                <ShTH>Descripción</ShTH>
+                                <ShTH align="right">Ofrec.</ShTH>
+                                <ShTH align="right">Contest.</ShTH>
+                                <ShTH align="right">Aband.</ShTH>
+                                <ShTH align="right">Aband.%</ShTH>
+                                <ShTH align="right">SL%</ShTH>
+                                <ShTH align="right">Esp. prom.</ShTH>
+                                <ShTH align="right">Máx. esp.</ShTH>
+                                <ShTH align="right">AHT</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {queues.map((q) => (
+                                <ShTR key={q.queue}>
+                                    <ShTD mono>{q.queue}</ShTD>
+                                    <ShTD className="text-primary/80">{q.descr||'—'}</ShTD>
+                                    <ShTD align="right">{q.offered||0}</ShTD>
+                                    <ShTD align="right"><span className="text-green-500">{q.answered||0}</span></ShTD>
+                                    <ShTD align="right"><span className="text-destructive">{q.abandoned||0}</span></ShTD>
+                                    <ShTD align="right">
+                                        <Badge variant={q.abandon_rate > 20 ? 'destructive' : (q.abandon_rate > 10 ? 'warning' : 'success')}>{q.abandon_rate}%</Badge>
+                                    </ShTD>
+                                    <ShTD align="right">
+                                        {q.service_level !== null
+                                            ? <Badge variant={q.service_level >= 80 ? 'success' : (q.service_level >= 60 ? 'warning' : 'destructive')}>{q.service_level}%</Badge>
+                                            : '—'}
+                                    </ShTD>
+                                    <ShTD align="right">{q.avg_wait !== null ? `${q.avg_wait}s` : '—'}</ShTD>
+                                    <ShTD align="right">{q.max_wait ? `${q.max_wait}s` : '—'}</ShTD>
+                                    <ShTD align="right" mono>{q.avg_talk ? `${q.avg_talk}s` : '—'}</ShTD>
+                                </ShTR>
+                            ))}
+                        </ShTBody>
+                    </ShTable>
+                    {queues.length === 0 && <EmptyState icon="queue" title="Sin datos" subtitle="No hay tráfico de colas en este rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabCalls({ data, filters, setFilters }) {
+    const calls = data.calls || [];
+    return (
+        <Card>
+            <div className="p-3 border-b flex items-center gap-2 flex-wrap" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-1.5 mr-1">
+                    <span className="material-icons-round" style={{fontSize:14, color:'var(--muted-foreground)'}}>filter_list</span>
+                    <Label className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Filtros</Label>
+                </div>
+                <Select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})} className="h-8 w-[150px] text-xs">
+                    <option value="">Todos los estados</option>
+                    <option value="ANSWERED">ANSWERED</option>
+                    <option value="NO ANSWER">NO ANSWER</option>
+                    <option value="BUSY">BUSY</option>
+                    <option value="FAILED">FAILED</option>
+                </Select>
+                <Input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})} className="h-8 w-[120px] text-xs"/>
+                <Input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})} className="h-8 w-[120px] text-xs"/>
+                <Input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})} className="h-8 w-[120px] text-xs"/>
+                {(filters.disposition || filters.src || filters.dst || filters.min_dur) && (
+                    <Button variant="ghost" size="sm" onClick={()=>setFilters({disposition:'',src:'',dst:'',min_dur:0})} className="h-8 px-2 text-xs">
+                        <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                        Limpiar
+                    </Button>
+                )}
+                <div className="flex-1"/>
+                <Badge variant="secondary" className="text-xs">{calls.length.toLocaleString()} resultados</Badge>
+            </div>
+            <CardContent className="p-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Fecha/Hora</ShTH>
+                                <ShTH>Origen</ShTH>
+                                <ShTH>Destino</ShTH>
+                                <ShTH>CallerID</ShTH>
+                                <ShTH>Estado</ShTH>
+                                <ShTH align="right">Dur.</ShTH>
+                                <ShTH align="right">Hablado</ShTH>
+                                <ShTH align="center">Grab.</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {calls.map((c, i) => {
+                                const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                                return (
+                                    <ShTR key={c.uniqueid || i}>
+                                        <ShTD mono>{c.calldate}</ShTD>
+                                        <ShTD mono>{c.src}</ShTD>
+                                        <ShTD mono>{c.dst}</ShTD>
+                                        <ShTD className="max-w-[200px] truncate text-muted-foreground">{c.clid}</ShTD>
+                                        <ShTD><Badge variant={variant}>{c.disposition}</Badge></ShTD>
+                                        <ShTD align="right" mono>{c.duration}s</ShTD>
+                                        <ShTD align="right" mono>{c.billsec}s</ShTD>
+                                        <ShTD align="center">
+                                            {c.recordingfile
+                                                ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                                : <span className="text-muted-foreground">—</span>}
+                                        </ShTD>
+                                    </ShTR>
+                                );
+                            })}
+                        </ShTBody>
+                    </ShTable>
+                    {calls.length === 0 && <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="Ajustá los filtros o el rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabPauses({ data, from, to }) {
+    const pauses = data.pauses || [];
+    const byMotive = {};
+    pauses.forEach(p => {
+        const k = p.pause_label || p.pause_type_code || 'sin_motivo';
+        if (!byMotive[k]) byMotive[k] = { label: p.pause_label || p.pause_type_code || 'Sin motivo', color: p.pause_color || '#f59e0b', count: 0, total: 0 };
+        byMotive[k].count++;
+        byMotive[k].total += parseInt(p.duration_seconds || 0);
+    });
+    const motives = Object.values(byMotive).sort((a, b) => b.total - a.total);
+    const maxTotal = Math.max(1, ...motives.map(m => m.total));
+
+    return (
+        <div className="space-y-4">
+            <Card>
+                <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
+                        Distribución por motivo
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2 space-y-2">
+                    {motives.map((m) => {
+                        const pct = (m.total / maxTotal) * 100;
+                        return (
+                            <div key={m.label} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
+                                <span className="text-xs font-semibold truncate">{m.label}</span>
+                                <div className="h-3.5 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${m.color||'#f59e0b'}aa, ${m.color||'#f59e0b'})`}}/>
+                                </div>
+                                <span className="text-xs font-mono font-bold text-right" style={{color: m.color || '#f59e0b'}}>{fmtDurationCompact(m.total)}</span>
+                                <span className="text-xs text-muted-foreground font-semibold text-right">{m.count}x</span>
+                            </div>
+                        );
+                    })}
+                    {motives.length === 0 && <EmptyState icon="pause_circle" title="Sin pausas" subtitle="No hay pausas en este rango"/>}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-sm">Detalle de pausas</CardTitle>
+                    <span className="text-xs text-muted-foreground">{pauses.length} registradas</span>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-auto max-h-[50vh]">
+                        <ShTable>
+                            <ShTHead>
+                                <ShTR>
+                                    <ShTH>Agente</ShTH>
+                                    <ShTH>Ext</ShTH>
+                                    <ShTH>Motivo</ShTH>
+                                    <ShTH>Inicio</ShTH>
+                                    <ShTH>Fin</ShTH>
+                                    <ShTH align="right">Duración</ShTH>
+                                </ShTR>
+                            </ShTHead>
+                            <ShTBody>
+                                {pauses.map((p) => (
+                                    <ShTR key={p.id}>
+                                        <ShTD><span className="text-primary">{p.agent_number||'—'}</span></ShTD>
+                                        <ShTD mono>{p.agent_ext}</ShTD>
+                                        <ShTD>
+                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>
+                                                {p.pause_label||p.pause_type_code}
+                                            </span>
+                                        </ShTD>
+                                        <ShTD mono>{p.pause_start}</ShTD>
+                                        <ShTD mono>{p.pause_end || <span className="text-green-500 font-semibold">(activa)</span>}</ShTD>
+                                        <ShTD align="right" mono><span className="font-bold" style={{color: p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></ShTD>
+                                    </ShTR>
+                                ))}
+                            </ShTBody>
+                        </ShTable>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// ─── AgentDetailDrawer (shadcn Sheet) ──────────────────────────────────────
+function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [section, setSection] = useState('overview');
+    const agentId = useMemo(() => agent?.agent_number || agent?.ext || '', [agent]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true); setData(null);
+        (async () => {
+            try {
+                const r = await fetch(`api/reports.php?action=agent_detail&agent=${encodeURIComponent(agentId)}&from=${from}&to=${to}`, { credentials: 'include' });
+                const j = await r.json();
+                if (cancelled) return;
+                if (j.status === 'ok') setData(j);
+                else toast?.(j.message || 'Error', 'error');
+            } catch (e) { if (!cancelled) toast?.('Error de red', 'error'); }
+            finally { if (!cancelled) setLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, [agentId, from, to, toast]);
+
+    const exportUrl = useCallback((fmt) =>
+        `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agentId)}`,
+        [agentId, from, to]);
+
+    const initials = (agent?.name || '').split(/\s+/).map(x => x[0]).join('').substring(0, 2).toUpperCase() || '?';
+
+    return (
+        <Sheet open={!!agent} onOpenChange={(o) => !o && onClose?.()} size="3xl">
+            <SheetHeader className="p-5 border-b border-border">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white font-black text-base shadow-lg flex-shrink-0">{initials}</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-primary">Agente</div>
+                        <SheetTitle className="truncate">{agent?.name || agentId}</SheetTitle>
+                        <SheetDescription className="text-xs flex gap-2 items-center mt-0.5">
+                            <span className="font-mono font-bold text-primary">#{agentId}</span>
+                            {agent?.ext && <span>· ext {agent.ext}</span>}
+                            <span>· {from} → {to}</span>
+                        </SheetDescription>
+                    </div>
+                    <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
+                        <span className="material-icons-round text-sm">picture_as_pdf</span>PDF
+                    </Button>
+                    <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
+                        <span className="material-icons-round text-sm">table_chart</span>Excel
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onClose} title="Cerrar (Esc)">
+                        <span className="material-icons-round text-base">close</span>
+                    </Button>
+                </div>
+                <Tabs value={section} onChange={setSection} className="mt-3">
+                    <TabsList>
+                        <TabsTrigger value="overview"><span className="material-icons-round text-sm mr-1">dashboard</span>Resumen</TabsTrigger>
+                        <TabsTrigger value="sessions"><span className="material-icons-round text-sm mr-1">login</span>Sesiones {data?.sessions ? `(${data.sessions.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="pauses"><span className="material-icons-round text-sm mr-1">pause_circle</span>Pausas {data?.pauses ? `(${data.pauses.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="calls"><span className="material-icons-round text-sm mr-1">phone</span>Llamadas {data?.calls ? `(${data.calls.length})` : ''}</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </SheetHeader>
+            <SheetContent className="p-5 space-y-4">
+                {loading && (
+                    <div className="py-16 text-center text-muted-foreground">
+                        <span className="material-icons-round text-4xl animate-spin text-primary">autorenew</span>
+                        <div className="mt-2 text-sm">Cargando datos del agente…</div>
+                    </div>
+                )}
+                {!loading && data && section === 'overview' && <AgentOverviewSection data={data}/>}
+                {!loading && data && section === 'sessions' && <AgentSessionsSection sessions={data.sessions}/>}
+                {!loading && data && section === 'pauses' && <AgentPausesSection pauses={data.pauses} breakdown={data.pause_breakdown}/>}
+                {!loading && data && section === 'calls' && <AgentCallsSection calls={data.calls}/>}
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function AgentOverviewSection({ data }) {
+    const k = data.kpi || {};
+    const breakdown = data.pause_breakdown || [];
+    const maxPause = Math.max(1, ...breakdown.map(b => parseInt(b.total_sec || 0)));
+    const prodColor = k.productive_pct > 80 ? '#22c55e' : (k.productive_pct > 50 ? '#f59e0b' : '#ef4444');
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="En el período" icon="badge" color="#8b5cf6"/>
+                <KPICard compact label="Login total" value={fmtDurationCompact(k.total_login_sec)} sub="Tiempo logueado" icon="login" color="#3b82f6"/>
+                <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={prodColor}/>
+                <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Total: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
+                <KPICard compact label="Llamadas" value={(k.total_calls || 0).toLocaleString()} sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas'} icon="phone" color="#ec4899"/>
+                <KPICard compact label="Última actividad" value={data.sessions?.[0]?.logout_time ? 'Cerrada' : (data.sessions?.length ? 'Activa' : '—')} sub={data.sessions?.[0] ? fmtDateTime(data.sessions[0].login_time) : 'Sin actividad'} icon="schedule" color="#06b6d4"/>
+            </div>
+
+            {breakdown.length > 0 && (
+                <Card>
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                            <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
+                            Distribución de pausas
+                            <span className="ml-auto text-xs font-normal text-muted-foreground">Total: {fmtDurationCompact(k.total_pause_sec)}</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2 space-y-2">
+                        {breakdown.map((p) => {
+                            const pct = (parseInt(p.total_sec) / maxPause) * 100;
+                            const c = p.color || '#f59e0b';
+                            return (
+                                <div key={p.code} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{background: c}}/>
+                                        <span className="text-xs font-semibold truncate">{p.label}</span>
+                                    </div>
+                                    <div className="h-3.5 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${c}aa, ${c})`}}/>
+                                    </div>
+                                    <span className="text-xs font-mono font-bold text-right" style={{color: c}}>{fmtDurationCompact(p.total_sec)}</span>
+                                    <span className="text-xs text-muted-foreground font-semibold text-right">{p.count}x</span>
+                                </div>
+                            );
+                        })}
+                    </CardContent>
+                </Card>
+            )}
+
+            <Card>
+                <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="material-icons-round text-blue-500 text-base">insights</span>
+                        Indicadores del período
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <Row label="Tiempo total de login" value={fmtDurationCompact(k.total_login_sec)} color="#3b82f6"/>
+                        <Row label="Tiempo en pausa" value={fmtDurationCompact(k.total_pause_sec)} color="#f59e0b"/>
+                        <Row label="Tiempo activo (productivo)" value={fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} color="#22c55e"/>
+                        <Row label="% Productividad" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} color={prodColor}/>
+                        <Row label="Llamadas atendidas" value={(k.total_calls || 0).toLocaleString()} color="#ec4899"/>
+                        <Row label="Cantidad de pausas" value={k.pauses_count || 0} color="#f59e0b"/>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+function Row({ label, value, color }) {
+    return (
+        <div className="flex justify-between items-center px-3 py-1.5 bg-muted/40 rounded-md">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-mono font-bold" style={{color: color || undefined}}>{value}</span>
+        </div>
+    );
+}
+
+function AgentSessionsSection({ sessions = [] }) {
+    if (sessions.length === 0) return <EmptyState icon="login" title="Sin sesiones" subtitle="Este agente no se logueó en el período"/>;
+    return (
+        <Card>
+            <CardContent className="p-0">
+                <ShTable>
+                    <ShTHead>
+                        <ShTR>
+                            <ShTH>Estado</ShTH>
+                            <ShTH>Login</ShTH>
+                            <ShTH>Logout</ShTH>
+                            <ShTH align="right">Duración</ShTH>
+                            <ShTH align="right">Ext</ShTH>
+                            <ShTH align="right">Llamadas</ShTH>
+                            <ShTH align="right">Talk</ShTH>
+                        </ShTR>
+                    </ShTHead>
+                    <ShTBody>
+                        {sessions.map((s, i) => {
+                            const active = !s.logout_time;
+                            return (
+                                <ShTR key={s.session_id || i}>
+                                    <ShTD><Badge variant={active ? 'success' : 'secondary'}>{active ? 'ACTIVA' : 'CERRADA'}</Badge></ShTD>
+                                    <ShTD mono>{fmtDateTime(s.login_time)}</ShTD>
+                                    <ShTD mono>{s.logout_time ? fmtDateTime(s.logout_time) : '—'}</ShTD>
+                                    <ShTD align="right" mono><span className="text-blue-500 font-bold">{fmtDurationCompact(s.duration_sec)}</span></ShTD>
+                                    <ShTD align="right" mono>{s.agent_ext}</ShTD>
+                                    <ShTD align="right">{s.total_calls || 0}</ShTD>
+                                    <ShTD align="right" mono>{s.total_talk_time ? fmtDurationCompact(s.total_talk_time) : '—'}</ShTD>
+                                </ShTR>
+                            );
+                        })}
+                    </ShTBody>
+                </ShTable>
+            </CardContent>
+        </Card>
+    );
+}
+
+function AgentPausesSection({ pauses = [], breakdown = [] }) {
+    if (pauses.length === 0) return <EmptyState icon="pause_circle" title="Sin pausas" subtitle="Este agente no tomó pausas en el período"/>;
+    return (
+        <div className="space-y-4">
+            {breakdown.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {breakdown.map(b => (
+                        <Card key={b.code} className="p-3" style={{borderColor: (b.color||'#f59e0b')+'33', background: (b.color||'#f59e0b')+'10'}}>
+                            <div className="text-[10px] font-bold uppercase mb-1" style={{color: b.color||'#f59e0b'}}>{b.label}</div>
+                            <div className="text-xl font-black font-mono">{fmtDurationCompact(b.total_sec)}</div>
+                            <div className="text-[10px] text-muted-foreground mt-1">{b.count} pausas</div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+            <Card>
+                <CardContent className="p-0">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Motivo</ShTH>
+                                <ShTH>Inicio</ShTH>
+                                <ShTH>Fin</ShTH>
+                                <ShTH align="right">Duración</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {pauses.map(p => (
+                                <ShTR key={p.id}>
+                                    <ShTD>
+                                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>{p.pause_label || p.pause_type_code}</span>
+                                    </ShTD>
+                                    <ShTD mono>{fmtDateTime(p.pause_start)}</ShTD>
+                                    <ShTD mono>{p.pause_end ? fmtDateTime(p.pause_end) : <span className="text-green-500 font-bold">(activa)</span>}</ShTD>
+                                    <ShTD align="right" mono><span className="font-bold" style={{color: p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></ShTD>
+                                </ShTR>
+                            ))}
+                        </ShTBody>
+                    </ShTable>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+function AgentCallsSection({ calls = [] }) {
+    if (calls.length === 0) return <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="No hay registros de CDR para este agente"/>;
+    return (
+        <Card>
+            <CardContent className="p-0">
+                <ShTable>
+                    <ShTHead>
+                        <ShTR>
+                            <ShTH>Fecha/Hora</ShTH>
+                            <ShTH>Origen</ShTH>
+                            <ShTH>Destino</ShTH>
+                            <ShTH>Estado</ShTH>
+                            <ShTH align="right">Duración</ShTH>
+                            <ShTH align="right">Hablado</ShTH>
+                            <ShTH align="center">Grab.</ShTH>
+                        </ShTR>
+                    </ShTHead>
+                    <ShTBody>
+                        {calls.slice(0, 200).map((c, i) => {
+                            const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                            return (
+                                <ShTR key={c.uniqueid || i}>
+                                    <ShTD mono>{fmtDateTime(c.calldate)}</ShTD>
+                                    <ShTD mono>{c.src}</ShTD>
+                                    <ShTD mono>{c.dst}</ShTD>
+                                    <ShTD><Badge variant={variant}>{c.disposition}</Badge></ShTD>
+                                    <ShTD align="right" mono>{c.duration}s</ShTD>
+                                    <ShTD align="right" mono>{c.billsec ? fmtDurationCompact(c.billsec) : '—'}</ShTD>
+                                    <ShTD align="center">
+                                        {c.recordingfile
+                                            ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                            : <span className="text-muted-foreground">—</span>}
+                                    </ShTD>
+                                </ShTR>
+                            );
+                        })}
+                    </ShTBody>
+                </ShTable>
+                {calls.length > 200 && (
+                    <div className="px-4 py-2 bg-muted/40 border-t border-border text-center text-xs text-muted-foreground">
+                        Mostrando 200 más recientes de {calls.length}. Usá el export para el listado completo.
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function EmptyState({ icon, title, subtitle }) {
+    return (
+        <div className="py-12 text-center">
+            <span className="material-icons-round text-5xl text-muted-foreground/40">{icon}</span>
+            <div className="mt-2 text-base font-bold text-foreground">{title}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+        </div>
+    );
+}
+
 
 // El Softphone ahora es una PWA independiente en /softphone/
 
@@ -5727,17 +7709,17 @@ const SIP_PARSERS = [
     { re: /\bCANCEL\b/,        color:'#9ca3af', label:'CANCEL',   icon:'close' },
     { re: /\bUPDATE\b/,        color:'#60a5fa', label:'UPDATE',   icon:'update' },
     { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
-    { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
+    { re: /\bNOTIFY\b/,     color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', label:'NOTIFY',   icon:'notifications' },
     { re: /is ringing/i,     color:'#f59e0b', label:'SONANDO',    icon:'notifications_active' },
     { re: /answered/i,       color:'#22c55e', label:'CONTESTADA', icon:'call' },
     { re: /is now Unreachable/i, color:'#ef4444', label:'OFFLINE',    icon:'link_off' },
     { re: /is now Reachable/i,   color:'#22c55e', label:'ONLINE',     icon:'link' },
     { re: /is now Lagged/i,      color:'#f59e0b', label:'LAGGED',     icon:'timer' },
-    { re: /m=audio/i,          color:'#c4b5fd', label:'SDP AUDIO', icon:'audiotrack' },
+    { re: /m=audio/i,          color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', label:'SDP AUDIO', icon:'audiotrack' },
     { re: /m=video/i,          color:'#f472b6', label:'SDP VIDEO', icon:'videocam' },
     { re: /ICE candidate/i,    color:'#2dd4bf', label:'ICE CAND',  icon:'lan' },
     { re: /ICE state changed/i, color:'#fb923c', label:'ICE STATE', icon:'wifi_tethering' },
-    { re: /\bREINVITE\b/i,     color:'#8b5cf6', label:'RE-INVITE', icon:'history' },
+    { re: /\bREINVITE\b/i,     color:'var(--primary)', label:'RE-INVITE', icon:'history' },
     { re: /\bWARNING\b/i,   color:'#eab308', label:'WARNING',  icon:'warning' },
     { re: /\bERROR\b/i,     color:'#ef4444', label:'ERROR',    icon:'error_outline' },
     { re: /\bCRITICAL\b/i,  color:'#dc2626', label:'CRITICAL', icon:'gavel' },
@@ -5793,9 +7775,9 @@ function SIPLogLine({ line, idx }) {
                     
                     {extChip && (
                         <span style={{
-                            fontSize:10, fontWeight:700, color:'#c4b5fd',
-                            background: 'rgba(139,92,246,0.15)',
-                            border:'1px solid rgba(139,92,246,0.3)',
+                            fontSize:10, fontWeight:700, color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',
+                            background:'color-mix(in srgb, var(--primary) 15%, transparent)',
+                            border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',
                             padding:'1px 6px', borderRadius:6,
                             display:'flex', alignItems:'center', gap:3, flexShrink:0
                         }}>
@@ -6172,7 +8154,7 @@ function IVRDesignerApp({ toast }) {
                         draggable 
                         style={{display:'flex', alignItems:'center', gap:12, padding:12, background:'var(--surface)', border:'1px dashed var(--border)', borderRadius:12, cursor:'grab'}}
                     >
-                        <div style={{width:32, height:32, background:'rgba(139,92,246,0.1)', color:'var(--accent)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <div style={{width:32, height:32, background:'color-mix(in srgb, var(--primary) 10%, transparent)', color:'var(--accent)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
                             <span className="material-icons-round" style={{fontSize:18}}>splitscreen</span>
                         </div>
                         <span style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>Menú de Opciones</span>
@@ -6255,7 +8237,7 @@ function IVRDesignerApp({ toast }) {
                         zIndex: 101, animation: 'viewIn 0.3s ease', boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
                         overflow: 'hidden'
                     }}>
-                        <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(139,92,246,0.1)'}}>
+                        <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'color-mix(in srgb, var(--primary) 10%, transparent)'}}>
                             <div>
                                 <h3 style={{fontSize:16, fontWeight:800, color:'var(--text)', margin:0}}>Propiedades</h3>
                                 <p style={{fontSize:10, color:'var(--muted)', marginTop:2, textTransform:'uppercase', fontWeight:800, margin:0}}>ID: {selectedNode.id}</p>
@@ -6484,6 +8466,12 @@ function ViewConfiguracion() {
                 <button onClick={()=>setActiveTab('pbx')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='pbx'?'var(--surface)':'transparent', color:activeTab==='pbx'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
                     <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>dns</span>PBX
                 </button>
+                <button onClick={()=>setActiveTab('branding')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='branding'?'var(--surface)':'transparent', color:activeTab==='branding'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>palette</span>Branding
+                </button>
+                <button onClick={()=>setActiveTab('softphone')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='softphone'?'var(--surface)':'transparent', color:activeTab==='softphone'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>phone_in_talk</span>Softphone
+                </button>
             </div>
 
             {activeTab === 'notificaciones' && (
@@ -6681,6 +8669,276 @@ function ViewConfiguracion() {
             {activeTab === 'pbx' && (
                 <ViewConfigPBX />
             )}
+
+            {activeTab === 'branding' && <ViewConfigBranding />}
+            {activeTab === 'softphone' && <ViewConfigSoftphone />}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Branding (logos, colores, nombres)
+// ─────────────────────────────────────────────
+function ViewConfigBranding() {
+    const [settings, setSettings] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [dirty, setDirty] = useState({});
+
+    useEffect(() => {
+        fetch('api/app_settings.php', {credentials:'include'})
+            .then(r=>r.json()).then(d => { if (d.status==='ok') setSettings(d.settings || {}); });
+    }, []);
+
+    if (!settings) return <div className="rounded-lg border border-border bg-card p-12 text-center text-muted-foreground">Cargando…</div>;
+
+    const set = (key, val) => { setSettings(s => ({...s, [key]: val})); setDirty(d => ({...d, [key]: true})); };
+
+    const save = async () => {
+        if (Object.keys(dirty).length === 0) return;
+        setSaving(true);
+        const payload = {};
+        Object.keys(dirty).forEach(k => payload[k] = settings[k]);
+        try {
+            const r = await fetch('api/app_settings.php', {
+                method:'POST', credentials:'include',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const j = await r.json();
+            if (j.status === 'ok') {
+                setDirty({});
+                window.shToast?.('Branding guardado · ' + j.count + ' campos', 'success');
+            } else {
+                window.shToast?.('Error: ' + (j.message||''), 'destructive');
+            }
+        } catch(e) { window.shToast?.('Error de red', 'destructive'); }
+        setSaving(false);
+    };
+
+    const Field = ({label, k, type='text', placeholder=''}) => (
+        <div>
+            <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</label>
+            {type === 'color' ? (
+                <div className="flex items-center gap-2">
+                    <input type="color" value={settings[k]||'#11B328'} onChange={e=>set(k, e.target.value)}
+                        style={{width:48, height:38, padding:2, borderRadius:8, border:'1px solid var(--border)', background:'var(--background)', cursor:'pointer'}}/>
+                    <input type="text" value={settings[k]||''} onChange={e=>set(k, e.target.value)}
+                        placeholder="#11B328"
+                        className="flex-1 h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                </div>
+            ) : (
+                <input type={type} value={settings[k]||''} onChange={e=>set(k, e.target.value)} placeholder={placeholder}
+                    className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border bg-card p-5" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-3 mb-1">
+                    <span className="material-icons-round" style={{fontSize:24, color:'var(--horizon-green)'}}>palette</span>
+                    <div>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>Branding del sistema</h3>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Personalizá nombres, textos y colores que aparecen en login, header y reportes</p>
+                    </div>
+                    <div className="flex-1"/>
+                    {Object.keys(dirty).length > 0 && (
+                        <button onClick={save} disabled={saving}
+                            className="h-9 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                            style={{background:'var(--horizon-green)', color:'#fff'}}>
+                            {saving ? 'Guardando…' : `Guardar ${Object.keys(dirty).length} cambio${Object.keys(dirty).length!==1?'s':''}`}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>business</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Identidad</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Nombre de la empresa" k="brand_company_name" placeholder="Horizon Seguridad"/>
+                    <Field label="Nombre de la aplicación" k="brand_app_name" placeholder="TeleFlow"/>
+                    <Field label="Logo — texto principal" k="brand_logo_text" placeholder="HORIZON"/>
+                    <Field label="Logo — subtítulo" k="brand_logo_sub" placeholder="SEGURIDAD"/>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Título del login (tagline)" k="brand_tagline" placeholder="Centro de monitoreo"/>
+                    <Field label="Subtítulo del login" k="brand_subtitle" placeholder="Plataforma unificada…"/>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>color_lens</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Paleta de colores</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Color primario" k="brand_primary_color" type="color"/>
+                    <Field label="Color acento" k="brand_accent_color" type="color"/>
+                </div>
+                <div className="text-xs px-3 py-2 rounded border" style={{color:'var(--muted-foreground)', background:'var(--secondary)', borderColor:'var(--border)'}}>
+                    <span className="material-icons-round mr-1" style={{fontSize:13, verticalAlign:'-2px'}}>info</span>
+                    Los cambios de color requieren recargar la página (Ctrl+Shift+R) para aplicarse globalmente.
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Softphone (defaults WebRTC)
+// ─────────────────────────────────────────────
+function ViewConfigSoftphone() {
+    const [settings, setSettings] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [dirty, setDirty] = useState({});
+    const [devices, setDevices] = useState({ audioin: [], audioout: [] });
+
+    useEffect(() => {
+        fetch('api/app_settings.php', {credentials:'include'})
+            .then(r=>r.json()).then(d => { if (d.status==='ok') setSettings(d.settings || {}); });
+        // Enumerar audio devices del browser
+        if (navigator.mediaDevices?.enumerateDevices) {
+            navigator.mediaDevices.getUserMedia({audio:true}).catch(()=>{}).finally(() => {
+                navigator.mediaDevices.enumerateDevices().then(devs => {
+                    setDevices({
+                        audioin: devs.filter(d => d.kind === 'audioinput'),
+                        audioout: devs.filter(d => d.kind === 'audiooutput'),
+                    });
+                });
+            });
+        }
+    }, []);
+
+    if (!settings) return <div className="rounded-lg border border-border bg-card p-12 text-center text-muted-foreground">Cargando…</div>;
+
+    const set = (k, v) => { setSettings(s => ({...s, [k]: v})); setDirty(d => ({...d, [k]: true})); };
+
+    const save = async () => {
+        if (Object.keys(dirty).length === 0) return;
+        setSaving(true);
+        const payload = {};
+        Object.keys(dirty).forEach(k => payload[k] = settings[k]);
+        try {
+            const r = await fetch('api/app_settings.php', {
+                method:'POST', credentials:'include',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const j = await r.json();
+            if (j.status === 'ok') { setDirty({}); window.shToast?.('Softphone guardado', 'success'); }
+            else window.shToast?.('Error: '+(j.message||''), 'destructive');
+        } catch(e) { window.shToast?.('Error de red', 'destructive'); }
+        setSaving(false);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border bg-card p-5" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-3 mb-1">
+                    <span className="material-icons-round" style={{fontSize:24, color:'var(--primary)'}}>phone_in_talk</span>
+                    <div>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>Softphone WebRTC</h3>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Configuración por defecto del softphone integrado (codecs, audio, comportamiento)</p>
+                    </div>
+                    <div className="flex-1"/>
+                    {Object.keys(dirty).length > 0 && (
+                        <button onClick={save} disabled={saving}
+                            className="h-9 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                            style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>equalizer</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Audio</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Micrófono</label>
+                        <select value={settings.softphone_audio_input||''} onChange={e=>set('softphone_audio_input', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="">(default del browser)</option>
+                            {devices.audioin.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Audio in ${d.deviceId.substring(0,8)}…`}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Altavoces</label>
+                        <select value={settings.softphone_audio_output||''} onChange={e=>set('softphone_audio_output', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="">(default del browser)</option>
+                            {devices.audioout.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Audio out ${d.deviceId.substring(0,8)}…`}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Volumen del ringing ({Math.round((parseFloat(settings.softphone_ringing_volume)||0.7)*100)}%)</label>
+                    <input type="range" min="0" max="1" step="0.05" value={parseFloat(settings.softphone_ringing_volume)||0.7}
+                        onChange={e=>set('softphone_ringing_volume', e.target.value)}
+                        className="w-full" style={{accentColor:'var(--primary)'}}/>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>settings_voice</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Códecs y DTMF</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Códecs preferidos (orden)</label>
+                        <input type="text" value={settings.softphone_default_codec||''} onChange={e=>set('softphone_default_codec', e.target.value)}
+                            placeholder="opus,PCMA,PCMU"
+                            className="w-full h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                        <div className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Coma-separados: opus, PCMA (alaw), PCMU (ulaw), G722, G729</div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Modo DTMF</label>
+                        <select value={settings.softphone_dtmf_mode||'rfc2833'} onChange={e=>set('softphone_dtmf_mode', e.target.value)}
+                            className="w-full h-9 px-3 rounded-md text-sm border focus:outline-none focus:ring-2"
+                            style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}>
+                            <option value="rfc2833">RFC 2833 (RTP events) — Recomendado</option>
+                            <option value="inband">Inband audio</option>
+                            <option value="info">SIP INFO</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-5 space-y-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>tune</span>
+                    <h4 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Comportamiento</h4>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-md border" style={{borderColor:'var(--border)', background:'var(--secondary)'}}>
+                    <div>
+                        <div className="text-sm font-semibold" style={{color:'var(--foreground)'}}>Auto-responder llamadas entrantes</div>
+                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>El softphone contesta automáticamente cuando suena (útil para hot-desk fijos)</div>
+                    </div>
+                    <input type="checkbox" checked={settings.softphone_auto_answer === '1'} onChange={e=>set('softphone_auto_answer', e.target.checked?'1':'0')}
+                        style={{width:18, height:18, accentColor:'var(--primary)', cursor:'pointer'}}/>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Extensiones SIN softphone (separadas por coma)</label>
+                    <input type="text" value={settings.softphone_disabled_extensions||''} onChange={e=>set('softphone_disabled_extensions', e.target.value)}
+                        placeholder="ej: 9999, 8001, 5000"
+                        className="w-full h-9 px-3 rounded-md text-sm border font-mono focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                    <div className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Estas extensiones quedan ocultas en el portal de agente (solo teléfono físico).</div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -7116,14 +9374,16 @@ function ViewHotdesking({ data, toast }) {
     });
 
     const totalLogged = enriched.filter(a => a.logged_in).length;
-    const totalAvail  = enriched.filter(a => a.logged_in && !a.in_call).length;
+    const totalAvail  = enriched.filter(a => a.logged_in && !a.in_call && !a.paused).length;
     const totalBusy   = enriched.filter(a => a.in_call).length;
+    const totalPaused = enriched.filter(a => a.paused).length;
     const totalOff    = enriched.filter(a => !a.logged_in).length;
 
     const filtered = enriched.filter(a => {
         if (statusFilter==='logged' && !a.logged_in) return false;
-        if (statusFilter==='available' && (!a.logged_in || a.in_call)) return false;
+        if (statusFilter==='available' && (!a.logged_in || a.in_call || a.paused)) return false;
         if (statusFilter==='busy' && !a.in_call) return false;
+        if (statusFilter==='paused' && !a.paused) return false;
         if (statusFilter==='offline' && a.logged_in) return false;
         if (!filter) return true;
         const q = filter.toLowerCase();
@@ -7137,11 +9397,21 @@ function ViewHotdesking({ data, toast }) {
         const j = await r.json();
         if (j.status==='ok') { toast('Agente eliminado','success'); load(); } else toast(j.message||'Error','error');
     };
-    const logoutAgent = async (a) => {
+    const [logoutTarget, setLogoutTarget] = useState(null);
+    const [logoutBusy, setLogoutBusy] = useState(false);
+    const logoutAgent = (a) => setLogoutTarget(a);
+    const confirmLogout = async () => {
+        const a = logoutTarget; if (!a) return;
+        setLogoutBusy(true);
         const fd = new FormData(); fd.append('agent_number', a.number); if (a.extension) fd.append('extension', a.extension);
-        const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'});
-        const j = await r.json();
-        if (j.status==='ok') { toast(`${a.name} desconectado`,'success'); load(); loadQueues(); } else toast(j.message||'Error','error');
+        try {
+            const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'});
+            const j = await r.json();
+            if (j.status==='ok') { toast(`${a.name} desconectado`,'success'); load(); loadQueues(); }
+            else toast(j.message||'Error','error');
+        } catch(e) { toast('Error de red','error'); }
+        setLogoutBusy(false);
+        setLogoutTarget(null);
     };
     const save = async (form) => {
         const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v));
@@ -7195,6 +9465,7 @@ function ViewHotdesking({ data, toast }) {
                 <FilterChip value="all" label="Todos" count={agents.length} color="#8b5cf6"/>
                 <FilterChip value="available" label="Disponibles" count={totalAvail} color="#22c55e"/>
                 <FilterChip value="busy" label="En Llamada" count={totalBusy} color="#ef4444"/>
+                <FilterChip value="paused" label="En Pausa" count={totalPaused} color="#f59e0b"/>
                 <FilterChip value="logged" label="Logueados" count={totalLogged} color="#3b82f6"/>
                 <FilterChip value="offline" label="Offline" count={totalOff} color="#6b7280"/>
                 <div style={{position:'relative',width:220}}>
@@ -7217,56 +9488,257 @@ function ViewHotdesking({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* WALLBOARD VIEW (default) */}
-            {viewMode==='wallboard' && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:10}}>
-                    {filtered.map(a => {
-                        const sc = a.in_call ? '#ef4444' : (a.logged_in ? '#22c55e' : '#6b7280');
-                        const lbl = a.in_call ? 'EN LLAMADA' : (a.logged_in ? 'DISPONIBLE' : 'OFFLINE');
-                        const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
-                        return (
-                        <div key={a.id} className="glass" style={{padding:0,borderRadius:14,overflow:'hidden',border:`1px solid ${sc}33`,boxShadow:a.in_call?`0 0 24px ${sc}33`:(a.logged_in?`0 4px 14px ${sc}22`:'none'),transition:'all 0.3s',cursor:'pointer'}} onClick={()=>setEditing(a)}>
-                            {/* Top neon bar */}
-                            <div style={{height:3,background:`linear-gradient(90deg, ${sc}, ${sc}66)`,boxShadow:`0 0 10px ${sc}88`}}/>
-                            <div style={{padding:'12px 12px 10px',position:'relative'}}>
-                                {/* Background glow if active */}
-                                {a.logged_in && <div style={{position:'absolute',top:-30,right:-30,width:100,height:100,borderRadius:'50%',background:`radial-gradient(circle, ${sc}22, transparent 70%)`,pointerEvents:'none'}}/>}
-                                
-                                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
-                                    <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative',boxShadow:`0 4px 12px ${sc}66`}}>
+            {/* WALLBOARD VIEW (default) — layout 2 columnas: offline izq, logueados der 4 filas */}
+            {viewMode==='wallboard' && (() => {
+                const loggedAgents  = filtered.filter(a => a.logged_in);
+                const offlineAgents = filtered.filter(a => !a.logged_in);
+
+                const isAgentRinging = (a) => {
+                    if (!liveCalls?.length) return false;
+                    const myQueues = (a.queues || []).map(q => String(q.queue || q));
+                    return liveCalls.some(c => {
+                        const ringing = /Ring/i.test(c.state || '');
+                        if (!ringing) return false;
+                        return String(c.ext) === String(a.extension) ||
+                               String(c.dest) === String(a.extension) ||
+                               myQueues.includes(String(c.dest));
+                    });
+                };
+
+                const avatarFor = (a) => {
+                    const ext = exts.find(e => e.ext === a.extension);
+                    if (ext?.avatar && !ext.avatar.includes('ui-avatars')) return ext.avatar;
+                    const name = encodeURIComponent(a.name || a.number || 'A');
+                    return `https://ui-avatars.com/api/?name=${name}&background=11B328&color=fff&size=80&bold=true&format=svg`;
+                };
+
+                // Hangup directo (con confirmación implícita por ser acción única)
+                const doHangup = async (a) => {
+                    if (!a.extension) return;
+                    const fd = new FormData(); fd.append('ext', a.extension);
+                    try {
+                        const r = await fetch('api/hotdesking.php?action=hangup_call', {method:'POST', body:fd, credentials:'include'});
+                        const j = await r.json();
+                        if (j.status === 'ok') toast?.(`Llamada cortada (${j.count} canal${j.count!==1?'es':''})`, 'success');
+                        else toast?.(j.message||'Error', 'error');
+                    } catch(e) { toast?.('Error de red', 'error'); }
+                };
+
+                const renderLogged = (a) => {
+                    const ringing = !a.in_call && !a.paused && isAgentRinging(a);
+                    const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : (ringing ? '#ef4444' : '#11B328'));
+                    const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : (ringing ? 'LLAMADA ENTRANTE' : 'DISPONIBLE'));
+                    const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
+                    const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
+                    return (
+                        <div
+                            key={a.id}
+                            onClick={()=>setEditing(a)}
+                            className={cn(
+                                "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
+                                ringing && "hzn-ringing"
+                            )}
+                            style={{borderColor: a.in_call || ringing ? '#ef4444' : 'var(--border)'}}
+                        >
+                            <div style={{height:3, background:sc}}/>
+                            <div style={{padding:'12px', display:'flex', alignItems:'center', gap:12}}>
+                                {/* Avatar — más chico en layout horizontal */}
+                                <div style={{position:'relative', width:52, height:52, flexShrink:0}}>
+                                    <img src={avatarFor(a)} alt={a.name}
+                                        onError={(e)=>{e.target.style.display='none'; const n=e.target.nextSibling; if(n) n.style.display='flex';}}
+                                        style={{width:52, height:52, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 12px ${sc}55`}}/>
+                                    <div style={{display:'none', width:52, height:52, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:900, border:`2px solid ${sc}`}}>
                                         {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
-                                        {a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
-                                        {a.logged_in && !a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'2px solid var(--surface)'}}/>}
                                     </div>
-                                    <div style={{flex:1,minWidth:0}}>
-                                        <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
-                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace',fontWeight:700}}>#{a.number}{a.extension?` · ${a.extension}`:''}</div>
+                                    <span style={{position:'absolute', bottom:-1, right:-1, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:a.in_call||ringing?'pulse-ring 1.5s infinite':''}}/>
+                                </div>
+
+                                {/* Info principal */}
+                                <div style={{flex:1, minWidth:0}}>
+                                    <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:2}}>
+                                        <span style={{fontSize:18, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.3px'}}>#{a.number}</span>
+                                        {a.extension && <span style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace', fontWeight:700}}>ext {a.extension}</span>}
+                                    </div>
+                                    <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4}}>{a.name}</div>
+                                    <div style={{display:'flex', flexWrap:'wrap', gap:3, alignItems:'center'}}>
+                                        <span style={{fontSize:9, fontWeight:900, padding:'2px 7px', borderRadius:5, background:`${sc}22`, color:sc, letterSpacing:'.05em'}}>
+                                            {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}
+                                        </span>
+                                        {a.queues.slice(0,3).map((q,i)=>(
+                                            <span key={i} style={{fontSize:9, padding:'2px 6px', borderRadius:4, background:'rgba(17,179,40,0.12)', color:'var(--horizon-green)', fontFamily:'monospace', fontWeight:800, border:'1px solid rgba(17,179,40,0.25)'}}>Q{q.queue||q}</span>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <div style={{fontSize:9,fontWeight:900,padding:'4px 8px',borderRadius:5,background:`${sc}22`,color:sc,textAlign:'center',marginBottom:8,letterSpacing:'.1em'}}>
-                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}
-                                </div>
-
-                                {a.queues.length > 0 && (
-                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
-                                        {a.queues.slice(0,4).map((q,i)=>(<span key={i} style={{fontSize:8,padding:'2px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{q.queue||q}</span>))}
-                                        {a.queues.length>4 && <span style={{fontSize:8,color:'var(--muted)'}}>+{a.queues.length-4}</span>}
-                                    </div>
-                                )}
-
-                                <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                                    {a.logged_in 
-                                        ? <button onClick={()=>logoutAgent(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:'pointer'}}>Logout</button>
-                                        : <button onClick={()=>setLoginAgentTarget(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:'pointer'}}>Login</button>}
-                                    <button onClick={()=>setEditing(a)} style={{padding:'5px 9px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:13}}>edit</span></button>
+                                {/* Actions verticales */}
+                                <div style={{display:'flex', flexDirection:'column', gap:4}} onClick={e=>e.stopPropagation()}>
+                                    {a.in_call ? (
+                                        <button onClick={()=>doHangup(a)} title="Colgar llamada"
+                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
+                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>call_end</span>
+                                        </button>
+                                    ) : ringing ? (
+                                        <button onClick={()=>doHangup(a)} title="Rechazar llamada"
+                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
+                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>phone_disabled</span>
+                                        </button>
+                                    ) : null}
+                                    <button onClick={()=>logoutAgent(a)} title="Cerrar sesión"
+                                        className="rounded-md border transition-colors hover:bg-accent"
+                                        style={{padding:'4px 8px', fontSize:10, borderColor:'var(--border)', background:'var(--secondary)', color:'var(--foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>logout</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        );
-                    })}
-                </div>
-            )}
+                    );
+                };
+
+                const renderOffline = (a) => (
+                    <div
+                        key={a.id}
+                        onClick={()=>setEditing(a)}
+                        className="rounded-lg border border-border bg-card text-card-foreground overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
+                        style={{opacity:0.7}}
+                    >
+                        <div style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
+                            <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg, #6b7280, #4b5563)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:11, fontWeight:900, flexShrink:0}}>
+                                {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                            </div>
+                            <div style={{flex:1, minWidth:0}}>
+                                <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
+                                <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{a.number}</div>
+                            </div>
+                            <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
+                                className="rounded-md border font-bold transition-colors"
+                                style={{padding:'4px 10px', fontSize:10, color:'var(--horizon-green)', borderColor:'rgba(17,179,40,0.4)', background:'rgba(17,179,40,0.1)'}}>
+                                Login
+                            </button>
+                        </div>
+                    </div>
+                );
+
+                if (loggedAgents.length === 0 && offlineAgents.length === 0) {
+                    return (
+                        <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
+                            <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
+                            <div className="text-sm font-bold">Sin agentes para mostrar</div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="grid gap-4" style={{gridTemplateColumns:'1fr minmax(280px, 340px)', alignItems:'start'}}>
+                        {/* LEFT: agentes logueados — panel destacado con header tipo card shadcn */}
+                        <div className="rounded-xl border overflow-hidden" style={{
+                            borderColor:'color-mix(in srgb, var(--horizon-green) 25%, var(--border))',
+                            background:'linear-gradient(180deg, color-mix(in srgb, var(--horizon-green) 6%, var(--card)) 0%, var(--card) 100%)',
+                            boxShadow:'0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px color-mix(in srgb, var(--horizon-green) 8%, transparent)'
+                        }}>
+                            {/* Header del panel — separado con border-bottom */}
+                            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b" style={{
+                                borderColor:'color-mix(in srgb, var(--horizon-green) 18%, var(--border))',
+                                background:'color-mix(in srgb, var(--horizon-green) 7%, transparent)'
+                            }}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div style={{
+                                        width:30, height:30, borderRadius:9,
+                                        background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 70%, #16a34a))',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        boxShadow:'0 2px 8px color-mix(in srgb, var(--horizon-green) 40%, transparent)',
+                                        flexShrink:0
+                                    }}>
+                                        <span className="material-icons-round" style={{color:'#fff', fontSize:17}}>support_agent</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div style={{fontSize:12, fontWeight:800, color:'var(--foreground)', letterSpacing:'-.01em', lineHeight:1.1}}>Logueados</div>
+                                        <div style={{fontSize:10, color:'var(--muted-foreground)', fontWeight:600, marginTop:1, lineHeight:1.2}}>Activos en tiempo real</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span style={{
+                                        display:'inline-flex', alignItems:'center', gap:5,
+                                        padding:'3px 9px', borderRadius:9999,
+                                        background:'color-mix(in srgb, var(--horizon-green) 18%, transparent)',
+                                        color:'var(--horizon-green)',
+                                        fontSize:11, fontWeight:800, fontFamily:'monospace',
+                                        border:'1px solid color-mix(in srgb, var(--horizon-green) 30%, transparent)'
+                                    }}>
+                                        {loggedAgents.length > 0 && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>}
+                                        {loggedAgents.length}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Body */}
+                            <div className="p-3">
+                                {loggedAgents.length > 0 ? (
+                                    <div style={{
+                                        display:'grid',
+                                        gridTemplateRows:'repeat(4, minmax(72px, auto))',
+                                        gridAutoFlow:'column',
+                                        gridAutoColumns:'minmax(320px, 1fr)',
+                                        gap:8,
+                                        overflowX:'auto',
+                                        overflowY:'hidden',
+                                        paddingBottom:6,
+                                        scrollbarWidth:'thin'
+                                    }}>
+                                        {loggedAgents.map(renderLogged)}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+                                        <div style={{
+                                            width:64, height:64, borderRadius:'50%',
+                                            background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)',
+                                            border:'2px dashed color-mix(in srgb, var(--horizon-green) 35%, transparent)',
+                                            display:'flex', alignItems:'center', justifyContent:'center',
+                                            marginBottom:14
+                                        }}>
+                                            <span className="material-icons-round" style={{fontSize:30, color:'var(--horizon-green)', opacity:0.7}}>person_off</span>
+                                        </div>
+                                        <div style={{fontSize:13, fontWeight:800, color:'var(--foreground)', marginBottom:4}}>Ningún agente logueado</div>
+                                        <div style={{fontSize:11, color:'var(--muted-foreground)', maxWidth:240, lineHeight:1.5, marginBottom:14}}>
+                                            Los agentes pueden loguearse marcando <strong style={{color:'var(--foreground)', fontFamily:'monospace'}}>*7700</strong> desde su teléfono, o vos podés hacerlo desde la lista de la izquierda.
+                                        </div>
+                                        <div className="flex items-center gap-3" style={{fontSize:10, color:'var(--muted-foreground)'}}>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>circle</span>
+                                                Tiempo real
+                                            </div>
+                                            <div style={{width:3, height:3, borderRadius:'50%', background:'var(--muted-foreground)', opacity:0.5}}/>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>auto_awesome</span>
+                                                {offlineAgents.length} disponibles para loguear
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RIGHT: agentes offline (compactos) */}
+                        <div>
+                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} offline</span>
+                            </div>
+                            {offlineAgents.length > 0 ? (
+                                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:6}}>
+                                    {offlineAgents.map(renderOffline)}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                                    Todos los agentes están logueados
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
 
             {/* TABLE VIEW */}
             {viewMode==='table' && (
@@ -7291,10 +9763,10 @@ function ViewHotdesking({ data, toast }) {
                                     </div></td>
                                     <td style={{fontFamily:'monospace',fontWeight:800,fontSize:13}}>#{a.number}</td>
                                     <td style={{fontSize:13,fontWeight:700}}>{a.name}</td>
-                                    <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontWeight:700}}>{a.type||'Agent'}</span></td>
+                                    <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700}}>{a.type||'Agent'}</span></td>
                                     <td style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:a.extension?'var(--text)':'var(--muted)'}}>{a.extension||'—'}</td>
                                     <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-                                        {(a.queues||[]).slice(0,5).map((qm,i)=>(<span key={i} style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{qm.queue||qm}</span>))}
+                                        {(a.queues||[]).slice(0,5).map((qm,i)=>(<span key={i} style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:800}}>Q{qm.queue||qm}</span>))}
                                         {(a.queues||[]).length===0 && <span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>—</span>}
                                     </div></td>
                                     <td><div style={{display:'flex',gap:4}}>
@@ -7344,6 +9816,19 @@ function ViewHotdesking({ data, toast }) {
             {loginAgentTarget && <AgentLoginModal open={true} onClose={()=>setLoginAgentTarget(null)} onDone={()=>{setLoginAgentTarget(null);load();loadQueues();}} toast={toast} preselectAgent={loginAgentTarget} />}
             {showWizard && <HotdeskingWizard onClose={()=>setShowWizard(false)} />}
             {editing && <HotdeskingEditModal agent={editing==='new'?null:editing} onClose={()=>setEditing(null)} onSave={save} queues={data?.pbx?.queues||[]} />}
+
+            <ConfirmDialog
+                open={!!logoutTarget}
+                onCancel={()=>setLogoutTarget(null)}
+                onConfirm={confirmLogout}
+                title="Cerrar sesión del agente"
+                message={logoutTarget ? `¿Cerrar la sesión de ${logoutTarget.name} (#${logoutTarget.number})? El agente saldrá de todas las colas activas y deberá loguearse nuevamente para atender llamadas.` : ''}
+                confirmLabel="Sí, cerrar sesión"
+                cancelLabel="Cancelar"
+                variant="destructive"
+                icon="logout"
+                loading={logoutBusy}
+            />
         </div>
     );
 }
@@ -7393,9 +9878,9 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
     ];
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',maxHeight:'92vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={560}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'rgba(139,92,246,0.18)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'#8b5cf6,#6d28d9'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'rgba(139,92,246,0.4)'}`}}>
@@ -7465,7 +9950,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                     {/* Tipo */}
                     <div style={{marginBottom:14}}>
                         <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>devices</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>devices</span>
                             Tipo de interface
                         </label>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
@@ -7513,13 +9998,13 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                 {!isNew && (
                     <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'rgba(139,92,246,0.04)',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                         <div style={{flex:1,minWidth:0,fontSize:11,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>headset_mic</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>headset_mic</span>
                             Sesión telefónica
                         </div>
                         <button type="button" onClick={()=>{
                             window.dispatchEvent(new CustomEvent('tf-open-report', {detail: agent}));
                             onClose();
-                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.12)',color:'#c4b5fd',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                             <span className="material-icons-round" style={{fontSize:16}}>analytics</span>Reporte
                         </button>
                         {agent?.logged_in ? (
@@ -7557,9 +10042,8 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -7568,7 +10052,7 @@ function Field({ label, icon, required, error, hint, children }) {
     return (
         <div style={{marginBottom:14,position:'relative'}}>
             <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
-                <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>{icon}</span>
+                <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>{icon}</span>
                 {label}{required && <span style={{color:'#ef4444',marginLeft:2}}>*</span>}
                 {hint && <span style={{textTransform:'none',color:'var(--muted)',fontWeight:500,marginLeft:'auto',fontSize:9}}>{hint}</span>}
             </label>
@@ -7671,9 +10155,9 @@ function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
     };
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:24,borderRadius:16,width:480,maxWidth:'90%',border:'1px solid var(--border)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={480}>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
                     <div style={{width:46,height:46,borderRadius:'50%',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>swap_horiz</span>
@@ -7695,9 +10179,8 @@ function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
                     <button onClick={onClose} style={{padding:'8px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
                     <button onClick={submit} disabled={!target||busy} style={{padding:'8px 18px',borderRadius:9,border:'none',cursor:!target||busy?'not-allowed':'pointer',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',fontWeight:800,fontSize:12,opacity:!target||busy?0.5:1}}>{busy?'Redirigiendo...':'Redirigir'}</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -7759,6 +10242,38 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
     const [pbxBrand, setPbxBrand] = useState(null);
     const [agentsLogged, setAgentsLogged] = useState(0);
     const [mobileOpen, setMobileOpen] = useState(false);
+
+    // HORIZON: Extension de escucha (ChanSpy destination). Persiste en localStorage
+    const [spyExt, setSpyExt] = useState(() => { try { return localStorage.getItem('tf_spy_ext') || ''; } catch(e) { return ''; } });
+    useEffect(() => { try { localStorage.setItem('tf_spy_ext', spyExt); window._tfSpyExt = spyExt; } catch(e) {} }, [spyExt]);
+
+    // Listener global del evento tf-spy-call disparado desde el toast Sileo
+    useEffect(() => {
+        const onSpy = async (e) => {
+            const call = e.detail;
+            const my = (window._tfSpyExt || localStorage.getItem('tf_spy_ext') || '').trim();
+            if (!my || !/^\d+$/.test(my)) {
+                window.shToast?.('Configurá una extensión de escucha en la barra superior antes de espiar', 'destructive');
+                return;
+            }
+            if (!call?.channel) {
+                window.shToast?.('Llamada sin canal — no se puede espiar', 'destructive');
+                return;
+            }
+            try {
+                const fd = new FormData();
+                fd.append('channel', call.channel);
+                fd.append('my_ext', my);
+                fd.append('mode', 'spy');
+                const r = await fetch('api/hotdesking.php?action=spy_call', { method:'POST', body: fd, credentials: 'include' });
+                const j = await r.json();
+                if (j.status === 'ok') window.shToast?.(`Escuchando en ext ${my}…`, 'success');
+                else window.shToast?.('Error: '+(j.message||''), 'destructive');
+            } catch(err) { window.shToast?.('Error de red', 'destructive'); }
+        };
+        window.addEventListener('tf-spy-call', onSpy);
+        return () => window.removeEventListener('tf-spy-call', onSpy);
+    }, []);
 
     const liveCalls = data?.pbx?.live_calls || [];
     const queues = data?.pbx?.queues || [];
@@ -7897,39 +10412,45 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
 
             <div className="tfbar-spacer" />
 
-                        <button className="tfbar-pill" onClick={()=>setShowSysModal(true)} title="Estado de la PBX">
-                <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 6px rgba(34,197,94,.6)'}}/>
-                <div style={{textAlign:'left'}}>
-                    <div style={{fontSize:8,fontWeight:800,letterSpacing:'.05em',textTransform:'uppercase',lineHeight:1,color:'var(--muted)'}}>PBX</div>
-                    <div style={{fontSize:10,fontWeight:800,lineHeight:1.1,marginTop:1}}>Online · CPU {data?.system?.cpu||0}%</div>
-                </div>
-            </button>
-
-            {toggleableTheme(darkMode, setDarkMode)}
+            <div className="tfbar-pill" title="Extensión donde recibís las escuchas (ChanSpy)" onClick={e=>e.stopPropagation()}>
+                <span className="material-icons-round" style={{fontSize:14, color:'var(--horizon-green)'}}>headset_mic</span>
+                <Input
+                    type="text"
+                    value={spyExt}
+                    onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
+                    placeholder="Ext. escucha"
+                    title="Tu extensión SIP — al apretar Escuchar en un toast de llamada entrante, llama acá y vos escuchás la conversación"
+                    className="h-7 w-[100px] px-2 text-xs font-mono font-bold border-0 shadow-none focus-visible:ring-0"
+                />
+                {spyExt && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)'}} title="Configurada"/>}
+            </div>
 
             <div style={{position:'relative'}}>
                 <div className="tfbar-avatar" onClick={(e)=>{ e.stopPropagation(); setShowUserMenu(v=>!v); }}>{inits(userName)}</div>
                 {showUserMenu && (
-                    <div className="tfbar-dropdown tfbar-user-pop" style={{right:0,left:'auto',minWidth:220}} onClick={e=>e.stopPropagation()}>
-                        <div style={{padding:'8px 10px 6px',borderBottom:'1px solid var(--border)',marginBottom:4}}>
-                            <div style={{fontSize:12,fontWeight:800}}>{userName}</div>
-                            <div style={{fontSize:10,color:'var(--muted)',display:'flex',alignItems:'center',gap:5,marginTop:2}}>
-                                <span style={{width:5,height:5,borderRadius:'50%',background:'#22c55e'}}/>
-                                {isAgent ? 'Agente' : 'Administrador'}
+                    <div className="tfbar-dropdown tfbar-user-pop" style={{right:0,left:'auto',minWidth:240}} onClick={e=>e.stopPropagation()}>
+                        <div className="px-2.5 py-2 mb-1 border-b" style={{borderColor:'var(--border)'}}>
+                            <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>{userName}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="rounded-full" style={{width:6,height:6,background:'#22c55e',boxShadow:'0 0 4px rgba(34,197,94,.5)'}}/>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    {isAgent ? 'Agente' : 'Administrador'}
+                                </span>
                             </div>
                         </div>
-                        <div className="tfbar-drop-item" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
+                        <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
                             <span className="material-icons-round">tune</span>
                             <div className="tfbar-drop-text"><div>Configuración</div></div>
-                        </div>
-                        <div className="tfbar-drop-item" onClick={()=>{ setDarkMode(!darkMode); }}>
+                        </button>
+                        <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setDarkMode(!darkMode); }}>
                             <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
                             <div className="tfbar-drop-text"><div>Modo {darkMode?'Claro':'Oscuro'}</div></div>
-                        </div>
-                        <div className="tfbar-drop-item" style={{color:'#ef4444'}} onClick={onLogout}>
-                            <span className="material-icons-round" style={{color:'#ef4444'}}>logout</span>
-                            <div className="tfbar-drop-text"><div>Cerrar sesión</div></div>
-                        </div>
+                        </button>
+                        <Separator className="my-1"/>
+                        <button className="tfbar-drop-item w-full text-left" style={{color:'var(--destructive)'}} onClick={onLogout}>
+                            <span className="material-icons-round" style={{color:'var(--destructive)'}}>logout</span>
+                            <div className="tfbar-drop-text"><div style={{color:'var(--destructive)',fontWeight:600}}>Cerrar sesión</div></div>
+                        </button>
                     </div>
                 )}
             </div>
@@ -8172,8 +10693,8 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
                                 </div>
                             ))}
                         </div>
-                        <div style={{marginTop:14,padding:'10px 12px',background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',borderRadius:10,fontSize:10,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>info</span>
+                        <div style={{marginTop:14,padding:'10px 12px',background:'color-mix(in srgb, var(--primary) 6%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 20%, transparent)',borderRadius:10,fontSize:10,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>info</span>
                             Datos via AMI a {pbxBrand?.brand||'asterisk'} en {data?.system?.connections||0} conexiones TCP activas
                         </div>
                     </div>
@@ -8297,6 +10818,20 @@ function App() {
                 window._tfSeenCalls.add(dedupKey);
                 setTimeout(() => window._tfSeenCalls.delete(dedupKey), 30000);
 
+                // HORIZON: si el caller ext tiene rtsp_url configurado, abrir preview encima del toast
+                const callerMeta = (window._tfExtMeta || {})[c.ext];
+                if (callerMeta?.rtsp_url) {
+                    window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
+                        detail: {
+                            id: dedupKey,
+                            ext: c.ext,
+                            url: callerMeta.rtsp_url,
+                            label: callerMeta.rtsp_label || `Videoportero · ext ${c.ext}`,
+                            channel: c.channel
+                        }
+                    }));
+                }
+
                 const callerLabel = c.name || c.ext || 'Caller';
                 const destLabel = fmtDest(c);
                 // HORIZON: discriminar tipo de origen (cliente / horizon / sin asignar)
@@ -8319,6 +10854,8 @@ function App() {
                 if (!d?.pbx) return d;
                 let live = d.pbx.live_calls || [];
                 if (ev.type === 'hangup') {
+                    // Cerrar preview RTSP si estaba abierto
+                    window.dispatchEvent(new CustomEvent('tf-rtsp-preview-close', { detail: { id: ev.channel } }));
                     live = live.filter(c => c.channel !== ev.channel && c.id !== ev.id);
                 } else if (ev.type === 'new' && ev.call) {
                     if (!live.find(c => c.channel === ev.call.channel || c.id === ev.call.id)) {
@@ -8441,7 +10978,7 @@ function App() {
     );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<SileoProvider><App /></SileoProvider>);
+ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /><RtspPreviewLayer /></ThemeProvider>);
 </script>
 
 </body>
