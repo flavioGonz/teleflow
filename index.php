@@ -2805,274 +2805,335 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
 // VISTA: DASHBOARD
 // ─────────────────────────────────────────────
 function ViewDashboard({ data }) {
-    const [agentsLogged, setAgentsLogged] = useState(0);
-    const [agentsAvail, setAgentsAvail] = useState(0);
-    const [agentsBusy, setAgentsBusy] = useState(0);
-    const [todayStats, setTodayStats] = useState(null);
+    const exts        = data?.pbx?.extensions || [];
+    const queues      = data?.pbx?.queues     || [];
+    const liveCalls   = data?.pbx?.live_calls || [];
+    const recs        = data?.pbx?.recordings || [];
+    const upCalls     = liveCalls.filter(c => c.state === 'Up').length;
+    const ringingCalls= liveCalls.filter(c => /Ring/.test(c.state||'')).length;
+    const totalWaiting= queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
+    const cpu         = data?.system?.cpu         || 0;
+    const ram         = data?.system?.ram         || 0;
+    const disk        = data?.system?.disk        || 0;
+    const conn        = data?.system?.connections || 0;
+    const uptime      = data?.system?.uptime      || 'Desconocido';
 
-    useEffect(() => {
-        const fetchAg = () => {
-            fetch('api/hotdesking.php?action=list',{credentials:'include'})
-                .then(r=>r.json()).then(j=>{
-                    if (j.status==='ok') {
-                        const ags = j.agents||[];
-                        setAgentsLogged(ags.filter(a=>a.logged_in).length);
-                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call && !a.paused).length);
-                        setAgentsBusy(ags.filter(a=>a.in_call).length);
-                        // setAgentsPaused podría agregarse si hay estado para ello
-                    }
-                }).catch(()=>{});
-        };
-        fetchAg();
-        const t = setInterval(fetchAg, 5000);
-        return () => clearInterval(t);
-    }, []);
+    // Active extensions: ordenar por estado (BUSY → ONLINE → OFFLINE) y mostrar las que no están OFFLINE primero
+    const activeExts = [...exts].sort((a,b) => {
+        const rank = (s) => s === 'BUSY' ? 0 : (s === 'ONLINE' ? 1 : 2);
+        return rank(a.status) - rank(b.status);
+    });
 
-    useEffect(() => {
-        const today = new Date().toISOString().split('T')[0];
-        fetch(`api/index.php?action=get_reports&start=${today}&end=${today}`)
-            .then(r=>r.json()).then(d=>{ if (d.success) setTodayStats(d.stats); })
-            .catch(()=>{});
-    }, []);
-
-    const exts = data?.pbx?.extensions || [];
-    const online = exts.filter(e=>e.status==='ONLINE').length;
-    const busy = exts.filter(e=>e.status==='BUSY').length;
-    const queues = data?.pbx?.queues || [];
-    const liveCalls = data?.pbx?.live_calls || [];
-    const upCalls = liveCalls.filter(c => c.state === 'Up').length;
-    const ringingCalls = liveCalls.filter(c => /Ring/.test(c.state||'')).length;
-    const totalWaiting = queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
-    const cpu = data?.system?.cpu || 0;
-    const ram = data?.system?.ram || 0;
-    const disk = data?.system?.disk || 0;
-    const conn = data?.system?.connections || 0;
-    const uptime = data?.system?.uptime || 'Desconocido';
-    const ts = todayStats || {};
-    const todayTotal = ts.total || 0;
-    const todayAns = ts.answered || 0;
-    const eff = todayTotal > 0 ? Math.round((todayAns/todayTotal)*100) : 0;
-
-    // HORIZON: grabaciones recientes para el panel "Últimas Grabaciones"
-    const recs = data?.pbx?.recordings || [];
-
-    // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
-    const systemStats = [
-        { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
-        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'color-mix(in srgb, var(--primary) 12%, transparent)',  color:'var(--primary)' },
-        { label: 'Disco',       val: `${disk}%`, icon: 'storage',    bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b' },
-        { label: 'Conexiones',  val: conn,       icon: 'cable',      bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
-    ];
-
-    const KPIBig = ({label, value, sub, icon, color}) => (
-        <div className="rounded-lg border bg-card text-card-foreground p-5 relative overflow-hidden transition-colors hover:bg-muted/30" style={{borderColor:'var(--border)'}}>
-            <div style={{position:'absolute',top:-20,right:-20,width:80,height:80,borderRadius:'50%',background:`radial-gradient(circle,${color}22,transparent 70%)`,pointerEvents:'none'}}/>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,position:'relative'}}>
-                <div style={{width:36,height:36,borderRadius:9,background:`linear-gradient(135deg,${color},${color}cc)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 2px 8px ${color}40`}}>
-                    <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{icon}</span>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</span>
-            </div>
-            <div className="text-3xl font-black leading-none tracking-tight" style={{color,fontVariantNumeric:'tabular-nums'}}>{value}</div>
-            {sub && <div className="text-[11px] font-semibold mt-2" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
-        </div>
-    );
+    // Helpers de salud
+    const healthColor = v => v > 80 ? 'var(--destructive)' : (v > 50 ? 'var(--warning)' : 'var(--horizon-green)');
 
     return (
-        <div className="content-area">
-            {/* Hero — pulse del callcenter */}
-            <div className="anim-fadeup rounded-xl border bg-card p-5 mb-4 flex flex-wrap items-center gap-4 relative overflow-hidden" style={{borderColor:'var(--border)'}}>
-                <div style={{position:'absolute',top:-30,right:-30,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%)',pointerEvents:'none'}}/>
-                <div style={{width:60,height:60,borderRadius:14,background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #3b82f6))',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 16px color-mix(in srgb, var(--primary) 35%, transparent)',position:'relative',zIndex:1}}>
-                    <span className="material-icons-round" style={{color:'#fff',fontSize:30}}>insights</span>
-                    <span style={{position:'absolute',top:-3,right:-3,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'3px solid var(--surface)',boxShadow:'0 0 10px #22c55e'}}/>
-                </div>
-                <div style={{flex:1,minWidth:240}}>
-                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em',display:'flex',alignItems:'center',gap:6}}>
-                        <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 2s infinite',boxShadow:'0 0 6px #22c55e'}}/>EN VIVO · {new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}
-                    </div>
-                    <div style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px',marginTop:3,color:'var(--text)'}}>TeleFlow Operations</div>
-                    <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>{agentsLogged} agentes activos · {upCalls + ringingCalls} canales en uso · {totalWaiting > 0 ? `${totalWaiting} en espera` : 'sin espera'}</div>
-                </div>
-                <div style={{display:'flex',gap:14,alignItems:'center'}}>
-                    <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>Hoy</div>
-                        <div style={{fontSize:22,fontWeight:900,color:'#22c55e'}}>{todayAns.toLocaleString()}</div>
-                        <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>de {todayTotal.toLocaleString()} ({eff}%)</div>
-                    </div>
-                </div>
+        <div className="content-area space-y-4">
+
+            {/* ─── Row 1: Colas en vivo | Llamadas activas ─── */}
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* Colas en vivo */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--warning)'}}>queue</span>
+                            Colas en vivo
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-mono text-[10px]">{queues.length} colas · {totalWaiting} en espera</Badge>
+                    </CardHeader>
+                    <CardContent>
+                        {queues.length === 0 ? (
+                            <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin colas configuradas</div>
+                        ) : (
+                            <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
+                                {queues.slice(0, 12).map(q => {
+                                    const w = q.calls_waiting || 0;
+                                    const c = w > 5 ? 'var(--destructive)' : (w > 0 ? 'var(--warning)' : 'var(--horizon-green)');
+                                    return (
+                                        <div key={q.id} className="rounded-md border p-2.5"
+                                             style={{
+                                                 borderColor: w > 0 ? c : 'var(--border)',
+                                                 background: w > 0 ? `color-mix(in srgb, ${c} 8%, var(--card))` : 'var(--card)'
+                                             }}>
+                                            <div className="font-mono text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>Q{q.id}</div>
+                                            <div className="text-xs font-semibold truncate" style={{color:'var(--foreground)'}}>{q.name || '—'}</div>
+                                            <div className="flex items-baseline gap-1 mt-1.5">
+                                                <span className="text-xl font-black tabular-nums leading-none" style={{color:c}}>{w}</span>
+                                                <span className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>en espera</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Llamadas activas */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>sensors</span>
+                            Llamadas activas
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-mono text-[10px]">{liveCalls.length} canales · {upCalls} up · {ringingCalls} ring</Badge>
+                    </CardHeader>
+                    <CardContent>
+                        {liveCalls.length === 0 ? (
+                            <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round mb-1.5 block" style={{fontSize:36, opacity:0.4}}>phone_disabled</span>
+                                <p className="text-xs">Sin llamadas en curso</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 280}}>
+                                {liveCalls.slice(0, 10).map((c, i) => {
+                                    const isUp = c.state === 'Up';
+                                    const isRing = /Ring/.test(c.state || '');
+                                    const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
+                                    return (
+                                        <div key={i} className="flex items-center gap-2 rounded-md border px-2.5 py-2"
+                                             style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
+                                            <span className="rounded-full shrink-0"
+                                                  style={{width:8,height:8,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}`}}/>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-mono text-[11px] font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                    {c.ext || c.callerid || '?'} → {c.dest || '?'}
+                                                </div>
+                                                <div className="font-mono text-[9px]" style={{color:'var(--muted-foreground)'}}>
+                                                    {c.duration || '00:00'} · {isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* 4 KPI cards principales */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:14}}>
-                <KPIBig label="Agentes activos" value={`${agentsLogged}/${agentsLogged > 0 ? agentsLogged : '—'}`} sub={`${agentsAvail} disponibles · ${agentsBusy} en llamada`} icon="support_agent" color="#22c55e"/>
-                <KPIBig label="Llamadas en curso" value={upCalls} sub={`${ringingCalls} sonando`} icon="phone_in_talk" color="#3b82f6"/>
-                <KPIBig label="En espera" value={totalWaiting} sub={`${queues.length} colas configuradas`} icon="hourglass_top" color={totalWaiting>0?'#ef4444':'#f59e0b'}/>
-                <KPIBig label="Extensiones online" value={`${online}/${exts.length}`} sub={`${busy} en llamada`} icon="dialpad" color="var(--primary)"/>
-            </div>
-
-            {/* 3 columnas: Colas activas | Cards en llamada | Sistema */}
-            <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr',gap:14,marginBottom:14}}>
-                <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>queue</span>
-                            <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Colas en vivo</span>
+            {/* ─── Row 2: Extensiones Activas | Últimas Grabaciones ─── */}
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* Extensiones Activas (redesign) */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>group</span>
+                            Extensiones Activas
+                        </CardTitle>
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                            <span className="rounded-full" style={{width:6,height:6,background:'var(--horizon-green)'}}/>
+                            {exts.filter(e=>e.status==='ONLINE').length} online
+                            <span className="opacity-50">·</span>
+                            <span className="rounded-full" style={{width:6,height:6,background:'var(--destructive)'}}/>
+                            {exts.filter(e=>e.status==='BUSY').length} busy
                         </div>
-                        <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{queues.length} colas</span>
-                    </div>
-                    {queues.length === 0 ? <div style={{padding:30,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin colas configuradas</div> : (
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:8}}>
-                            {queues.slice(0,12).map(q => {
-                                const w = q.calls_waiting || 0;
-                                const c = w > 5 ? '#ef4444' : (w > 0 ? '#f59e0b' : '#22c55e');
-                                return (
-                                    <div key={q.id} style={{padding:'10px 12px',borderRadius:10,background:'var(--surface2)',border:`1px solid ${c}33`,position:'relative'}}>
-                                        <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:'monospace'}}>Q{q.id}</div>
-                                        <div style={{fontSize:11,fontWeight:600,color:'var(--text)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{q.name||'—'}</div>
-                                        <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
-                                            <span style={{fontSize:18,fontWeight:900,color:c,lineHeight:1}}>{w}</span>
-                                            <span style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>en espera</span>
+                    </CardHeader>
+                    <CardContent>
+                        {exts.length === 0 ? (
+                            <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin datos de extensiones</div>
+                        ) : (
+                            <div className="grid gap-1.5 overflow-auto" style={{gridTemplateColumns:'1fr', maxHeight: 280}}>
+                                {activeExts.slice(0, 10).map(ext => {
+                                    const statusColor = ext.status === 'BUSY' ? 'var(--destructive)' : (ext.status === 'ONLINE' ? 'var(--horizon-green)' : 'var(--muted-foreground)');
+                                    const statusLabel = ext.status === 'BUSY' ? 'En llamada' : (ext.status === 'ONLINE' ? 'Disponible' : 'Offline');
+                                    const ini = (ext.name||ext.ext||'?').split(/[\s\-_]+/).map(p=>p[0]||'').join('').substring(0,2).toUpperCase();
+                                    return (
+                                        <div key={ext.ext} className="flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-all hover:shadow-sm"
+                                             style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                            {/* Avatar con status dot */}
+                                            <div className="relative shrink-0">
+                                                {ext.avatar ? (
+                                                    <img src={ext.avatar} className="rounded-full object-cover" style={{width:34,height:34,border:'2px solid var(--card)'}} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}}/>
+                                                ) : null}
+                                                <div className="rounded-full flex items-center justify-center font-black text-white"
+                                                     style={{
+                                                         width:34, height:34, fontSize:11,
+                                                         display: ext.avatar ? 'none' : 'flex',
+                                                         background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`
+                                                     }}>{ini}</div>
+                                                <span className="absolute rounded-full"
+                                                      style={{
+                                                          bottom:-1, right:-1, width:11, height:11,
+                                                          background: statusColor,
+                                                          border:'2px solid var(--card)',
+                                                          animation: ext.status === 'BUSY' ? 'pulse 1.4s infinite' : 'none'
+                                                      }}/>
+                                            </div>
+                                            {/* Identidad */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                    {ext.name || `Interno ${ext.ext}`}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="font-mono text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>#{ext.ext}</span>
+                                                    {ext.ip && ext.ip !== '—' && (
+                                                        <>
+                                                            <span style={{color:'var(--border)'}}>·</span>
+                                                            <span className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{ext.ip}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Status pill */}
+                                            <Badge variant="outline" className="font-bold uppercase text-[9px] shrink-0"
+                                                   style={{borderColor:`color-mix(in srgb, ${statusColor} 50%, transparent)`, color:statusColor, background:`color-mix(in srgb, ${statusColor} 10%, transparent)`}}>
+                                                {statusLabel}
+                                            </Badge>
+                                        </div>
+                                    );
+                                })}
+                                {exts.length > 10 && (
+                                    <div className="text-center text-[10px] pt-1" style={{color:'var(--muted-foreground)'}}>
+                                        +{exts.length - 10} extensiones más
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Últimas Grabaciones (redesign + audio player) */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>graphic_eq</span>
+                            Últimas Grabaciones
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-mono text-[10px]">{recs.length} disponibles</Badge>
+                    </CardHeader>
+                    <CardContent>
+                        {recs.length === 0 ? (
+                            <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round mb-1.5 block" style={{fontSize:36, opacity:0.4}}>mic_off</span>
+                                <p className="text-xs">Sin grabaciones registradas</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 280}}>
+                                {recs.slice(0, 8).map((r, i) => (
+                                    <div key={i} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5 transition-all hover:shadow-sm"
+                                         style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                        {/* Play button */}
+                                        <button type="button"
+                                                onClick={()=>tfPlayRecording(r.recordingfile || r.file, {src:r.src, dst:r.dst, calldate:r.calldate, duration:r.duration})}
+                                                disabled={!r.recordingfile && !r.file}
+                                                className="rounded-full flex items-center justify-center transition-all shrink-0"
+                                                style={{
+                                                    width:34, height:34,
+                                                    background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                                                    color:'var(--primary-foreground)',
+                                                    boxShadow:'0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent)',
+                                                    cursor: (r.recordingfile || r.file) ? 'pointer' : 'not-allowed',
+                                                    opacity: (r.recordingfile || r.file) ? 1 : 0.5
+                                                }}
+                                                title={(r.recordingfile || r.file) ? 'Reproducir grabación' : 'Sin archivo disponible'}>
+                                            <span className="material-icons-round" style={{fontSize:18}}>play_arrow</span>
+                                        </button>
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold truncate font-mono" style={{color:'var(--foreground)'}}>
+                                                {r.src || '?'} → {r.dst || '?'}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                                <span>{(r.calldate || '').substring(0, 16) || '—'}</span>
+                                                <span style={{color:'var(--border)'}}>·</span>
+                                                <span className="font-mono">{r.duration || 0}s</span>
+                                                {r.disposition && (
+                                                    <>
+                                                        <span style={{color:'var(--border)'}}>·</span>
+                                                        <Badge variant={r.disposition === 'ANSWERED' ? 'success' : 'secondary'} className="text-[9px] py-0">{r.disposition}</Badge>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
 
-                <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>sensors</span>
-                            <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Llamadas activas</span>
-                        </div>
-                        <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{liveCalls.length} canales</span>
-                    </div>
-                    {liveCalls.length === 0 ? <div style={{padding:30,textAlign:'center',color:'var(--muted)',fontSize:11}}><span className="material-icons-round" style={{fontSize:36,color:'var(--muted)',display:'block',marginBottom:6}}>phone_disabled</span>Sin llamadas en curso</div> : (
-                        <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:280,overflowY:'auto'}}>
-                            {liveCalls.slice(0,10).map((c,i) => {
-                                const isUp = c.state === 'Up';
-                                const isRing = /Ring/.test(c.state||'');
-                                const sc = isUp?'#22c55e':(isRing?'#f59e0b':'#6b7280');
-                                return (
-                                    <div key={i} style={{padding:'8px 10px',borderRadius:9,background:'var(--surface2)',border:`1px solid ${sc}33`,display:'flex',alignItems:'center',gap:8}}>
-                                        <span style={{width:8,height:8,borderRadius:'50%',background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}cc`,flexShrink:0}}/>
-                                        <div style={{flex:1,minWidth:0}}>
-                                            <div style={{fontSize:11,fontFamily:'monospace',fontWeight:700,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.ext||c.callerid||'?'} → {c.dest||'?'}</div>
-                                            <div style={{fontSize:9,color:'var(--muted)',fontFamily:'monospace'}}>{c.duration||'00:00'} · {isUp?'En conversación':(isRing?'Sonando':c.state)}</div>
-                                        </div>
+            {/* ─── Row 3: Salud del PBX + Signos Vitales en 1 fila ─── */}
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* Salud del PBX */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'#06b6d4'}}>monitor_heart</span>
+                            Salud del PBX
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-mono text-[10px]">
+                            <span className="material-icons-round mr-1" style={{fontSize:11}}>schedule</span>
+                            {uptime}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { l:'CPU',        v:cpu,  u:'%', c: healthColor(cpu),  i:'memory' },
+                                { l:'RAM',        v:ram,  u:'%', c: healthColor(ram),  i:'sd_storage' },
+                                { l:'Disco',      v:disk, u:'%', c: healthColor(disk), i:'storage' },
+                                { l:'Conexiones', v:conn, u:'',  c:'#06b6d4',          i:'lan' }
+                            ].map(m => (
+                                <div key={m.l} className="rounded-md border p-2.5"
+                                     style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                        <span className="material-icons-round" style={{fontSize:14,color:m.c}}>{m.i}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{m.l}</span>
                                     </div>
-                                );
-                            })}
+                                    <div className="font-mono text-lg font-black tabular-nums" style={{color:m.c}}>
+                                        {m.v}{m.u}
+                                    </div>
+                                    {m.u === '%' && (
+                                        <div className="h-1 rounded-full overflow-hidden mt-1.5" style={{background:'color-mix(in srgb, var(--muted) 50%, transparent)'}}>
+                                            <div className="h-full rounded-full transition-all duration-500" style={{width:`${m.v}%`, background:m.c}}/>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
+                    </CardContent>
+                </Card>
+
+                {/* Signos Vitales del Servidor PBX */}
+                <Card>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>dns</span>
+                            Signos Vitales del Servidor
+                        </CardTitle>
+                        <Badge variant="secondary" className="font-mono text-[10px]">PBX Asterisk</Badge>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { label:'Canales activos',    val: liveCalls.length,             icon:'phone_in_talk', color:'var(--primary)' },
+                                { label:'Canales en up',      val: upCalls,                      icon:'sensors',       color:'var(--horizon-green)' },
+                                { label:'En espera (queues)', val: totalWaiting,                 icon:'hourglass_top', color: totalWaiting > 0 ? 'var(--warning)' : 'var(--muted-foreground)' },
+                                { label:'Extensiones online', val: exts.filter(e=>e.status==='ONLINE').length + '/' + exts.length, icon:'dialpad', color:'var(--horizon-green)' }
+                            ].map(s => (
+                                <div key={s.label} className="rounded-md border p-2.5 flex items-center gap-2.5"
+                                     style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                    <div className="rounded-md flex items-center justify-center shrink-0"
+                                         style={{
+                                             width:34, height:34,
+                                             background:`color-mix(in srgb, ${s.color} 12%, transparent)`,
+                                             border:`1px solid color-mix(in srgb, ${s.color} 25%, transparent)`
+                                         }}>
+                                        <span className="material-icons-round" style={{fontSize:18, color:s.color}}>{s.icon}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider truncate" style={{color:'var(--muted-foreground)'}}>{s.label}</div>
+                                        <div className="font-mono text-base font-black tabular-nums" style={{color:s.color}}>{s.val}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {/* Salud del sistema PBX */}
-            <div className="glass" style={{padding:'18px 22px',borderRadius:16,marginBottom:14}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:18,color:'#06b6d4'}}>monitor_heart</span>
-                        <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Salud del PBX</span>
-                    </div>
-                    <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace',padding:'4px 10px',borderRadius:7,background:'var(--surface2)'}}>Uptime · {uptime}</div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10}}>
-                    {[
-                        {l:'CPU',v:cpu,u:'%',c:cpu>80?'#ef4444':(cpu>50?'#f59e0b':'#22c55e'),i:'memory'},
-                        {l:'RAM',v:ram,u:'%',c:ram>80?'#ef4444':(ram>50?'#f59e0b':'#22c55e'),i:'sd_storage'},
-                        {l:'Disco',v:disk,u:'%',c:disk>80?'#ef4444':(disk>50?'#f59e0b':'#22c55e'),i:'storage'},
-                        {l:'Conexiones',v:conn,u:'',c:'#06b6d4',i:'lan'},
-                    ].map((m,i)=>(
-                        <div key={i} style={{padding:'10px 12px',borderRadius:10,background:'var(--surface2)',border:`1px solid ${m.c}33`}}>
-                            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                                <span className="material-icons-round" style={{fontSize:14,color:m.c}}>{m.i}</span>
-                                <span style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em'}}>{m.l}</span>
-                            </div>
-                            <div style={{fontSize:18,fontWeight:900,color:m.c,fontFamily:'monospace'}}>{m.v}{m.u}</div>
-                            {m.u==='%' && (
-                                <div style={{height:4,background:'var(--border)',borderRadius:2,marginTop:6,overflow:'hidden'}}>
-                                    <div style={{height:'100%',width:`${m.v}%`,background:m.c,borderRadius:2,transition:'width .5s'}}/>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-            
-            {/* System Status */}
-            <div className="glass" style={{padding:'20px', marginBottom:24}}>
-                <div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#3b82f6'}}>dns</span>
-                        Signos Vitales del Servidor PBX
-                    </div>
-                    <div style={{fontSize:12,color:'#6b7280',backgroundColor:'var(--surface)',padding:'4px 12px',borderRadius:20,border:'1px solid var(--border)'}}>
-                        Uptime: {uptime}
-                    </div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
-                    {systemStats.map(s=>(
-                        <div key={s.label} style={{display:'flex',alignItems:'center',gap:14}}>
-                            <div style={{width:40,height:40,borderRadius:12,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:20,color:s.color}}>{s.icon}</span>
-                            </div>
-                            <div>
-                                <div style={{fontSize:11,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.05em',fontWeight:700}}>{s.label}</div>
-                                <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>{s.val}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:16}}>
-                {/* Extensiones activas */}
-                <div className="glass" style={{padding:'20px'}}>
-                    <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>group</span>
-                        Extensiones Activas
-                    </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                        {exts.slice(0,6).map(ext=>(
-                            <div key={ext.ext} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-                                <img src={ext.avatar} style={{width:32,height:32,borderRadius:8,objectFit:'cover'}} onError={e=>{e.target.style.display='none'}} />
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:12,fontWeight:600,color:'white'}}>#{ext.ext} <span style={{color:'#9ca3af',fontWeight:400}}>{ext.name}</span></div>
-                                    <div style={{fontSize:10,color:'#6b7280'}}>{ext.ip}</div>
-                                </div>
-                                <span className={`badge ${ext.status==='ONLINE'?'badge-online':ext.status==='BUSY'?'badge-busy':'badge-offline'}`}>
-                                    <span className={`badge-dot ${ext.status==='ONLINE'?'dot-online':ext.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                    {ext.status}
-                                </span>
-                            </div>
-                        ))}
-                        {exts.length===0 && <div style={{color:'#6b7280',fontSize:13,textAlign:'center',padding:20}}>Sin datos de extensiones</div>}
-                    </div>
-                </div>
-
-                {/* Últimas grabaciones */}
-                <div className="glass" style={{padding:'20px'}}>
-                    <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>mic</span>
-                        Últimas Grabaciones
-                    </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                        {recs.slice(0,5).map((r,i)=>(
-                            <div key={i} style={{padding:'8px 10px',background:'var(--surface2)',borderRadius:10,border:'1px solid var(--border)'}}>
-                                <div style={{fontSize:11,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
-                                <div style={{fontSize:10,color:'#6b7280',display:'flex',justifyContent:'space-between',marginTop:2}}>
-                                    <span>{r.calldate?.substring(0,16)}</span>
-                                    <span style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>{r.duration}s</span>
-                                </div>
-                            </div>
-                        ))}
-                        {recs.length===0 && <div style={{color:'#6b7280',fontSize:13,textAlign:'center',padding:20}}>Sin grabaciones</div>}
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
