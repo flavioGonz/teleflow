@@ -694,8 +694,8 @@ header('Expires: 0');
         body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f5f7fb; }
         body.light .glass { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         body.light .sidebar { background: linear-gradient(180deg,#fafbff,#f5f7fb) !important; border-right: 1px solid var(--border); }
-        body.light .nav-item:hover { background: rgba(139,92,246,0.08) !important; }
-        body.light .nav-item.active { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)) !important; color: #6d28d9 !important; }
+        body.light .nav-item:hover { background: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
+        body.light .nav-item.active { background: color-mix(in srgb, var(--primary) 14%, transparent) !important; color: var(--primary) !important; }
         body.light .input-tf { background: #ffffff !important; color: #111827 !important; border:1px solid var(--border) !important; }
         body.light .tf-table { color: #111827; }
         body.light .tf-table thead { background: #f0f2f7; }
@@ -964,7 +964,7 @@ header('Expires: 0');
         @keyframes tfModalPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         body.tf-modal-open { overflow: hidden; }
 
-        .tf-page-header { display: flex; align-items: center; justify-content: center; padding: 6px 4px 14px; margin: 0 0 12px 0; gap: 14px; flex-wrap: wrap; }
+        .tf-page-header { display: flex; align-items: center; justify-content: center; padding: 10px 4px 14px; margin: 0 0 16px 0; gap: 14px; flex-wrap: wrap; }
         .tf-page-actions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
 
         .tfbar { position: sticky; top: 0; z-index: 90; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; box-shadow: 0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04); backdrop-filter: blur(6px); overflow: visible; }
@@ -1047,8 +1047,8 @@ header('Expires: 0');
             margin-bottom: 2px;
             white-space: nowrap;
         }
-        .nav-item:hover { background: rgba(139,92,246,0.1); color: var(--text); }
-        .nav-item.active { background: rgba(139,92,246,0.18); color: #c4b5fd; }
+        .nav-item:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--text); }
+        .nav-item.active { background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary); font-weight: 600; }
         .nav-item .material-icons-round { font-size: 20px; flex-shrink:0; }
         .nav-section { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #374151; text-transform: uppercase; padding: 12px 12px 4px; }
         .sidebar-bottom {
@@ -1091,10 +1091,10 @@ header('Expires: 0');
             position: sticky;
             top: 0;
             z-index: 10;
-            background: rgba(7,7,13,0.85);
-            backdrop-filter: blur(20px);
+            background: color-mix(in srgb, var(--background) 90%, transparent);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 14px 28px;
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -1102,16 +1102,16 @@ header('Expires: 0');
         }
         .content-area { padding: 24px 28px; flex: 1; }
 
-        /* ── GLASS CARDS ── */
-        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
-        .glass-hover { transition: border-color .2s, transform .2s, box-shadow .2s; }
-        .glass-hover:hover { border-color: rgba(139,92,246,0.35); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(139,92,246,0.1); }
+        /* ── GLASS CARDS — shadcn-flavored ── */
+        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+        .glass-hover { transition: background-color .15s, border-color .15s, transform .15s; }
+        .glass-hover:hover { border-color: color-mix(in srgb, var(--primary) 30%, transparent); background: color-mix(in srgb, var(--primary) 4%, var(--surface)); }
 
-        /* ── STATUS BADGES ── */
-        .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.04em; }
-        .badge-online { background:rgba(34,197,94,0.15); color:#4ade80; }
-        .badge-offline { background:rgba(107,114,128,0.15); color:#9ca3af; }
-        .badge-busy { background:rgba(245,158,11,0.15); color:#fbbf24; }
+        /* ── STATUS BADGES — alineados a shadcn ── */
+        .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:.02em; }
+        .badge-online { background:color-mix(in srgb, #22c55e 18%, transparent); color:#22c55e; }
+        .badge-offline { background:color-mix(in srgb, #6b7280 18%, transparent); color:#9ca3af; }
+        .badge-busy { background:color-mix(in srgb, #ef4444 18%, transparent); color:#ef4444; }
         .badge-dot { width:6px; height:6px; border-radius:50%; }
         .dot-online { background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
         .dot-offline { background:#6b7280; }
