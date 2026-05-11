@@ -247,7 +247,7 @@ try {
         exit;
     }
 
-    if ($action === 'agent_pauses') {
+    if ($action === 'agent_pauses' || $action === 'pauses') {
         $agent = preg_replace('/[^0-9]/', '', $_GET['agent'] ?? '');
         $tf = tf_db();
         $sql = "SELECT ap.id, ap.agent_ext, ap.agent_number, ap.pause_type_code, ap.pause_start, ap.pause_end, IFNULL(ap.duration_seconds, TIMESTAMPDIFF(SECOND, ap.pause_start, NOW())) AS duration_seconds, pt.label AS pause_label, pt.color AS pause_color FROM agent_pauses ap LEFT JOIN pause_types pt ON pt.code = ap.pause_type_code WHERE ap.pause_start BETWEEN ? AND ?";

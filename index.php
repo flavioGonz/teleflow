@@ -5278,19 +5278,22 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
         return p.toString();
     };
 
-    const load = async () => {
+    const load = useCallback(async () => {
         setLoading(true); setData(null);
+        let cancelled = false;
         try {
             const params = buildParams();
             const r = await fetch(`api/reports.php?action=${tab}&${params}`, { credentials: 'include' });
             const j = await r.json();
+            if (cancelled) return;
             if (j.status === 'ok') setData(j);
             else toast?.(j.message || 'Error cargando reporte', 'error');
-        } catch (e) { toast?.('Error de red', 'error'); }
-        setLoading(false);
-    };
+        } catch (e) { if (!cancelled) toast?.('Error de red', 'error'); }
+        if (!cancelled) setLoading(false);
+        return () => { cancelled = true; };
+    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur, toast]);
 
-    useEffect(() => { load(); }, [tab, from, to, JSON.stringify(callFilters)]);
+    useEffect(() => { load(); }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur]);
 
     const exportUrl = (format, type = tab, extraParams = {}) => {
         const p = new URLSearchParams({ type, format, from, to, ...extraParams });
@@ -5359,245 +5362,448 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
     );
 }
 
-function KPICard({ label, value, sub, icon, color }) {
+// HORIZON: KPICard premium reutilizable para drawer y main dashboard
+function KPICard({ label, value, sub, icon, color, compact = false }) {
+    const padding = compact ? '12px' : '16px';
+    const iconSize = compact ? 28 : 36;
+    const valueSize = compact ? 20 : 26;
     return (
-        <div className="glass" style={{padding:16,borderRadius:12,border:`1px solid ${color}33`,background:`linear-gradient(135deg, ${color}15, transparent 70%), var(--surface)`}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <span className="material-icons-round" style={{color:'#fff',fontSize:16}}>{icon}</span>
+        <div style={{
+            padding,
+            borderRadius: 12,
+            border: `1px solid ${color}33`,
+            background: `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, transparent 100%), var(--surface)`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            position: 'relative',
+            overflow: 'hidden',
+            minHeight: compact ? 90 : 110,
+        }}>
+            <div style={{
+                position: 'absolute', top: -20, right: -20, width: 80, height: 80,
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${color}22, transparent 70%)`,
+                pointerEvents: 'none',
+            }}/>
+            <div style={{display:'flex',alignItems:'center',gap:8,position:'relative'}}>
+                <div style={{
+                    width: iconSize, height: iconSize, borderRadius: 9,
+                    background: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 4px 12px ${color}44`,
+                    flexShrink: 0,
+                }}>
+                    <span className="material-icons-round" style={{color:'#fff',fontSize:iconSize*0.55}}>{icon}</span>
                 </div>
-                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em'}}>{label}</div>
+                <div style={{
+                    fontSize: 10, fontWeight: 800, color: 'var(--muted)',
+                    textTransform: 'uppercase', letterSpacing: '.06em',
+                    lineHeight: 1.2,
+                }}>{label}</div>
             </div>
-            <div style={{fontSize:24,fontWeight:900,color,lineHeight:1}}>{value}</div>
-            {sub && <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>{sub}</div>}
+            <div style={{
+                fontSize: valueSize, fontWeight: 900, color,
+                lineHeight: 1, letterSpacing: '-0.4px',
+                fontVariantNumeric: 'tabular-nums',
+                wordBreak: 'normal', whiteSpace: 'nowrap',
+                overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{value}</div>
+            {sub && <div style={{
+                fontSize: 10, color: 'var(--muted)',
+                marginTop: 'auto',
+                fontWeight: 600, lineHeight: 1.3,
+            }}>{sub}</div>}
         </div>
     );
 }
 
-function ReportTabSummary({ data }) {
-    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
-    return (
-        <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
-                <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`Período: ${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
-                <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
-                <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre total ofrecidas" icon="trending_down" color="#ef4444"/>
-                <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
-                <KPICard label="Talk time total" value={tfFmtSecs(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
-                <KPICard label="Sesiones agentes" value={s.sessions||0} sub={`${s.unique_agents||0} únicos · Total login: ${tfFmtSecs(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
-                <KPICard label="Pausas totales" value={p.total_pauses||0} sub={`Tiempo total: ${tfFmtSecs(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
-            </div>
-        </div>
-    );
+// HORIZON: formatear duraciones de manera compacta y consistente (ej. "1098h 01m" → "45d 18h")
+function fmtDurationCompact(secs) {
+    secs = parseInt(secs || 0);
+    if (secs <= 0) return '0s';
+    if (secs < 60) return `${secs}s`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ${secs%60}s`;
+    if (secs < 86400) {
+        const h = Math.floor(secs/3600);
+        const m = Math.floor((secs%3600)/60);
+        return m ? `${h}h ${String(m).padStart(2,'0')}m` : `${h}h`;
+    }
+    const d = Math.floor(secs/86400);
+    const h = Math.floor((secs%86400)/3600);
+    return h ? `${d}d ${h}h` : `${d}d`;
 }
 
-function ReportTabByAgent({ data, onPick }) {
-    const agents = data.agents || [];
-    const fmt = tfFmtSecs;
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{agents.length} agentes con actividad</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Nombre</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Sesiones</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Login</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>T. Pausa</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Productivo%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Llam.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Talk</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {agents.map((a,i)=>(
-                            <tr key={i} onClick={()=>onPick&&onPick(a)} style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:700}}>{a.ext}</td>
-                                <td style={{padding:'8px 10px',color:'#8b5cf6'}}>{a.agent_number||'—'}</td>
-                                <td style={{padding:'8px 10px'}}>{a.name||'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.session_count||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#3b82f6'}}>{fmt(a.login_sec)}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#f59e0b'}}>{fmt(a.pause_sec)}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:a.productive_pct>80?'#22c55e':(a.productive_pct>50?'#f59e0b':'#ef4444')}}>{a.productive_pct!==null?a.productive_pct+'%':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.calls||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{a.answered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.avg_aht!==null?a.avg_aht+'s':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{fmt(a.total_talk)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {agents.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
-            </div>
-        </div>
-    );
+// HORIZON: formatear fecha/hora ISO en formato local rioplatense
+function fmtDateTime(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return ts;
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function ReportTabByQueue({ data }) {
-    const queues = data.queues || []; const sl = data.sl_threshold || 20;
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{queues.length} colas con tráfico · Service Level @ ≤{sl}s</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Cola</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Descripción</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Ofrec.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>SL%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Esp. prom.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Máx. esp.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {queues.map((q,i)=>(
-                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:800}}>{q.queue}</td>
-                                <td style={{padding:'8px 10px',color:'#c4b5fd'}}>{q.descr||'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.offered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{q.answered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#ef4444'}}>{q.abandoned||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.abandon_rate>20?'#ef4444':(q.abandon_rate>10?'#f59e0b':'#22c55e')}}>{q.abandon_rate}%</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.service_level>=80?'#22c55e':(q.service_level>=60?'#f59e0b':'#ef4444')}}>{q.service_level!==null?q.service_level+'%':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.avg_wait!==null?q.avg_wait+'s':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.max_wait||'—'}{q.max_wait?'s':''}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{q.avg_talk?q.avg_talk+'s':'—'}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {queues.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
-            </div>
-        </div>
-    );
-}
+// HORIZON: AgentDetailDrawer — panel profesional con secciones bien definidas
+function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [section, setSection] = useState('overview'); // overview | sessions | pauses | calls
 
-function ReportTabCalls({ data, filters, setFilters }) {
-    const calls = data.calls || [];
-    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:12,borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                <span style={{fontSize:11,fontWeight:800,color:'var(--muted)'}}>FILTROS</span>
-                <select value={filters.disposition} onChange={e=>setFilters({...filters,disposition:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}>
-                    <option value="">Todos los estados</option>
-                    <option value="ANSWERED">ANSWERED</option>
-                    <option value="NO ANSWER">NO ANSWER</option>
-                    <option value="BUSY">BUSY</option>
-                    <option value="FAILED">FAILED</option>
-                </select>
-                <input placeholder="Origen" value={filters.src} onChange={e=>setFilters({...filters,src:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
-                <input placeholder="Destino" value={filters.dst} onChange={e=>setFilters({...filters,dst:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
-                <input placeholder="Mín dur (s)" type="number" value={filters.min_dur||''} onChange={e=>setFilters({...filters,min_dur:parseInt(e.target.value)||0})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:90}}/>
-                <span style={{flex:1}}/>
-                <span style={{fontSize:11,color:'var(--muted)'}}>{calls.length} resultados</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fecha/Hora</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Origen</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Destino</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>CallerID</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Estado</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Dur.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Hablado</th>
-                            <th style={{padding:'8px 10px',textAlign:'center',color:'var(--muted)',fontWeight:800}}>Grab.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {calls.map((c,i)=>(
-                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{c.calldate}</td>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.src}</td>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.dst}</td>
-                                <td style={{padding:'6px 10px',color:'var(--muted)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.clid}</td>
-                                <td style={{padding:'6px 10px'}}><span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span></td>
-                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.duration}s</td>
-                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</td>
-                                <td style={{padding:'6px 10px',textAlign:'center'}}>{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title={c.recordingfile}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {calls.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin llamadas que coincidan</div>}
-            </div>
-        </div>
-    );
-}
+    const agentId = useMemo(() => agent?.agent_number || agent?.ext || '', [agent]);
 
-function ReportTabPauses({ data, from, to }) {
-    const pauses = data.pauses || [];
-    // Agrupar por motivo para mini-charts
-    const byMotive = {};
-    pauses.forEach(p => {
-        const k = p.pause_label || p.pause_type_code;
-        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
-        byMotive[k].count++; byMotive[k].total += parseInt(p.duration_seconds || 0);
-    });
-    const motives = Object.values(byMotive).sort((a,b)=>b.total-a.total);
-    const maxTotal = Math.max(1, ...motives.map(m=>m.total));
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setData(null);
+        (async () => {
+            try {
+                const url = `api/reports.php?action=agent_detail&agent=${encodeURIComponent(agentId)}&from=${from}&to=${to}`;
+                const r = await fetch(url, { credentials: 'include' });
+                const j = await r.json();
+                if (cancelled) return;
+                if (j.status === 'ok') setData(j);
+                else toast?.(j.message || 'Error', 'error');
+            } catch (e) {
+                if (!cancelled) toast?.('Error de red', 'error');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [agentId, from, to, toast]);
+
+    // Escape para cerrar
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    const k = data?.kpi || {};
+    const exportUrl = useCallback((fmt) =>
+        `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agentId)}`,
+        [agentId, from, to]);
+
+    const sections = [
+        { id:'overview', label:'Resumen', icon:'dashboard' },
+        { id:'sessions', label:'Sesiones', icon:'login', count: data?.sessions?.length },
+        { id:'pauses',   label:'Pausas',   icon:'pause_circle', count: data?.pauses?.length },
+        { id:'calls',    label:'Llamadas', icon:'phone',    count: data?.calls?.length },
+    ];
+
+    const initials = (agent?.name || '').split(/\s+/).map(x => x[0]).join('').substring(0, 2).toUpperCase() || '?';
+
     return (
-        <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            {/* Resumen por motivo */}
-            <div className="glass" style={{padding:16,borderRadius:12}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10}}>Distribución por motivo</div>
-                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    {motives.map((m,i)=>(
-                        <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
-                            <span style={{minWidth:120,fontSize:11,fontWeight:700}}>{m.label}</span>
-                            <div style={{flex:1,height:18,background:'rgba(255,255,255,0.04)',borderRadius:4,overflow:'hidden',position:'relative'}}>
-                                <div style={{width:`${(m.total/maxTotal)*100}%`,height:'100%',background:m.color||'#8b5cf6'}}/>
-                                <span style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',fontSize:10,fontFamily:'monospace',color:'#fff',fontWeight:700,textShadow:'0 1px 2px rgba(0,0,0,0.5)'}}>{tfFmtSecs(m.total)}</span>
-                            </div>
-                            <span style={{minWidth:50,fontSize:11,fontWeight:800,textAlign:'right'}}>{m.count}x</span>
+        <div onClick={onClose} style={{
+            position:'fixed', inset:0,
+            background:'rgba(0,0,0,0.65)',
+            backdropFilter:'blur(4px)',
+            zIndex:1000,
+            display:'flex', justifyContent:'flex-end',
+            animation: 'fade-in 0.2s',
+        }}>
+            <div onClick={e => e.stopPropagation()} style={{
+                width: 'min(820px, 100%)',
+                height: '100%',
+                background: 'var(--bg)',
+                borderLeft: '1px solid var(--border)',
+                boxShadow: '-12px 0 40px rgba(0,0,0,0.4)',
+                display: 'flex', flexDirection: 'column',
+                animation: 'slide-in-right 0.25s ease-out',
+            }}>
+                {/* ─── Header con identidad del agente ─── */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08) 50%, transparent), var(--surface)',
+                    padding: '18px 22px',
+                    borderBottom: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                }}>
+                    <div style={{
+                        width: 52, height: 52, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 900, fontSize: 18,
+                        boxShadow: '0 6px 18px rgba(139,92,246,0.4)',
+                        flexShrink: 0,
+                    }}>{initials}</div>
+                    <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize: 11, fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '.08em'}}>Agente</div>
+                        <div style={{fontSize: 18, fontWeight: 900, color: 'var(--text)', lineHeight: 1.15, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                            {agent?.name || agentId}
                         </div>
+                        <div style={{fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'flex', gap: 8, alignItems: 'center'}}>
+                            <span style={{fontFamily:'monospace',fontWeight:700,color:'#8b5cf6'}}>#{agentId}</span>
+                            {agent?.ext && <span>· ext {agent.ext}</span>}
+                            <span>· {from} → {to}</span>
+                        </div>
+                    </div>
+                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                        <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{
+                            padding: '7px 12px', borderRadius: 8,
+                            border: '1px solid #ef4444', background: 'rgba(239,68,68,0.12)',
+                            color: '#fca5a5', fontWeight: 800, fontSize: 11,
+                            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                            transition: 'transform .15s',
+                        }} title="Exportar a PDF">
+                            <span className="material-icons-round" style={{fontSize:15}}>picture_as_pdf</span>PDF
+                        </a>
+                        <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{
+                            padding: '7px 12px', borderRadius: 8,
+                            border: '1px solid #16a34a', background: 'rgba(22,163,74,0.12)',
+                            color: '#86efac', fontWeight: 800, fontSize: 11,
+                            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                        }} title="Exportar a Excel">
+                            <span className="material-icons-round" style={{fontSize:15}}>table_chart</span>Excel
+                        </a>
+                        <button onClick={onClose} style={{
+                            padding: 8, border: '1px solid var(--border)', borderRadius: 8,
+                            background: 'var(--surface2)', color: 'var(--muted)',
+                            cursor: 'pointer', display: 'inline-flex',
+                        }} title="Cerrar (Esc)">
+                            <span className="material-icons-round" style={{fontSize:18}}>close</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* ─── Section nav ─── */}
+                <div style={{
+                    display: 'flex', gap: 2,
+                    padding: '0 22px',
+                    background: 'var(--surface)',
+                    borderBottom: '1px solid var(--border)',
+                }}>
+                    {sections.map(s => (
+                        <button key={s.id} onClick={() => setSection(s.id)} style={{
+                            padding: '10px 14px',
+                            background: 'transparent', border: 'none',
+                            borderBottom: section === s.id ? '2px solid #8b5cf6' : '2px solid transparent',
+                            color: section === s.id ? '#fff' : 'var(--muted)',
+                            cursor: 'pointer',
+                            fontSize: 11, fontWeight: 800,
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            transition: 'all .15s',
+                        }}>
+                            <span className="material-icons-round" style={{fontSize:15}}>{s.icon}</span>
+                            {s.label}
+                            {s.count !== undefined && s.count !== null && (
+                                <span style={{
+                                    padding: '1px 6px', borderRadius: 8,
+                                    background: section === s.id ? '#8b5cf6' : 'var(--surface2)',
+                                    color: section === s.id ? '#fff' : 'var(--muted)',
+                                    fontSize: 9, fontWeight: 800,
+                                }}>{s.count}</span>
+                            )}
+                        </button>
                     ))}
                 </div>
-                {motives.length===0 && <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:12}}>Sin pausas</div>}
+
+                {/* ─── Body scrollable ─── */}
+                <div style={{flex:1, overflow:'auto', padding: '20px 22px'}}>
+                    {loading && (
+                        <div style={{padding:60,textAlign:'center',color:'var(--muted)'}}>
+                            <span className="material-icons-round" style={{fontSize:36,animation:'spin 1.2s linear infinite',color:'#8b5cf6'}}>autorenew</span>
+                            <div style={{marginTop:10,fontSize:12}}>Cargando datos del agente…</div>
+                        </div>
+                    )}
+
+                    {!loading && data && section === 'overview' && <AgentOverviewSection data={data}/>}
+                    {!loading && data && section === 'sessions' && <AgentSessionsSection sessions={data.sessions}/>}
+                    {!loading && data && section === 'pauses' && <AgentPausesSection pauses={data.pauses} breakdown={data.pause_breakdown}/>}
+                    {!loading && data && section === 'calls' && <AgentCallsSection calls={data.calls}/>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// HORIZON: secciones reutilizables del drawer
+function AgentOverviewSection({ data }) {
+    const k = data.kpi || {};
+    const breakdown = data.pause_breakdown || [];
+    const maxPauseSec = Math.max(1, ...breakdown.map(b => parseInt(b.total_sec || 0)));
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            {/* KPI grid — 3 columnas para evitar wrap */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3, minmax(0, 1fr))',gap:10}}>
+                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="Total en período" icon="badge" color="#8b5cf6"/>
+                <KPICard compact label="Login total" value={fmtDurationCompact(k.total_login_sec)} sub="Tiempo logueado" icon="login" color="#3b82f6"/>
+                <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={k.productive_pct > 80 ? '#22c55e' : (k.productive_pct > 50 ? '#f59e0b' : '#ef4444')}/>
+                <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Tiempo: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
+                <KPICard compact label="Llamadas" value={(k.total_calls || 0).toLocaleString()} sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas en sesiones'} icon="phone" color="#ec4899"/>
+                <KPICard compact label="Última actividad" value={data.sessions?.[0]?.logout_time ? 'Cerrada' : (data.sessions?.length ? 'Activa' : '—')} sub={data.sessions?.[0] ? fmtDateTime(data.sessions[0].login_time) : 'Sin actividad'} icon="schedule" color="#06b6d4"/>
             </div>
 
-            {/* Tabla detallada */}
-            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
-                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{pauses.length} pausas registradas</span>
+            {/* Distribución de pausas — barras horizontales con leyenda */}
+            {breakdown.length > 0 && (
+                <div className="glass" style={{padding:16,borderRadius:12}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                        <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>pie_chart</span>
+                        <span style={{fontSize:12,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.06em'}}>Distribución de pausas</span>
+                        <span style={{flex:1}}/>
+                        <span style={{fontSize:10,color:'var(--muted)'}}>Total: {fmtDurationCompact(k.total_pause_sec)}</span>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                        {breakdown.map((p, i) => {
+                            const pct = (parseInt(p.total_sec) / maxPauseSec) * 100;
+                            const color = p.color || '#f59e0b';
+                            return (
+                                <div key={p.code} style={{display:'grid',gridTemplateColumns:'140px 1fr 80px 60px',gap:10,alignItems:'center'}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                                        <span style={{width:8,height:8,borderRadius:'50%',background:color,flexShrink:0}}/>
+                                        <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.label}</span>
+                                    </div>
+                                    <div style={{height:14,background:'rgba(255,255,255,0.04)',borderRadius:7,overflow:'hidden'}}>
+                                        <div style={{
+                                            width:`${pct}%`,height:'100%',
+                                            background:`linear-gradient(90deg, ${color}aa, ${color})`,
+                                            borderRadius:7,
+                                            transition: 'width 0.4s ease-out',
+                                        }}/>
+                                    </div>
+                                    <span style={{fontSize:11,fontFamily:'monospace',fontWeight:700,color,textAlign:'right'}}>{fmtDurationCompact(p.total_sec)}</span>
+                                    <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,textAlign:'right'}}>{p.count}x</span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-                <div style={{overflow:'auto',maxHeight:'50vh'}}>
+            )}
+
+            {/* Resumen de actividad reciente */}
+            <div className="glass" style={{padding:16,borderRadius:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>insights</span>
+                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.06em'}}>Indicadores del período</span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:11}}>
+                    <Row label="Tiempo total de login" value={fmtDurationCompact(k.total_login_sec)} color="#3b82f6"/>
+                    <Row label="Tiempo en pausa" value={fmtDurationCompact(k.total_pause_sec)} color="#f59e0b"/>
+                    <Row label="Tiempo activo (productivo)" value={fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} color="#22c55e"/>
+                    <Row label="% Productividad" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} color={k.productive_pct > 80 ? '#22c55e' : '#f59e0b'}/>
+                    <Row label="Llamadas atendidas" value={(k.total_calls || 0).toLocaleString()} color="#ec4899"/>
+                    <Row label="Cantidad de pausas" value={k.pauses_count || 0} color="#f59e0b"/>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Row({ label, value, color }) {
+    return (
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 10px',background:'rgba(255,255,255,0.02)',borderRadius:6}}>
+            <span style={{color:'var(--muted)'}}>{label}</span>
+            <span style={{fontFamily:'monospace',fontWeight:800,color:color||'var(--text)'}}>{value}</span>
+        </div>
+    );
+}
+
+function AgentSessionsSection({ sessions = [] }) {
+    if (sessions.length === 0) {
+        return <EmptyState icon="login" title="Sin sesiones" subtitle="Este agente no se logueó en el período seleccionado"/>;
+    }
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>history</span>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Historial de sesiones</span>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:10,color:'var(--muted)'}}>{sessions.length} total</span>
+            </div>
+            <div style={{maxHeight:'calc(100vh - 240px)',overflow:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <Th>Estado</Th>
+                            <Th>Login</Th>
+                            <Th>Logout</Th>
+                            <Th align="right">Duración</Th>
+                            <Th align="right">Ext</Th>
+                            <Th align="right">Llamadas</Th>
+                            <Th align="right">Talk time</Th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sessions.map((s, i) => {
+                            const active = !s.logout_time;
+                            return (
+                                <tr key={s.session_id || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                    <Td>
+                                        <span style={{
+                                            padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,letterSpacing:'.05em',
+                                            background: active ? 'rgba(34,197,94,0.18)' : 'rgba(107,114,128,0.18)',
+                                            color: active ? '#22c55e' : '#9ca3af',
+                                            display:'inline-flex',alignItems:'center',gap:4,
+                                        }}>
+                                            <span style={{width:6,height:6,borderRadius:'50%',background:active?'#22c55e':'#6b7280',animation:active?'pulse 2s infinite':''}}/>
+                                            {active ? 'ACTIVA' : 'CERRADA'}
+                                        </span>
+                                    </Td>
+                                    <Td mono>{fmtDateTime(s.login_time)}</Td>
+                                    <Td mono>{s.logout_time ? fmtDateTime(s.logout_time) : '—'}</Td>
+                                    <Td align="right" mono><span style={{color:'#3b82f6',fontWeight:700}}>{fmtDurationCompact(s.duration_sec)}</span></Td>
+                                    <Td align="right" mono>{s.agent_ext}</Td>
+                                    <Td align="right">{s.total_calls || 0}</Td>
+                                    <Td align="right" mono>{s.total_talk_time ? fmtDurationCompact(s.total_talk_time) : '—'}</Td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function AgentPausesSection({ pauses = [], breakdown = [] }) {
+    if (pauses.length === 0) {
+        return <EmptyState icon="pause_circle" title="Sin pausas" subtitle="Este agente no tomó pausas en el período"/>;
+    }
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {breakdown.length > 0 && (
+                <div className="glass" style={{padding:16,borderRadius:12}}>
+                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:10}}>Por motivo</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
+                        {breakdown.map(b => (
+                            <div key={b.code} style={{padding:10,borderRadius:8,background:`${b.color||'#f59e0b'}15`,border:`1px solid ${b.color||'#f59e0b'}33`}}>
+                                <div style={{fontSize:10,fontWeight:800,color:b.color||'#f59e0b',marginBottom:4}}>{b.label}</div>
+                                <div style={{fontSize:18,fontWeight:900,color:'var(--text)',fontFamily:'monospace'}}>{fmtDurationCompact(b.total_sec)}</div>
+                                <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{b.count} pausas</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+                    <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>list</span>
+                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Detalle de pausas</span>
+                    <span style={{flex:1}}/>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>{pauses.length} total</span>
+                </div>
+                <div style={{maxHeight:'calc(100vh - 380px)',overflow:'auto'}}>
                     <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
                         <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
                             <tr style={{borderBottom:'1px solid var(--border)'}}>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Motivo</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Inicio</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fin</th>
-                                <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Duración</th>
+                                <Th>Motivo</Th>
+                                <Th>Inicio</Th>
+                                <Th>Fin</Th>
+                                <Th align="right">Duración</Th>
                             </tr>
                         </thead>
                         <tbody>
-                            {pauses.map((p,i)=>(
-                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                    <td style={{padding:'6px 10px',color:'#8b5cf6'}}>{p.agent_number||'—'}</td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{p.agent_ext}</td>
-                                    <td style={{padding:'6px 10px'}}><span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>{p.pause_label||p.pause_type_code}</span></td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_start}</td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_end||<span style={{color:'#22c55e'}}>(activa)</span>}</td>
-                                    <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700}}>{tfFmtSecs(p.duration_seconds)}</td>
+                            {pauses.map((p, i) => (
+                                <tr key={p.id || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                    <Td>
+                                        <span style={{padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>
+                                            {p.pause_label || p.pause_type_code}
+                                        </span>
+                                    </Td>
+                                    <Td mono>{fmtDateTime(p.pause_start)}</Td>
+                                    <Td mono>{p.pause_end ? fmtDateTime(p.pause_end) : <span style={{color:'#22c55e',fontWeight:700}}>(activa)</span>}</Td>
+                                    <Td align="right" mono><span style={{fontWeight:700,color:p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></Td>
                                 </tr>
                             ))}
                         </tbody>
@@ -5608,90 +5814,94 @@ function ReportTabPauses({ data, from, to }) {
     );
 }
 
-function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
-    const [data, setData] = useState(null); const [loading, setLoading] = useState(true);
-    useEffect(()=>{
-        (async()=>{
-            try {
-                const r = await fetch(`api/reports.php?action=agent_detail&agent=${encodeURIComponent(agent.agent_number||agent.ext)}&from=${from}&to=${to}`, {credentials:'include'});
-                const j = await r.json(); if (j.status==='ok') setData(j); else toast?.(j.message||'Error', 'error');
-            } catch(e){ toast?.('Error de red', 'error'); }
-            setLoading(false);
-        })();
-    }, [agent, from, to]);
-    const k = data?.kpi || {};
-    const exportUrl = (fmt) => `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agent.agent_number||agent.ext)}`;
+function AgentCallsSection({ calls = [] }) {
+    if (calls.length === 0) {
+        return <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="No hay registros de CDR para este agente"/>;
+    }
+    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
     return (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',justifyContent:'flex-end'}} onClick={onClose}>
-            <div onClick={e=>e.stopPropagation()} style={{width:'min(720px,95%)',background:'var(--bg)',borderLeft:'1px solid var(--border)',padding:0,overflow:'auto'}}>
-                <div style={{position:'sticky',top:0,background:'var(--surface)',padding:'14px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10,zIndex:1}}>
-                    <span className="material-icons-round" style={{color:'#8b5cf6'}}>support_agent</span>
-                    <div style={{flex:1}}>
-                        <div style={{fontSize:14,fontWeight:900}}>Agente #{agent.agent_number||agent.ext}</div>
-                        <div style={{fontSize:11,color:'var(--muted)'}}>{agent.name||'—'} · ext {agent.ext}</div>
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+                <span className="material-icons-round" style={{fontSize:18,color:'#ec4899'}}>phone</span>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Historial de llamadas</span>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:10,color:'var(--muted)'}}>{calls.length} llamadas</span>
+            </div>
+            <div style={{maxHeight:'calc(100vh - 240px)',overflow:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <Th>Fecha/Hora</Th>
+                            <Th>Origen</Th>
+                            <Th>Destino</Th>
+                            <Th>Estado</Th>
+                            <Th align="right">Duración</Th>
+                            <Th align="right">Hablado</Th>
+                            <Th align="center">Grab.</Th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {calls.slice(0, 200).map((c, i) => (
+                            <tr key={c.uniqueid || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <Td mono>{fmtDateTime(c.calldate)}</Td>
+                                <Td mono>{c.src}</Td>
+                                <Td mono>{c.dst}</Td>
+                                <Td>
+                                    <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span>
+                                </Td>
+                                <Td align="right" mono>{c.duration}s</Td>
+                                <Td align="right" mono>{c.billsec ? fmtDurationCompact(c.billsec) : '—'}</Td>
+                                <Td align="center">{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title="Reproducir"><span className="material-icons-round" style={{fontSize:16,verticalAlign:'middle'}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</Td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {calls.length > 200 && (
+                    <div style={{padding:'10px 16px',background:'var(--surface2)',borderTop:'1px solid var(--border)',textAlign:'center',fontSize:10,color:'var(--muted)'}}>
+                        Mostrando 200 más recientes de {calls.length}. Usá el export para el listado completo.
                     </div>
-                    <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{padding:'5px 10px',fontSize:10,borderRadius:6,border:'1px solid #ef4444',background:'rgba(239,68,68,0.12)',color:'#ef4444',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:13}}>picture_as_pdf</span>PDF</a>
-                    <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{padding:'5px 10px',fontSize:10,borderRadius:6,border:'1px solid #16a34a',background:'rgba(22,163,74,0.12)',color:'#16a34a',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:13}}>table_chart</span>Excel</a>
-                    <button onClick={onClose} style={{padding:6,border:'none',background:'transparent',color:'var(--muted)',cursor:'pointer'}}><span className="material-icons-round">close</span></button>
-                </div>
-                <div style={{padding:16}}>
-                    {loading && <div style={{padding:30,textAlign:'center'}}>Cargando…</div>}
-                    {!loading && data && (
-                        <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8}}>
-                                <KPICard label="Sesiones" value={k.sessions_count||0} icon="badge" color="#8b5cf6"/>
-                                <KPICard label="Login total" value={tfFmtSecs(k.total_login_sec)} icon="login" color="#3b82f6"/>
-                                <KPICard label="Pausas" value={k.pauses_count||0} icon="pause_circle" color="#f59e0b"/>
-                                <KPICard label="T. Pausa" value={tfFmtSecs(k.total_pause_sec)} icon="schedule" color="#ef4444"/>
-                                <KPICard label="Productivo" value={k.productive_pct!==null?k.productive_pct+'%':'—'} icon="trending_up" color="#22c55e"/>
-                                <KPICard label="Llamadas" value={k.total_calls||0} icon="phone" color="#ec4899"/>
-                            </div>
-                            {data.pause_breakdown?.length>0 && (
-                                <div className="glass" style={{padding:12,borderRadius:10}}>
-                                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>PAUSAS POR MOTIVO</div>
-                                    {data.pause_breakdown.map((p,i)=>(
-                                        <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                                            <span style={{minWidth:100,fontSize:11}}>{p.label}</span>
-                                            <span style={{fontSize:11,fontFamily:'monospace',color:p.color||'#f59e0b',fontWeight:700}}>{tfFmtSecs(p.total_sec)}</span>
-                                            <span style={{fontSize:10,color:'var(--muted)'}}>· {p.count} pausas</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="glass" style={{padding:12,borderRadius:10}}>
-                                <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>SESIONES ({data.sessions?.length||0})</div>
-                                <div style={{maxHeight:200,overflow:'auto',fontSize:10}}>
-                                    {(data.sessions||[]).map((s,i)=>(
-                                        <div key={i} style={{padding:'4px 0',borderBottom:'1px solid var(--border)',display:'flex',gap:8}}>
-                                            <span style={{flex:1,fontFamily:'monospace'}}>{s.login_time}</span>
-                                            <span style={{color:'var(--muted)'}}>→</span>
-                                            <span style={{flex:1,fontFamily:'monospace'}}>{s.logout_time||<span style={{color:'#22c55e'}}>(activa)</span>}</span>
-                                            <span style={{fontWeight:700,color:'#3b82f6'}}>{tfFmtSecs(s.duration_sec)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="glass" style={{padding:12,borderRadius:10}}>
-                                <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>ÚLTIMAS LLAMADAS ({data.calls?.length||0})</div>
-                                <div style={{maxHeight:300,overflow:'auto',fontSize:10}}>
-                                    {(data.calls||[]).slice(0,50).map((c,i)=>(
-                                        <div key={i} style={{padding:'4px 0',borderBottom:'1px solid var(--border)',display:'grid',gridTemplateColumns:'auto 60px 60px 80px 50px',gap:6,alignItems:'center'}}>
-                                            <span style={{fontFamily:'monospace',fontSize:9}}>{c.calldate}</span>
-                                            <span style={{fontFamily:'monospace'}}>{c.src}</span>
-                                            <span style={{fontFamily:'monospace'}}>{c.dst}</span>
-                                            <span style={{fontSize:9,color:c.disposition==='ANSWERED'?'#22c55e':'#f59e0b'}}>{c.disposition}</span>
-                                            <span style={{textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
         </div>
     );
 }
+
+// HORIZON: helpers de tabla
+function Th({ children, align = 'left' }) {
+    return (
+        <th style={{
+            padding: '8px 12px',
+            textAlign: align,
+            color: 'var(--muted)',
+            fontWeight: 800,
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '.05em',
+        }}>{children}</th>
+    );
+}
+
+function Td({ children, align = 'left', mono = false }) {
+    return (
+        <td style={{
+            padding: '8px 12px',
+            textAlign: align,
+            fontFamily: mono ? 'monospace' : 'inherit',
+            fontSize: mono ? 10 : 11,
+        }}>{children}</td>
+    );
+}
+
+function EmptyState({ icon, title, subtitle }) {
+    return (
+        <div style={{padding:50,textAlign:'center'}}>
+            <span className="material-icons-round" style={{fontSize:48,color:'var(--muted)',opacity:0.5}}>{icon}</span>
+            <div style={{marginTop:10,fontSize:14,fontWeight:700,color:'var(--text)'}}>{title}</div>
+            <div style={{marginTop:4,fontSize:11,color:'var(--muted)'}}>{subtitle}</div>
+        </div>
+    );
+}
+
 
 
 // El Softphone ahora es una PWA independiente en /softphone/
