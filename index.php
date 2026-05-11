@@ -5271,19 +5271,21 @@ function ViewColas({ toast, onReport, data }) {
                                     <td>
                                         <div style={{display:'flex',gap:-4,alignItems:'center'}}>
                                             {(q.members||[]).slice(0,5).map((m,j)=>{
-                                                const mIface = (m.iface||'').match(/(?:SIP|PJSIP)\/(\d+)/);
+                                                // Soporta SIP/PJSIP (extensiones fijas) y Local/Agent (agentes hot-desking)
+                                                const mIface = (m.iface||'').match(/(?:SIP|PJSIP|Local|Agent)\/(\d+)/);
                                                 const mExt = mIface ? mIface[1] : null;
+                                                const isLocalChannel = /^(?:Local|Agent)\//i.test(m.iface||'');
                                                 const eInfo = mExt ? extensions.find(e=>e.ext===mExt) : null;
                                                 const stat = eInfo?.status || 'OFFLINE';
-                                                const dotC = stat==='BUSY'?'#ef4444':(stat==='ONLINE'?'#22c55e':'#6b7280');
+                                                const dotC = stat==='BUSY'?'#ef4444':(stat==='ONLINE'?'#22c55e':(isLocalChannel?'#8b5cf6':'#6b7280'));
                                                 const dn = m.name && m.name!==mExt ? m.name : (eInfo?.name || mExt || '?');
                                                 const ini = (dn||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase();
                                                 return (
-                                                <div key={j} title={`${dn} · ${stat}`} style={{width:24,height:24,borderRadius:'50%',background:`linear-gradient(135deg,${dotC},${dotC}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:8,fontWeight:900,border:'2px solid var(--surface)',marginLeft:j>0?-8:0,opacity:stat==='OFFLINE'?0.5:1}}>{ini}</div>
+                                                <div key={j} title={`${dn} · ${stat}${isLocalChannel?' (agente)':' (ext fija)'}`} style={{width:24,height:24,borderRadius:'50%',background:`linear-gradient(135deg,${dotC},${dotC}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:8,fontWeight:900,border:'2px solid var(--card)',marginLeft:j>0?-8:0,opacity:stat==='OFFLINE'?0.5:1}}>{ini}</div>
                                                 );
                                             })}
-                                            {(q.members||[]).length > 5 && <span style={{fontSize:10,color:'var(--muted)',marginLeft:6,fontWeight:700}}>+{q.members.length-5}</span>}
-                                            {(q.members||[]).length === 0 && <span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>Sin miembros</span>}
+                                            {(q.members||[]).length > 5 && <span style={{fontSize:10,color:'var(--muted-foreground)',marginLeft:6,fontWeight:700}}>+{q.members.length-5}</span>}
+                                            {(q.members||[]).length === 0 && <span style={{fontSize:10,color:'var(--muted-foreground)',fontStyle:'italic'}}>Sin miembros</span>}
                                         </div>
                                     </td>
                                     <td style={{fontFamily:'monospace',fontWeight:800,color:sc}}>{w}</td>
@@ -5406,15 +5408,16 @@ function ViewColas({ toast, onReport, data }) {
                             </div>
 
                             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
-                                <div style={{fontSize:10, color:'var(--muted)', fontWeight:800, textTransform:'uppercase'}}>Agentes en la Cola</div>
+                                <div style={{fontSize:10, color:'var(--muted-foreground)', fontWeight:800, textTransform:'uppercase'}}>Miembros de la Cola</div>
                                 <div style={{fontSize:10, color:'var(--muted)', fontWeight:800}}>{q.members?.length || 0} miembros</div>
                             </div>
 
                             <div style={{display:'flex', flexDirection:'column', gap:4, minHeight:38}}>
                                 {(q.members || []).slice(0, 6).map((m,j)=>{
-                                    // m = {name, iface}. Parse ext desde iface.
-                                    const ifaceMatch = (m.iface||'').match(/(?:SIP|PJSIP)\/(\d+)/);
+                                    // m = {name, iface}. Parse ext desde iface — soporta SIP/PJSIP/Local/Agent
+                                    const ifaceMatch = (m.iface||'').match(/(?:SIP|PJSIP|Local|Agent)\/(\d+)/);
                                     const ifaceExt = ifaceMatch ? ifaceMatch[1] : null;
+                                    const isLocalChannel = /^(?:Local|Agent)\//i.test(m.iface||'');
                                     const extInfo = ifaceExt ? extensions.find(e => e.ext === ifaceExt) : null;
                                     // Status: si extInfo.status === BUSY → en llamada
                                     const memberStatus = extInfo ? extInfo.status : 'OFFLINE';
@@ -5445,7 +5448,7 @@ function ViewColas({ toast, onReport, data }) {
                                         </div>
                                     );
                                 })}
-                                {(q.members?.length || 0) === 0 && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',padding:'8px 0'}}>Sin agentes logueados — usá el botón "Login" arriba</div>}
+                                {(q.members?.length || 0) === 0 && <div style={{fontSize:11,color:'var(--muted-foreground)',fontStyle:'italic',padding:'8px 0'}}>Sin miembros en esta cola — agregá extensiones fijas o logueá agentes</div>}
                                 {q.members?.length > 10 && <div style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--muted)',fontWeight:800}}>+{q.members.length-10}</div>}
                             </div>
 
@@ -7403,8 +7406,12 @@ function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
     const [loading, setLoading] = useState(true);
     const [section, setSection] = useState('overview');
     const agentId = useMemo(() => agent?.agent_number || agent?.ext || '', [agent]);
+    // Stable ref for toast — evita re-fetch infinito cuando el padre re-renderea
+    const toastRef = useRef(toast);
+    useEffect(() => { toastRef.current = toast; }, [toast]);
 
     useEffect(() => {
+        if (!agentId) return; // sin agente, no cargar nada
         let cancelled = false;
         setLoading(true); setData(null);
         (async () => {
@@ -7413,12 +7420,12 @@ function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
                 const j = await r.json();
                 if (cancelled) return;
                 if (j.status === 'ok') setData(j);
-                else toast?.(j.message || 'Error', 'error');
-            } catch (e) { if (!cancelled) toast?.('Error de red', 'error'); }
+                else toastRef.current?.(j.message || 'Error', 'error');
+            } catch (e) { if (!cancelled) toastRef.current?.('Error de red', 'error'); }
             finally { if (!cancelled) setLoading(false); }
         })();
         return () => { cancelled = true; };
-    }, [agentId, from, to, toast]);
+    }, [agentId, from, to]);
 
     const exportUrl = useCallback((fmt) =>
         `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agentId)}`,
@@ -9714,29 +9721,18 @@ function ViewHotdesking({ data, toast }) {
                                         {loggedAgents.map(renderLogged)}
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
-                                        <div style={{
-                                            width:64, height:64, borderRadius:'50%',
-                                            background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)',
-                                            border:'2px dashed color-mix(in srgb, var(--horizon-green) 35%, transparent)',
-                                            display:'flex', alignItems:'center', justifyContent:'center',
-                                            marginBottom:14
+                                    <div className="flex items-center gap-3 py-4 px-3">
+                                        <div className="rounded-full flex items-center justify-center shrink-0" style={{
+                                            width:40, height:40,
+                                            background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)',
+                                            border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'
                                         }}>
-                                            <span className="material-icons-round" style={{fontSize:30, color:'var(--horizon-green)', opacity:0.7}}>person_off</span>
+                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>person_off</span>
                                         </div>
-                                        <div style={{fontSize:13, fontWeight:800, color:'var(--foreground)', marginBottom:4}}>Ningún agente logueado</div>
-                                        <div style={{fontSize:11, color:'var(--muted-foreground)', maxWidth:240, lineHeight:1.5, marginBottom:14}}>
-                                            Los agentes pueden loguearse marcando <strong style={{color:'var(--foreground)', fontFamily:'monospace'}}>*7700</strong> desde su teléfono, o vos podés hacerlo desde la lista de la izquierda.
-                                        </div>
-                                        <div className="flex items-center gap-3" style={{fontSize:10, color:'var(--muted-foreground)'}}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>circle</span>
-                                                Tiempo real
-                                            </div>
-                                            <div style={{width:3, height:3, borderRadius:'50%', background:'var(--muted-foreground)', opacity:0.5}}/>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>auto_awesome</span>
-                                                {offlineAgents.length} disponibles para loguear
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Ningún agente logueado</div>
+                                            <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                                                Marcá <strong className="font-mono" style={{color:'var(--horizon-green)'}}>*7700</strong> desde el teléfono · {offlineAgents.length} disponibles
                                             </div>
                                         </div>
                                     </div>
