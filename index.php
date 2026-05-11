@@ -3074,7 +3074,7 @@ function RtspInlinePreview({ ext, url, label }) {
 }
 
 // ─── RtspSnapshotGallery: histórico de capturas RTSP de los últimos 30 días ───
-function RtspSnapshotGallery({ ext }) {
+function RtspSnapshotGallery({ ext, onShotClick }) {
     const [shots, setShots] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -3140,10 +3140,11 @@ function RtspSnapshotGallery({ ext }) {
             ) : (
                 <div className="grid grid-cols-3 gap-1.5">
                     {shots.slice(0, 9).map((s, i) => (
-                        <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
-                           className="block rounded-md overflow-hidden border transition-all hover:scale-105 relative group"
-                           style={{borderColor:'var(--border)',aspectRatio:'1/1'}}
-                           title={s.timestamp}>
+                        <button key={i} type="button"
+                                onClick={()=>onShotClick ? onShotClick(s) : window.open(s.url, '_blank')}
+                                className="block w-full rounded-md overflow-hidden border transition-all hover:scale-105 hover:shadow-lg relative group cursor-pointer"
+                                style={{borderColor:'var(--border)',aspectRatio:'1/1',padding:0}}
+                                title={`Click para ampliar — ${s.timestamp}`}>
                             <img src={s.url} alt={s.timestamp} className="w-full h-full object-cover"
                                  loading="lazy"
                                  onError={ev => ev.target.style.display='none'}/>
@@ -3151,7 +3152,7 @@ function RtspSnapshotGallery({ ext }) {
                                  style={{background:'linear-gradient(0deg, rgba(0,0,0,0.7), transparent)'}}>
                                 {s.timestamp && s.timestamp.split(' ')[1]?.substring(0,5) || ''}
                             </div>
-                        </a>
+                        </button>
                     ))}
                 </div>
             )}
@@ -3180,6 +3181,10 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(ext?.avatar || null);
+    // HORIZON v4: modales para RTSP y Grabación
+    const [showRtspModal, setShowRtspModal] = useState(false);
+    const [showRecModal, setShowRecModal] = useState(false);
+    const [lightboxShot, setLightboxShot] = useState(null);
 
     // HORIZON: Tabs para ficha — Datos / Historial / Agentes
     const [activeTab, setActiveTab] = useState('datos');
@@ -3477,7 +3482,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
-                    {/* ─── 4 Cards independientes (Info | Categoría | RTSP | Estado-con-preview-rtsp) ─── */}
+                    {/* ─── 4 Cards independientes v4 (Info | Categoría+Tecno | ÚltimoAcceso+RTSP-modal | Estado+Grabación-modal) ─── */}
                     <div className="grid gap-4 lg:grid-cols-4">
 
                         {/* ─── Card 1: Información básica ─── */}
@@ -3516,7 +3521,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </CardContent>
                         </Card>
 
-                        {/* ─── Card 2: Categoría ─── */}
+                        {/* ─── Card 2: Categoría + Tecnología (toggle buttons) ─── */}
                         <Card>
                             <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -3525,62 +3530,83 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </CardTitle>
                                 <CardDescription className="text-[10px]">Discrimina Cliente vs Horizon</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-2">
-                                {Object.entries(tipoConfig).map(([v,o]) => (
-                                    <button key={v} type="button" onClick={()=>set('tipo',v)}
-                                            className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
-                                            style={{
-                                                borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
-                                                background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
-                                            }}>
-                                        <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
-                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
-                                        </div>
-                                        {form.tipo===v && (
-                                            <span className="shrink-0 rounded-full flex items-center justify-center"
-                                                  style={{width:18,height:18,background:o.color}}>
-                                                <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
+                            <CardContent className="space-y-3">
+                                {/* Toggles de tipo */}
+                                <div className="space-y-2">
+                                    {Object.entries(tipoConfig).map(([v,o]) => (
+                                        <button key={v} type="button" onClick={()=>set('tipo',v)}
+                                                className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                                style={{
+                                                    borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                    background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                                }}>
+                                            <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                                <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                            </div>
+                                            {form.tipo===v && (
+                                                <span className="shrink-0 rounded-full flex items-center justify-center"
+                                                      style={{width:18,height:18,background:o.color}}>
+                                                    <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Separator + Tecnología toggle buttons */}
+                                <Separator className="my-2"/>
+                                <div>
+                                    <Label className="block mb-2 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {devOptions.map(o => (
+                                            <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
+                                                    className="flex flex-col items-center justify-center gap-1 rounded-lg border-2 px-1.5 py-2.5 transition-all hover:shadow-sm"
+                                                    style={{
+                                                        borderColor: devType===o.v ? o.c : 'var(--border)',
+                                                        background: devType===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
+                                                    }}
+                                                    title={o.d}>
+                                                <span className="material-icons-round" style={{fontSize:20,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                                <span className="text-[10px] font-bold" style={{color:devType===o.v?o.c:'var(--foreground)'}}>{o.l}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
 
-                        {/* ─── Card 3: Videoportero / RTSP ─── */}
+                        {/* ─── Card 3: Último acceso (thumbnails RTSP) + botón configurar ─── */}
                         <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
+                            <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 gap-2">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>photo_library</span>
+                                        Último acceso
+                                    </CardTitle>
+                                    <CardDescription className="text-[10px]">Capturas RTSP últimos 30 días</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={()=>setShowRtspModal(true)} className="h-8 px-2 text-[10px] shrink-0" title="Configurar URL RTSP del stream">
+                                    <span className="material-icons-round" style={{fontSize:13,marginRight:3}}>settings</span>
                                     RTSP
-                                    <Badge variant="success" className="ml-1 text-[9px] uppercase">Nuevo</Badge>
-                                </CardTitle>
-                                <CardDescription className="text-[10px] leading-relaxed">
-                                    Configurá el stream del videoportero / cámara
-                                </CardDescription>
+                                </Button>
                             </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="rtsp-label">Etiqueta visible</Label>
-                                    <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
-                                           placeholder="Portero entrada principal" maxLength={80}/>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="rtsp-url">URL del stream</Label>
-                                    <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
-                                           placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-[11px]"/>
-                                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>rtsp:// · http(s):// · .m3u8 · .mp4</p>
-                                </div>
-                                {form.rtsp_url && (
-                                    <div className="flex gap-2 items-start rounded-md border px-2.5 py-2"
-                                         style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
-                                                 background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
-                                        <span className="material-icons-round shrink-0" style={{fontSize:14,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
-                                        <p className="text-[10px] leading-relaxed" style={{color:'var(--foreground)'}}>
-                                            Stream configurado. El preview aparecerá en el card de Estado y al recibir llamada.
+                            <CardContent>
+                                {!isNew && form.rtsp_url ? (
+                                    <RtspSnapshotGallery ext={form.ext} onShotClick={setLightboxShot}/>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 px-3 text-center gap-2">
+                                        <span className="material-icons-round" style={{fontSize:32,color:'var(--muted-foreground)',opacity:0.5}}>no_photography</span>
+                                        <p className="text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                                            {isNew ? 'Disponible al guardar el interno' : 'Configurá el stream RTSP arriba a la derecha para empezar a capturar snapshots'}
                                         </p>
+                                        {!isNew && !form.rtsp_url && (
+                                            <Button variant="outline" size="sm" onClick={()=>setShowRtspModal(true)} className="mt-1">
+                                                <span className="material-icons-round mr-1" style={{fontSize:14}}>videocam</span>
+                                                Configurar RTSP
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
@@ -3596,14 +3622,38 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </CardHeader>
                             <CardContent>
                                 {!isNew ? (
-                                    <ExtStatusPanel
-                                        ext={ext}
-                                        form={form}
-                                        avatarUrl={avatarUrl}
-                                        ini={ini}
-                                        statusColor={statusColor}
-                                        statusLabel={statusLabel}
-                                    />
+                                    <div className="space-y-3">
+                                        <ExtStatusPanel
+                                            ext={ext}
+                                            form={form}
+                                            avatarUrl={avatarUrl}
+                                            ini={ini}
+                                            statusColor={statusColor}
+                                            statusLabel={statusLabel}
+                                        />
+                                        {/* Botón Grabación de llamadas — abre modal */}
+                                        <Separator/>
+                                        <button type="button" onClick={()=>setShowRecModal(true)}
+                                                className="w-full rounded-lg border p-2.5 flex items-center gap-2.5 text-left transition-all hover:shadow-sm"
+                                                style={{
+                                                    borderColor: 'var(--border)',
+                                                    background: 'color-mix(in srgb, var(--muted) 30%, var(--card))'
+                                                }}>
+                                            {(() => {
+                                                const cur = recOptions.find(o => o.v === recording) || recOptions[1];
+                                                return (
+                                                    <>
+                                                        <span className="material-icons-round shrink-0" style={{fontSize:18,color:cur.c}}>{cur.i}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</div>
+                                                            <div className="text-xs font-bold mt-0.5" style={{color:cur.c}}>{cur.l}</div>
+                                                        </div>
+                                                        <span className="material-icons-round" style={{fontSize:16,color:'var(--muted-foreground)',opacity:0.6}}>tune</span>
+                                                    </>
+                                                );
+                                            })()}
+                                        </button>
+                                    </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
                                         <span className="material-icons-round" style={{fontSize:36,opacity:0.5}}>fiber_new</span>
@@ -3614,90 +3664,6 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </Card>
 
                     </div>
-                    {/* ─── 3 Cards independientes: Grabación | Tecnología | Último acceso ─── */}
-                    <div className="grid gap-4 lg:grid-cols-3">
-
-                        {/* Card: Grabación de llamadas */}
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                    <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
-                                    Grabación de llamadas
-                                </CardTitle>
-                                <CardDescription className="text-[10px]">Política de grabación del endpoint</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-3 gap-1.5 rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
-                                    {recOptions.map(o => (
-                                        <button key={o.v} type="button" onClick={()=>setRecording(o.v)}
-                                                className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-semibold transition-all"
-                                                style={{
-                                                    background: recording===o.v ? 'var(--card)' : 'transparent',
-                                                    color: recording===o.v ? o.c : 'var(--muted-foreground)',
-                                                    boxShadow: recording===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-                                                }}
-                                                title={o.d}>
-                                            <span className="material-icons-round" style={{fontSize:16,color:recording===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
-                                            <span className="text-[11px]">{o.l}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Card: Tecnología de dispositivo */}
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>devices</span>
-                                    Tecnología
-                                </CardTitle>
-                                <CardDescription className="text-[10px]">Tipo de endpoint SIP</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-3 gap-1.5 rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
-                                    {devOptions.map(o => (
-                                        <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
-                                                className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-semibold transition-all"
-                                                style={{
-                                                    background: devType===o.v ? 'var(--card)' : 'transparent',
-                                                    color: devType===o.v ? o.c : 'var(--muted-foreground)',
-                                                    boxShadow: devType===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-                                                }}
-                                                title={o.d}>
-                                            <span className="material-icons-round" style={{fontSize:16,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
-                                            <span className="text-[11px]">{o.l}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Card: Último acceso — galería de snapshots RTSP de los últimos 30 días */}
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>photo_library</span>
-                                    Último acceso
-                                </CardTitle>
-                                <CardDescription className="text-[10px]">Capturas RTSP · últimos 30 días</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {!isNew && form.rtsp_url ? (
-                                    <RtspSnapshotGallery ext={form.ext} />
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-6 px-3 text-center gap-2">
-                                        <span className="material-icons-round" style={{fontSize:32,color:'var(--muted-foreground)',opacity:0.5}}>no_photography</span>
-                                        <p className="text-[11px]" style={{color:'var(--muted-foreground)'}}>
-                                            {isNew ? 'Disponible al guardar el interno' : 'Configurá un stream RTSP arriba para que capturemos snapshots automáticamente'}
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                    </div>
-
                     {/* ─── Action bar ─── */}
                     <div className="flex items-center justify-end gap-2.5 pt-1">
                         <Button variant="outline" onClick={onBack}>Cancelar</Button>
@@ -3706,6 +3672,127 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             {saving ? 'Guardando…' : 'Guardar cambios'}
                         </Button>
                     </div>
+                    {/* ─── Modal RTSP config ─── */}
+                    <Dialog open={showRtspModal} onOpenChange={setShowRtspModal}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:20,color:'var(--horizon-green)'}}>videocam</span>
+                                Configurar videoportero / RTSP
+                            </DialogTitle>
+                            <DialogDescription>
+                                URL del stream del videoportero o cámara asociada a este interno. El preview aparecerá en vivo en la tarjeta Estado y al recibir llamadas.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="rtsp-label-m">Etiqueta visible</Label>
+                                <Input id="rtsp-label-m" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                       placeholder="Portero entrada principal" maxLength={80}/>
+                                <p className="text-[11px]" style={{color:'var(--muted-foreground)'}}>Texto que aparece junto al video</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="rtsp-url-m">URL del stream</Label>
+                                <Input id="rtsp-url-m" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                       placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-xs"/>
+                                <p className="text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                                    Acepta <span className="font-mono">rtsp://</span>, <span className="font-mono">rtsps://</span>, <span className="font-mono">http(s)://</span>, <span className="font-mono">.m3u8</span> (HLS), <span className="font-mono">.mp4</span>
+                                </p>
+                            </div>
+                            {form.rtsp_url && (
+                                <div className="flex gap-2.5 items-start rounded-md border px-3 py-2.5"
+                                     style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
+                                             background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
+                                    <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
+                                    <p className="text-xs leading-relaxed" style={{color:'var(--foreground)'}}>
+                                        Stream configurado. Apenas guardes el interno, las capturas comenzarán a aparecer en "Último acceso".
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            {form.rtsp_url && (
+                                <Button variant="outline" onClick={()=>{ set('rtsp_url',''); set('rtsp_label',''); }}>
+                                    <span className="material-icons-round mr-1.5" style={{fontSize:14}}>delete</span>
+                                    Limpiar
+                                </Button>
+                            )}
+                            <Button onClick={()=>setShowRtspModal(false)}>
+                                <span className="material-icons-round mr-1.5" style={{fontSize:14}}>check</span>
+                                Listo
+                            </Button>
+                        </DialogFooter>
+                    </Dialog>
+
+                    {/* ─── Modal Grabación de llamadas ─── */}
+                    <Dialog open={showRecModal} onOpenChange={setShowRecModal}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:20,color:'#ef4444'}}>fiber_manual_record</span>
+                                Política de grabación
+                            </DialogTitle>
+                            <DialogDescription>
+                                Definí cómo se graban las llamadas de este interno
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2 mt-2">
+                            {recOptions.map(o => (
+                                <button key={o.v} type="button" onClick={()=>{ setRecording(o.v); }}
+                                        className="relative w-full rounded-lg border-2 p-4 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                        style={{
+                                            borderColor: recording===o.v ? o.c : 'var(--border)',
+                                            background: recording===o.v ? `color-mix(in srgb, ${o.c} 8%, var(--card))` : 'var(--card)'
+                                        }}>
+                                    <span className="material-icons-round shrink-0" style={{fontSize:24,color:o.c}}>{o.i}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold" style={{color:recording===o.v?o.c:'var(--foreground)'}}>{o.l}</div>
+                                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.d}</div>
+                                    </div>
+                                    {recording===o.v && (
+                                        <span className="shrink-0 rounded-full flex items-center justify-center"
+                                              style={{width:22,height:22,background:o.c}}>
+                                            <span className="material-icons-round text-white" style={{fontSize:14}}>check</span>
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={()=>setShowRecModal(false)}>
+                                <span className="material-icons-round mr-1.5" style={{fontSize:14}}>check</span>
+                                Listo
+                            </Button>
+                        </DialogFooter>
+                    </Dialog>
+
+                    {/* ─── Lightbox para snapshot clickeado ─── */}
+                    {lightboxShot && (
+                        <Dialog open={true} onOpenChange={()=>setLightboxShot(null)}>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                    <span className="material-icons-round" style={{fontSize:20,color:'var(--horizon-green)'}}>photo</span>
+                                    Captura del {lightboxShot.timestamp}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Snapshot del videoportero / cámara
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="rounded-lg overflow-hidden border" style={{borderColor:'var(--border)',background:'#0a0a0d'}}>
+                                <img src={lightboxShot.url} alt={lightboxShot.timestamp}
+                                     className="w-full max-h-[70vh] object-contain"
+                                     style={{display:'block'}}/>
+                            </div>
+                            <DialogFooter>
+                                <Button asLink href={lightboxShot.url} target="_blank" variant="outline">
+                                    <span className="material-icons-round mr-1.5" style={{fontSize:14}}>open_in_new</span>
+                                    Abrir en pestaña
+                                </Button>
+                                <Button onClick={()=>setLightboxShot(null)}>
+                                    Cerrar
+                                </Button>
+                            </DialogFooter>
+                        </Dialog>
+                    )}
+
                 </div>
 
                 {/* COLUMNA LATERAL */}
