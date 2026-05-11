@@ -2431,7 +2431,7 @@ function LiveCallNotifications({ calls, extensions }) {
             {notifs.map(n => (
                 <div key={n.id} className="glass glass-hover" style={{
                     width:280, padding:14, borderRadius:18, display:'flex', alignItems:'center', gap:12, 
-                    border:'1px solid rgba(139,92,246,0.3)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
+                    border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)', background:'rgba(15,15,25,0.9)', backdropFilter:'blur(20px)',
                     animation:'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards'
                 }}>
                     <div style={{position:'relative'}}>
@@ -2552,7 +2552,7 @@ function ViewDashboard({ data }) {
     // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
     const systemStats = [
         { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
-        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'rgba(139,92,246,0.12)',  color: '#8b5cf6' },
+        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'rgba(139,92,246,0.12)',  color:'var(--primary)' },
         { label: 'Disco',       val: `${disk}%`, icon: 'storage',    bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b' },
         { label: 'Conexiones',  val: conn,       icon: 'cable',      bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
     ];
@@ -2725,7 +2725,7 @@ function ViewDashboard({ data }) {
                 {/* Extensiones activas */}
                 <div className="glass" style={{padding:'20px'}}>
                     <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>group</span>
+                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>group</span>
                         Extensiones Activas
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -2749,7 +2749,7 @@ function ViewDashboard({ data }) {
                 {/* Últimas grabaciones */}
                 <div className="glass" style={{padding:'20px'}}>
                     <div style={{fontSize:13,fontWeight:700,color:'white',marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
+                        <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>mic</span>
                         Últimas Grabaciones
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -2758,7 +2758,7 @@ function ViewDashboard({ data }) {
                                 <div style={{fontSize:11,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
                                 <div style={{fontSize:10,color:'#6b7280',display:'flex',justifyContent:'space-between',marginTop:2}}>
                                     <span>{r.calldate?.substring(0,16)}</span>
-                                    <span style={{color:'#c4b5fd'}}>{r.duration}s</span>
+                                    <span style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>{r.duration}s</span>
                                 </div>
                             </div>
                         ))}
@@ -2841,7 +2841,7 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
                     </div>
                 )}
                 {!uploading && (
-                    <div style={{position:'absolute',bottom:0,right:0,width:size*0.32,height:size*0.32,borderRadius:'50%',background:'#8b5cf6',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--surface)',boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}>
+                    <div style={{position:'absolute',bottom:0,right:0,width:size*0.32,height:size*0.32,borderRadius:'50%',background:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--surface)',boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:size*0.18}}>photo_camera</span>
                     </div>
                 )}
@@ -2918,7 +2918,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     const tipoConfig = {
         '': { color: '#6b7280', icon: 'help_outline', label: 'Sin asignar', desc: 'Sin clasificar' },
-        'horizon': { color: '#8b5cf6', icon: 'business', label: 'Horizon', desc: 'Interno propio' },
+        'horizon': { color:'var(--primary)', icon: 'business', label: 'Horizon', desc: 'Interno propio' },
         'cliente': { color: '#3b82f6', icon: 'person', label: 'Cliente', desc: 'Cliente externo' }
     };
 
@@ -3027,16 +3027,16 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     </div>
                     <div style={{flex:1,paddingTop:50,minWidth:200}}>
                         <h1 style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px'}}>{form.name || 'Sin nombre'}</h1>
-                        <div style={{fontFamily:'monospace',fontSize:14,color:'#c4b5fd',fontWeight:800,marginTop:2}}>#{form.ext || '----'}</div>
+                        <div style={{fontFamily:'monospace',fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,marginTop:2}}>#{form.ext || '----'}</div>
                     </div>
                     <div style={{display:'flex',gap:8,paddingTop:50,flexWrap:'wrap'}}>
                         {ext?.status && <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:24,background:`${statusColor}22`,border:`1.5px solid ${statusColor}66`,boxShadow:`0 4px 12px ${statusColor}33`}}>
                             <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 10px ${statusColor}`,animation:ext.status==='BUSY'?'pulse 1s infinite':'none'}}/>
                             <span style={{fontSize:11,fontWeight:900,color:statusColor,textTransform:'uppercase',letterSpacing:'.05em'}}>{statusLabel}</span>
                         </div>}
-                        {ext?.ip && ext.ip !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,0.3)'}}>
+                        {ext?.ip && ext.ip !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
                             <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>IP</span>
-                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#c4b5fd'}}>{ext.ip}</span>
+                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>{ext.ip}</span>
                         </div>}
                         {ext?.rtt && ext.rtt !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.25)'}}>
                             <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>RTT</span>
@@ -3215,7 +3215,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     {/* Información Básica */}
                     <div className="glass" style={{padding:22,borderRadius:16}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>info</span>
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>info</span>
                             <h3 style={{fontSize:13,fontWeight:800,letterSpacing:'.02em'}}>Información Básica</h3>
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
@@ -3314,7 +3314,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             ))}
                         </div>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>devices</span>
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>devices</span>
                             <h3 style={{fontSize:13,fontWeight:800}}>Tecnología de dispositivo</h3>
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
@@ -3376,8 +3376,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     )}
 
                     {/* Tip aplicar cambios */}
-                    <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd',flexShrink:0,marginTop:1}}>info</span>
+                    <div style={{padding:'12px 14px',borderRadius:12,background:'color-mix(in srgb, var(--primary) 6%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 20%, transparent)',display:'flex',gap:10,alignItems:'flex-start'}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',flexShrink:0,marginTop:1}}>info</span>
                         <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.45}}>Los cambios aplicarán un <strong style={{color:'var(--text)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.</div>
                     </div>
                 </div>
@@ -3483,7 +3483,7 @@ function ExtensionRow({ e, liveCalls, onClick }) {
                 ) : <span style={{color:'var(--muted)',fontSize:11}}>—</span>}
             </td>
             <td><code style={{fontSize:11,color:'#ec4899'}}>{e.ip}</code></td>
-            <td style={{color:'#c4b5fd',fontSize:11,fontFamily:'monospace'}}>{e.rtt}</td>
+            <td style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontSize:11,fontFamily:'monospace'}}>{e.rtt}</td>
             <td>
                 {tipo ? (
                     <span style={{fontSize:10,padding:'3px 9px',borderRadius:5,background:`${tipoColor}22`,color:tipoColor,fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',border:`1px solid ${tipoColor}55`}}>
@@ -3856,7 +3856,7 @@ function ViewAgentes({ toast, data }) {
                                     <td>
                                         <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
                                             {a.queues.slice(0,4).map((q,i)=>(
-                                                <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                                <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:700}}>
                                                     Q{q.queue||q}
                                                 </span>
                                             ))}
@@ -3909,7 +3909,7 @@ function ViewAgentes({ toast, data }) {
                         {a.queues.length > 0 && (
                             <div style={{display:'flex',flexWrap:'wrap',gap:3}}>
                                 {a.queues.slice(0,5).map((q,i)=>(
-                                    <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                    <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:700}}>
                                         Q{q.queue || q}
                                     </span>
                                 ))}
@@ -3998,13 +3998,13 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
                     {/* Colas asignadas */}
                     <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
                         <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:13,color:'#c4b5fd'}}>queue</span>
+                            <span className="material-icons-round" style={{fontSize:13,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>queue</span>
                             Colas asignadas ({(agent.queues||[]).length})
                         </div>
                         <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                             {(agent.queues||[]).length===0 && <span style={{fontSize:11,color:'var(--muted)',fontStyle:'italic'}}>Sin colas activas</span>}
                             {(agent.queues||[]).map((q,i)=>(
-                                <span key={i} style={{fontSize:10,padding:'4px 10px',borderRadius:6,background:'rgba(139,92,246,0.18)',border:'1px solid rgba(139,92,246,0.3)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>
+                                <span key={i} style={{fontSize:10,padding:'4px 10px',borderRadius:6,background:'color-mix(in srgb, var(--primary) 18%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:800}}>
                                     Q{q.queue || q}
                                 </span>
                             ))}
@@ -4050,8 +4050,8 @@ function ViewVivo({ data }) {
                         <div key={i} className="live-call-card">
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                 <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <div style={{width:36,height:36,borderRadius:10,background:'rgba(139,92,246,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:18,color:'#c4b5fd'}}>call</span>
+                                    <div style={{width:36,height:36,borderRadius:10,background:'color-mix(in srgb, var(--primary) 20%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                        <span className="material-icons-round" style={{fontSize:18,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>call</span>
                                     </div>
                                     <div>
                                         <div style={{fontSize:13,fontWeight:700,color:'white'}}>{c.src} → {c.dst}</div>
@@ -4082,8 +4082,8 @@ function ViewGrabaciones({ data }) {
                         <div key={i} className="glass" style={{padding:'16px 18px'}}>
                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                                 <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                                    <div style={{width:34,height:34,borderRadius:9,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd'}}>mic</span>
+                                    <div style={{width:34,height:34,borderRadius:9,background:'color-mix(in srgb, var(--primary) 15%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                        <span className="material-icons-round" style={{fontSize:16,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>mic</span>
                                     </div>
                                     <div>
                                         <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
@@ -4091,7 +4091,7 @@ function ViewGrabaciones({ data }) {
                                     </div>
                                 </div>
                                 <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'rgba(139,92,246,0.12)',color:'#c4b5fd',fontWeight:600}}>{r.duration}s</span>
+                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:600}}>{r.duration}s</span>
                                     <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:r.disposition==='ANSWERED'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)',color:r.disposition==='ANSWERED'?'#4ade80':'#f87171',fontWeight:600}}>{r.disposition}</span>
                                 </div>
                             </div>
@@ -4458,7 +4458,7 @@ function ViewCDR() {
             <div className="glass" style={{overflow:'hidden'}}>
                 <table className="tf-table">
                     <thead>
-                        <tr style={{background:'rgba(139,92,246,0.05)'}}>
+                        <tr style={{background:'color-mix(in srgb, var(--primary) 5%, transparent)'}}>
                             <th style={{padding:'12px 16px'}}><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>schedule</span>Fecha y Hora</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_made</span>Origen</th>
                             <th><span className="material-icons-round" style={{fontSize:13,verticalAlign:'middle',marginRight:4}}>call_received</span>Destino</th>
@@ -4480,8 +4480,8 @@ function ViewCDR() {
                                         </td>
                                         <td>
                                             <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                                <div style={{width:28,height:28,borderRadius:8,background:'rgba(139,92,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                    <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>call_made</span>
+                                                <div style={{width:28,height:28,borderRadius:8,background:'color-mix(in srgb, var(--primary) 15%, transparent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                    <span className="material-icons-round" style={{fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>call_made</span>
                                                 </div>
                                                 <div>
                                                     <div style={{fontWeight:700,fontSize:13}}>{r.src}</div>
@@ -4510,8 +4510,8 @@ function ViewCDR() {
                                         <td>
                                             {r.recordingfile
                                                 ?<div style={{display:'flex',alignItems:'center',gap:6}}>
-                                                    <span className="material-icons-round" style={{fontSize:16,color:'#8b5cf6'}}>mic</span>
-                                                    <span style={{fontSize:10,color:'#c4b5fd',fontWeight:600}}>Ver ↓</span>
+                                                    <span className="material-icons-round" style={{fontSize:16,color:'var(--primary)'}}>mic</span>
+                                                    <span style={{fontSize:10,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:600}}>Ver ↓</span>
                                                   </div>
                                                 :<span style={{color:'#374151',fontSize:12}}>—</span>
                                             }
@@ -4545,7 +4545,7 @@ function ViewCDR() {
 function HotdeskingWizard({ onClose }) {
     const steps = [
         { 
-            icon:'badge', color:'#8b5cf6',
+            icon:'badge', color:'var(--primary)',
             title:'1. Agente (persona)',
             text:'Cada agente es una persona del callcenter — no una extensión. Se identifica con un número (ej. 200) y un nombre (Brian Perez). Vive en la tabla call_center.agent de la PBX. Lo creás desde el botón "Nuevo Agente".'
         },
@@ -4926,7 +4926,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                     {/* COLUMNA IZQUIERDA: Selector de agente */}
                     <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
                         <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>person</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>person</span>
                             Agente
                         </label>
                         <div style={{position:'relative',marginBottom:10}}>
@@ -5201,7 +5201,7 @@ function ViewColas({ toast, onReport, data }) {
                                     <td>
                                         <div style={{display:'flex',gap:4}}>
                                             <button onClick={()=>setLoginModalQ(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer'}}>Login</button>
-                                            {onReport && <button onClick={()=>onReport(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer'}}>Reporte</button>}
+                                            {onReport && <button onClick={()=>onReport(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:10,cursor:'pointer'}}>Reporte</button>}
                                             <button onClick={()=>setDrawer(q)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}>
                                                 <span className="material-icons-round" style={{fontSize:13}}>settings</span>
                                             </button>
@@ -5242,7 +5242,7 @@ function ViewColas({ toast, onReport, data }) {
                                 { icon:'person_add',     label:'Login agente',       color:'#22c55e', onClick:(e)=>{e.stopPropagation(); setLoginModalQ(q.id);} },
                                 { icon:'person_remove',  label:'Logout agente',      color:'#ef4444', onClick:(e)=>{e.stopPropagation(); setLogoutModalQ(q.id);} },
                                 { icon:'group',          label:'Ver agentes online', color:'#3b82f6', onClick:(e)=>{e.stopPropagation(); setQueueAgentsModalQ(q);} },
-                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'#8b5cf6', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
+                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'var(--primary)', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
                                 { icon:'settings',       label:'Configurar cola',    color:'#a1a8b8', onClick:(e)=>{e.stopPropagation(); setDrawer(q);} },
                             ].map((b,i)=>(
                                 <button key={i} type="button" onClick={b.onClick} className="tf-q-btn" style={{width:'100%',maxWidth:200,padding:'10px 14px',borderRadius:10,border:`1px solid ${b.color}55`,background:`linear-gradient(135deg,${b.color}26,${b.color}10)`,color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'all .15s ease',pointerEvents:'auto'}}>
@@ -5627,7 +5627,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                     {/* Row 2: Timeout */}
                     <div style={{marginBottom:20}}>
                         <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>
-                            Tiempo de Timbrado <span style={{color:'#c4b5fd', fontFamily:'monospace'}}>({form.grptime}s)</span>
+                            Tiempo de Timbrado <span style={{color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', fontFamily:'monospace'}}>({form.grptime}s)</span>
                         </label>
                         <div style={{display:'flex', alignItems:'center', gap:12}}>
                             <input
@@ -5705,12 +5705,12 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                                         style={{
                                             display:'flex', alignItems:'center', gap:6,
                                             padding:'6px 10px 6px 14px', borderRadius:10,
-                                            background:'rgba(139,92,246,0.1)',
-                                            border:'1px solid rgba(139,92,246,0.25)',
-                                            fontSize:12, fontWeight:700, color:'#c4b5fd'
+                                            background:'color-mix(in srgb, var(--primary) 10%, transparent)',
+                                            border:'1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
+                                            fontSize:12, fontWeight:700, color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'
                                         }}
                                     >
-                                        <span className="material-icons-round" style={{fontSize:13,color:'#8b5cf6'}}>phone</span>
+                                        <span className="material-icons-round" style={{fontSize:13,color:'var(--primary)'}}>phone</span>
                                         #{m}
                                         <button
                                             onClick={()=>removeMember(m)}
@@ -5732,7 +5732,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                         </div>
                         <input
                             className="input-tf"
-                            style={{marginTop:6, padding:'10px 16px', borderRadius:12, fontSize:12, fontFamily:'monospace', width:'100%', boxSizing:'border-box', color:'#c4b5fd'}}
+                            style={{marginTop:6, padding:'10px 16px', borderRadius:12, fontSize:12, fontFamily:'monospace', width:'100%', boxSizing:'border-box', color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}
                             placeholder="1001-1002-1003"
                             value={form.grplist}
                             onChange={e => set('grplist', e.target.value)}
@@ -6235,7 +6235,7 @@ function ViewRadar({ data, toast }) {
                                 <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
                                     <span className="material-icons-round" style={{fontSize:12}}>record_voice_over</span>Susurro
                                 </button>
-                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
                                     <span className="material-icons-round" style={{fontSize:12}}>group</span>Barge
                                 </button>
                                 <button onClick={()=>handleAssign(c)} title="Asignar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
@@ -6523,7 +6523,7 @@ function ViewVivo2({ data, toast, initialFilter }) {
                                 <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar al agente" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
                                     <span className="material-icons-round" style={{fontSize:14}}>record_voice_over</span>Susurrar
                                 </button>
-                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',background:'color-mix(in srgb, var(--primary) 8%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
                                     <span className="material-icons-round" style={{fontSize:14}}>group</span>Intervenir
                                 </button>
                                 <button onClick={()=>handleAssign(c)} title="Asignar a otra ext/cola" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
@@ -7649,17 +7649,17 @@ const SIP_PARSERS = [
     { re: /\bCANCEL\b/,        color:'#9ca3af', label:'CANCEL',   icon:'close' },
     { re: /\bUPDATE\b/,        color:'#60a5fa', label:'UPDATE',   icon:'update' },
     { re: /\bOPTIONS\b/,    color:'#93c5fd', label:'OPTIONS',  icon:'settings' },
-    { re: /\bNOTIFY\b/,     color:'#c4b5fd', label:'NOTIFY',   icon:'notifications' },
+    { re: /\bNOTIFY\b/,     color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', label:'NOTIFY',   icon:'notifications' },
     { re: /is ringing/i,     color:'#f59e0b', label:'SONANDO',    icon:'notifications_active' },
     { re: /answered/i,       color:'#22c55e', label:'CONTESTADA', icon:'call' },
     { re: /is now Unreachable/i, color:'#ef4444', label:'OFFLINE',    icon:'link_off' },
     { re: /is now Reachable/i,   color:'#22c55e', label:'ONLINE',     icon:'link' },
     { re: /is now Lagged/i,      color:'#f59e0b', label:'LAGGED',     icon:'timer' },
-    { re: /m=audio/i,          color:'#c4b5fd', label:'SDP AUDIO', icon:'audiotrack' },
+    { re: /m=audio/i,          color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))', label:'SDP AUDIO', icon:'audiotrack' },
     { re: /m=video/i,          color:'#f472b6', label:'SDP VIDEO', icon:'videocam' },
     { re: /ICE candidate/i,    color:'#2dd4bf', label:'ICE CAND',  icon:'lan' },
     { re: /ICE state changed/i, color:'#fb923c', label:'ICE STATE', icon:'wifi_tethering' },
-    { re: /\bREINVITE\b/i,     color:'#8b5cf6', label:'RE-INVITE', icon:'history' },
+    { re: /\bREINVITE\b/i,     color:'var(--primary)', label:'RE-INVITE', icon:'history' },
     { re: /\bWARNING\b/i,   color:'#eab308', label:'WARNING',  icon:'warning' },
     { re: /\bERROR\b/i,     color:'#ef4444', label:'ERROR',    icon:'error_outline' },
     { re: /\bCRITICAL\b/i,  color:'#dc2626', label:'CRITICAL', icon:'gavel' },
@@ -7715,9 +7715,9 @@ function SIPLogLine({ line, idx }) {
                     
                     {extChip && (
                         <span style={{
-                            fontSize:10, fontWeight:700, color:'#c4b5fd',
-                            background: 'rgba(139,92,246,0.15)',
-                            border:'1px solid rgba(139,92,246,0.3)',
+                            fontSize:10, fontWeight:700, color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',
+                            background:'color-mix(in srgb, var(--primary) 15%, transparent)',
+                            border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)',
                             padding:'1px 6px', borderRadius:6,
                             display:'flex', alignItems:'center', gap:3, flexShrink:0
                         }}>
@@ -8094,7 +8094,7 @@ function IVRDesignerApp({ toast }) {
                         draggable 
                         style={{display:'flex', alignItems:'center', gap:12, padding:12, background:'var(--surface)', border:'1px dashed var(--border)', borderRadius:12, cursor:'grab'}}
                     >
-                        <div style={{width:32, height:32, background:'rgba(139,92,246,0.1)', color:'var(--accent)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <div style={{width:32, height:32, background:'color-mix(in srgb, var(--primary) 10%, transparent)', color:'var(--accent)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
                             <span className="material-icons-round" style={{fontSize:18}}>splitscreen</span>
                         </div>
                         <span style={{fontSize:13, fontWeight:700, color:'var(--text)'}}>Menú de Opciones</span>
@@ -8177,7 +8177,7 @@ function IVRDesignerApp({ toast }) {
                         zIndex: 101, animation: 'viewIn 0.3s ease', boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
                         overflow: 'hidden'
                     }}>
-                        <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'rgba(139,92,246,0.1)'}}>
+                        <div style={{padding:20, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'color-mix(in srgb, var(--primary) 10%, transparent)'}}>
                             <div>
                                 <h3 style={{fontSize:16, fontWeight:800, color:'var(--text)', margin:0}}>Propiedades</h3>
                                 <p style={{fontSize:10, color:'var(--muted)', marginTop:2, textTransform:'uppercase', fontWeight:800, margin:0}}>ID: {selectedNode.id}</p>
@@ -9641,10 +9641,10 @@ function ViewHotdesking({ data, toast }) {
                                     </div></td>
                                     <td style={{fontFamily:'monospace',fontWeight:800,fontSize:13}}>#{a.number}</td>
                                     <td style={{fontSize:13,fontWeight:700}}>{a.name}</td>
-                                    <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontWeight:700}}>{a.type||'Agent'}</span></td>
+                                    <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:700}}>{a.type||'Agent'}</span></td>
                                     <td style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:a.extension?'var(--text)':'var(--muted)'}}>{a.extension||'—'}</td>
                                     <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-                                        {(a.queues||[]).slice(0,5).map((qm,i)=>(<span key={i} style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{qm.queue||qm}</span>))}
+                                        {(a.queues||[]).slice(0,5).map((qm,i)=>(<span key={i} style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontFamily:'monospace',fontWeight:800}}>Q{qm.queue||qm}</span>))}
                                         {(a.queues||[]).length===0 && <span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>—</span>}
                                     </div></td>
                                     <td><div style={{display:'flex',gap:4}}>
@@ -9828,7 +9828,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                     {/* Tipo */}
                     <div style={{marginBottom:14}}>
                         <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>devices</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>devices</span>
                             Tipo de interface
                         </label>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
@@ -9876,13 +9876,13 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                 {!isNew && (
                     <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'rgba(139,92,246,0.04)',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                         <div style={{flex:1,minWidth:0,fontSize:11,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>headset_mic</span>
+                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>headset_mic</span>
                             Sesión telefónica
                         </div>
                         <button type="button" onClick={()=>{
                             window.dispatchEvent(new CustomEvent('tf-open-report', {detail: agent}));
                             onClose();
-                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.12)',color:'#c4b5fd',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                             <span className="material-icons-round" style={{fontSize:16}}>analytics</span>Reporte
                         </button>
                         {agent?.logged_in ? (
@@ -9930,7 +9930,7 @@ function Field({ label, icon, required, error, hint, children }) {
     return (
         <div style={{marginBottom:14,position:'relative'}}>
             <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
-                <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>{icon}</span>
+                <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>{icon}</span>
                 {label}{required && <span style={{color:'#ef4444',marginLeft:2}}>*</span>}
                 {hint && <span style={{textTransform:'none',color:'var(--muted)',fontWeight:500,marginLeft:'auto',fontSize:9}}>{hint}</span>}
             </label>
@@ -10574,8 +10574,8 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
                                 </div>
                             ))}
                         </div>
-                        <div style={{marginTop:14,padding:'10px 12px',background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',borderRadius:10,fontSize:10,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>info</span>
+                        <div style={{marginTop:14,padding:'10px 12px',background:'color-mix(in srgb, var(--primary) 6%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 20%, transparent)',borderRadius:10,fontSize:10,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>info</span>
                             Datos via AMI a {pbxBrand?.brand||'asterisk'} en {data?.system?.connections||0} conexiones TCP activas
                         </div>
                     </div>
