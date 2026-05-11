@@ -298,13 +298,13 @@ header('Expires: 0');
         .hzn-login-root {
             position: fixed; inset: 0;
             display: grid;
-            grid-template-columns: 1fr 520px;   /* form izquierda (1fr) · imagen derecha (520px) */
+            grid-template-columns: 1fr 2fr;   /* form 1/3 (izquierda) · imagen 2/3 (derecha) */
             background: #fff;
             color: var(--horizon-black);
             font-family: 'Inter', sans-serif;
             overflow: hidden;
         }
-        /* Flip: imagen a la DERECHA, form a la IZQUIERDA */
+        /* Form a la IZQUIERDA, imagen a la DERECHA */
         .hzn-login-form-wrap { order: 1; grid-column: 1; }
         .hzn-login-hero      { order: 2; grid-column: 2; }
 
@@ -340,7 +340,7 @@ header('Expires: 0');
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 40px 36px;
+            padding: 50px 60px;
             color: #fff;
         }
         .hzn-logo {
@@ -354,7 +354,7 @@ header('Expires: 0');
             box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 4px rgba(17,179,40,0.18);
         }
         .hzn-logo-text {
-            font-size: 22px; font-weight: 900;
+            font-size: 26px; font-weight: 900;
             letter-spacing: 0.08em;
             color: #fff;
             line-height: 1;
@@ -368,14 +368,14 @@ header('Expires: 0');
         }
         .hzn-login-tagline { max-width: 520px; }
         .hzn-login-tagline h1 {
-            font-size: 30px; font-weight: 800;
+            font-size: 40px; font-weight: 800;
             letter-spacing: -0.02em;
             line-height: 1.1;
             margin: 0 0 14px;
             color: #fff;
         }
         .hzn-login-tagline p {
-            font-size: 13.5px; font-weight: 500;
+            font-size: 15px; font-weight: 500;
             line-height: 1.6;
             color: rgba(255,255,255,0.78);
             margin: 0;
