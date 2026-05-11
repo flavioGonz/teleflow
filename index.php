@@ -2871,6 +2871,292 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
 }
 
 
+// ─── ExtStatusPanel: estado en vivo del interno con preview RTSP y RTT animado ───
+function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel }) {
+    // Parse RTT (puede venir como "12ms", "150ms", "—", null, etc.)
+    const rttMs = useMemo(() => {
+        if (!ext?.rtt || ext.rtt === '—') return null;
+        const m = String(ext.rtt).match(/(\d+(?:\.\d+)?)/);
+        return m ? parseFloat(m[1]) : null;
+    }, [ext?.rtt]);
+    // Threshold: <60 verde, 60-150 amarillo, >150 rojo
+    const rttGrade = rttMs === null ? null : (rttMs < 60 ? 'good' : (rttMs < 150 ? 'mid' : 'bad'));
+    const rttColor = rttGrade === 'good' ? '#22c55e' : (rttGrade === 'mid' ? '#f59e0b' : (rttGrade === 'bad' ? '#ef4444' : 'var(--muted-foreground)'));
+    const rttPulseSpeed = rttGrade === 'good' ? '2.4s' : (rttGrade === 'mid' ? '1.4s' : '0.8s');
+
+    const hasRtsp = !!form?.rtsp_url;
+
+    return (
+        <div className="flex flex-col gap-3">
+            {/* Preview RTSP en vivo (si hay URL) */}
+            {hasRtsp && (
+                <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label}/>
+            )}
+
+            {/* Avatar + nombre + status */}
+            <div className="flex flex-col items-center gap-2">
+                <div className="relative shrink-0">
+                    {form.ext && avatarUrl ? (
+                        <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
+                             className="rounded-full object-cover"
+                             style={{width: hasRtsp ? 52 : 72, height: hasRtsp ? 52 : 72, border:'3px solid var(--background)', boxShadow:'0 4px 12px rgba(0,0,0,.15)'}}
+                             onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
+                    ) : null}
+                    <div className="rounded-full flex items-center justify-center font-black text-white"
+                         style={{
+                             width: hasRtsp ? 52 : 72, height: hasRtsp ? 52 : 72, fontSize: hasRtsp ? 17 : 22,
+                             background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                             display: form.ext && avatarUrl ? 'none' : 'flex',
+                             boxShadow:'0 4px 12px rgba(0,0,0,.15)'
+                         }}>{ini}</div>
+                    <div className="absolute rounded-full"
+                         style={{
+                             bottom:0, right:0,
+                             width: hasRtsp ? 14 : 18, height: hasRtsp ? 14 : 18,
+                             background: statusColor,
+                             border:'3px solid var(--card)',
+                             animation: ext?.status === 'BUSY' ? 'pulse 1.4s ease-in-out infinite' : 'none'
+                         }}/>
+                </div>
+                <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
+                    {statusLabel}
+                </Badge>
+            </div>
+
+            {/* Métricas */}
+            <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                {/* IP */}
+                <div className="flex items-center justify-between px-3 py-2"
+                     style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                    <div className="flex items-center gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>lan</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>IP</span>
+                    </div>
+                    <span className="font-mono text-xs font-bold" style={{color: ext?.ip && ext.ip !== '—' ? '#3b82f6' : 'var(--muted-foreground)'}}>{ext?.ip || '—'}</span>
+                </div>
+                {/* RTT con animación */}
+                <div className="flex items-center justify-between px-3 py-2 border-t" style={{borderColor:'var(--border)'}}>
+                    <div className="flex items-center gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>speed</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>RTT</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        {rttGrade && (
+                            <span style={{
+                                width:8, height:8, borderRadius:'50%',
+                                background:rttColor,
+                                boxShadow:`0 0 6px ${rttColor}`,
+                                animation:`pulse ${rttPulseSpeed} ease-in-out infinite`
+                            }}/>
+                        )}
+                        <span className="font-mono text-xs font-bold" style={{color:rttColor}}>
+                            {rttMs !== null ? `${rttMs}ms` : '—'}
+                        </span>
+                        {rttGrade && (
+                            <span className="text-[9px] font-bold uppercase ml-1" style={{color:rttColor,opacity:0.85}}>
+                                {rttGrade === 'good' ? 'OK' : (rttGrade === 'mid' ? 'MID' : 'HIGH')}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                {/* MAC */}
+                <div className="flex items-center justify-between px-3 py-2 border-t" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                    <div className="flex items-center gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>memory</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>MAC</span>
+                    </div>
+                    <span className="font-mono text-[11px] font-bold" style={{color:'var(--muted-foreground)'}}>{ext?.mac || '—'}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── RtspInlinePreview: miniatura HLS embebida en la columna Estado ───────
+function RtspInlinePreview({ ext, url, label }) {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [resolvedUrl, setResolvedUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!url) return;
+        let cancelled = false;
+        setLoading(true); setError(null); setResolvedUrl(null);
+        const isRtsp = /^rtsps?:\/\//i.test(url);
+        if (isRtsp && ext) {
+            fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+                .then(r => r.json())
+                .then(d => {
+                    if (cancelled) return;
+                    if (d.status === 'ok' && d.hls_url) setResolvedUrl(d.hls_url);
+                    else setError(d.message || 'Proxy no disponible');
+                })
+                .catch(() => { if (!cancelled) setError('Error de proxy'); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+        } else {
+            setResolvedUrl(url);
+            setLoading(false);
+        }
+        return () => { cancelled = true; };
+    }, [url, ext]);
+
+    const playUrl = resolvedUrl || '';
+    const isHls = /\.m3u8(\?|$)/i.test(playUrl);
+
+    useEffect(() => {
+        if (!isHls || !playUrl || !videoRef.current) return;
+        const video = videoRef.current;
+        const setupHls = () => {
+            if (!window.Hls) { setError('HLS.js no cargó'); return; }
+            if (window.Hls.isSupported()) {
+                const hls = new window.Hls();
+                hls.loadSource(playUrl);
+                hls.attachMedia(video);
+                hls.on(window.Hls.Events.ERROR, (_, data) => { if (data.fatal) setError('Stream no disponible'); });
+                video._hls = hls;
+                return () => { try { hls.destroy(); } catch(e) {} };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = playUrl;
+            }
+        };
+        if (window.Hls) return setupHls();
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+        s.onload = setupHls;
+        s.onerror = () => setError('No se pudo cargar HLS.js');
+        document.head.appendChild(s);
+    }, [playUrl, isHls]);
+
+    return (
+        <div className="relative rounded-lg overflow-hidden border" style={{
+            borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)',
+            background:'#0a0a0d',
+            aspectRatio:'16/10',
+            boxShadow:'0 4px 12px rgba(0,0,0,0.2), 0 0 0 1px color-mix(in srgb, var(--horizon-green) 25%, transparent)'
+        }}>
+            {/* Header overlay */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-1.5 px-2 py-1.5"
+                 style={{background:'linear-gradient(180deg, rgba(0,0,0,0.55), transparent)'}}>
+                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)', animation:'pulse 1.5s infinite'}}>videocam</span>
+                <span className="text-[10px] font-bold text-white truncate flex-1">{label || 'Live'}</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--horizon-green)'}}>LIVE</span>
+            </div>
+            {(loading || error) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" style={{color:'rgba(255,255,255,0.6)'}}>
+                    {loading && !error && (
+                        <>
+                            <span className="material-icons-round animate-spin" style={{fontSize:24, color:'var(--horizon-green)'}}>autorenew</span>
+                            <span className="text-[10px]">Conectando…</span>
+                        </>
+                    )}
+                    {error && (
+                        <>
+                            <span className="material-icons-round" style={{fontSize:24, color:'#ef4444'}}>videocam_off</span>
+                            <span className="text-[10px] px-3 text-center">{error}</span>
+                        </>
+                    )}
+                </div>
+            )}
+            {!error && (
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover"
+                       onError={() => setError('Reproducción falló')}/>
+            )}
+        </div>
+    );
+}
+
+// ─── RtspSnapshotGallery: histórico de capturas RTSP de los últimos 30 días ───
+function RtspSnapshotGallery({ ext }) {
+    const [shots, setShots] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (!ext) return;
+        let cancelled = false;
+        setLoading(true); setError(null);
+        fetch(`api/rtsp_snapshot.php?action=list&ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+            .then(r => r.json())
+            .then(d => {
+                if (cancelled) return;
+                if (d.status === 'ok') setShots(d.snapshots || []);
+                else setError(d.message || 'Sin datos');
+            })
+            .catch(() => { if (!cancelled) setError('No se pudieron cargar las capturas'); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [ext]);
+
+    const captureNow = async () => {
+        try {
+            const fd = new FormData();
+            fd.append('ext', ext);
+            const r = await fetch('api/rtsp_snapshot.php?action=capture', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.status === 'ok') {
+                // refresh list
+                setShots(prev => [{ url: j.url, timestamp: j.timestamp, filename: j.filename }, ...(prev || [])]);
+            }
+        } catch(e) {}
+    };
+
+    if (loading) return (
+        <div className="flex items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
+            <span className="material-icons-round animate-spin" style={{fontSize:18}}>autorenew</span>
+            <span className="text-[11px]">Cargando capturas…</span>
+        </div>
+    );
+    if (error) return (
+        <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
+            <span className="material-icons-round" style={{fontSize:26,color:'var(--muted-foreground)',opacity:0.5}}>broken_image</span>
+            <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>{error}</p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                    {shots && shots.length > 0 ? `${shots.length} ${shots.length === 1 ? 'captura' : 'capturas'}` : 'Sin registros'}
+                </span>
+                <Button variant="ghost" size="sm" onClick={captureNow} className="h-7 px-2 text-[10px]">
+                    <span className="material-icons-round mr-1" style={{fontSize:13}}>add_a_photo</span>
+                    Capturar ahora
+                </Button>
+            </div>
+            {(!shots || shots.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-4 gap-2 text-center rounded-md border border-dashed" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:26,color:'var(--muted-foreground)',opacity:0.4}}>image_not_supported</span>
+                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Sin capturas todavía.<br/>Se generan automáticamente al recibir llamadas.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                    {shots.slice(0, 9).map((s, i) => (
+                        <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                           className="block rounded-md overflow-hidden border transition-all hover:scale-105 relative group"
+                           style={{borderColor:'var(--border)',aspectRatio:'1/1'}}
+                           title={s.timestamp}>
+                            <img src={s.url} alt={s.timestamp} className="w-full h-full object-cover"
+                                 loading="lazy"
+                                 onError={ev => ev.target.style.display='none'}/>
+                            <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 text-[8px] font-mono font-bold text-white"
+                                 style={{background:'linear-gradient(0deg, rgba(0,0,0,0.7), transparent)'}}>
+                                {s.timestamp && s.timestamp.split(' ')[1]?.substring(0,5) || ''}
+                            </div>
+                        </a>
+                    ))}
+                </div>
+            )}
+            {shots && shots.length > 9 && (
+                <div className="text-[10px] text-center" style={{color:'var(--muted-foreground)'}}>
+                    +{shots.length - 9} capturas más en el último mes
+                </div>
+            )}
+        </div>
+    );
+}
+
 // FICHA DEL INTERNO — Página dedicada (no modal)
 // ─────────────────────────────────────────────
 function ExtEditPage({ ext, onBack, onSaved, toast }) {
@@ -3184,225 +3470,226 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
-                    {/* ─── Card combinada: 4 columnas (Info | Categoría | RTSP | Estado) ─── */}
-                    <Card>
-                        <CardContent className="p-0 grid lg:grid-cols-4 lg:divide-x divide-y lg:divide-y-0" style={{borderColor:'var(--border)'}}>
+                    {/* ─── 4 Cards independientes (Info | Categoría | RTSP | Estado-con-preview-rtsp) ─── */}
+                    <div className="grid gap-4 lg:grid-cols-4">
 
-                            {/* ─── COL 1: Información básica ─── */}
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
+                        {/* ─── Card 1: Información básica ─── */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
                                     <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Información básica</h3>
+                                    Información básica
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="ext-num">Número de interno</Label>
+                                    <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
+                                           placeholder="1000" className="font-mono font-bold"/>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="ext-num">Número de interno</Label>
-                                        <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
-                                               placeholder="1000" className="font-mono font-bold"/>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="ext-name">Nombre o alias</Label>
-                                        <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="ext-mail">Correo electrónico</Label>
-                                        <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
-                                        <div className="relative">
-                                            <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
-                                            <button type="button" onClick={()=>setShowPass(!showPass)}
-                                                    className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
-                                                    style={{color:'var(--muted-foreground)'}}>
-                                                <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
-                                            </button>
-                                        </div>
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="ext-name">Nombre o alias</Label>
+                                    <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
                                 </div>
-                            </div>
-
-                            {/* ─── COL 2: Categoría del interno ─── */}
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Categoría</h3>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="ext-mail">Correo electrónico</Label>
+                                    <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
                                 </div>
-                                <p className="text-[10px] mb-3" style={{color:'var(--muted-foreground)'}}>Opcional · discrimina Cliente vs Horizon</p>
-                                <div className="space-y-2">
-                                    {Object.entries(tipoConfig).map(([v,o]) => (
-                                        <button key={v} type="button" onClick={()=>set('tipo',v)}
-                                                className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
-                                                style={{
-                                                    borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
-                                                    background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
-                                                }}>
-                                            <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
-                                                <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
-                                            </div>
-                                            {form.tipo===v && (
-                                                <span className="shrink-0 rounded-full flex items-center justify-center"
-                                                      style={{width:18,height:18,background:o.color}}>
-                                                    <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
-                                                </span>
-                                            )}
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
+                                    <div className="relative">
+                                        <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
+                                        <button type="button" onClick={()=>setShowPass(!showPass)}
+                                                className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
+                                                style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
                                         </button>
-                                    ))}
+                                    </div>
                                 </div>
-                            </div>
+                            </CardContent>
+                        </Card>
 
-                            {/* ─── COL 3: Videoportero / RTSP ─── */}
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
+                        {/* ─── Card 2: Categoría ─── */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
+                                    Categoría
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">Discrimina Cliente vs Horizon</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {Object.entries(tipoConfig).map(([v,o]) => (
+                                    <button key={v} type="button" onClick={()=>set('tipo',v)}
+                                            className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                            style={{
+                                                borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                            }}>
+                                        <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                        </div>
+                                        {form.tipo===v && (
+                                            <span className="shrink-0 rounded-full flex items-center justify-center"
+                                                  style={{width:18,height:18,background:o.color}}>
+                                                <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        {/* ─── Card 3: Videoportero / RTSP ─── */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
                                     <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Videoportero / RTSP</h3>
+                                    RTSP
                                     <Badge variant="success" className="ml-1 text-[9px] uppercase">Nuevo</Badge>
+                                </CardTitle>
+                                <CardDescription className="text-[10px] leading-relaxed">
+                                    Configurá el stream del videoportero / cámara
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-label">Etiqueta visible</Label>
+                                    <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                           placeholder="Portero entrada principal" maxLength={80}/>
                                 </div>
-                                <p className="text-[10px] mb-3 leading-relaxed" style={{color:'var(--muted-foreground)'}}>
-                                    Si este interno es un videoportero o cámara, configurá su stream. Cuando llame, aparecerá un preview en vivo encima del toast.
-                                </p>
-                                <div className="space-y-3">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="rtsp-label">Etiqueta visible</Label>
-                                        <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
-                                               placeholder="Portero entrada principal" maxLength={80}/>
-                                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Aparece junto al video</p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="rtsp-url">URL del stream</Label>
-                                        <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
-                                               placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-[11px]"/>
-                                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>rtsp:// · http(s):// · .m3u8 · .mp4</p>
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-url">URL del stream</Label>
+                                    <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                           placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-[11px]"/>
+                                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>rtsp:// · http(s):// · .m3u8 · .mp4</p>
                                 </div>
                                 {form.rtsp_url && (
-                                    <div className="mt-3 flex gap-2 items-start rounded-md border px-2.5 py-2"
+                                    <div className="flex gap-2 items-start rounded-md border px-2.5 py-2"
                                          style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
                                                  background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
                                         <span className="material-icons-round shrink-0" style={{fontSize:14,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
                                         <p className="text-[10px] leading-relaxed" style={{color:'var(--foreground)'}}>
-                                            Stream configurado. Supervisores verán el preview cuando llame.
+                                            Stream configurado. El preview aparecerá en el card de Estado y al recibir llamada.
                                         </p>
                                     </div>
                                 )}
-                            </div>
+                            </CardContent>
+                        </Card>
 
-                            {/* ─── COL 4: Estado del interno ─── */}
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="material-icons-round" style={{fontSize:18,color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Estado del interno</h3>
-                                </div>
+                        {/* ─── Card 4: Estado del interno (con preview RTSP en vivo si hay URL) ─── */}
+                        <Card className="overflow-hidden">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18, color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
+                                    Estado del interno
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
                                 {!isNew ? (
-                                <div className="flex flex-col items-center gap-3">
-                                    {/* Avatar centrado */}
-                                    <div className="relative shrink-0">
-                                        {form.ext && avatarUrl ? (
-                                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
-                                                 className="rounded-full object-cover"
-                                                 style={{width:72,height:72,border:'3px solid var(--background)',boxShadow:'0 4px 12px rgba(0,0,0,.15)'}}
-                                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
-                                        ) : null}
-                                        <div className="rounded-full flex items-center justify-center font-black text-white"
-                                             style={{
-                                                 width:72,height:72,fontSize:22,
-                                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
-                                                 display: form.ext && avatarUrl ? 'none' : 'flex',
-                                                 boxShadow:'0 4px 12px rgba(0,0,0,.15)'
-                                             }}>{ini}</div>
-                                        <div className="absolute rounded-full"
-                                             style={{
-                                                 bottom:0,right:0,width:18,height:18,
-                                                 background:statusColor,
-                                                 border:'3px solid var(--card)',
-                                                 animation:ext?.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
-                                             }}/>
-                                    </div>
-                                    {/* Status badge */}
-                                    <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
-                                        {statusLabel}
-                                    </Badge>
-                                    {/* Métricas en lista vertical */}
-                                    <div className="w-full rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                                        {[
-                                            { l:'IP',  v: ext?.ip,  c:'#3b82f6', icon:'lan' },
-                                            { l:'RTT', v: ext?.rtt, c: ext?.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
-                                            { l:'MAC', v: ext?.mac, c:'var(--muted-foreground)', icon:'memory' }
-                                        ].map((m,i) => (
-                                            <div key={m.l} className="flex items-center justify-between px-3 py-2"
-                                                 style={{
-                                                     borderTop: i>0 ? '1px solid var(--border)' : 'none',
-                                                     background: i%2===0 ? 'color-mix(in srgb, var(--muted) 30%, transparent)' : 'transparent'
-                                                 }}>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>{m.icon}</span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{m.l}</span>
-                                                </div>
-                                                <span className="font-mono text-xs font-bold" style={{color:m.c}}>{m.v || '—'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                    <ExtStatusPanel
+                                        ext={ext}
+                                        form={form}
+                                        avatarUrl={avatarUrl}
+                                        ini={ini}
+                                        statusColor={statusColor}
+                                        statusLabel={statusLabel}
+                                    />
                                 ) : (
-                                <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
-                                    <span className="material-icons-round" style={{fontSize:36,opacity:0.5}}>fiber_new</span>
-                                    <p className="text-xs text-center">Una vez creado el interno,<br/>se mostrará su estado en vivo aquí.</p>
-                                </div>
+                                    <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:36,opacity:0.5}}>fiber_new</span>
+                                        <p className="text-xs text-center">Una vez creado el interno,<br/>se mostrará su estado en vivo aquí.</p>
+                                    </div>
                                 )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    {/* ─── Comportamiento y dispositivo (toggle buttons compactos) ─── */}
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
-                                Comportamiento y dispositivo
-                            </CardTitle>
-                            <CardDescription>Política de grabación y tecnología SIP del endpoint</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</Label>
-                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                    </div>
+                    {/* ─── 3 Cards independientes: Grabación | Tecnología | Último acceso ─── */}
+                    <div className="grid gap-4 lg:grid-cols-3">
+
+                        {/* Card: Grabación de llamadas */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
+                                    Grabación de llamadas
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">Política de grabación del endpoint</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-3 gap-1.5 rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                                     {recOptions.map(o => (
                                         <button key={o.v} type="button" onClick={()=>setRecording(o.v)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                                                className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-semibold transition-all"
                                                 style={{
                                                     background: recording===o.v ? 'var(--card)' : 'transparent',
                                                     color: recording===o.v ? o.c : 'var(--muted-foreground)',
                                                     boxShadow: recording===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
                                                 }}
                                                 title={o.d}>
-                                            <span className="material-icons-round" style={{fontSize:14,color:recording===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
-                                            {o.l}
+                                            <span className="material-icons-round" style={{fontSize:16,color:recording===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            <span className="text-[11px]">{o.l}</span>
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                            <div>
-                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
-                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card: Tecnología de dispositivo */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>devices</span>
+                                    Tecnología
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">Tipo de endpoint SIP</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-3 gap-1.5 rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                                     {devOptions.map(o => (
                                         <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
+                                                className="flex flex-col items-center gap-1 px-2 py-2 rounded-md text-xs font-semibold transition-all"
                                                 style={{
                                                     background: devType===o.v ? 'var(--card)' : 'transparent',
                                                     color: devType===o.v ? o.c : 'var(--muted-foreground)',
                                                     boxShadow: devType===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
                                                 }}
                                                 title={o.d}>
-                                            <span className="material-icons-round" style={{fontSize:14,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
-                                            {o.l}
+                                            <span className="material-icons-round" style={{fontSize:16,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            <span className="text-[11px]">{o.l}</span>
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card: Último acceso — galería de snapshots RTSP de los últimos 30 días */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>photo_library</span>
+                                    Último acceso
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">Capturas RTSP · últimos 30 días</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {!isNew && form.rtsp_url ? (
+                                    <RtspSnapshotGallery ext={form.ext} />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 px-3 text-center gap-2">
+                                        <span className="material-icons-round" style={{fontSize:32,color:'var(--muted-foreground)',opacity:0.5}}>no_photography</span>
+                                        <p className="text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                                            {isNew ? 'Disponible al guardar el interno' : 'Configurá un stream RTSP arriba para que capturemos snapshots automáticamente'}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                    </div>
 
                     {/* ─── Action bar ─── */}
                     <div className="flex items-center justify-end gap-2.5 pt-1">
