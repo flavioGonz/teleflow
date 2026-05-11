@@ -2989,66 +2989,109 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* HEADER navegacion */}
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                <button onClick={onBack} style={{padding:8,borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',color:'var(--text)'}}>
+            {/* ─── BREADCRUMB + ACCIONES ─────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-5 flex-wrap">
+                <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
                     <span className="material-icons-round" style={{fontSize:18}}>arrow_back</span>
-                </button>
-                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Extensiones <span style={{margin:'0 6px'}}>›</span></div>
-                <div style={{fontSize:13,fontWeight:800}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</div>
-                <div style={{flex:1}}/>
-                {!isNew && <button onClick={remove} disabled={deleting} style={{padding:'8px 14px',borderRadius:10,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                    <span className="material-icons-round" style={{fontSize:16}}>delete</span>
-                    {deleting?'Eliminando...':'Eliminar Interno'}
-                </button>}
+                </Button>
+                <nav className="flex items-center gap-1.5 text-sm" style={{color:'var(--muted-foreground)'}}>
+                    <button onClick={onBack} className="hover:underline" style={{color:'var(--muted-foreground)'}}>Extensiones</button>
+                    <span className="material-icons-round" style={{fontSize:14,opacity:0.5}}>chevron_right</span>
+                    <span style={{color:'var(--foreground)',fontWeight:700}}>{isNew ? 'Nueva extensión' : `#${form.ext}`}</span>
+                </nav>
+                <div className="flex-1"/>
+                {!isNew && (
+                    <Button variant="destructive" size="sm" onClick={remove} disabled={deleting}>
+                        <span className="material-icons-round mr-1.5" style={{fontSize:16}}>delete_outline</span>
+                        {deleting?'Eliminando…':'Eliminar interno'}
+                    </Button>
+                )}
             </div>
 
-            {/* HERO con avatar + nombre + status pill */}
-            <div className="glass" style={{padding:0,borderRadius:18,marginBottom:14,overflow:'hidden',position:'relative'}}>
-                <div style={{height:88,background:`linear-gradient(135deg, ${statusColor}99 0%, ${statusColor}33 50%, transparent 100%), linear-gradient(45deg, #8b5cf6 0%, #3b82f6 100%)`,position:'relative'}}>
-                    <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at 25% 30%, rgba(255,255,255,0.18), transparent 60%)'}}/>
-                </div>
-                <div style={{padding:'0 24px 20px',display:'flex',alignItems:'flex-end',gap:18,marginTop:-46,position:'relative',flexWrap:'wrap'}}>
-                    <div style={{position:'relative'}}>
+            {/* ─── HERO CARD: avatar + identidad + metrics inline ───── */}
+            <Card className="mb-5 overflow-hidden">
+                <div className="flex items-center gap-5 p-5 flex-wrap">
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
                         {form.ext && avatarUrl ? (
-                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`} 
-                                 style={{width:96,height:96,borderRadius:'50%',objectFit:'cover',border:'5px solid var(--surface)',boxShadow:'0 8px 24px rgba(0,0,0,0.4)'}}
+                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
+                                 className="rounded-full object-cover"
+                                 style={{width:72,height:72,border:'3px solid var(--background)',boxShadow:'0 4px 12px rgba(0,0,0,0.15)'}}
                                  onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
                         ) : null}
-                        <div style={{
-                            width:96, height:96, borderRadius:'50%',
-                            background:`linear-gradient(135deg, #8b5cf6, #6d28d9)`,
-                            display: form.ext && avatarUrl ? 'none' : 'flex',
-                            alignItems:'center', justifyContent:'center',
-                            fontSize:32, fontWeight:900, color:'#fff',
-                            border:'5px solid var(--surface)',
-                            boxShadow:'0 8px 24px rgba(0,0,0,0.4)'
-                        }}>{ini}</div>
+                        <div className="rounded-full flex items-center justify-center font-black text-white"
+                             style={{
+                                 width:72,height:72,fontSize:24,
+                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                                 display: form.ext && avatarUrl ? 'none' : 'flex',
+                                 border:'3px solid var(--background)',
+                                 boxShadow:'0 4px 12px rgba(0,0,0,0.15)'
+                             }}>{ini}</div>
+                        {/* Status dot */}
+                        {ext?.status && (
+                            <div className="absolute rounded-full"
+                                 style={{
+                                     bottom:2,right:2,width:18,height:18,
+                                     background:statusColor,
+                                     border:'3px solid var(--card)',
+                                     boxShadow:`0 0 0 1px ${statusColor}`,
+                                     animation:ext.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
+                                 }}/>
+                        )}
                     </div>
-                    <div style={{flex:1,paddingTop:50,minWidth:200}}>
-                        <h1 style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px'}}>{form.name || 'Sin nombre'}</h1>
-                        <div style={{fontFamily:'monospace',fontSize:14,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,marginTop:2}}>#{form.ext || '----'}</div>
-                    </div>
-                    <div style={{display:'flex',gap:8,paddingTop:50,flexWrap:'wrap'}}>
-                        {ext?.status && <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:24,background:`${statusColor}22`,border:`1.5px solid ${statusColor}66`,boxShadow:`0 4px 12px ${statusColor}33`}}>
-                            <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 10px ${statusColor}`,animation:ext.status==='BUSY'?'pulse 1s infinite':'none'}}/>
-                            <span style={{fontSize:11,fontWeight:900,color:statusColor,textTransform:'uppercase',letterSpacing:'.05em'}}>{statusLabel}</span>
-                        </div>}
-                        {ext?.ip && ext.ip !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>IP</span>
-                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>{ext.ip}</span>
-                        </div>}
-                        {ext?.rtt && ext.rtt !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.25)'}}>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>RTT</span>
-                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#22c55e'}}>{ext.rtt}</span>
-                        </div>}
-                    </div>
-                </div>
-            </div>
 
-            {/* HORIZON: TABS — Datos / Historial / Agentes (solo si no es nuevo) */}
+                    {/* Nombre + ext + tipo */}
+                    <div className="flex-1 min-w-0" style={{minWidth:200}}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-2xl font-bold tracking-tight truncate" style={{color:'var(--foreground)'}}>
+                                {form.name || (isNew ? 'Nueva extensión' : 'Sin nombre')}
+                            </h1>
+                            {!isNew && form.tipo && tipoConfig[form.tipo] && (
+                                <Badge variant="outline" className="font-semibold" style={{borderColor:`${tipoConfig[form.tipo].color}66`,color:tipoConfig[form.tipo].color,background:`${tipoConfig[form.tipo].color}11`}}>
+                                    <span className="material-icons-round mr-1" style={{fontSize:12}}>{tipoConfig[form.tipo].icon}</span>
+                                    {tipoConfig[form.tipo].label}
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <span className="font-mono text-sm font-bold" style={{color:'var(--muted-foreground)'}}>#{form.ext || '----'}</span>
+                            {ext?.status && (
+                                <>
+                                    <span style={{color:'var(--border)'}}>•</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wider" style={{color:statusColor}}>{statusLabel}</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Metrics inline (single source of truth) */}
+                    {!isNew && ext && (
+                        <div className="flex items-stretch gap-0 rounded-lg border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                            {[
+                                { l:'IP',  v: ext.ip,  c:'#3b82f6', icon:'lan' },
+                                { l:'RTT', v: ext.rtt, c: ext.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
+                                { l:'MAC', v: ext.mac, c:'var(--muted-foreground)', icon:'memory' }
+                            ].map((m,i) => (
+                                <div key={m.l} className="flex flex-col justify-center px-4 py-2"
+                                     style={{
+                                         borderLeft: i>0 ? '1px solid var(--border)' : 'none',
+                                         background:'color-mix(in srgb, var(--muted) 40%, transparent)'
+                                     }}>
+                                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:11}}>{m.icon}</span>
+                                        {m.l}
+                                    </div>
+                                    <div className="font-mono text-xs font-bold mt-0.5" style={{color:m.c}}>{m.v || '—'}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </Card>
+
+            {/* ─── TABS — Datos / Historial / Agentes ─────────────────── */}
             {!isNew && (
-                <div className="flex items-center gap-1 border-b mb-4" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-1 border-b mb-5" style={{borderColor:'var(--border)'}}>
                     {[
                         { id:'datos',     icon:'tune',           label:'Datos' },
                         { id:'historial', icon:'history',        label:'Historial de llamadas' },
@@ -3059,9 +3102,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             onClick={()=>setActiveTab(t.id)}
                             className={cn(
                                 "px-4 py-2.5 -mb-px flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
-                                activeTab === t.id
-                                    ? "border-primary"
-                                    : "border-transparent hover:bg-accent/50"
+                                activeTab === t.id ? "border-primary" : "border-transparent hover:bg-accent/50"
                             )}
                             style={{
                                 borderBottomColor: activeTab === t.id ? 'var(--primary)' : 'transparent',
@@ -3075,18 +3116,16 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 </div>
             )}
 
-            {/* TAB: HISTORIAL DE LLAMADAS */}
+            {/* ─── TAB: HISTORIAL DE LLAMADAS ────────────────────────── */}
             {!isNew && activeTab === 'historial' && (
-                <div className="rounded-lg border bg-card text-card-foreground overflow-hidden" style={{borderColor:'var(--border)'}}>
-                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{borderColor:'var(--border)'}}>
+                <Card className="overflow-hidden">
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                         <div>
-                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Historial de llamadas — últimos 30 días</div>
-                            <div className="text-xs" style={{color:'var(--muted-foreground)'}}>Todas las llamadas donde esta extensión figura como origen o destino</div>
+                            <CardTitle className="text-base">Historial de llamadas — últimos 30 días</CardTitle>
+                            <CardDescription>Todas las llamadas donde esta extensión figura como origen o destino</CardDescription>
                         </div>
-                        <div className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>
-                            {callHistory ? `${callHistory.length} llamadas` : ''}
-                        </div>
-                    </div>
+                        {callHistory && <Badge variant="secondary">{callHistory.length} llamadas</Badge>}
+                    </CardHeader>
                     {historyLoading && (
                         <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
                             <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
@@ -3100,7 +3139,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                     )}
                     {!historyLoading && callHistory && callHistory.length > 0 && (
-                        <div className="overflow-auto" style={{maxHeight:'65vh'}}>
+                        <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                                     <tr>
@@ -3141,21 +3180,19 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </table>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
 
-            {/* TAB: HISTORIAL DE AGENTES LOGUEADOS */}
+            {/* ─── TAB: HISTORIAL DE AGENTES ────────────────────────── */}
             {!isNew && activeTab === 'agentes' && (
-                <div className="rounded-lg border bg-card text-card-foreground overflow-hidden" style={{borderColor:'var(--border)'}}>
-                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{borderColor:'var(--border)'}}>
+                <Card className="overflow-hidden">
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                         <div>
-                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Agentes logueados — últimos 90 días</div>
-                            <div className="text-xs" style={{color:'var(--muted-foreground)'}}>Sesiones de agentes que ocuparon este interno</div>
+                            <CardTitle className="text-base">Agentes logueados — últimos 90 días</CardTitle>
+                            <CardDescription>Sesiones de agentes que ocuparon este interno</CardDescription>
                         </div>
-                        <div className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>
-                            {agentHistory ? `${agentHistory.length} sesiones` : ''}
-                        </div>
-                    </div>
+                        {agentHistory && <Badge variant="secondary">{agentHistory.length} sesiones</Badge>}
+                    </CardHeader>
                     {historyLoading && (
                         <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
                             <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
@@ -3170,7 +3207,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                     )}
                     {!historyLoading && agentHistory && agentHistory.length > 0 && (
-                        <div className="overflow-auto" style={{maxHeight:'65vh'}}>
+                        <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                                     <tr>
@@ -3202,187 +3239,238 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </table>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
 
-            {/* TAB: DATOS (form existente) */}
+            {/* ─── TAB: DATOS (form shadcn) ──────────────────────────── */}
             {(isNew || activeTab === 'datos') && (
-            <>
-            {/* FORM en grid 2 columnas */}
-            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14}}>
+            <div className="grid gap-5" style={{gridTemplateColumns:'minmax(0, 1fr) 320px'}}>
                 {/* COLUMNA PRINCIPAL */}
-                <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                    {/* Información Básica */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>info</span>
-                            <h3 style={{fontSize:13,fontWeight:800,letterSpacing:'.02em'}}>Información Básica</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Número de interno</label>
-                                <input className="input-tf" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew} placeholder="Ej: 1000" style={{padding:'10px 14px',borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700}}/>
+                <div className="flex flex-col gap-5">
+
+                    {/* ─── Información básica ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
+                                Información básica
+                            </CardTitle>
+                            <CardDescription>Datos de identidad del interno SIP</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ext-num">Número de interno</Label>
+                                <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
+                                       placeholder="1000" className="font-mono font-bold"/>
                             </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Nombre o alias</label>
-                                <input className="input-tf" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ej: Recepción" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ext-name">Nombre o alias</Label>
+                                <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
                             </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Correo electrónico</label>
-                                <input className="input-tf" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ext-mail">Correo electrónico</Label>
+                                <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
                             </div>
-                            <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Contraseña SIP <span style={{color:'#f59e0b'}}>(secret)</span></label>
-                                <div style={{position:'relative'}}>
-                                    <input className="input-tf" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} style={{padding:'10px 38px 10px 14px',borderRadius:10,fontSize:13,fontFamily:'monospace'}}/>
-                                    <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--muted)'}}>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
+                                <div className="relative">
+                                    <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
+                                    <button type="button" onClick={()=>setShowPass(!showPass)}
+                                            className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
+                                            style={{color:'var(--muted-foreground)'}}>
                                         <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Categoría del interno */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Categoría del Interno</h3>
-                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,marginLeft:6}}>(opcional, discrimina Cliente vs Horizon)</span>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginTop:14}}>
-                            {Object.entries(tipoConfig).map(([v,o]) => (
-                                <div key={v} onClick={()=>set('tipo',v)} style={{padding:'14px 10px',borderRadius:12,border:`2px solid ${form.tipo===v?o.color+'cc':'var(--border)'}`,background:form.tipo===v?`${o.color}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s',position:'relative',overflow:'hidden'}}>
-                                    {form.tipo===v && <div style={{position:'absolute',top:6,right:6,width:18,height:18,borderRadius:'50%',background:o.color,display:'flex',alignItems:'center',justifyContent:'center'}}><span className="material-icons-round" style={{fontSize:12,color:'#fff'}}>check</span></div>}
-                                    <span className="material-icons-round" style={{fontSize:24,color:o.color,display:'block',marginBottom:6}}>{o.icon}</span>
-                                    <div style={{fontSize:13,fontWeight:800,color:form.tipo===v?o.color:'var(--text)'}}>{o.label}</div>
-                                    <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{o.desc}</div>
+                    {/* ─── Categoría ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
+                                Categoría del interno
+                            </CardTitle>
+                            <CardDescription>Discrimina internos propios de Horizon vs clientes externos</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-3">
+                                {Object.entries(tipoConfig).map(([v,o]) => (
+                                    <button key={v} type="button" onClick={()=>set('tipo',v)}
+                                            className="relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-sm"
+                                            style={{
+                                                borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                            }}>
+                                        {form.tipo===v && (
+                                            <span className="absolute top-2 right-2 rounded-full flex items-center justify-center"
+                                                  style={{width:18,height:18,background:o.color}}>
+                                                <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
+                                            </span>
+                                        )}
+                                        <span className="material-icons-round block mb-1.5" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                        <div className="text-sm font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Videoportero / RTSP ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
+                                Videoportero / RTSP
+                                <Badge variant="success" className="ml-1 text-[10px] uppercase">Nuevo</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                                Si este interno es un videoportero o cámara, configurá su stream. Cuando llame, aparecerá un preview en vivo encima del toast.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-label">Etiqueta visible</Label>
+                                    <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                           placeholder="Portero entrada principal" maxLength={80}/>
+                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Aparece junto al video</p>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="rtsp-url">URL del stream</Label>
+                                    <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                           placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-xs"/>
+                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Acepta rtsp://, rtsps://, http(s)://, .m3u8 (HLS), .mp4</p>
+                                </div>
+                            </div>
+                            {form.rtsp_url && (
+                                <div className="mt-4 flex gap-2.5 items-start rounded-md border px-3 py-2.5"
+                                     style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
+                                             background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
+                                    <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
+                                    <p className="text-xs leading-relaxed" style={{color:'var(--foreground)'}}>
+                                        Stream configurado. Cuando este interno llame, los supervisores logueados verán el preview del video automáticamente.
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                    {/* RTSP — videoportero / cámara asociada */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#11B328'}}>videocam</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Videoportero / RTSP</h3>
-                            <span style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(17,179,40,0.15)',color:'var(--horizon-green)',fontWeight:800,marginLeft:6}}>NUEVO</span>
-                        </div>
-                        <div style={{fontSize:11,color:'var(--muted-foreground)',marginBottom:14,lineHeight:1.5}}>
-                            Si este interno es un videoportero o cámara, configurá el stream RTSP/HLS/HTTP del video.
-                            Cuando llame, aparecerá un popup con el preview en vivo encima del toast estándar.
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                    {/* ─── Grabación + Tecnología (combinada) ─── */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
+                                Comportamiento y dispositivo
+                            </CardTitle>
+                            <CardDescription>Política de grabación y tecnología SIP del endpoint</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
                             <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Etiqueta visible</label>
-                                <input className="input-tf" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
-                                    placeholder="Ej: Portero entrada principal" maxLength={80}
-                                    style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
-                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Aparece junto al video</div>
+                                <Label className="block mb-2.5 text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</Label>
+                                <div className="grid grid-cols-3 gap-2.5">
+                                    {recOptions.map(o => (
+                                        <button key={o.v} type="button" onClick={()=>setRecording(o.v)}
+                                                className="rounded-lg border-2 p-3 text-center transition-all hover:shadow-sm"
+                                                style={{
+                                                    borderColor: recording===o.v ? o.c : 'var(--border)',
+                                                    background: recording===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
+                                                }}>
+                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.c}}>{o.i}</span>
+                                            <div className="text-xs font-bold" style={{color:recording===o.v?o.c:'var(--foreground)'}}>{o.l}</div>
+                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.d}</div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+                            <Separator/>
                             <div>
-                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>URL del stream</label>
-                                <input className="input-tf" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
-                                    placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500}
-                                    style={{padding:'10px 14px',borderRadius:10,fontSize:12,fontFamily:'monospace'}}/>
-                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Acepta rtsp://, rtsps://, http(s)://, .m3u8 (HLS), .mp4</div>
-                            </div>
-                        </div>
-                        {form.rtsp_url && (
-                            <div style={{marginTop:12,padding:'10px 12px',borderRadius:8,background:'rgba(17,179,40,0.08)',border:'1px solid rgba(17,179,40,0.25)',display:'flex',gap:10,alignItems:'flex-start'}}>
-                                <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)',flexShrink:0,marginTop:1}}>check_circle</span>
-                                <div style={{fontSize:11,color:'var(--foreground)',lineHeight:1.45}}>
-                                    Stream configurado. Cuando este interno llame, los supervisores logueados verán el preview del video automáticamente.
+                                <Label className="block mb-2.5 text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
+                                <div className="grid grid-cols-3 gap-2.5">
+                                    {devOptions.map(o => (
+                                        <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
+                                                className="rounded-lg border-2 p-3 text-center transition-all hover:shadow-sm"
+                                                style={{
+                                                    borderColor: devType===o.v ? o.c : 'var(--border)',
+                                                    background: devType===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
+                                                }}>
+                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.c}}>{o.i}</span>
+                                            <div className="text-xs font-bold" style={{color:devType===o.v?o.c:'var(--foreground)'}}>{o.l}</div>
+                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.d}</div>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Grabación + Tecnología */}
-                    <div className="glass" style={{padding:22,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Grabación de llamadas</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:18}}>
-                            {recOptions.map(o => (
-                                <div key={o.v} onClick={()=>setRecording(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${recording===o.v?o.c+'aa':'var(--border)'}`,background:recording===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
-                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
-                                    <div style={{fontSize:12,fontWeight:800,color:recording===o.v?o.c:'var(--text)'}}>{o.l}</div>
-                                </div>
-                            ))}
-                        </div>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>devices</span>
-                            <h3 style={{fontSize:13,fontWeight:800}}>Tecnología de dispositivo</h3>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-                            {devOptions.map(o => (
-                                <div key={o.v} onClick={()=>setDevType(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${devType===o.v?o.c+'aa':'var(--border)'}`,background:devType===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
-                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
-                                    <div style={{fontSize:12,fontWeight:800,color:devType===o.v?o.c:'var(--text)'}}>{o.l}</div>
-                                    <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>{o.d}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Action bar */}
-                    <div style={{display:'flex',gap:10,justifyContent:'flex-end',padding:'14px 0'}}>
-                        <button onClick={onBack} style={{padding:'12px 22px',borderRadius:12,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancelar</button>
-                        <button onClick={save} disabled={saving} className="btn-primary" style={{padding:'12px 28px',borderRadius:12,fontWeight:800,fontSize:13,cursor:saving?'wait':'pointer',display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:18,animation:saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
-                        </button>
+                    {/* ─── Action bar ─── */}
+                    <div className="flex items-center justify-end gap-2.5 pt-1">
+                        <Button variant="outline" onClick={onBack}>Cancelar</Button>
+                        <Button onClick={save} disabled={saving}>
+                            <span className="material-icons-round mr-1.5" style={{fontSize:16, animation: saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </Button>
                     </div>
                 </div>
 
                 {/* COLUMNA LATERAL */}
-                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div className="flex flex-col gap-5">
                     {/* Foto de perfil */}
-                    <div className="glass" style={{padding:18,borderRadius:16}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                            <span className="material-icons-round" style={{fontSize:18,color:'#ec4899'}}>photo_camera</span>
-                            <h3 style={{fontSize:12,fontWeight:800}}>Foto de perfil</h3>
-                        </div>
-                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-sm">
+                                <span className="material-icons-round" style={{fontSize:16,color:'#ec4899'}}>photo_camera</span>
+                                Foto de perfil
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center gap-2">
                             <AvatarUploader ext={form.ext} name={form.name} onUploaded={u=>setAvatarUrl(u)} size={100}/>
-                            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:6,lineHeight:1.4}}>JPG/PNG hasta 2MB.<br/>Aparece en toda la app.</div>
-                        </div>
-                    </div>
-
-                    {/* Info de red */}
-                    {!isNew && ext && (
-                        <div className="glass" style={{padding:18,borderRadius:16}}>
-                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>lan</span>
-                                <h3 style={{fontSize:12,fontWeight:800}}>Información de red</h3>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:0}}>
-                                {[
-                                    {l:'IP origen', v: ext.ip, c:'#3b82f6'},
-                                    {l:'Latencia', v: ext.rtt, c:'#22c55e'},
-                                    {l:'MAC', v: ext.mac, c:'#9ca3af'},
-                                    {l:'Estado', v: statusLabel, c:statusColor}
-                                ].map(({l,v,c}) => (
-                                    <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
-                                        <span style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{l}</span>
-                                        <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:c}}>{v||'—'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                            <p className="text-[10px] text-center leading-relaxed mt-1" style={{color:'var(--muted-foreground)'}}>
+                                JPG/PNG hasta 2MB.<br/>Aparece en toda la app.
+                            </p>
+                        </CardContent>
+                    </Card>
 
                     {/* Tip aplicar cambios */}
-                    <div style={{padding:'12px 14px',borderRadius:12,background:'color-mix(in srgb, var(--primary) 6%, transparent)',border:'1px solid color-mix(in srgb, var(--primary) 20%, transparent)',display:'flex',gap:10,alignItems:'flex-start'}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',flexShrink:0,marginTop:1}}>info</span>
-                        <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.45}}>Los cambios aplicarán un <strong style={{color:'var(--text)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.</div>
+                    <div className="rounded-md border px-3 py-3 flex gap-2.5 items-start"
+                         style={{
+                             borderColor:'color-mix(in srgb, var(--primary) 25%, transparent)',
+                             background:'color-mix(in srgb, var(--primary) 6%, transparent)'
+                         }}>
+                        <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--primary)',marginTop:1}}>info</span>
+                        <p className="text-xs leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                            Los cambios aplicarán un <strong style={{color:'var(--foreground)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.
+                        </p>
                     </div>
+
+                    {/* Quick actions (solo si no es nuevo) */}
+                    {!isNew && ext && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-sm">
+                                    <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)'}}>flash_on</span>
+                                    Acciones rápidas
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-1.5 pt-1">
+                                <Button variant="ghost" size="sm" className="w-full justify-start"
+                                        onClick={()=>setActiveTab('historial')}>
+                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>history</span>
+                                    Ver llamadas de este interno
+                                </Button>
+                                <Button variant="ghost" size="sm" className="w-full justify-start"
+                                        onClick={()=>setActiveTab('agentes')}>
+                                    <span className="material-icons-round mr-2" style={{fontSize:15}}>support_agent</span>
+                                    Sesiones de agentes
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
-            </>
             )}
         </div>
     );
