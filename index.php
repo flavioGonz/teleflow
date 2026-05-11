@@ -3282,32 +3282,93 @@ function ViewExtensiones({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* GRID */}
-            {viewMode==='grid' && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(255px,1fr))',gap:12}}>
-                    {exts.map(e=>(
-                        <div key={e.ext} className="glass glass-hover" style={{padding:'16px',cursor:'pointer'}} onClick={()=>setEditing(e)}>
-                            <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                <img src={e.avatar} style={{width:44,height:44,borderRadius:12,objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{ ev.target.style.display='none'; ev.target.nextSibling.style.display='flex'; }} />
-                                <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'none'}}>{initials(e.name)}</div>
-                                <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:14,fontWeight:800,color:'var(--text)',display:'flex',alignItems:'center',gap:6}}>
-                                        #{e.ext}
-                                        {e.recording === 'always' && <span className="material-icons-round" style={{fontSize:14,color:'#ef4444'}}>fiber_manual_record</span>}
+            {/* GRID — split en activas (top) / offline */}
+            {viewMode==='grid' && (() => {
+                const isExtRinging = (e) => liveCalls.some(c => /Ring/i.test(c.state||'') && (String(c.ext)===String(e.ext) || String(c.dest)===String(e.ext)));
+                const isExtBusy = (e) => e.status === 'BUSY' || liveCalls.some(c => /Up/i.test(c.state||'') && (String(c.ext)===String(e.ext) || String(c.dest)===String(e.ext)));
+                const activeExts  = exts.filter(e => e.status === 'ONLINE' || e.status === 'BUSY');
+                const offlineExts = exts.filter(e => e.status !== 'ONLINE' && e.status !== 'BUSY');
+
+                const renderActive = (e) => {
+                    const ringing = isExtRinging(e);
+                    const busy = isExtBusy(e);
+                    const sc = busy ? '#ef4444' : (e.status === 'ONLINE' ? '#22c55e' : '#6b7280');
+                    return (
+                        <div
+                            key={e.ext}
+                            onClick={()=>setEditing(e)}
+                            className={cn(
+                                "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
+                                ringing && "hzn-ringing"
+                            )}
+                            style={{borderColor:'var(--border)', width:200}}
+                        >
+                            <div style={{height:3, background:sc}}/>
+                            <div style={{padding:'14px 14px 12px', textAlign:'center'}}>
+                                <div style={{position:'relative', width:64, height:64, margin:'0 auto 10px'}}>
+                                    <img src={e.avatar} alt={e.name}
+                                        onError={(ev)=>{ev.target.style.display='none'; const n=ev.target.nextSibling; if(n) n.style.display='flex';}}
+                                        style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 14px ${sc}55`}}/>
+                                    <div style={{display:'none', width:64, height:64, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:18, fontWeight:900, border:`2px solid ${sc}`}}>
+                                        {initials(e.name)}
                                     </div>
-                                    <div style={{fontSize:11,color:'#9ca3af',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.name}</div>
+                                    <span style={{position:'absolute', bottom:0, right:6, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:busy?'pulse-ring 1.5s infinite':''}}/>
                                 </div>
-                                <span className={`badge ${badgeCls(e.status)}`}><span className={`badge-dot ${dotCls(e.status)}`} />{e.status}</span>
-                            </div>
-                            <div style={{marginTop:10,display:'flex',gap:14,fontSize:10,color:'#6b7280'}}>
-                                <span>IP: <span style={{color:'#c4b5fd',fontFamily:'monospace'}}>{e.ip}</span></span>
-                                <span>RTT: <span style={{color:'#c4b5fd'}}>{e.rtt}</span></span>
+                                <div style={{fontSize:14, fontWeight:800, color:'var(--text)', marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.name}</div>
+                                <div style={{fontSize:22, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.5px', marginBottom:6}}>#{e.ext}</div>
+                                <div style={{fontSize:9, fontWeight:900, padding:'4px 10px', borderRadius:6, background:`${sc}22`, color:sc, display:'inline-block', letterSpacing:'.1em', marginBottom:8}}>
+                                    {busy ? 'EN LLAMADA' : 'ONLINE'}{ringing ? ' · LLAMADA ENTRANTE' : ''}
+                                </div>
+                                <div style={{display:'flex', gap:14, fontSize:10, color:'var(--muted)', justifyContent:'center'}}>
+                                    {e.ip && e.ip !== '—' && <span style={{fontFamily:'monospace'}}>{e.ip}</span>}
+                                    {e.rtt && e.rtt !== '—' && <span style={{fontFamily:'monospace', opacity:0.7}}>· {e.rtt}</span>}
+                                </div>
                             </div>
                         </div>
-                    ))}
-                    {exts.length===0&&<div style={{color:'#6b7280',gridColumn:'1/-1',textAlign:'center',padding:40}}>Sin extensiones</div>}
-                </div>
-            )}
+                    );
+                };
+
+                const renderOffline = (e) => (
+                    <div key={e.ext} onClick={()=>setEditing(e)} className="rounded-lg border border-border bg-card text-card-foreground cursor-pointer transition-colors hover:bg-muted/40" style={{opacity:0.6}}>
+                        <div style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
+                            <div className={`agent-avatar bg-gradient-to-br ${getColor(e.name)}`} style={{display:'flex', width:32, height:32, fontSize:11, flexShrink:0}}>{initials(e.name)}</div>
+                            <div style={{flex:1, minWidth:0}}>
+                                <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.name}</div>
+                                <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{e.ext}</div>
+                            </div>
+                            <span style={{fontSize:9, padding:'2px 7px', borderRadius:4, background:'rgba(107,114,128,0.18)', color:'#9ca3af', fontWeight:800}}>OFFLINE</span>
+                        </div>
+                    </div>
+                );
+
+                return (
+                    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+                        {activeExts.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, justifyContent:'center'}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{activeExts.length} extensione{activeExts.length!==1?'s activas':' activa'}</span>
+                                </div>
+                                <div style={{display:'flex', flexWrap:'wrap', gap:14, justifyContent:'center'}}>
+                                    {activeExts.map(renderActive)}
+                                </div>
+                            </div>
+                        )}
+                        {offlineExts.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineExts.length} offline</span>
+                                </div>
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:8}}>
+                                    {offlineExts.map(renderOffline)}
+                                </div>
+                            </div>
+                        )}
+                        {exts.length === 0 && <div className="rounded-lg border border-border bg-card p-10 text-center text-muted-foreground">Sin extensiones</div>}
+                    </div>
+                );
+            })()}
 
             {/* TABLE — estilo Grandstream UCM */}
             {viewMode==='table' && (
