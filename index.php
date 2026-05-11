@@ -3345,6 +3345,88 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
 
 
 // ─── ExtStatusPanel: estado en vivo del interno con preview RTSP y RTT animado ───
+// ─── ExtSipDebugTab: muestra info SIP en vivo para una extensión ───
+function ExtSipDebugTab({ ext }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    const load = useCallback(() => {
+        if (!ext) return;
+        setLoading(true); setError(null);
+        fetch(`api/index.php?action=sip_debug_ext&ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+            .then(r => r.json())
+            .then(j => {
+                if (j.success) setData(j);
+                else setError(j.error || 'Error al cargar debug SIP');
+            })
+            .catch(() => setError('Error de red'))
+            .finally(() => setLoading(false));
+    }, [ext]);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!autoRefresh) return;
+        const t = setInterval(load, 5000);
+        return () => clearInterval(t);
+    }, [autoRefresh, load]);
+
+    return (
+        <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 gap-3">
+                <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>bug_report</span>
+                        Debug SIP — Interno #{ext}
+                    </CardTitle>
+                    <CardDescription>
+                        Estado del endpoint PJSIP, contactos registrados, canales activos y últimas líneas de historia filtrados por esta extensión
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    {data?.ts && <Badge variant="secondary" className="font-mono text-[10px]">{data.ts}</Badge>}
+                    <Button variant={autoRefresh ? 'default' : 'outline'} size="sm" onClick={()=>setAutoRefresh(v=>!v)} title="Auto-refresh cada 5s">
+                        <span className="material-icons-round mr-1" style={{fontSize:14, animation: autoRefresh ? 'spin 3s linear infinite' : 'none'}}>{autoRefresh ? 'sync' : 'sync_disabled'}</span>
+                        {autoRefresh ? 'Auto' : 'Manual'}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading} title="Refrescar ahora">
+                        <span className="material-icons-round mr-1" style={{fontSize:14, animation: loading ? 'spin 1s linear infinite' : 'none'}}>{loading ? 'autorenew' : 'refresh'}</span>
+                        Refrescar
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                {loading && !data && (
+                    <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:32, color:'var(--primary)'}}>autorenew</span>
+                        <div className="mt-2 text-sm">Cargando info SIP…</div>
+                    </div>
+                )}
+                {error && (
+                    <div className="py-8 text-center px-4" style={{color:'var(--destructive)'}}>
+                        <span className="material-icons-round mb-2 block" style={{fontSize:36, opacity:0.6}}>error_outline</span>
+                        <div className="text-sm font-bold">{error}</div>
+                    </div>
+                )}
+                {data && (
+                    <pre className="overflow-auto p-4 text-[11px] font-mono leading-relaxed"
+                         style={{
+                             background:'color-mix(in srgb, var(--muted) 35%, var(--card))',
+                             color:'var(--foreground)',
+                             maxHeight:'70vh',
+                             whiteSpace:'pre-wrap',
+                             wordBreak:'break-word',
+                             borderTop:'1px solid var(--border)'
+                         }}>
+                        {data.log || '(sin info)'}
+                    </pre>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel }) {
     // Parse RTT (puede venir como "12ms", "150ms", "—", null, etc.)
     const rttMs = useMemo(() => {
@@ -3652,7 +3734,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '', 
         tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '',
         rtsp_url: (window._tfExtMeta||{})[ext?.ext]?.rtsp_url || '',
-        rtsp_label: (window._tfExtMeta||{})[ext?.ext]?.rtsp_label || ''
+        rtsp_label: (window._tfExtMeta||{})[ext?.ext]?.rtsp_label || '',
+        is_bocina: !!(window._tfExtMeta||{})[ext?.ext]?.is_bocina
     });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
@@ -3735,9 +3818,14 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const devOptions = [
         { v:'webrtc',   l:'WebRTC',    c:'var(--primary)', i:'computer',  d:'Softphone en navegador' },
         { v:'sip',      l:'SIP Fijo',  c:'#3b82f6',        i:'phone',     d:'Teléfono físico SIP' },
-        { v:'video',    l:'Video',     c:'#ec4899',        i:'videocam',  d:'Con cámara WebRTC' },
-        { v:'bocina',   l:'Bocina IP', c:'#f59e0b',        i:'campaign',  d:'Altavoz IP / corneta para anuncios públicos' }
+        { v:'video',    l:'Video',     c:'#ec4899',        i:'videocam',  d:'Con cámara WebRTC' }
     ];
+    // Bocina IP es una propiedad ortogonal al tipo de tecnología — toggle aparte
+    const isBocina = !!form?.is_bocina;
+    // Si activa Bocina IP, forzar tecnología a SIP (las bocinas IP siempre son SIP)
+    useEffect(() => {
+        if (isBocina && devType !== 'sip') setDevType('sip');
+    }, [isBocina]);
 
     const save = async () => {
         setSaving(true);
@@ -3820,6 +3908,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             { id:'datos',     icon:'tune',           label:'Datos' },
                             { id:'historial', icon:'history',        label:'Historial de llamadas' },
                             { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
+                            { id:'sip',       icon:'bug_report',     label:'Debug SIP' },
                         ].map(t => (
                             <button
                                 key={t.id}
@@ -4023,6 +4112,11 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 </Card>
             )}
 
+            {/* ─── TAB: DEBUG SIP ────────────────────────────────────── */}
+            {!isNew && activeTab === 'sip' && (
+                <ExtSipDebugTab ext={ext.ext}/>
+            )}
+
             {/* ─── TAB: DATOS (form shadcn) ──────────────────────────── */}
             {(isNew || activeTab === 'datos') && (
             <div className="grid gap-5">
@@ -4117,44 +4211,84 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 {/* Toggles de tipo */}
                                 <div className="space-y-2">
                                     {Object.entries(tipoConfig).map(([v,o]) => (
-                                        <button key={v} type="button" onClick={()=>set('tipo',v)}
-                                                className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
-                                                style={{
-                                                    borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
-                                                    background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
-                                                }}>
-                                            <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
-                                                <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
-                                            </div>
-                                            {form.tipo===v && (
-                                                <span className="shrink-0 rounded-full flex items-center justify-center"
-                                                      style={{width:18,height:18,background:o.color}}>
-                                                    <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
-                                                </span>
+                                        <div key={v} className="flex items-stretch gap-2">
+                                            <button type="button" onClick={()=>set('tipo',v)}
+                                                    className="relative flex-1 rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                                    style={{
+                                                        borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                        background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                                    }}>
+                                                <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                                    <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                                </div>
+                                                {form.tipo===v && (
+                                                    <span className="shrink-0 rounded-full flex items-center justify-center"
+                                                          style={{width:18,height:18,background:o.color}}>
+                                                        <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
+                                                    </span>
+                                                )}
+                                            </button>
+                                            {/* Bocina IP toggle — solo en el tile 'cliente' como sugerido */}
+                                            {v === 'cliente' && (
+                                                <button type="button" onClick={()=>set('is_bocina', !isBocina)}
+                                                        title={isBocina ? 'Bocina IP activada — fuerza tecnología SIP' : 'Activar Bocina IP (altavoz / corneta SIP)'}
+                                                        disabled={!editing}
+                                                        className="rounded-lg border-2 flex flex-col items-center justify-center transition-all shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        style={{
+                                                            width:56,
+                                                            borderColor: isBocina ? '#f59e0b' : 'var(--border)',
+                                                            background: isBocina
+                                                                ? 'linear-gradient(135deg, color-mix(in srgb, #f59e0b 18%, var(--card)), var(--card))'
+                                                                : 'var(--card)',
+                                                            boxShadow: isBocina ? '0 0 12px color-mix(in srgb, #f59e0b 30%, transparent)' : 'none'
+                                                        }}>
+                                                    <span className="material-icons-round" style={{
+                                                        fontSize: 24,
+                                                        color: isBocina ? '#f59e0b' : 'var(--muted-foreground)',
+                                                        animation: isBocina ? 'tf-status-shake 0.6s ease-in-out infinite' : 'none'
+                                                    }}>campaign</span>
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5" style={{color: isBocina ? '#f59e0b' : 'var(--muted-foreground)'}}>
+                                                        {isBocina ? 'ON' : 'BOCINA'}
+                                                    </span>
+                                                </button>
                                             )}
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
 
                                 {/* Separator + Tecnología toggle buttons */}
                                 <Separator className="my-2"/>
                                 <div>
-                                    <Label className="block mb-2 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
+                                    <Label className="flex items-center justify-between mb-2 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                        <span>Tecnología de dispositivo</span>
+                                        {isBocina && (
+                                            <span className="font-bold normal-case" style={{color:'#f59e0b', fontSize:9}}>
+                                                <span className="material-icons-round" style={{fontSize:10, verticalAlign:'middle', marginRight:2}}>lock</span>
+                                                Forzado a SIP (Bocina IP)
+                                            </span>
+                                        )}
+                                    </Label>
                                     <div className="grid grid-cols-3 gap-1.5">
-                                        {devOptions.map(o => (
-                                            <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
-                                                    className="flex flex-col items-center justify-center gap-1 rounded-lg border-2 px-1.5 py-2.5 transition-all hover:shadow-sm"
-                                                    style={{
-                                                        borderColor: devType===o.v ? o.c : 'var(--border)',
-                                                        background: devType===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
-                                                    }}
-                                                    title={o.d}>
-                                                <span className="material-icons-round" style={{fontSize:20,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
-                                                <span className="text-[10px] font-bold" style={{color:devType===o.v?o.c:'var(--foreground)'}}>{o.l}</span>
-                                            </button>
-                                        ))}
+                                        {devOptions.map(o => {
+                                            const lockedOut = isBocina && o.v !== 'sip';
+                                            return (
+                                                <button key={o.v} type="button"
+                                                        onClick={()=> { if (!lockedOut) setDevType(o.v); }}
+                                                        disabled={lockedOut}
+                                                        className="flex flex-col items-center justify-center gap-1 rounded-lg border-2 px-1.5 py-2.5 transition-all hover:shadow-sm disabled:cursor-not-allowed"
+                                                        style={{
+                                                            borderColor: devType===o.v ? o.c : 'var(--border)',
+                                                            background: devType===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)',
+                                                            opacity: lockedOut ? 0.35 : 1
+                                                        }}
+                                                        title={lockedOut ? 'Bloqueado por Bocina IP — siempre SIP' : o.d}>
+                                                    <span className="material-icons-round" style={{fontSize:20,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                                    <span className="text-[10px] font-bold" style={{color:devType===o.v?o.c:'var(--foreground)'}}>{o.l}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </CardContent>
@@ -6095,6 +6229,190 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
     );
 }
 
+// ─── QueueKioskoMode: pantalla completa para monitoreo de colas (wallboard) ───
+function QueueKioskoMode({ queues, extensions, liveCalls, stratLabel, onClose }) {
+    const [clock, setClock] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setClock(new Date()), 1000);
+        // ESC para cerrar
+        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        document.addEventListener('keydown', onKey);
+        // Intentar fullscreen real del navegador (best effort)
+        try { document.documentElement.requestFullscreen?.(); } catch(e) {}
+        return () => {
+            clearInterval(t);
+            document.removeEventListener('keydown', onKey);
+            try { if (document.fullscreenElement) document.exitFullscreen?.(); } catch(e) {}
+        };
+    }, [onClose]);
+
+    const totalWaiting = queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
+    const totalMembers = queues.reduce((s,q) => s + (q.members?.length||0), 0);
+    const upCalls = liveCalls.filter(c => c.state === 'Up').length;
+    const ringCalls = liveCalls.filter(c => /Ring/.test(c.state||'')).length;
+
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 flex flex-col" style={{
+            zIndex: 99999,
+            background: 'linear-gradient(180deg, #0a0a0d 0%, #1A1A1A 100%)',
+            color: '#fafafa'
+        }}>
+            {/* Header */}
+            <div className="flex items-center justify-between gap-4 px-8 py-4 border-b" style={{borderColor:'rgba(255,255,255,0.1)'}}>
+                <div className="flex items-center gap-4">
+                    <div className="rounded-xl flex items-center justify-center" style={{
+                        width:48, height:48,
+                        background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 60%, #000))',
+                        boxShadow:'0 4px 20px color-mix(in srgb, var(--horizon-green) 40%, transparent)'
+                    }}>
+                        <span className="material-icons-round text-white" style={{fontSize:28}}>analytics</span>
+                    </div>
+                    <div>
+                        <div className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{color:'rgba(255,255,255,0.5)'}}>Monitor de Colas — Kiosko</div>
+                        <div className="text-2xl font-black tracking-tight">TeleFlow · Live Wallboard</div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-6">
+                    {/* Métricas globales */}
+                    <div className="flex items-center gap-5">
+                        <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'rgba(255,255,255,0.5)'}}>Colas</div>
+                            <div className="text-3xl font-black font-mono leading-none" style={{color:'#fafafa'}}>{queues.length}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'rgba(255,255,255,0.5)'}}>En espera</div>
+                            <div className="text-3xl font-black font-mono leading-none" style={{color: totalWaiting > 0 ? '#f59e0b' : '#fafafa'}}>{totalWaiting}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'rgba(255,255,255,0.5)'}}>En llamada</div>
+                            <div className="text-3xl font-black font-mono leading-none" style={{color: upCalls > 0 ? 'var(--horizon-green)' : '#fafafa'}}>{upCalls}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'rgba(255,255,255,0.5)'}}>Sonando</div>
+                            <div className="text-3xl font-black font-mono leading-none" style={{color: ringCalls > 0 ? '#3b82f6' : '#fafafa'}}>{ringCalls}</div>
+                        </div>
+                    </div>
+                    <div className="text-right pl-6 border-l" style={{borderColor:'rgba(255,255,255,0.1)'}}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'rgba(255,255,255,0.5)'}}>{clock.toLocaleDateString('es-UY')}</div>
+                        <div className="text-2xl font-black font-mono leading-none">{clock.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>
+                    </div>
+                    {/* Close button */}
+                    <button onClick={onClose} title="Cerrar kiosko (Esc)"
+                            className="rounded-full flex items-center justify-center transition-all hover:scale-110"
+                            style={{
+                                width:42, height:42,
+                                background:'rgba(255,255,255,0.08)',
+                                border:'1px solid rgba(255,255,255,0.15)',
+                                color:'#fafafa'
+                            }}>
+                        <span className="material-icons-round" style={{fontSize:20}}>fullscreen_exit</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Grid de colas */}
+            <div className="flex-1 overflow-auto p-6">
+                {queues.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3" style={{color:'rgba(255,255,255,0.5)'}}>
+                        <span className="material-icons-round" style={{fontSize:80, opacity:0.3}}>queue</span>
+                        <div className="text-xl">Sin colas configuradas</div>
+                    </div>
+                ) : (
+                    <div className="grid gap-4" style={{gridTemplateColumns: `repeat(auto-fill, minmax(${queues.length <= 4 ? 360 : (queues.length <= 8 ? 300 : 260)}px, 1fr))`}}>
+                        {queues.map(q => {
+                            const w = q.calls_waiting || 0;
+                            const isActive = w > 0;
+                            const isCritical = w > 5;
+                            const isWarning = w > 0 && w <= 5;
+                            const statusColor = isCritical ? '#ef4444' : (isWarning ? '#f59e0b' : (isActive ? 'var(--horizon-green)' : 'rgba(255,255,255,0.3)'));
+                            // Members count online/busy
+                            const onlineMembers = (q.members||[]).filter(m => {
+                                const mm = (m.iface||'').match(/(?:SIP|PJSIP|Local|Agent)\/(\d+)/);
+                                const e = mm ? extensions.find(x => x.ext === mm[1]) : null;
+                                return e?.status === 'ONLINE';
+                            }).length;
+                            const busyMembers = (q.members||[]).filter(m => {
+                                const mm = (m.iface||'').match(/(?:SIP|PJSIP|Local|Agent)\/(\d+)/);
+                                const e = mm ? extensions.find(x => x.ext === mm[1]) : null;
+                                return e?.status === 'BUSY';
+                            }).length;
+                            return (
+                                <div key={q.id} className="rounded-xl border overflow-hidden relative"
+                                     style={{
+                                         borderColor: isActive ? statusColor : 'rgba(255,255,255,0.1)',
+                                         background: isActive
+                                             ? `linear-gradient(135deg, color-mix(in srgb, ${statusColor} 15%, #1A1A1A), #1A1A1A)`
+                                             : 'rgba(255,255,255,0.03)',
+                                         boxShadow: isActive ? `0 0 30px color-mix(in srgb, ${statusColor} 25%, transparent)` : 'none',
+                                         animation: isCritical ? 'pulse 1.5s ease-in-out infinite' : 'none'
+                                     }}>
+                                    {/* Header de la cola */}
+                                    <div className="flex items-center gap-3 px-4 py-3 border-b" style={{borderColor:'rgba(255,255,255,0.08)'}}>
+                                        <div className="rounded-lg flex items-center justify-center font-black font-mono shrink-0"
+                                             style={{
+                                                 width:54, height:54, fontSize:22,
+                                                 background: isActive
+                                                     ? `linear-gradient(135deg, ${statusColor}, color-mix(in srgb, ${statusColor} 70%, #000))`
+                                                     : 'rgba(255,255,255,0.08)',
+                                                 color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                                                 animation: isActive ? 'tf-q-vibrate 0.6s ease-in-out infinite' : 'none'
+                                             }}>
+                                            {q.id}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-base font-bold truncate">{q.name || '—'}</div>
+                                            <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{color:'rgba(255,255,255,0.4)'}}>
+                                                <span className="material-icons-round" style={{fontSize:11}}>device_hub</span>
+                                                {stratLabel[q.strategy] || q.strategy || 'ringall'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Métricas grandes */}
+                                    <div className="grid grid-cols-2 divide-x" style={{borderColor:'rgba(255,255,255,0.08)'}}>
+                                        <div className="p-4 text-center">
+                                            <div className="text-5xl font-black font-mono leading-none" style={{
+                                                color: statusColor,
+                                                textShadow: isActive ? `0 0 20px color-mix(in srgb, ${statusColor} 60%, transparent)` : 'none'
+                                            }}>{w}</div>
+                                            <div className="text-[9px] font-bold uppercase tracking-wider mt-2" style={{color:'rgba(255,255,255,0.5)'}}>En espera</div>
+                                        </div>
+                                        <div className="p-4 text-center" style={{borderColor:'rgba(255,255,255,0.08)'}}>
+                                            <div className="text-5xl font-black font-mono leading-none" style={{color: q.max_wait > 0 ? '#f59e0b' : 'rgba(255,255,255,0.4)'}}>
+                                                {q.max_wait > 0 ? fmtTime(q.max_wait) : '0:00'}
+                                            </div>
+                                            <div className="text-[9px] font-bold uppercase tracking-wider mt-2" style={{color:'rgba(255,255,255,0.5)'}}>T. máx</div>
+                                        </div>
+                                    </div>
+                                    {/* Footer con miembros */}
+                                    <div className="px-4 py-2.5 border-t flex items-center justify-between text-[11px] font-bold" style={{borderColor:'rgba(255,255,255,0.08)', background:'rgba(0,0,0,0.2)'}}>
+                                        <span style={{color:'rgba(255,255,255,0.5)'}}>
+                                            <span className="material-icons-round" style={{fontSize:13, verticalAlign:'middle', marginRight:3}}>group</span>
+                                            {q.members?.length || 0} miembros
+                                        </span>
+                                        <span className="flex items-center gap-2">
+                                            <span style={{color:'var(--horizon-green)'}}>● {onlineMembers}</span>
+                                            <span style={{color:'#ef4444'}}>● {busyMembers}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-2 text-center text-[10px] font-bold uppercase tracking-wider border-t" style={{
+                borderColor:'rgba(255,255,255,0.1)',
+                color:'rgba(255,255,255,0.4)'
+            }}>
+                Actualización en vivo · Esc para salir del modo kiosko · TeleFlow Horizon Operations
+            </div>
+        </div>,
+        document.getElementById('tf-modal-root') || document.body
+    );
+}
+
 // ─── QueueActionsMenu: popover de acciones sobre el botón settings ───
 function QueueActionsMenu({ q, onLogin, onLogout, onViewAgents, onReport, onConfigure }) {
     const [open, setOpen] = useState(false);
@@ -6438,6 +6756,7 @@ function ViewColas({ toast, onReport, data }) {
             <AgentLoginModal open={!!loginModalQ} onClose={()=>setLoginModalQ(null)} onDone={()=>{setLoginModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queueDefault={loginModalQ} toast={toast} />
             <AgentLogoutModal open={!!logoutModalQ} onClose={()=>setLogoutModalQ(null)} onDone={()=>{setLogoutModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={logoutModalQ} toast={toast} />
             <QueueAgentsModal open={!!queueAgentsModalQ} onClose={()=>setQueueAgentsModalQ(null)} onDone={()=>{setQueueAgentsModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={queueAgentsModalQ?.id} queueName={queueAgentsModalQ?.name} toast={toast} />
+            {kioskoOpen && <QueueKioskoMode queues={queues} extensions={extensions} liveCalls={liveCalls} stratLabel={stratLabel} onClose={()=>setKioskoOpen(false)}/>}
             <div style={{textAlign:'center',marginTop:20,padding:'14px 0',fontSize:11,color:'var(--muted)',borderTop:'1px solid var(--border)',fontWeight:700}}>
                 <span className="material-icons-round" style={{fontSize:14,verticalAlign:'middle',marginRight:4}}>queue</span>
                 {queues.length} colas configuradas en la PBX

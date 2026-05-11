@@ -69,6 +69,69 @@ if ($action === 'set_sip_debug') {
     exit;
 }
 
+if ($action === 'sip_debug_ext') {
+    // Debug SIP filtrado por una extensión específica
+    @set_time_limit(30);
+    $ext = preg_replace('/[^0-9]/', '', $_GET['ext'] ?? '');
+    if (!$ext) { header('Content-Type: application/json'); echo json_encode(['success'=>false,'error'=>'ext requerida']); exit; }
+    $log_lines = [];
+    $endpoint    = ami_cmd("pjsip show endpoint $ext");
+    $contacts    = ami_cmd("pjsip show contacts");
+    $aor         = ami_cmd("pjsip show aor $ext");
+    $auth        = ami_cmd("pjsip show auth $ext");
+    $hist        = ami_cmd('pjsip show history');
+    $pjsip_chans = ami_cmd('pjsip show channels');
+    $sip_chans   = ami_cmd('sip show channels');
+
+    $log_lines[] = "=== PJSIP SHOW ENDPOINT $ext ===";
+    $log_lines[] = trim($endpoint) ?: '(no se obtuvo respuesta — verificá que la extensión exista en PJSIP)';
+    $log_lines[] = '';
+    $log_lines[] = "=== PJSIP AOR $ext ===";
+    $log_lines[] = trim($aor) ?: '(sin AOR registrado)';
+    $log_lines[] = '';
+    $log_lines[] = "=== PJSIP AUTH $ext ===";
+    $log_lines[] = trim($auth) ?: '(sin AUTH configurado)';
+    $log_lines[] = '';
+    // Filtrar contactos solo los del ext
+    $log_lines[] = "=== CONTACTS (filtrados por $ext) ===";
+    $cl = [];
+    foreach (explode("\n", $contacts) as $line) {
+        if (strpos($line, "/$ext") !== false || strpos($line, "$ext/") !== false || strpos($line, $ext . "@") !== false || strpos($line, "$ext sip:") !== false) {
+            $cl[] = $line;
+        }
+    }
+    $log_lines[] = $cl ? implode("\n", $cl) : '(sin contactos)';
+    $log_lines[] = '';
+    // Filtrar canales solo los del ext
+    $log_lines[] = "=== PJSIP CHANNELS (filtrados por $ext) ===";
+    $chl = [];
+    foreach (explode("\n", $pjsip_chans) as $line) {
+        if (strpos($line, "/$ext-") !== false || preg_match('/\bPJSIP\/' . preg_quote($ext, '/') . '\b/', $line)) {
+            $chl[] = $line;
+        }
+    }
+    $log_lines[] = $chl ? implode("\n", $chl) : '(sin canales activos)';
+    $log_lines[] = '';
+    $log_lines[] = "=== HISTORY (últimas líneas mencionando $ext) ===";
+    $hl = [];
+    foreach (explode("\n", $hist) as $line) {
+        if (strpos($line, "/$ext-") !== false || strpos($line, "@$ext;") !== false || preg_match('/\b' . preg_quote($ext, '/') . '\b/', $line)) {
+            $hl[] = $line;
+            if (count($hl) >= 80) break;
+        }
+    }
+    $log_lines[] = $hl ? implode("\n", $hl) : '(sin historia para esta ext)';
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'ext'     => $ext,
+        'log'     => implode("\n", $log_lines),
+        'ts'      => date('Y-m-d H:i:s')
+    ]);
+    exit;
+}
+
 if ($action === 'get_sip_debug') {
     // HORIZON: en VM remota no hay /var/log/asterisk/full. Usar AMI para info de SIP en vivo.
     // Cache 15s para evitar saturar AMI con 4 commands seriales por cada poll
@@ -776,7 +839,7 @@ if ($action === 'set_recording') {
 if ($action === 'get_ext_meta') {
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label, IFNULL(is_bocina,0) AS is_bocina FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
         $map = []; foreach ($rows as $r) $map[$r['ext']] = $r;
         echo json_encode(['success'=>true, 'meta'=>$map]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
@@ -788,8 +851,8 @@ if ($action === 'set_ext_meta') {
     $notes = $_POST['notes'] ?? '';
     $rtsp_url = trim($_POST['rtsp_url'] ?? '');
     $rtsp_label = trim($_POST['rtsp_label'] ?? '');
+    $is_bocina = !empty($_POST['is_bocina']) && $_POST['is_bocina'] !== 'false' && $_POST['is_bocina'] !== '0' ? 1 : 0;
     if (!in_array($tipo, ['cliente','horizon',''])) { echo json_encode(['success'=>false,'error'=>'tipo inválido']); exit; }
-    // Validación leve: solo aceptar URLs rtsp/rtsps/http/https
     if ($rtsp_url && !preg_match('#^(rtsp|rtsps|http|https)://#i', $rtsp_url)) {
         echo json_encode(['success'=>false,'error'=>'rtsp_url debe empezar con rtsp:// rtsps:// http:// o https://']); exit;
     }
@@ -797,8 +860,10 @@ if ($action === 'set_ext_meta') {
     if (strlen($rtsp_label) > 80) $rtsp_label = substr($rtsp_label, 0, 80);
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label)");
-        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null]);
+        // Asegurar columna is_bocina (idempotente)
+        try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN is_bocina TINYINT(1) NOT NULL DEFAULT 0"); } catch(Exception $_) {}
+        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina)");
+        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina]);
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
     exit;
