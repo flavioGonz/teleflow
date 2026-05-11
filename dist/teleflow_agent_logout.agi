@@ -1,0 +1,54 @@
+#!/usr/bin/php -q
+<?php
+// Cargar config desde /etc/asterisk/teleflow_agi.conf
+$_TF_CFG = @parse_ini_file("/etc/asterisk/teleflow_agi.conf");
+if (!$_TF_CFG) { fwrite(STDERR, "teleflow_agi.conf missing or unreadable
+"); exit(0); }
+foreach (["DB_HOST","DB_USER","DB_PASS","AMI_HOST","AMI_PORT","AMI_USER","AMI_PASS"] as $_k) {
+    if (!isset($_TF_CFG[$_k])) { fwrite(STDERR, "teleflow_agi.conf falta $_k
+"); exit(0); }
+}
+$_DB_HOST = $_TF_CFG["DB_HOST"]; $_DB_USER = $_TF_CFG["DB_USER"]; $_DB_PASS = $_TF_CFG["DB_PASS"];
+$_AMI_HOST = $_TF_CFG["AMI_HOST"]; $_AMI_PORT = (int)$_TF_CFG["AMI_PORT"]; $_AMI_USER = $_TF_CFG["AMI_USER"]; $_AMI_PASS = $_TF_CFG["AMI_PASS"];
+
+ob_implicit_flush(true);
+$stdin = fopen('php://stdin','r');
+$stdlog = fopen('/var/log/asterisk/teleflow_agi.log','a');
+function agi_log($m){global $stdlog;fwrite($stdlog,'['.date('Y-m-d H:i:s').'] '.$m."\n");fflush($stdlog);}
+function agi_set($n,$v){fwrite(STDOUT,"SET VARIABLE $n \"$v\"\n");fgets(STDIN);}
+while(!feof($stdin)){if(trim(fgets($stdin))==='')break;}
+$ext = $argv[1] ?? '';
+if (!preg_match('/^\d+$/',$ext)) { agi_set('LOGOUT_OK','0'); exit(0); }
+agi_log("logout ext=$ext");
+$ami=@fsockopen('127.0.0.1',5038,$e,$es,3);
+if (!$ami) { agi_set('LOGOUT_OK','0'); exit(0); }
+stream_set_timeout($ami,3); fgets($ami);
+fwrite($ami,"Action: Login\r\nUsername: ".$_AMI_USER."\r\nSecret: ".$_AMI_PASS.\r\nEvents: off\r\n\r\n");
+$st=microtime(true);while(microtime(true)-$st<2){$l=fgets($ami);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
+fwrite($ami,"Action: Command\r\nCommand: queue show\r\n\r\n");
+$out='';$st=microtime(true);
+while(microtime(true)-$st<3){$l=fgets($ami);if($l===false)break;if(strpos($l,'--END COMMAND--')!==false)break;if(stripos($l,'Output:')===0)$out.=substr($l,strpos($l,':')+2);}
+$cur_q=null;$queues=[]; $agent_num=null;
+foreach(preg_split('/\n/',$out) as $line){
+    if(preg_match('/^\s*(\d+)\s+has\s+/',$line,$m))$cur_q=$m[1];
+    elseif($cur_q && strpos($line,"SIP/$ext ")!==false){
+        $queues[]=$cur_q;
+        if (preg_match('/Agent\/(\d+)\s+\(SIP\/' . $ext . '\)/', $line, $am)) $agent_num = $am[1];
+    }
+}
+foreach(array_unique($queues) as $q){
+    fwrite($ami,"Action: QueueRemove\r\nQueue: $q\r\nInterface: SIP/$ext\r\n\r\n"); usleep(50000);
+}
+@unlink('/tmp/teleflow_queue_show.txt');
+try {
+    $tf=new PDO("mysql:host=".$_DB_HOST.";dbname=teleflow;charset=utf8mb4",$_DB_USER,$_DB_PASS,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $tf->prepare("UPDATE agent_sessions SET logout_time=NOW(), status='CLOSED' WHERE agent_ext=? AND logout_time IS NULL")->execute([$ext]);
+} catch(Exception $e){}
+
+// Notificar a TeleFlow
+@file_get_contents('http://10.1.1.192/api/notify.php?event=agent_logout&ext='.urlencode($ext).'&queues='.urlencode(implode(',',$queues)).'&agent='.urlencode($agent_num??''));
+
+fwrite($ami,"Action: Logoff\r\n\r\n"); fclose($ami);
+agi_log("logout OK ext=$ext queues=".implode(',',$queues));
+agi_set('LOGOUT_OK','1');
+exit(0);
