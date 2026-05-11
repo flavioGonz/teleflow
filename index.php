@@ -819,6 +819,13 @@ header('Expires: 0');
             0% { opacity: 0.7; transform: scale(1); }
             100% { opacity: 0; transform: scale(1.7); }
         }
+        @keyframes tf-q-vibrate {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            20% { transform: translateX(-1.8px) rotate(-1deg); }
+            40% { transform: translateX(1.8px) rotate(1deg); }
+            60% { transform: translateX(-1.4px) rotate(-0.6deg); }
+            80% { transform: translateX(1.4px) rotate(0.6deg); }
+        }
         @keyframes phone-shake {
             0%, 100% { transform: rotate(0deg); }
             25% { transform: rotate(-12deg); }
@@ -5489,6 +5496,63 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
     );
 }
 
+// ─── QueueActionsMenu: popover de acciones sobre el botón settings ───
+function QueueActionsMenu({ q, onLogin, onLogout, onViewAgents, onReport, onConfigure }) {
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef(null);
+    useEffect(() => {
+        if (!open) return;
+        const h = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        const onEsc = (e) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('keydown', onEsc);
+        return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', onEsc); };
+    }, [open]);
+    const items = [
+        { icon:'person_add',    label:'Login agente',       color:'#22c55e',         onClick: onLogin },
+        { icon:'person_remove', label:'Logout agente',      color:'#ef4444',         onClick: onLogout },
+        { icon:'group',         label:'Ver agentes online', color:'#3b82f6',         onClick: onViewAgents },
+        onReport ? { icon:'analytics', label:'Reportes', color:'var(--primary)', onClick: onReport } : null,
+        { icon:'settings',      label:'Configurar cola',    color:'var(--muted-foreground)', onClick: onConfigure },
+    ].filter(Boolean);
+    return (
+        <div ref={wrapRef} className="relative">
+            <button title="Acciones de la cola"
+                    onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }}
+                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                    style={{
+                        background: open ? 'var(--accent)' : 'color-mix(in srgb, var(--muted) 30%, transparent)',
+                        color: open ? 'var(--accent-foreground)' : 'var(--muted-foreground)'
+                    }}>
+                <span className="material-icons-round" style={{fontSize:18}}>{open ? 'close' : 'more_vert'}</span>
+            </button>
+            {open && (
+                <div onClick={e=>e.stopPropagation()}
+                     className="absolute right-0 mt-2 rounded-lg border shadow-lg z-50 py-1 min-w-[220px]"
+                     style={{
+                         background:'var(--card)', borderColor:'var(--border)',
+                         color:'var(--card-foreground)',
+                         boxShadow:'0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.10)'
+                     }}>
+                    <div className="px-3 py-2 border-b" style={{borderColor:'var(--border)'}}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Cola</div>
+                        <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>{q.name} <span className="font-mono opacity-60">· #{q.id}</span></div>
+                    </div>
+                    {items.map((it, i) => (
+                        <button key={i}
+                                onClick={()=>{ setOpen(false); it.onClick?.(); }}
+                                className="w-full px-3 py-2 flex items-center gap-2.5 text-left text-xs transition-colors hover:bg-accent">
+                            <span className="material-icons-round shrink-0" style={{fontSize:16, color:it.color}}>{it.icon}</span>
+                            <span className="flex-1 font-medium" style={{color:'var(--foreground)'}}>{it.label}</span>
+                            <span className="material-icons-round" style={{fontSize:13, color:'var(--muted-foreground)', opacity:0.5}}>chevron_right</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ViewColas({ toast, onReport, data }) {
     const [drawer,setDrawer]=useState(null);
     const [loginModalQ, setLoginModalQ] = useState(null);
@@ -5607,27 +5671,7 @@ function ViewColas({ toast, onReport, data }) {
                              background: isCritical ? 'rgba(239,68,68,0.05)' : 'var(--surface)',
                              boxShadow: isCritical ? '0 0 30px rgba(239,68,68,0.15)' : 'none'
                          }}>
-                        {/* Overlay hover full card — botones unificados, icon left + chevron right */}
-                        <div className="opacity-0 group-hover:opacity-100 tf-q-overlay" style={{position:'absolute',inset:0,zIndex:5,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(7,11,22,0.78)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',transition:'opacity 0.2s',borderRadius:24,gap:6,flexDirection:'column',padding:'18px 20px',pointerEvents:'auto'}}>
-                            <div style={{textAlign:'center',marginBottom:10}}>
-                                <div style={{fontSize:9,fontWeight:800,color:'#a1a8b8',textTransform:'uppercase',letterSpacing:'.12em'}}>Cola Q{q.id}</div>
-                                <div style={{fontSize:14,fontWeight:900,color:'#fff',marginTop:3,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.name}</div>
-                            </div>
-                            {[
-                                { icon:'person_add',     label:'Login agente',       color:'#22c55e', onClick:(e)=>{e.stopPropagation(); setLoginModalQ(q.id);} },
-                                { icon:'person_remove',  label:'Logout agente',      color:'#ef4444', onClick:(e)=>{e.stopPropagation(); setLogoutModalQ(q.id);} },
-                                { icon:'group',          label:'Ver agentes online', color:'#3b82f6', onClick:(e)=>{e.stopPropagation(); setQueueAgentsModalQ(q);} },
-                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'var(--primary)', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
-                                { icon:'settings',       label:'Configurar cola',    color:'#a1a8b8', onClick:(e)=>{e.stopPropagation(); setDrawer(q);} },
-                            ].map((b,i)=>(
-                                <button key={i} type="button" onClick={b.onClick} className="tf-q-btn" style={{width:'100%',maxWidth:200,padding:'10px 14px',borderRadius:10,border:`1px solid ${b.color}55`,background:`linear-gradient(135deg,${b.color}26,${b.color}10)`,color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'all .15s ease',pointerEvents:'auto'}}>
-                                    <span className="material-icons-round" style={{fontSize:18,color:b.color,flexShrink:0}}>{b.icon}</span>
-                                    <span style={{flex:1,textAlign:'left'}}>{b.label}</span>
-                                    <span className="material-icons-round" style={{fontSize:14,opacity:.55}}>chevron_right</span>
-                                </button>
-                            ))}
-                        </div>
-                        
+
                         {/* Heatmap intensity indicator */}
                         <div style={{
                             position:'absolute', top:0, right:0, width:140, height:140,
@@ -5636,46 +5680,60 @@ function ViewColas({ toast, onReport, data }) {
                         }} />
 
                         <div style={{position:'relative', zIndex:1}}>
-                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
-                                <div style={{display:'flex', alignItems:'center', gap:12}}>
-                                    <div style={{position:'relative', width:48, height:48}}>
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18, gap:10}}>
+                                <div style={{display:'flex', alignItems:'center', gap:12, minWidth:0, flex:1}}>
+                                    {/* Número de cola DESTACADO + animado cuando hay llamada */}
+                                    <div style={{position:'relative', flexShrink:0}}>
                                         {isActive && [0,1,2].map(idx => (
                                             <div key={idx} style={{
-                                                position:'absolute', inset:0, borderRadius:16,
+                                                position:'absolute', inset:-2, borderRadius:14,
                                                 border:`2px solid ${statusColor}`,
                                                 opacity: 0,
                                                 animation: `ring-pulse 1.5s ease-out infinite ${idx*0.5}s`
                                             }}/>
                                         ))}
                                         <div style={{
-                                            width:48, height:48, borderRadius:16, 
-                                            background: isActive ? `${statusColor}22` : 'var(--surface2)',
+                                            minWidth:64, height:56, borderRadius:12, padding:'0 12px',
+                                            background: isActive
+                                                ? `linear-gradient(135deg, ${statusColor}, color-mix(in srgb, ${statusColor} 70%, #000))`
+                                                : 'color-mix(in srgb, var(--muted) 30%, var(--card))',
                                             display:'flex', alignItems:'center', justifyContent:'center',
-                                            boxShadow: isActive ? `0 0 20px ${statusColor}55` : 'none',
-                                            position:'relative', zIndex:1
+                                            boxShadow: isActive ? `0 4px 20px ${statusColor}55, 0 0 0 1px ${statusColor}` : '0 0 0 1px var(--border)',
+                                            position:'relative', zIndex:1,
+                                            animation: isActive ? 'tf-q-vibrate 0.5s ease-in-out infinite' : 'none'
                                         }}>
-                                            <span className="material-icons-round" style={{fontSize:24, color:statusColor, animation: isActive ? 'phone-shake 0.6s ease-in-out infinite' : 'none'}}>{isActive?'phone_in_talk':'hub'}</span>
+                                            <span style={{
+                                                fontSize:26, fontWeight:900, fontFamily:'monospace',
+                                                color: isActive ? '#fff' : 'var(--foreground)',
+                                                letterSpacing:'-1px', lineHeight:1,
+                                                textShadow: isActive ? `0 0 10px rgba(255,255,255,0.4)` : 'none'
+                                            }}>{q.id}</span>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div style={{display:'flex', alignItems:'center', gap:8}}>
-                                            <span style={{fontSize:10, fontWeight:900, color:'#6b7280', fontFamily:'monospace', background:'var(--surface2)', padding:'2px 6px', borderRadius:5}}>#{q.id}</span>
-                                            <h3 style={{fontSize:16, fontWeight:900, color:'var(--text)'}}>{q.name}</h3>
+                                    <div style={{minWidth:0, flex:1}}>
+                                        <h3 style={{fontSize:15, fontWeight:800, color:'var(--foreground)', lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{q.name}</h3>
+                                        <div className="flex items-center gap-1.5 mt-1" style={{fontSize:10, color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round" style={{fontSize:12}}>device_hub</span>
+                                            <span title="Estrategia de ring — cómo distribuye llamadas a los agentes">
+                                                Ring <strong style={{color:'var(--foreground)',fontWeight:700}}>{stratLabel[q.strategy]||q.strategy||'—'}</strong>
+                                            </span>
                                         </div>
-                                        <div style={{fontSize:11, color:'#6b7280', marginTop:2}}>{stratLabel[q.strategy]||q.strategy}</div>
                                     </div>
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
                                     {waiting > 1 && (
-                                        <div className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg shadow-red-500/20">
+                                        <div className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg shadow-red-500/20" style={{animation:'pulse 1s infinite'}}>
                                             <span className="material-icons-round" style={{fontSize:12}}>call</span>
                                             {waiting}
                                         </div>
                                     )}
-                                    <button title="Ajustes" onClick={()=>setDrawer(q)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
-                                        <span className="material-icons-round" style={{fontSize:18}}>settings</span>
-                                    </button>
+                                    <QueueActionsMenu q={q}
+                                        onLogin={()=>setLoginModalQ(q.id)}
+                                        onLogout={()=>setLogoutModalQ(q.id)}
+                                        onViewAgents={()=>setQueueAgentsModalQ(q)}
+                                        onReport={onReport ? ()=>onReport(q.id) : null}
+                                        onConfigure={()=>setDrawer(q)}/>
                                 </div>
                             </div>
 
