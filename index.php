@@ -9570,25 +9570,8 @@ function ViewHotdesking({ data, toast }) {
                 }
 
                 return (
-                    <div className="grid gap-4" style={{gridTemplateColumns:'1fr minmax(340px, 420px)', alignItems:'start'}}>
-                        {/* LEFT: agentes offline (compactos) */}
-                        <div>
-                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-                                <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
-                                <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} agente{offlineAgents.length!==1?'s':''} offline</span>
-                            </div>
-                            {offlineAgents.length > 0 ? (
-                                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:8}}>
-                                    {offlineAgents.map(renderOffline)}
-                                </div>
-                            ) : (
-                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
-                                    Todos los agentes están logueados
-                                </div>
-                            )}
-                        </div>
-
-                        {/* RIGHT: agentes logueados — panel destacado con header tipo card shadcn */}
+                    <div className="grid gap-4" style={{gridTemplateColumns:'1fr minmax(280px, 340px)', alignItems:'start'}}>
+                        {/* LEFT: agentes logueados — panel destacado con header tipo card shadcn */}
                         <div className="rounded-xl border overflow-hidden" style={{
                             borderColor:'color-mix(in srgb, var(--horizon-green) 25%, var(--border))',
                             background:'linear-gradient(180deg, color-mix(in srgb, var(--horizon-green) 6%, var(--card)) 0%, var(--card) 100%)',
@@ -9674,6 +9657,23 @@ function ViewHotdesking({ data, toast }) {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* RIGHT: agentes offline (compactos) */}
+                        <div>
+                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} offline</span>
+                            </div>
+                            {offlineAgents.length > 0 ? (
+                                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:6}}>
+                                    {offlineAgents.map(renderOffline)}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                                    Todos los agentes están logueados
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
