@@ -776,7 +776,7 @@ if ($action === 'set_recording') {
 if ($action === 'get_ext_meta') {
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $rows = $tf->query("SELECT ext, tipo, notes FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
         $map = []; foreach ($rows as $r) $map[$r['ext']] = $r;
         echo json_encode(['success'=>true, 'meta'=>$map]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
@@ -786,11 +786,19 @@ if ($action === 'set_ext_meta') {
     $ext  = preg_replace('/\D/', '', $_POST['ext'] ?? '');
     $tipo = $_POST['tipo'] ?? '';
     $notes = $_POST['notes'] ?? '';
+    $rtsp_url = trim($_POST['rtsp_url'] ?? '');
+    $rtsp_label = trim($_POST['rtsp_label'] ?? '');
     if (!in_array($tipo, ['cliente','horizon',''])) { echo json_encode(['success'=>false,'error'=>'tipo inválido']); exit; }
+    // Validación leve: solo aceptar URLs rtsp/rtsps/http/https
+    if ($rtsp_url && !preg_match('#^(rtsp|rtsps|http|https)://#i', $rtsp_url)) {
+        echo json_encode(['success'=>false,'error'=>'rtsp_url debe empezar con rtsp:// rtsps:// http:// o https://']); exit;
+    }
+    if (strlen($rtsp_url) > 500) { echo json_encode(['success'=>false,'error'=>'rtsp_url demasiado largo']); exit; }
+    if (strlen($rtsp_label) > 80) $rtsp_label = substr($rtsp_label, 0, 80);
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes)");
-        $stmt->execute([$ext, $tipo, $notes]);
+        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label)");
+        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null]);
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
     exit;

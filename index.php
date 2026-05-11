@@ -1676,6 +1676,179 @@ function Toaster() {
 }
 
 
+// HORIZON: RTSP Preview — popup encima del toast Sileo cuando llama un interno con rtsp_url configurado
+function RtspPreviewLayer() {
+    const [previews, setPreviews] = useState([]);
+
+    useEffect(() => {
+        const onOpen = (e) => {
+            const d = e.detail || {};
+            if (!d.url || !d.id) return;
+            setPreviews(prev => prev.find(p => p.id === d.id) ? prev : [...prev, d]);
+        };
+        const onClose = (e) => {
+            const id = e.detail?.id;
+            if (id) setPreviews(prev => prev.filter(p => p.id !== id));
+            else setPreviews([]);
+        };
+        window.addEventListener('tf-rtsp-preview-open', onOpen);
+        window.addEventListener('tf-rtsp-preview-close', onClose);
+        return () => {
+            window.removeEventListener('tf-rtsp-preview-open', onOpen);
+            window.removeEventListener('tf-rtsp-preview-close', onClose);
+        };
+    }, []);
+
+    if (previews.length === 0) return null;
+
+    const content = (
+        <div style={{
+            position:'fixed', top:24, right:24, zIndex:10001,
+            display:'flex', flexDirection:'column', gap:12,
+            pointerEvents:'auto'
+        }}>
+            {previews.map(p => (
+                <RtspPreviewCard
+                    key={p.id}
+                    preview={p}
+                    onClose={() => setPreviews(prev => prev.filter(x => x.id !== p.id))}
+                />
+            ))}
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+
+function RtspPreviewCard({ preview, onClose }) {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [muted, setMuted] = useState(true);
+
+    // Detectar tipo de stream
+    const url = preview.url || '';
+    const isHls = /\.m3u8(\?|$)/i.test(url);
+    const isMp4 = /\.(mp4|webm|ogv)(\?|$)/i.test(url);
+    const isMjpeg = /\.(mjpg|mjpeg|cgi)(\?|$)/i.test(url) || /\/snap|\/mjpg|action=stream/i.test(url);
+    const isRtsp = /^rtsps?:\/\//i.test(url);
+    const isHttp = /^https?:\/\//i.test(url);
+
+    useEffect(() => {
+        if (!isHls || !videoRef.current) return;
+        const video = videoRef.current;
+        // Cargar HLS.js si no está
+        const setupHls = () => {
+            if (!window.Hls) { setError('HLS.js no cargó'); return; }
+            if (window.Hls.isSupported()) {
+                const hls = new window.Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(window.Hls.Events.ERROR, (_, data) => {
+                    if (data.fatal) setError('Stream HLS no disponible');
+                });
+                video._hls = hls;
+                return () => { try { hls.destroy(); } catch(e) {} };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+            } else {
+                setError('Tu browser no soporta HLS');
+            }
+        };
+        if (window.Hls) {
+            return setupHls();
+        } else {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+            s.onload = setupHls;
+            s.onerror = () => setError('No se pudo cargar HLS.js');
+            document.head.appendChild(s);
+        }
+    }, [url, isHls]);
+
+    return (
+        <div style={{
+            width: 340,
+            background: '#0a0a0d',
+            borderRadius: 12,
+            overflow: 'hidden',
+            border: '1px solid var(--border)',
+            boxShadow: '0 20px 50px -10px rgba(0,0,0,0.6), 0 0 0 2px var(--horizon-green), 0 0 30px rgba(17,179,40,0.35)',
+            animation: 'slide-in-right 0.3s ease-out'
+        }}>
+            {/* Header */}
+            <div style={{
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, rgba(17,179,40,0.22), rgba(17,179,40,0.05))',
+                borderBottom: '1px solid rgba(17,179,40,0.35)',
+                display: 'flex', alignItems: 'center', gap: 8
+            }}>
+                <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)', animation:'pulse 1.5s infinite'}}>videocam</span>
+                <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:11, fontWeight:800, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                        {preview.label || 'Videoportero'}
+                    </div>
+                    <div style={{fontSize:9, color:'rgba(255,255,255,0.6)', fontFamily:'monospace'}}>
+                        ext {preview.ext} · llamada en curso
+                    </div>
+                </div>
+                <button onClick={() => { setMuted(m=>!m); if(videoRef.current) videoRef.current.muted = !muted; }}
+                    title={muted?'Activar audio':'Silenciar'}
+                    style={{padding:4, border:'none', background:'rgba(255,255,255,0.08)', borderRadius:6, cursor:'pointer', color:'#fff'}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>{muted?'volume_off':'volume_up'}</span>
+                </button>
+                <button onClick={onClose} title="Cerrar"
+                    style={{padding:4, border:'none', background:'rgba(255,255,255,0.08)', borderRadius:6, cursor:'pointer', color:'#fff'}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                </button>
+            </div>
+
+            {/* Video area */}
+            <div style={{position:'relative', width:340, height:255, background:'#000', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                {error && (
+                    <div style={{textAlign:'center', color:'#fca5a5', padding:20, fontSize:11}}>
+                        <span className="material-icons-round" style={{fontSize:32, display:'block', marginBottom:6}}>broken_image</span>
+                        {error}
+                    </div>
+                )}
+                {!error && (isHls || isMp4) && (
+                    <video
+                        ref={videoRef}
+                        autoPlay muted={muted} playsInline
+                        src={isMp4 ? url : undefined}
+                        onError={()=>setError('No se pudo cargar el video')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}
+                    />
+                )}
+                {!error && isMjpeg && (
+                    <img src={url} alt="MJPEG stream"
+                        onError={()=>setError('Stream MJPEG no disponible')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                )}
+                {!error && isRtsp && (
+                    <div style={{textAlign:'center', color:'#fcd34d', padding:20, fontSize:11}}>
+                        <span className="material-icons-round" style={{fontSize:32, display:'block', marginBottom:6, color:'#f59e0b'}}>warning</span>
+                        <div style={{fontWeight:800, marginBottom:4}}>RTSP requiere proxy</div>
+                        <div style={{color:'rgba(252,211,77,0.7)', fontSize:10, lineHeight:1.4}}>
+                            Los browsers no reproducen RTSP nativamente.<br/>
+                            Configurá un transcoder (FFmpeg/MediaMTX) a HLS.
+                        </div>
+                    </div>
+                )}
+                {!error && !isHls && !isMp4 && !isMjpeg && !isRtsp && isHttp && (
+                    <img src={url} alt="HTTP stream"
+                        onError={()=>setError('Stream no disponible')}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                )}
+                {/* Live indicator */}
+                <div style={{position:'absolute', top:8, left:8, padding:'3px 8px', background:'rgba(239,68,68,0.95)', color:'#fff', borderRadius:4, fontSize:9, fontWeight:900, letterSpacing:'.06em', display:'inline-flex', alignItems:'center', gap:4}}>
+                    <span style={{width:6, height:6, borderRadius:'50%', background:'#fff', animation:'pulse 1s infinite'}}/>LIVE
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // HORIZON: wrapper para migrar modales legacy a Dialog shadcn sin reescribir todo el contenido
 function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '90vh', children, className, autoHeight = true }) {
     useEffect(() => {
@@ -2660,7 +2833,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ 
         ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '', 
-        tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '' 
+        tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '',
+        rtsp_url: (window._tfExtMeta||{})[ext?.ext]?.rtsp_url || '',
+        rtsp_label: (window._tfExtMeta||{})[ext?.ext]?.rtsp_label || ''
     });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
@@ -2739,11 +2914,29 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         fd.append('device_type', devType);
         fd.append('recording', recording);
         const action = isNew ? 'create_extension' : 'update_extension';
-        // Guardar tipo en ext_meta si cambió
-        if (form.tipo !== ((window._tfExtMeta||{})[form.ext]?.tipo || '')) {
-            const tfd = new FormData(); tfd.append('ext', form.ext); tfd.append('tipo', form.tipo);
+        // Guardar ext_meta (tipo + rtsp) si cambió alguno
+        const prevMeta = (window._tfExtMeta||{})[form.ext] || {};
+        const metaChanged = form.tipo !== (prevMeta.tipo || '') ||
+                            form.rtsp_url !== (prevMeta.rtsp_url || '') ||
+                            form.rtsp_label !== (prevMeta.rtsp_label || '');
+        if (metaChanged) {
+            const tfd = new FormData();
+            tfd.append('ext', form.ext);
+            tfd.append('tipo', form.tipo);
+            tfd.append('rtsp_url', form.rtsp_url || '');
+            tfd.append('rtsp_label', form.rtsp_label || '');
             fetch('api/index.php?action=set_ext_meta', {method:'POST',body:tfd,credentials:'include'})
-                .then(r=>r.json()).then(j=>{ if(j.success) { window._tfExtMeta = window._tfExtMeta||{}; window._tfExtMeta[form.ext] = {ext:form.ext, tipo:form.tipo}; } });
+                .then(r=>r.json()).then(j=>{
+                    if(j.success) {
+                        window._tfExtMeta = window._tfExtMeta||{};
+                        window._tfExtMeta[form.ext] = {
+                            ext: form.ext,
+                            tipo: form.tipo,
+                            rtsp_url: form.rtsp_url || '',
+                            rtsp_label: form.rtsp_label || ''
+                        };
+                    }
+                });
         }
         try {
             const r = await fetch(`api/index.php?action=${action}`, { method:'POST', body:fd, credentials:'include' });
@@ -3040,6 +3233,43 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                             ))}
                         </div>
+                    </div>
+
+                    {/* RTSP — videoportero / cámara asociada */}
+                    <div className="glass" style={{padding:22,borderRadius:16}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#11B328'}}>videocam</span>
+                            <h3 style={{fontSize:13,fontWeight:800}}>Videoportero / RTSP</h3>
+                            <span style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(17,179,40,0.15)',color:'var(--horizon-green)',fontWeight:800,marginLeft:6}}>NUEVO</span>
+                        </div>
+                        <div style={{fontSize:11,color:'var(--muted-foreground)',marginBottom:14,lineHeight:1.5}}>
+                            Si este interno es un videoportero o cámara, configurá el stream RTSP/HLS/HTTP del video.
+                            Cuando llame, aparecerá un popup con el preview en vivo encima del toast estándar.
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Etiqueta visible</label>
+                                <input className="input-tf" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                    placeholder="Ej: Portero entrada principal" maxLength={80}
+                                    style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
+                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Aparece junto al video</div>
+                            </div>
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>URL del stream</label>
+                                <input className="input-tf" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                    placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500}
+                                    style={{padding:'10px 14px',borderRadius:10,fontSize:12,fontFamily:'monospace'}}/>
+                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>Acepta rtsp://, rtsps://, http(s)://, .m3u8 (HLS), .mp4</div>
+                            </div>
+                        </div>
+                        {form.rtsp_url && (
+                            <div style={{marginTop:12,padding:'10px 12px',borderRadius:8,background:'rgba(17,179,40,0.08)',border:'1px solid rgba(17,179,40,0.25)',display:'flex',gap:10,alignItems:'flex-start'}}>
+                                <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)',flexShrink:0,marginTop:1}}>check_circle</span>
+                                <div style={{fontSize:11,color:'var(--foreground)',lineHeight:1.45}}>
+                                    Stream configurado. Cuando este interno llame, los supervisores logueados verán el preview del video automáticamente.
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Grabación + Tecnología */}
@@ -10125,6 +10355,20 @@ function App() {
                 window._tfSeenCalls.add(dedupKey);
                 setTimeout(() => window._tfSeenCalls.delete(dedupKey), 30000);
 
+                // HORIZON: si el caller ext tiene rtsp_url configurado, abrir preview encima del toast
+                const callerMeta = (window._tfExtMeta || {})[c.ext];
+                if (callerMeta?.rtsp_url) {
+                    window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
+                        detail: {
+                            id: dedupKey,
+                            ext: c.ext,
+                            url: callerMeta.rtsp_url,
+                            label: callerMeta.rtsp_label || `Videoportero · ext ${c.ext}`,
+                            channel: c.channel
+                        }
+                    }));
+                }
+
                 const callerLabel = c.name || c.ext || 'Caller';
                 const destLabel = fmtDest(c);
                 // HORIZON: discriminar tipo de origen (cliente / horizon / sin asignar)
@@ -10147,6 +10391,8 @@ function App() {
                 if (!d?.pbx) return d;
                 let live = d.pbx.live_calls || [];
                 if (ev.type === 'hangup') {
+                    // Cerrar preview RTSP si estaba abierto
+                    window.dispatchEvent(new CustomEvent('tf-rtsp-preview-close', { detail: { id: ev.channel } }));
                     live = live.filter(c => c.channel !== ev.channel && c.id !== ev.id);
                 } else if (ev.type === 'new' && ev.call) {
                     if (!live.find(c => c.channel === ev.call.channel || c.id === ev.call.id)) {
@@ -10269,7 +10515,7 @@ function App() {
     );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /></ThemeProvider>);
+ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /><RtspPreviewLayer /></ThemeProvider>);
 </script>
 
 </body>
