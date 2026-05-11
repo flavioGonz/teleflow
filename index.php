@@ -1702,6 +1702,228 @@ function Toaster() {
 
 
 // HORIZON: RTSP Preview — popup encima del toast Sileo cuando llama un interno con rtsp_url configurado
+// ─── WaveformPlayer: reproductor de audio con waveform (wavesurfer.js) ───
+function WaveformPlayer({ src, filename, meta, compact = false }) {
+    const containerRef = useRef(null);
+    const wsRef = useRef(null);
+    const [ready, setReady] = useState(false);
+    const [playing, setPlaying] = useState(false);
+    const [cur, setCur] = useState(0);
+    const [dur, setDur] = useState(0);
+    const [speed, setSpeed] = useState(1);
+    const [volume, setVolume] = useState(1);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        setReady(false); setError(null); setCur(0); setDur(0); setPlaying(false);
+
+        const setup = () => {
+            if (cancelled || !window.WaveSurfer || !containerRef.current) return;
+            // Destruir player previo
+            if (wsRef.current) { try { wsRef.current.destroy(); } catch(e) {} wsRef.current = null; }
+            const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#7c3aed';
+            const muted   = getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim() || '#71717a';
+            const ws = window.WaveSurfer.create({
+                container: containerRef.current,
+                waveColor: muted,
+                progressColor: primary,
+                cursorColor: primary,
+                cursorWidth: 2,
+                barWidth: 2,
+                barRadius: 2,
+                barGap: 1,
+                height: compact ? 44 : 72,
+                normalize: true,
+                interact: true,
+            });
+            wsRef.current = ws;
+            ws.load(src);
+            ws.on('ready', () => {
+                if (cancelled) return;
+                setDur(ws.getDuration());
+                setReady(true);
+                ws.setVolume(volume);
+                ws.setPlaybackRate(speed);
+            });
+            ws.on('audioprocess', () => { if (!cancelled) setCur(ws.getCurrentTime()); });
+            ws.on('seeking', () => { if (!cancelled) setCur(ws.getCurrentTime()); });
+            ws.on('play', () => { if (!cancelled) setPlaying(true); });
+            ws.on('pause', () => { if (!cancelled) setPlaying(false); });
+            ws.on('finish', () => { if (!cancelled) { setPlaying(false); setCur(ws.getDuration()); } });
+            ws.on('error', (e) => { if (!cancelled) setError(typeof e === 'string' ? e : 'Error de reproducción'); });
+        };
+
+        if (window.WaveSurfer) { setup(); }
+        else {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.min.js';
+            s.async = true;
+            s.onload = setup;
+            s.onerror = () => { if (!cancelled) setError('No se pudo cargar wavesurfer.js'); };
+            document.head.appendChild(s);
+        }
+
+        return () => {
+            cancelled = true;
+            if (wsRef.current) { try { wsRef.current.destroy(); } catch(e) {} wsRef.current = null; }
+        };
+    }, [src, compact]);
+
+    const toggle = () => {
+        const ws = wsRef.current; if (!ws) return;
+        if (playing) ws.pause(); else ws.play();
+    };
+    const setSpeedFn = (s) => {
+        setSpeed(s);
+        const ws = wsRef.current; if (ws) ws.setPlaybackRate(s);
+    };
+    const setVol = (v) => {
+        setVolume(v);
+        const ws = wsRef.current; if (ws) ws.setVolume(v);
+    };
+    const fmt = (s) => {
+        if (!s || isNaN(s)) return '0:00';
+        const m = Math.floor(s/60), ss = Math.floor(s%60);
+        return `${m}:${String(ss).padStart(2,'0')}`;
+    };
+
+    return (
+        <div className="rounded-lg border" style={{
+            background:'color-mix(in srgb, var(--muted) 25%, var(--card))',
+            borderColor:'var(--border)',
+            padding: compact ? '10px 12px' : '14px 16px'
+        }}>
+            {meta && !compact && (
+                <div className="flex items-center justify-between text-xs mb-2 gap-3" style={{color:'var(--muted-foreground)'}}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="material-icons-round" style={{fontSize:14}}>graphic_eq</span>
+                        <span className="font-mono truncate">
+                            {meta.src && meta.dst ? `${meta.src} → ${meta.dst}` : (filename || 'Grabación')}
+                        </span>
+                    </div>
+                    {meta.calldate && <span className="font-mono text-[10px]">{meta.calldate}</span>}
+                </div>
+            )}
+
+            <div className="flex items-center gap-3">
+                {/* Play button */}
+                <button onClick={toggle} disabled={!ready || !!error}
+                        className="rounded-full flex items-center justify-center transition-all shrink-0"
+                        style={{
+                            width: compact ? 38 : 46, height: compact ? 38 : 46,
+                            background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000))',
+                            color:'var(--primary-foreground)',
+                            boxShadow:'0 3px 10px color-mix(in srgb, var(--primary) 40%, transparent)',
+                            cursor: (ready && !error) ? 'pointer' : 'not-allowed',
+                            opacity: (ready && !error) ? 1 : 0.6
+                        }}>
+                    <span className="material-icons-round" style={{fontSize: compact ? 22 : 26}}>
+                        {error ? 'error_outline' : (!ready ? 'hourglass_top' : (playing ? 'pause' : 'play_arrow'))}
+                    </span>
+                </button>
+
+                {/* Waveform container */}
+                <div className="flex-1 min-w-0">
+                    {error ? (
+                        <div className="text-xs flex items-center gap-2" style={{color:'#ef4444'}}>
+                            <span className="material-icons-round" style={{fontSize:16}}>error</span>
+                            {error}
+                        </div>
+                    ) : (
+                        <>
+                            <div ref={containerRef} className="w-full"/>
+                            <div className="flex items-center justify-between mt-1 font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                <span>{fmt(cur)}</span>
+                                {!ready && <span className="animate-pulse">Cargando audio…</span>}
+                                <span>{fmt(dur)}</span>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Speed pills */}
+                {!compact && (
+                    <div className="inline-flex items-center rounded-md border p-0.5 shrink-0" style={{borderColor:'var(--border)'}}>
+                        {[0.75,1,1.25,1.5,2].map(s => (
+                            <button key={s} onClick={()=>setSpeedFn(s)}
+                                    className="px-2 py-1 rounded text-[10px] font-bold transition-colors"
+                                    style={{
+                                        background: speed===s ? 'var(--primary)' : 'transparent',
+                                        color: speed===s ? 'var(--primary-foreground)' : 'var(--muted-foreground)'
+                                    }}>
+                                {s}x
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Volume */}
+                {!compact && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>
+                            {volume===0?'volume_off':(volume<0.5?'volume_down':'volume_up')}
+                        </span>
+                        <input type="range" min="0" max="1" step="0.05" value={volume}
+                               onChange={e=>setVol(parseFloat(e.target.value))}
+                               style={{width:70, height:4, accentColor:'var(--primary)'}}/>
+                    </div>
+                )}
+
+                {/* Download */}
+                {filename && (
+                    <a href={src + (src.includes('?')?'&':'?') + 'download=1'} download={filename}
+                       className="rounded-md border flex items-center justify-center transition-all shrink-0"
+                       style={{
+                           width:34, height:34, borderColor:'var(--border)',
+                           background:'var(--card)', color:'var(--foreground)'
+                       }}
+                       title="Descargar">
+                        <span className="material-icons-round" style={{fontSize:16}}>download</span>
+                    </a>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── RecordingPlayerHost: dialog global que escucha 'tf-play-recording' ───
+function RecordingPlayerHost() {
+    const [data, setData] = useState(null);
+    useEffect(() => {
+        const onPlay = (e) => setData(e.detail);
+        window.addEventListener('tf-play-recording', onPlay);
+        return () => window.removeEventListener('tf-play-recording', onPlay);
+    }, []);
+    if (!data) return null;
+    const filename = (data.file || '').split('/').pop();
+    const src = `api/recording.php?file=${encodeURIComponent(filename)}`;
+    return (
+        <Dialog open={true} onOpenChange={()=>setData(null)}>
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <span className="material-icons-round" style={{fontSize:20,color:'var(--primary)'}}>headphones</span>
+                    Grabación · {data.meta?.src || '—'} → {data.meta?.dst || '—'}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-xs">
+                    {data.meta?.calldate || filename}{data.meta?.duration ? ` · ${data.meta.duration}s` : ''}
+                </DialogDescription>
+            </DialogHeader>
+            <div className="mt-2">
+                <WaveformPlayer src={src} filename={filename} meta={data.meta}/>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={()=>setData(null)}>Cerrar</Button>
+            </DialogFooter>
+        </Dialog>
+    );
+}
+
+// Helper global para disparar el dialog desde cualquier parte
+function tfPlayRecording(file, meta) {
+    window.dispatchEvent(new CustomEvent('tf-play-recording', { detail: { file, meta } }));
+}
+
 function RtspPreviewLayer() {
     const [previews, setPreviews] = useState([]);
 
@@ -3404,7 +3626,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                                 <td className="px-3 py-2 text-right font-mono">{c.billsec}s</td>
                                                 <td className="px-3 py-2 text-center">
                                                     {c.recordingfile
-                                                        ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" style={{color:'var(--primary)'}}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a>
+                                                        ? <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
+                                                                  title="Reproducir grabación"
+                                                                  className="inline-flex items-center justify-center rounded-full transition-all hover:scale-110"
+                                                                  style={{width:24,height:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'var(--primary)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
+                                                              <span className="material-icons-round" style={{fontSize:14}}>play_arrow</span>
+                                                          </button>
                                                         : <span style={{color:'var(--muted-foreground)'}}>—</span>}
                                                 </td>
                                             </tr>
@@ -4706,112 +4933,9 @@ function ExportButton({ rows, filename, title, stats }) {
 
 
 function CDRAudioPlayer({ file, meta }) {
-    const audioRef = useRef(null);
-    const [playing, setPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [dur, setDur] = useState(0);
-    const [speed, setSpeed] = useState(1);
-    const [volume, setVolume] = useState(1);
-    const [loading, setLoading] = useState(true);
-
     const filename = file?.split('/').pop() || '';
     const src = `api/recording.php?file=${encodeURIComponent(filename)}`;
-
-    useEffect(() => {
-        const a = audioRef.current; if (!a) return;
-        const onLoaded = () => { setDur(a.duration); setLoading(false); };
-        const onTime = () => setCurrentTime(a.currentTime);
-        const onEnd = () => setPlaying(false);
-        a.addEventListener('loadedmetadata', onLoaded);
-        a.addEventListener('timeupdate', onTime);
-        a.addEventListener('ended', onEnd);
-        return () => {
-            a.removeEventListener('loadedmetadata', onLoaded);
-            a.removeEventListener('timeupdate', onTime);
-            a.removeEventListener('ended', onEnd);
-        };
-    }, []);
-
-    const togglePlay = () => {
-        const a = audioRef.current; if (!a) return;
-        if (playing) { a.pause(); setPlaying(false); } else { a.play(); setPlaying(true); }
-    };
-    const seek = (e) => {
-        const a = audioRef.current; if (!a || !dur) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const pct = (e.clientX - rect.left) / rect.width;
-        a.currentTime = pct * dur;
-    };
-    const setSpeedFn = (s) => {
-        const a = audioRef.current; if (!a) return;
-        a.playbackRate = s; setSpeed(s);
-    };
-    const setVol = (v) => {
-        const a = audioRef.current; if (!a) return;
-        a.volume = v; setVolume(v);
-    };
-    const fmt = (s) => {
-        if (!s || isNaN(s)) return '0:00';
-        const m = Math.floor(s/60), ss = Math.floor(s%60);
-        return `${m}:${String(ss).padStart(2,'0')}`;
-    };
-    const pct = dur > 0 ? (currentTime / dur) * 100 : 0;
-
-    return (
-        <div style={{display:'flex',alignItems:'center',gap:14,padding:12,background:'var(--surface2)',borderRadius:14,border:'1px solid rgba(139,92,246,0.15)'}}>
-            <audio ref={audioRef} src={src} preload="metadata" />
-            
-            {/* Big play button */}
-            <button onClick={togglePlay} disabled={loading} style={{
-                width:48,height:48,borderRadius:'50%',border:'none',cursor:loading?'wait':'pointer',
-                background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',
-                display:'flex',alignItems:'center',justifyContent:'center',
-                color:'#fff',boxShadow:'0 4px 14px rgba(139,92,246,0.4)',
-                transition:'transform 0.15s', flexShrink:0
-            }} onMouseDown={e=>e.currentTarget.style.transform='scale(0.95)'} onMouseUp={e=>e.currentTarget.style.transform=''}>
-                <span className="material-icons-round" style={{fontSize:24}}>{loading?'hourglass_top':(playing?'pause':'play_arrow')}</span>
-            </button>
-
-            {/* Progress + times */}
-            <div style={{flex:1,minWidth:0}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginBottom:5,fontFamily:'monospace',fontWeight:700}}>
-                    <span>{fmt(currentTime)}</span>
-                    <span>{meta?.src} → {meta?.dst}</span>
-                    <span>{fmt(dur)}</span>
-                </div>
-                <div onClick={seek} style={{height:6,background:'rgba(255,255,255,0.06)',borderRadius:3,cursor:'pointer',position:'relative',overflow:'hidden'}}>
-                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'linear-gradient(90deg,#8b5cf6,#a855f7)',borderRadius:3,transition:'width 0.1s'}} />
-                </div>
-            </div>
-
-            {/* Speed selector */}
-            <div style={{display:'flex',gap:2,padding:3,background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
-                {[0.5,1,1.5,2].map(s => (
-                    <button key={s} onClick={()=>setSpeedFn(s)} style={{
-                        padding:'4px 8px',borderRadius:5,border:'none',cursor:'pointer',
-                        background:speed===s?'rgba(139,92,246,0.2)':'transparent',
-                        color:speed===s?'#c4b5fd':'var(--muted)',
-                        fontSize:10,fontWeight:800
-                    }}>{s}x</button>
-                ))}
-            </div>
-
-            {/* Volume */}
-            <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)'}}>{volume===0?'volume_off':(volume<0.5?'volume_down':'volume_up')}</span>
-                <input type="range" min="0" max="1" step="0.05" value={volume} onChange={e=>setVol(parseFloat(e.target.value))} style={{width:60,height:4}} />
-            </div>
-
-            {/* Download */}
-            <a href={src+'&download=1'} download={filename.replace(/\.\w+$/,'.wav')} style={{
-                width:36,height:36,borderRadius:8,border:'1px solid var(--border)',background:'var(--surface)',
-                display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text)',
-                cursor:'pointer',textDecoration:'none',transition:'all 0.15s',flexShrink:0
-            }} title="Descargar">
-                <span className="material-icons-round" style={{fontSize:16}}>download</span>
-            </a>
-        </div>
-    );
+    return <WaveformPlayer src={src} filename={filename} meta={meta}/>;
 }
 
 
@@ -7732,7 +7856,12 @@ function ReportTabCalls({ data, filters, setFilters }) {
                                         <ShTD align="right" mono>{c.billsec}s</ShTD>
                                         <ShTD align="center">
                                             {c.recordingfile
-                                                ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                                ? <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
+                                                          title="Reproducir grabación"
+                                                          className="inline-flex items-center justify-center rounded-full transition-all hover:scale-110"
+                                                          style={{width:24,height:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'var(--primary)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
+                                                      <span className="material-icons-round" style={{fontSize:14}}>play_arrow</span>
+                                                  </button>
                                                 : <span className="text-muted-foreground">—</span>}
                                         </ShTD>
                                     </ShTR>
@@ -8102,7 +8231,12 @@ function AgentCallsSection({ calls = [] }) {
                                     <ShTD align="right" mono>{c.billsec ? fmtDurationCompact(c.billsec) : '—'}</ShTD>
                                     <ShTD align="center">
                                         {c.recordingfile
-                                            ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                            ? <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
+                                                      title="Reproducir grabación"
+                                                      className="inline-flex items-center justify-center rounded-full transition-all hover:scale-110"
+                                                      style={{width:24,height:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'var(--primary)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
+                                                  <span className="material-icons-round" style={{fontSize:14}}>play_arrow</span>
+                                              </button>
                                             : <span className="text-muted-foreground">—</span>}
                                     </ShTD>
                                 </ShTR>
@@ -11430,7 +11564,7 @@ function App() {
     );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /><RtspPreviewLayer /></ThemeProvider>);
+ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /><RtspPreviewLayer /><RecordingPlayerHost /></ThemeProvider>);
 </script>
 
 </body>

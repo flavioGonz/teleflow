@@ -73,5 +73,6 @@ if ($format === 'mp3') {
 header('Content-Length: ' . filesize($cached));
 header('Accept-Ranges: bytes');
 header('Cache-Control: public, max-age=3600');
-header('Content-Disposition: inline; filename="' . pathinfo($file, PATHINFO_FILENAME) . '.' . $format . '"');
+$_disp = isset($_GET['download']) ? 'attachment' : 'inline';
+header('Content-Disposition: ' . $_disp . '; filename="' . pathinfo($file, PATHINFO_FILENAME) . '.' . $format . '"');
 readfile($cached);
