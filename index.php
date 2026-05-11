@@ -342,9 +342,11 @@ header('Expires: 0');
             justify-content: space-between;
             padding: 50px 60px;
             color: #fff;
+            text-align: right;
         }
         .hzn-logo {
             display: flex; align-items: center; gap: 14px;
+            justify-content: flex-end;
         }
         .hzn-logo-mark {
             display: flex; align-items: center; justify-content: center;
@@ -366,19 +368,78 @@ header('Expires: 0');
             margin-top: 4px;
             text-transform: uppercase;
         }
-        .hzn-login-tagline { max-width: 520px; }
+        .hzn-login-tagline {
+            max-width: 560px;
+            margin-left: auto;     /* push to the right */
+        }
         .hzn-login-tagline h1 {
-            font-size: 40px; font-weight: 800;
+            font-size: 38px; font-weight: 800;
             letter-spacing: -0.02em;
-            line-height: 1.1;
-            margin: 0 0 14px;
+            line-height: 1.15;
+            margin: 14px 0 14px;
             color: #fff;
         }
         .hzn-login-tagline p {
-            font-size: 15px; font-weight: 500;
+            font-size: 14.5px; font-weight: 500;
             line-height: 1.6;
-            color: rgba(255,255,255,0.78);
-            margin: 0;
+            color: rgba(255,255,255,0.85);
+            margin: 0 0 20px;
+        }
+        /* Role pill arriba del heading */
+        .hzn-role-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            background: rgba(17,179,40,0.18);
+            border: 1px solid rgba(17,179,40,0.4);
+            border-radius: 100px;
+            font-size: 11px; font-weight: 700;
+            color: var(--horizon-green);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hzn-role-pill[data-variant="agent"] {
+            background: rgba(59,130,246,0.18);
+            border-color: rgba(59,130,246,0.4);
+            color: #60a5fa;
+        }
+        .hzn-role-pill .material-icons-round { font-size: 13px; }
+        /* Feature list */
+        .hzn-feature-list {
+            list-style: none; padding: 0; margin: 8px 0 0;
+            display: flex; flex-direction: column;
+            gap: 12px;
+        }
+        .hzn-feature-list li {
+            display: flex; align-items: flex-start; gap: 12px;
+            justify-content: flex-end;
+        }
+        .hzn-feature-list li > .material-icons-round {
+            order: 2;
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            color: var(--horizon-green);
+            flex-shrink: 0;
+        }
+        .hzn-feature-list li > div {
+            order: 1;
+            text-align: right;
+            display: flex; flex-direction: column;
+            min-width: 0;
+        }
+        .hzn-feature-list li strong {
+            font-size: 13px; font-weight: 700;
+            color: #fff;
+            line-height: 1.2;
+        }
+        .hzn-feature-list li span:not(.material-icons-round) {
+            font-size: 11.5px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            margin-top: 3px;
+            line-height: 1.4;
         }
 
         /* ── FORM (right) ── */
@@ -1725,21 +1786,42 @@ function Login({ onLogin }) {
                 <div className="hzn-login-hero-overlay"/>
                 <div className="hzn-login-hero-content">
                     <div className="hzn-logo">
+                        <div>
+                            <div className="hzn-logo-text">HORIZON</div>
+                            <div className="hzn-logo-sub">SEGURIDAD</div>
+                        </div>
                         <div className="hzn-logo-mark">
                             <svg viewBox="0 0 100 100" width="36" height="36">
                                 <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
                                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
                             </svg>
                         </div>
-                        <div>
-                            <div className="hzn-logo-text">HORIZON</div>
-                            <div className="hzn-logo-sub">SEGURIDAD</div>
+                    </div>
+                    {role === 'admin' ? (
+                        <div className="hzn-login-tagline">
+                            <span className="hzn-role-pill"><span className="material-icons-round">shield</span> Acceso administrador</span>
+                            <h1>Panel de control unificado</h1>
+                            <p>Gestioná extensiones, colas, agentes y reportes desde un único lugar. Monitoreo en tiempo real del callcenter y la PBX.</p>
+                            <ul className="hzn-feature-list">
+                                <li><span className="material-icons-round">dashboard</span><div><strong>Dashboard live</strong><span>KPIs y signos vitales del PBX en vivo</span></div></li>
+                                <li><span className="material-icons-round">support_agent</span><div><strong>Hotdesking dinámico</strong><span>Login/logout de agentes sin reaprovisionar SIP</span></div></li>
+                                <li><span className="material-icons-round">analytics</span><div><strong>Reportes detallados</strong><span>Por agente, cola y CDR · export PDF/Excel</span></div></li>
+                                <li><span className="material-icons-round">sensors</span><div><strong>Monitoreo real-time</strong><span>Eventos AMI persistidos vía socket.io</span></div></li>
+                            </ul>
                         </div>
-                    </div>
-                    <div className="hzn-login-tagline">
-                        <h1>Centro de Monitoreo</h1>
-                        <p>Plataforma unificada de control de telefonía y videovigilancia.</p>
-                    </div>
+                    ) : (
+                        <div className="hzn-login-tagline">
+                            <span className="hzn-role-pill" data-variant="agent"><span className="material-icons-round">headset_mic</span> Portal del agente</span>
+                            <h1>Tu consola de trabajo</h1>
+                            <p>Iniciá sesión con tu número de agente y la extensión del teléfono donde vas a recibir las llamadas hoy.</p>
+                            <ul className="hzn-feature-list">
+                                <li><span className="material-icons-round">badge</span><div><strong>Número de agente</strong><span>El asignado en Issabel (ej. 200)</span></div></li>
+                                <li><span className="material-icons-round">vpn_key</span><div><strong>Contraseña personal</strong><span>La definida en tu perfil del callcenter</span></div></li>
+                                <li><span className="material-icons-round">phone_in_talk</span><div><strong>Extensión callback</strong><span>El teléfono donde vas a operar hoy (ej. 9006)</span></div></li>
+                                <li><span className="material-icons-round">dialpad</span><div><strong>Alternativa por teléfono</strong><span>Marcá *7700 desde tu interno para login + cola</span></div></li>
+                            </ul>
+                        </div>
+                    )}
                 </div>
             </div>
 
