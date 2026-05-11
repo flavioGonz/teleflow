@@ -3537,9 +3537,10 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     ];
 
     const devOptions = [
-        { v:'webrtc', l:'WebRTC', c:'var(--primary)', i:'computer', d:'Softphone en navegador' },
-        { v:'sip', l:'SIP Fijo', c:'#3b82f6', i:'phone', d:'Teléfono físico SIP' },
-        { v:'video', l:'Video', c:'#ec4899', i:'videocam', d:'Con cámara WebRTC' }
+        { v:'webrtc',   l:'WebRTC',    c:'var(--primary)', i:'computer',  d:'Softphone en navegador' },
+        { v:'sip',      l:'SIP Fijo',  c:'#3b82f6',        i:'phone',     d:'Teléfono físico SIP' },
+        { v:'video',    l:'Video',     c:'#ec4899',        i:'videocam',  d:'Con cámara WebRTC' },
+        { v:'bocina',   l:'Bocina IP', c:'#f59e0b',        i:'campaign',  d:'Altavoz IP / corneta para anuncios públicos' }
     ];
 
     const save = async () => {
@@ -10359,16 +10360,16 @@ function ViewHotdesking({ data, toast }) {
                     <div
                         key={a.id}
                         onClick={()=>setEditing(a)}
-                        className="rounded-lg border cursor-pointer transition-all hover:shadow-sm flex items-center gap-2.5 px-3 py-2"
+                        className="rounded-md border cursor-pointer transition-all hover:shadow-sm flex items-center gap-2 px-2 py-1.5"
                         style={{
                             borderColor:'var(--border)',
-                            background:'color-mix(in srgb, var(--muted) 30%, var(--card))',
+                            background:'var(--card)',
                             color:'var(--card-foreground)'
                         }}>
                         <div className="rounded-full flex items-center justify-center font-black text-white shrink-0"
                              style={{
-                                 width:32, height:32, fontSize:11,
-                                 background:'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 70%, #000), color-mix(in srgb, var(--muted-foreground) 90%, #000))'
+                                 width:28, height:28, fontSize:10,
+                                 background:'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 60%, #000), color-mix(in srgb, var(--muted-foreground) 85%, #000))'
                              }}>
                             {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
                         </div>
@@ -10398,7 +10399,7 @@ function ViewHotdesking({ data, toast }) {
                 }
 
                 return (
-                    <div className="grid gap-4" style={{gridTemplateColumns:'1fr minmax(280px, 340px)', alignItems:'start'}}>
+                    <div className="grid gap-4" style={{gridTemplateColumns:'minmax(0, 2fr) minmax(280px, 1fr)', alignItems:'stretch'}}>
                         {/* LEFT: agentes logueados — panel destacado con header tipo card shadcn */}
                         <div className="rounded-xl border overflow-hidden" style={{
                             borderColor:'color-mix(in srgb, var(--horizon-green) 25%, var(--border))',
@@ -10476,21 +10477,60 @@ function ViewHotdesking({ data, toast }) {
                             </div>
                         </div>
 
-                        {/* RIGHT: agentes offline (compactos) */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-2.5">
-                                <span className="rounded-full" style={{width:6, height:6, background:'var(--muted-foreground)'}}/>
-                                <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{offlineAgents.length} offline</span>
+                        {/* RIGHT: agentes offline — Card con header + body scrollable */}
+                        <div className="rounded-xl border overflow-hidden flex flex-col" style={{
+                            borderColor:'var(--border)',
+                            background:'var(--card)',
+                            maxHeight:'calc(100vh - 240px)',
+                            minHeight: loggedAgents.length > 0 ? '320px' : '180px'
+                        }}>
+                            {/* Header del panel — mismo patrón que Logueados */}
+                            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b" style={{
+                                borderColor:'var(--border)',
+                                background:'color-mix(in srgb, var(--muted) 35%, transparent)'
+                            }}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="rounded-lg flex items-center justify-center shrink-0" style={{
+                                        width:30, height:30,
+                                        background:'color-mix(in srgb, var(--muted-foreground) 22%, transparent)',
+                                        color:'var(--muted-foreground)'
+                                    }}>
+                                        <span className="material-icons-round" style={{fontSize:17}}>person_off</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-extrabold tracking-tight" style={{color:'var(--foreground)'}}>Offline</div>
+                                        <div className="text-[10px] font-semibold leading-tight mt-0.5" style={{color:'var(--muted-foreground)'}}>Disponibles para loguear</div>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold font-mono border"
+                                      style={{
+                                          background:'color-mix(in srgb, var(--muted-foreground) 15%, transparent)',
+                                          color:'var(--muted-foreground)',
+                                          borderColor:'color-mix(in srgb, var(--muted-foreground) 28%, transparent)'
+                                      }}>
+                                    {offlineAgents.length}
+                                </span>
                             </div>
-                            {offlineAgents.length > 0 ? (
-                                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:6}}>
-                                    {offlineAgents.map(renderOffline)}
-                                </div>
-                            ) : (
-                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
-                                    Todos los agentes están logueados
-                                </div>
-                            )}
+                            {/* Body */}
+                            <div className="flex-1 overflow-auto p-2" style={{scrollbarWidth:'thin'}}>
+                                {offlineAgents.length > 0 ? (
+                                    <div className="flex flex-col gap-1.5">
+                                        {offlineAgents.map(renderOffline)}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-center py-8 px-3 h-full gap-2">
+                                        <div className="rounded-full flex items-center justify-center" style={{
+                                            width:42, height:42,
+                                            background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)',
+                                            border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'
+                                        }}>
+                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>check_circle</span>
+                                        </div>
+                                        <div className="text-xs font-bold" style={{color:'var(--foreground)'}}>Todos logueados</div>
+                                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>No hay agentes disponibles</div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 );
