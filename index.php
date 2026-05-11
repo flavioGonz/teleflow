@@ -3168,79 +3168,17 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
-                    {/* ─── Card combinada: 3 bloques divisorios ─── */}
+                    {/* ─── Card combinada: 3 columnas (Info | Categoría | Estado) ─── */}
                     <Card>
-                        <CardContent className="p-0 divide-y" style={{borderColor:'var(--border)'}}>
+                        <CardContent className="p-0 grid lg:grid-cols-3 lg:divide-x divide-y lg:divide-y-0" style={{borderColor:'var(--border)'}}>
 
-                            {/* ─── BLOQUE 1: Estado del interno ─── */}
-                            {!isNew && (
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="material-icons-round" style={{fontSize:18,color:statusColor}}>circle</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Estado del interno</h3>
-                                </div>
-                                <div className="flex items-center gap-4 flex-wrap">
-                                    <div className="relative shrink-0">
-                                        {form.ext && avatarUrl ? (
-                                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
-                                                 className="rounded-full object-cover"
-                                                 style={{width:56,height:56,border:'2px solid var(--background)'}}
-                                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
-                                        ) : null}
-                                        <div className="rounded-full flex items-center justify-center font-black text-white"
-                                             style={{
-                                                 width:56,height:56,fontSize:18,
-                                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
-                                                 display: form.ext && avatarUrl ? 'none' : 'flex',
-                                             }}>{ini}</div>
-                                        <div className="absolute rounded-full"
-                                             style={{
-                                                 bottom:0,right:0,width:14,height:14,
-                                                 background:statusColor,
-                                                 border:'2px solid var(--card)',
-                                                 animation:ext?.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
-                                             }}/>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-base font-bold truncate" style={{color:'var(--foreground)'}}>{form.name || 'Sin nombre'}</span>
-                                            <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
-                                                {statusLabel}
-                                            </Badge>
-                                        </div>
-                                        <div className="font-mono text-xs font-semibold mt-1" style={{color:'var(--muted-foreground)'}}>#{form.ext}</div>
-                                    </div>
-                                    {/* Mini-metrics */}
-                                    <div className="flex items-stretch gap-0 rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                                        {[
-                                            { l:'IP',  v: ext?.ip,  c:'#3b82f6', icon:'lan' },
-                                            { l:'RTT', v: ext?.rtt, c: ext?.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
-                                            { l:'MAC', v: ext?.mac, c:'var(--muted-foreground)', icon:'memory' }
-                                        ].map((m,i) => (
-                                            <div key={m.l} className="flex flex-col justify-center px-3 py-1.5"
-                                                 style={{
-                                                     borderLeft: i>0 ? '1px solid var(--border)' : 'none',
-                                                     background:'color-mix(in srgb, var(--muted) 40%, transparent)'
-                                                 }}>
-                                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
-                                                    <span className="material-icons-round" style={{fontSize:10}}>{m.icon}</span>
-                                                    {m.l}
-                                                </div>
-                                                <div className="font-mono text-[11px] font-bold mt-0.5" style={{color:m.c}}>{m.v || '—'}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            )}
-
-                            {/* ─── BLOQUE 2: Información básica ─── */}
+                            {/* ─── COL 1: Información básica ─── */}
                             <div className="p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
                                     <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Información básica</h3>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-3">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="ext-num">Número de interno</Label>
                                         <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
@@ -3268,33 +3206,99 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                             </div>
 
-                            {/* ─── BLOQUE 3: Categoría del interno ─── */}
+                            {/* ─── COL 2: Categoría del interno ─── */}
                             <div className="p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Categoría del interno</h3>
-                                    <span className="text-[10px] font-medium" style={{color:'var(--muted-foreground)'}}>— opcional (Cliente vs Horizon)</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Categoría</h3>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2.5">
+                                <p className="text-[10px] mb-3" style={{color:'var(--muted-foreground)'}}>Opcional · discrimina Cliente vs Horizon</p>
+                                <div className="space-y-2">
                                     {Object.entries(tipoConfig).map(([v,o]) => (
                                         <button key={v} type="button" onClick={()=>set('tipo',v)}
-                                                className="relative rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm"
+                                                className="relative w-full rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm flex items-center gap-3"
                                                 style={{
                                                     borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
                                                     background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
                                                 }}>
+                                            <span className="material-icons-round shrink-0" style={{fontSize:22,color:o.color}}>{o.icon}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                                <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                            </div>
                                             {form.tipo===v && (
-                                                <span className="absolute top-2 right-2 rounded-full flex items-center justify-center"
-                                                      style={{width:16,height:16,background:o.color}}>
-                                                    <span className="material-icons-round text-white" style={{fontSize:11}}>check</span>
+                                                <span className="shrink-0 rounded-full flex items-center justify-center"
+                                                      style={{width:18,height:18,background:o.color}}>
+                                                    <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
                                                 </span>
                                             )}
-                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.color}}>{o.icon}</span>
-                                            <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
-                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* ─── COL 3: Estado del interno ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Estado del interno</h3>
+                                </div>
+                                {!isNew ? (
+                                <div className="flex flex-col items-center gap-3">
+                                    {/* Avatar centrado */}
+                                    <div className="relative shrink-0">
+                                        {form.ext && avatarUrl ? (
+                                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
+                                                 className="rounded-full object-cover"
+                                                 style={{width:72,height:72,border:'3px solid var(--background)',boxShadow:'0 4px 12px rgba(0,0,0,.15)'}}
+                                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
+                                        ) : null}
+                                        <div className="rounded-full flex items-center justify-center font-black text-white"
+                                             style={{
+                                                 width:72,height:72,fontSize:22,
+                                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                                                 display: form.ext && avatarUrl ? 'none' : 'flex',
+                                                 boxShadow:'0 4px 12px rgba(0,0,0,.15)'
+                                             }}>{ini}</div>
+                                        <div className="absolute rounded-full"
+                                             style={{
+                                                 bottom:0,right:0,width:18,height:18,
+                                                 background:statusColor,
+                                                 border:'3px solid var(--card)',
+                                                 animation:ext?.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
+                                             }}/>
+                                    </div>
+                                    {/* Status badge */}
+                                    <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
+                                        {statusLabel}
+                                    </Badge>
+                                    {/* Métricas en lista vertical */}
+                                    <div className="w-full rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                                        {[
+                                            { l:'IP',  v: ext?.ip,  c:'#3b82f6', icon:'lan' },
+                                            { l:'RTT', v: ext?.rtt, c: ext?.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
+                                            { l:'MAC', v: ext?.mac, c:'var(--muted-foreground)', icon:'memory' }
+                                        ].map((m,i) => (
+                                            <div key={m.l} className="flex items-center justify-between px-3 py-2"
+                                                 style={{
+                                                     borderTop: i>0 ? '1px solid var(--border)' : 'none',
+                                                     background: i%2===0 ? 'color-mix(in srgb, var(--muted) 30%, transparent)' : 'transparent'
+                                                 }}>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>{m.icon}</span>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{m.l}</span>
+                                                </div>
+                                                <span className="font-mono text-xs font-bold" style={{color:m.c}}>{m.v || '—'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                ) : (
+                                <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
+                                    <span className="material-icons-round" style={{fontSize:36,opacity:0.5}}>fiber_new</span>
+                                    <p className="text-xs text-center">Una vez creado el interno,<br/>se mostrará su estado en vivo aquí.</p>
+                                </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
