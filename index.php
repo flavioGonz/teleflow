@@ -8804,11 +8804,21 @@ function ViewHotdesking({ data, toast }) {
         const j = await r.json();
         if (j.status==='ok') { toast('Agente eliminado','success'); load(); } else toast(j.message||'Error','error');
     };
-    const logoutAgent = async (a) => {
+    const [logoutTarget, setLogoutTarget] = useState(null);
+    const [logoutBusy, setLogoutBusy] = useState(false);
+    const logoutAgent = (a) => setLogoutTarget(a);
+    const confirmLogout = async () => {
+        const a = logoutTarget; if (!a) return;
+        setLogoutBusy(true);
         const fd = new FormData(); fd.append('agent_number', a.number); if (a.extension) fd.append('extension', a.extension);
-        const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'});
-        const j = await r.json();
-        if (j.status==='ok') { toast(`${a.name} desconectado`,'success'); load(); loadQueues(); } else toast(j.message||'Error','error');
+        try {
+            const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'});
+            const j = await r.json();
+            if (j.status==='ok') { toast(`${a.name} desconectado`,'success'); load(); loadQueues(); }
+            else toast(j.message||'Error','error');
+        } catch(e) { toast('Error de red','error'); }
+        setLogoutBusy(false);
+        setLogoutTarget(null);
     };
     const save = async (form) => {
         const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v));
