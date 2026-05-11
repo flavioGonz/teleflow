@@ -3184,9 +3184,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
-                    {/* ─── Card combinada: 3 columnas (Info | Categoría | Estado) ─── */}
+                    {/* ─── Card combinada: 4 columnas (Info | Categoría | RTSP | Estado) ─── */}
                     <Card>
-                        <CardContent className="p-0 grid lg:grid-cols-3 lg:divide-x divide-y lg:divide-y-0" style={{borderColor:'var(--border)'}}>
+                        <CardContent className="p-0 grid lg:grid-cols-4 lg:divide-x divide-y lg:divide-y-0" style={{borderColor:'var(--border)'}}>
 
                             {/* ─── COL 1: Información básica ─── */}
                             <div className="p-5">
@@ -3253,7 +3253,43 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                             </div>
 
-                            {/* ─── COL 3: Estado del interno ─── */}
+                            {/* ─── COL 3: Videoportero / RTSP ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Videoportero / RTSP</h3>
+                                    <Badge variant="success" className="ml-1 text-[9px] uppercase">Nuevo</Badge>
+                                </div>
+                                <p className="text-[10px] mb-3 leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                                    Si este interno es un videoportero o cámara, configurá su stream. Cuando llame, aparecerá un preview en vivo encima del toast.
+                                </p>
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="rtsp-label">Etiqueta visible</Label>
+                                        <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
+                                               placeholder="Portero entrada principal" maxLength={80}/>
+                                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Aparece junto al video</p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="rtsp-url">URL del stream</Label>
+                                        <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
+                                               placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-[11px]"/>
+                                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>rtsp:// · http(s):// · .m3u8 · .mp4</p>
+                                    </div>
+                                </div>
+                                {form.rtsp_url && (
+                                    <div className="mt-3 flex gap-2 items-start rounded-md border px-2.5 py-2"
+                                         style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
+                                                 background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
+                                        <span className="material-icons-round shrink-0" style={{fontSize:14,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
+                                        <p className="text-[10px] leading-relaxed" style={{color:'var(--foreground)'}}>
+                                            Stream configurado. Supervisores verán el preview cuando llame.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ─── COL 4: Estado del interno ─── */}
                             <div className="p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="material-icons-round" style={{fontSize:18,color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
@@ -3316,46 +3352,6 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 </div>
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* ─── Videoportero / RTSP ─── */}
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>videocam</span>
-                                Videoportero / RTSP
-                                <Badge variant="success" className="ml-1 text-[10px] uppercase">Nuevo</Badge>
-                            </CardTitle>
-                            <CardDescription>
-                                Si este interno es un videoportero o cámara, configurá su stream. Cuando llame, aparecerá un preview en vivo encima del toast.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="rtsp-label">Etiqueta visible</Label>
-                                    <Input id="rtsp-label" value={form.rtsp_label} onChange={e=>set('rtsp_label',e.target.value)}
-                                           placeholder="Portero entrada principal" maxLength={80}/>
-                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Aparece junto al video</p>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="rtsp-url">URL del stream</Label>
-                                    <Input id="rtsp-url" value={form.rtsp_url} onChange={e=>set('rtsp_url',e.target.value)}
-                                           placeholder="rtsp://user:pass@10.1.2.3:554/stream1" maxLength={500} className="font-mono text-xs"/>
-                                    <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Acepta rtsp://, rtsps://, http(s)://, .m3u8 (HLS), .mp4</p>
-                                </div>
-                            </div>
-                            {form.rtsp_url && (
-                                <div className="mt-4 flex gap-2.5 items-start rounded-md border px-3 py-2.5"
-                                     style={{borderColor:'color-mix(in srgb, var(--horizon-green) 30%, transparent)',
-                                             background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
-                                    <span className="material-icons-round shrink-0" style={{fontSize:16,color:'var(--horizon-green)',marginTop:1}}>check_circle</span>
-                                    <p className="text-xs leading-relaxed" style={{color:'var(--foreground)'}}>
-                                        Stream configurado. Cuando este interno llame, los supervisores logueados verán el preview del video automáticamente.
-                                    </p>
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
 
