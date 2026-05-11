@@ -2997,7 +2997,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 <nav className="flex items-center gap-1.5 text-sm" style={{color:'var(--muted-foreground)'}}>
                     <button onClick={onBack} className="hover:underline" style={{color:'var(--muted-foreground)'}}>Extensiones</button>
                     <span className="material-icons-round" style={{fontSize:14,opacity:0.5}}>chevron_right</span>
-                    <span style={{color:'var(--foreground)',fontWeight:700}}>{isNew ? 'Nueva extensión' : `#${form.ext}`}</span>
+                    <span style={{color:'var(--foreground)',fontWeight:700}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</span>
                 </nav>
                 <div className="flex-1"/>
                 {!isNew && (
@@ -3007,87 +3007,6 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     </Button>
                 )}
             </div>
-
-            {/* ─── HERO CARD: avatar + identidad + metrics inline ───── */}
-            <Card className="mb-5 overflow-hidden">
-                <div className="flex items-center gap-5 p-5 flex-wrap">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                        {form.ext && avatarUrl ? (
-                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
-                                 className="rounded-full object-cover"
-                                 style={{width:72,height:72,border:'3px solid var(--background)',boxShadow:'0 4px 12px rgba(0,0,0,0.15)'}}
-                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
-                        ) : null}
-                        <div className="rounded-full flex items-center justify-center font-black text-white"
-                             style={{
-                                 width:72,height:72,fontSize:24,
-                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
-                                 display: form.ext && avatarUrl ? 'none' : 'flex',
-                                 border:'3px solid var(--background)',
-                                 boxShadow:'0 4px 12px rgba(0,0,0,0.15)'
-                             }}>{ini}</div>
-                        {/* Status dot */}
-                        {ext?.status && (
-                            <div className="absolute rounded-full"
-                                 style={{
-                                     bottom:2,right:2,width:18,height:18,
-                                     background:statusColor,
-                                     border:'3px solid var(--card)',
-                                     boxShadow:`0 0 0 1px ${statusColor}`,
-                                     animation:ext.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
-                                 }}/>
-                        )}
-                    </div>
-
-                    {/* Nombre + ext + tipo */}
-                    <div className="flex-1 min-w-0" style={{minWidth:200}}>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h1 className="text-2xl font-bold tracking-tight truncate" style={{color:'var(--foreground)'}}>
-                                {form.name || (isNew ? 'Nueva extensión' : 'Sin nombre')}
-                            </h1>
-                            {!isNew && form.tipo && tipoConfig[form.tipo] && (
-                                <Badge variant="outline" className="font-semibold" style={{borderColor:`${tipoConfig[form.tipo].color}66`,color:tipoConfig[form.tipo].color,background:`${tipoConfig[form.tipo].color}11`}}>
-                                    <span className="material-icons-round mr-1" style={{fontSize:12}}>{tipoConfig[form.tipo].icon}</span>
-                                    {tipoConfig[form.tipo].label}
-                                </Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                            <span className="font-mono text-sm font-bold" style={{color:'var(--muted-foreground)'}}>#{form.ext || '----'}</span>
-                            {ext?.status && (
-                                <>
-                                    <span style={{color:'var(--border)'}}>•</span>
-                                    <span className="text-xs font-semibold uppercase tracking-wider" style={{color:statusColor}}>{statusLabel}</span>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Metrics inline (single source of truth) */}
-                    {!isNew && ext && (
-                        <div className="flex items-stretch gap-0 rounded-lg border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                            {[
-                                { l:'IP',  v: ext.ip,  c:'#3b82f6', icon:'lan' },
-                                { l:'RTT', v: ext.rtt, c: ext.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
-                                { l:'MAC', v: ext.mac, c:'var(--muted-foreground)', icon:'memory' }
-                            ].map((m,i) => (
-                                <div key={m.l} className="flex flex-col justify-center px-4 py-2"
-                                     style={{
-                                         borderLeft: i>0 ? '1px solid var(--border)' : 'none',
-                                         background:'color-mix(in srgb, var(--muted) 40%, transparent)'
-                                     }}>
-                                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
-                                        <span className="material-icons-round" style={{fontSize:11}}>{m.icon}</span>
-                                        {m.l}
-                                    </div>
-                                    <div className="font-mono text-xs font-bold mt-0.5" style={{color:m.c}}>{m.v || '—'}</div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </Card>
 
             {/* ─── TABS — Datos / Historial / Agentes ─────────────────── */}
             {!isNew && (
@@ -3248,72 +3167,133 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 {/* COLUMNA PRINCIPAL */}
                 <div className="flex flex-col gap-5">
 
-                    {/* ─── Información básica ─── */}
+                    {/* ─── Card combinada: 3 bloques divisorios ─── */}
                     <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
-                                Información básica
-                            </CardTitle>
-                            <CardDescription>Datos de identidad del interno SIP</CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="ext-num">Número de interno</Label>
-                                <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
-                                       placeholder="1000" className="font-mono font-bold"/>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="ext-name">Nombre o alias</Label>
-                                <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="ext-mail">Correo electrónico</Label>
-                                <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
-                                <div className="relative">
-                                    <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
-                                    <button type="button" onClick={()=>setShowPass(!showPass)}
-                                            className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
-                                            style={{color:'var(--muted-foreground)'}}>
-                                        <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
-                                    </button>
+                        <CardContent className="p-0 divide-y" style={{borderColor:'var(--border)'}}>
+
+                            {/* ─── BLOQUE 1: Estado del interno ─── */}
+                            {!isNew && (
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:statusColor}}>circle</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Estado del interno</h3>
+                                </div>
+                                <div className="flex items-center gap-4 flex-wrap">
+                                    <div className="relative shrink-0">
+                                        {form.ext && avatarUrl ? (
+                                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`}
+                                                 className="rounded-full object-cover"
+                                                 style={{width:56,height:56,border:'2px solid var(--background)'}}
+                                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
+                                        ) : null}
+                                        <div className="rounded-full flex items-center justify-center font-black text-white"
+                                             style={{
+                                                 width:56,height:56,fontSize:18,
+                                                 background:`linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))`,
+                                                 display: form.ext && avatarUrl ? 'none' : 'flex',
+                                             }}>{ini}</div>
+                                        <div className="absolute rounded-full"
+                                             style={{
+                                                 bottom:0,right:0,width:14,height:14,
+                                                 background:statusColor,
+                                                 border:'2px solid var(--card)',
+                                                 animation:ext?.status==='BUSY'?'pulse 1.4s ease-in-out infinite':'none'
+                                             }}/>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-base font-bold truncate" style={{color:'var(--foreground)'}}>{form.name || 'Sin nombre'}</span>
+                                            <Badge variant="outline" className="font-bold uppercase text-[10px]" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
+                                                {statusLabel}
+                                            </Badge>
+                                        </div>
+                                        <div className="font-mono text-xs font-semibold mt-1" style={{color:'var(--muted-foreground)'}}>#{form.ext}</div>
+                                    </div>
+                                    {/* Mini-metrics */}
+                                    <div className="flex items-stretch gap-0 rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                                        {[
+                                            { l:'IP',  v: ext?.ip,  c:'#3b82f6', icon:'lan' },
+                                            { l:'RTT', v: ext?.rtt, c: ext?.rtt && ext.rtt !== '—' ? '#22c55e' : 'var(--muted-foreground)', icon:'speed' },
+                                            { l:'MAC', v: ext?.mac, c:'var(--muted-foreground)', icon:'memory' }
+                                        ].map((m,i) => (
+                                            <div key={m.l} className="flex flex-col justify-center px-3 py-1.5"
+                                                 style={{
+                                                     borderLeft: i>0 ? '1px solid var(--border)' : 'none',
+                                                     background:'color-mix(in srgb, var(--muted) 40%, transparent)'
+                                                 }}>
+                                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                                    <span className="material-icons-round" style={{fontSize:10}}>{m.icon}</span>
+                                                    {m.l}
+                                                </div>
+                                                <div className="font-mono text-[11px] font-bold mt-0.5" style={{color:m.c}}>{m.v || '—'}</div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                            )}
 
-                    {/* ─── Categoría ─── */}
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
-                                Categoría del interno
-                            </CardTitle>
-                            <CardDescription>Discrimina internos propios de Horizon vs clientes externos</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-3 gap-3">
-                                {Object.entries(tipoConfig).map(([v,o]) => (
-                                    <button key={v} type="button" onClick={()=>set('tipo',v)}
-                                            className="relative rounded-lg border-2 p-4 text-left transition-all hover:shadow-sm"
-                                            style={{
-                                                borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
-                                                background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
-                                            }}>
-                                        {form.tipo===v && (
-                                            <span className="absolute top-2 right-2 rounded-full flex items-center justify-center"
-                                                  style={{width:18,height:18,background:o.color}}>
-                                                <span className="material-icons-round text-white" style={{fontSize:12}}>check</span>
-                                            </span>
-                                        )}
-                                        <span className="material-icons-round block mb-1.5" style={{fontSize:22,color:o.color}}>{o.icon}</span>
-                                        <div className="text-sm font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
-                                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
-                                    </button>
-                                ))}
+                            {/* ─── BLOQUE 2: Información básica ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Información básica</h3>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-num">Número de interno</Label>
+                                        <Input id="ext-num" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew}
+                                               placeholder="1000" className="font-mono font-bold"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-name">Nombre o alias</Label>
+                                        <Input id="ext-name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Recepción"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-mail">Correo electrónico</Label>
+                                        <Input id="ext-mail" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com"/>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="ext-secret">Contraseña SIP <span className="font-normal" style={{color:'var(--muted-foreground)'}}>(secret)</span></Label>
+                                        <div className="relative">
+                                            <Input id="ext-secret" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} className="pr-9 font-mono"/>
+                                            <button type="button" onClick={()=>setShowPass(!showPass)}
+                                                    className="absolute top-1/2 -translate-y-1/2 right-2 hover:opacity-80"
+                                                    style={{color:'var(--muted-foreground)'}}>
+                                                <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ─── BLOQUE 3: Categoría del interno ─── */}
+                            <div className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{color:'var(--foreground)'}}>Categoría del interno</h3>
+                                    <span className="text-[10px] font-medium" style={{color:'var(--muted-foreground)'}}>— opcional (Cliente vs Horizon)</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2.5">
+                                    {Object.entries(tipoConfig).map(([v,o]) => (
+                                        <button key={v} type="button" onClick={()=>set('tipo',v)}
+                                                className="relative rounded-lg border-2 p-3 text-left transition-all hover:shadow-sm"
+                                                style={{
+                                                    borderColor: form.tipo===v ? `${o.color}` : 'var(--border)',
+                                                    background: form.tipo===v ? `color-mix(in srgb, ${o.color} 8%, var(--card))` : 'var(--card)'
+                                                }}>
+                                            {form.tipo===v && (
+                                                <span className="absolute top-2 right-2 rounded-full flex items-center justify-center"
+                                                      style={{width:16,height:16,background:o.color}}>
+                                                    <span className="material-icons-round text-white" style={{fontSize:11}}>check</span>
+                                                </span>
+                                            )}
+                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.color}}>{o.icon}</span>
+                                            <div className="text-xs font-bold" style={{color:form.tipo===v?o.color:'var(--foreground)'}}>{o.label}</div>
+                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -3358,7 +3338,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </CardContent>
                     </Card>
 
-                    {/* ─── Grabación + Tecnología (combinada) ─── */}
+                    {/* ─── Comportamiento y dispositivo (toggle buttons compactos) ─── */}
                     <Card>
                         <CardHeader className="pb-4">
                             <CardTitle className="flex items-center gap-2 text-base">
@@ -3367,38 +3347,39 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </CardTitle>
                             <CardDescription>Política de grabación y tecnología SIP del endpoint</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-5">
+                        <CardContent className="space-y-4">
                             <div>
-                                <Label className="block mb-2.5 text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</Label>
-                                <div className="grid grid-cols-3 gap-2.5">
+                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</Label>
+                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                                     {recOptions.map(o => (
                                         <button key={o.v} type="button" onClick={()=>setRecording(o.v)}
-                                                className="rounded-lg border-2 p-3 text-center transition-all hover:shadow-sm"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
                                                 style={{
-                                                    borderColor: recording===o.v ? o.c : 'var(--border)',
-                                                    background: recording===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
-                                                }}>
-                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.c}}>{o.i}</span>
-                                            <div className="text-xs font-bold" style={{color:recording===o.v?o.c:'var(--foreground)'}}>{o.l}</div>
-                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.d}</div>
+                                                    background: recording===o.v ? 'var(--card)' : 'transparent',
+                                                    color: recording===o.v ? o.c : 'var(--muted-foreground)',
+                                                    boxShadow: recording===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                                }}
+                                                title={o.d}>
+                                            <span className="material-icons-round" style={{fontSize:14,color:recording===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            {o.l}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                            <Separator/>
                             <div>
-                                <Label className="block mb-2.5 text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
-                                <div className="grid grid-cols-3 gap-2.5">
+                                <Label className="block mb-2 text-[11px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Tecnología de dispositivo</Label>
+                                <div className="inline-flex items-center rounded-lg border p-1" style={{borderColor:'var(--border)',background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                                     {devOptions.map(o => (
                                         <button key={o.v} type="button" onClick={()=>setDevType(o.v)}
-                                                className="rounded-lg border-2 p-3 text-center transition-all hover:shadow-sm"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
                                                 style={{
-                                                    borderColor: devType===o.v ? o.c : 'var(--border)',
-                                                    background: devType===o.v ? `color-mix(in srgb, ${o.c} 10%, var(--card))` : 'var(--card)'
-                                                }}>
-                                            <span className="material-icons-round block mb-1" style={{fontSize:20,color:o.c}}>{o.i}</span>
-                                            <div className="text-xs font-bold" style={{color:devType===o.v?o.c:'var(--foreground)'}}>{o.l}</div>
-                                            <div className="text-[10px] mt-0.5" style={{color:'var(--muted-foreground)'}}>{o.d}</div>
+                                                    background: devType===o.v ? 'var(--card)' : 'transparent',
+                                                    color: devType===o.v ? o.c : 'var(--muted-foreground)',
+                                                    boxShadow: devType===o.v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                                }}
+                                                title={o.d}>
+                                            <span className="material-icons-round" style={{fontSize:14,color:devType===o.v?o.c:'var(--muted-foreground)'}}>{o.i}</span>
+                                            {o.l}
                                         </button>
                                     ))}
                                 </div>
@@ -3420,8 +3401,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 <div className="flex flex-col gap-5">
                     {/* Foto de perfil */}
                     <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="flex items-center gap-2 text-sm">
+                        <CardHeader className="pb-3 items-center text-center">
+                            <CardTitle className="flex items-center justify-center gap-2 text-sm">
                                 <span className="material-icons-round" style={{fontSize:16,color:'#ec4899'}}>photo_camera</span>
                                 Foto de perfil
                             </CardTitle>
@@ -3449,8 +3430,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     {/* Quick actions (solo si no es nuevo) */}
                     {!isNew && ext && (
                         <Card>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-sm">
+                            <CardHeader className="pb-2 items-center text-center">
+                                <CardTitle className="flex items-center justify-center gap-2 text-sm">
                                     <span className="material-icons-round" style={{fontSize:16,color:'var(--horizon-green)'}}>flash_on</span>
                                     Acciones rápidas
                                 </CardTitle>
@@ -10448,16 +10429,6 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
                     style={{width:90, padding:'3px 6px', border:'1px solid var(--border)', borderRadius:6, background:'var(--background)', color:'var(--foreground)', fontSize:11, fontFamily:'monospace', fontWeight:700, outline:'none'}}/>
                 {spyExt && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)'}} title="Configurada"/>}
             </div>
-
-                        <button className="tfbar-pill" onClick={()=>setShowSysModal(true)} title="Estado de la PBX">
-                <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 6px rgba(34,197,94,.6)'}}/>
-                <div style={{textAlign:'left'}}>
-                    <div style={{fontSize:8,fontWeight:800,letterSpacing:'.05em',textTransform:'uppercase',lineHeight:1,color:'var(--muted)'}}>PBX</div>
-                    <div style={{fontSize:10,fontWeight:800,lineHeight:1.1,marginTop:1}}>Online · CPU {data?.system?.cpu||0}%</div>
-                </div>
-            </button>
-
-            {toggleableTheme(darkMode, setDarkMode)}
 
             <div style={{position:'relative'}}>
                 <div className="tfbar-avatar" onClick={(e)=>{ e.stopPropagation(); setShowUserMenu(v=>!v); }}>{inits(userName)}</div>
