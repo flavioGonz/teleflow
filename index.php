@@ -969,39 +969,40 @@ header('Expires: 0');
 
         .tfbar { position: sticky; top: 0; z-index: 90; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; box-shadow: 0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04); backdrop-filter: blur(6px); overflow: visible; }
         .tfbar-logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; cursor: pointer; }
-        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(139,92,246,0.35); }
-        .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
-        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
+        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000)); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
+        .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--foreground); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
+        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
         .tfbar-menu { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; overflow: visible; flex-wrap: nowrap; min-width: 0; }
         .tfbar-menu::-webkit-scrollbar { display: none; }
-        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
-        .tfbar-item:hover { background: rgba(139,92,246,.10); color: var(--text); }
-        .tfbar-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
+        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted-foreground); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
+        .tfbar-item:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--foreground); }
+        .tfbar-item.active { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
         .tfbar-item .material-icons-round { font-size: 17px; }
         .tfbar-item .chev { font-size: 14px; opacity: .55; margin-left: -2px; transition: transform .2s; }
         .tfbar-item.open .chev { transform: rotate(180deg); }
-        .tfbar-dropdown { position: fixed; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.10); padding: 6px; z-index: 9000; animation: tfDrop .18s ease both; overflow: hidden; }
+        .tfbar-dropdown { position: fixed; min-width: 260px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.10); padding: 6px; z-index: 9000; animation: tfDrop .18s ease both; overflow: hidden; color: var(--card-foreground); }
         @keyframes tfDrop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .tfbar-drop-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text); transition: background .12s; }
-        .tfbar-drop-item:hover { background: rgba(139,92,246,.10); }
-        .tfbar-drop-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
-        .tfbar-drop-item .material-icons-round { font-size: 18px; color: var(--muted); flex-shrink: 0; }
-        .tfbar-drop-item.active .material-icons-round { color: #c4b5fd; }
+        .tfbar-drop-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--foreground); transition: background .12s; }
+        .tfbar-drop-item:hover { background: var(--accent); color: var(--accent-foreground); }
+        .tfbar-drop-item.active { background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+        .tfbar-drop-item .material-icons-round { font-size: 18px; color: var(--muted-foreground); flex-shrink: 0; }
+        .tfbar-drop-item.active .material-icons-round { color: var(--primary); }
         .tfbar-drop-item .tfbar-drop-text { flex: 1; min-width: 0; }
-        .tfbar-drop-item .tfbar-drop-sub { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 1px; }
-        .tfbar-badge { background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 9px; min-width: 16px; text-align: center; }
+        .tfbar-drop-item .tfbar-drop-sub { font-size: 10px; font-weight: 500; color: var(--muted-foreground); margin-top: 1px; }
+        .tfbar-badge { background: var(--primary); color: var(--primary-foreground); font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 9px; min-width: 16px; text-align: center; }
         .tfbar-spacer { flex: 1; }
         .tfbar-stat { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 8px; cursor: pointer; transition: background .12s; border: none; background: transparent; color: inherit; }
-        .tfbar-stat:hover { background: rgba(139,92,246,.08); }
+        .tfbar-stat:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
         .tfbar-stat-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
         .tfbar-stat-icon .material-icons-round { font-size: 15px; }
         .tfbar-stat-val { font-size: 12.5px; font-weight: 800; line-height: 1; color: var(--text); }
         .tfbar-stat-lbl { font-size: 8.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; line-height: 1; margin-top: 2px; }
         .tfbar-divider { width: 1px; height: 26px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
-        .tfbar-pill { display: flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 10.5px; font-weight: 700; border: 1px solid rgba(34,197,94,.25); background: rgba(34,197,94,.08); color: #22c55e; }
-        .tfbar-pill:hover { background: rgba(34,197,94,.13); }
-        .tfbar-avatar { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: 0 2px 8px rgba(139,92,246,.30); user-select: none; }
-        .tfbar-avatar:hover { transform: scale(1.04); }
+        .tfbar-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--card); color: var(--card-foreground); transition: background .12s, border-color .12s; }
+        .tfbar-pill:hover { background: var(--accent); }
+        .tfbar-pill:focus-within { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 25%, transparent); }
+        .tfbar-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000)); color: var(--primary-foreground); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 28%, transparent); user-select: none; transition: transform .12s, box-shadow .12s; }
+        .tfbar-avatar:hover { transform: scale(1.06); box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 40%, transparent); }
         .tfbar-mobile-toggle { display: none; }
         @media (max-width: 900px) {
             .tfbar { padding: 0 8px; gap: 8px; }
@@ -6926,22 +6927,22 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
         return p.toString();
     };
 
-    const load = useCallback(async () => {
-        setLoading(true); setData(null);
+    // Effect-scoped fetch with proper cancellation guard (fixes pre-existing bug donde el cancel nunca corría)
+    useEffect(() => {
         let cancelled = false;
-        try {
-            const params = buildParams();
-            const r = await fetch(`api/reports.php?action=${tab}&${params}`, { credentials: 'include' });
-            const j = await r.json();
-            if (cancelled) return;
-            if (j.status === 'ok') setData(j);
-            else toast?.(j.message || 'Error cargando reporte', 'error');
-        } catch (e) { if (!cancelled) toast?.('Error de red', 'error'); }
-        if (!cancelled) setLoading(false);
+        setLoading(true); setData(null);
+        const params = buildParams();
+        fetch(`api/reports.php?action=${tab}&${params}`, { credentials: 'include' })
+            .then(r => r.json())
+            .then(j => {
+                if (cancelled) return;
+                if (j.status === 'ok') setData(j);
+                else toast?.(j.message || 'Error cargando reporte', 'error');
+            })
+            .catch(() => { if (!cancelled) toast?.('Error de red', 'error'); })
+            .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur, toast]);
-
-    useEffect(() => { load(); }, [load]);
+    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur]);
 
     const exportUrl = (format, type = tab, extra = {}) => {
         const p = new URLSearchParams({ type, format, from, to, ...extra });
@@ -6977,62 +6978,51 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
                 </div>
             </div>
 
-            {/* Toolbar: date range + presets */}
-            <div className="rounded-lg border bg-card text-card-foreground p-3 flex items-center gap-3 flex-wrap" style={{borderColor:'var(--border)'}}>
-                <div className="flex items-center gap-1.5">
-                    <span className="material-icons-round text-muted-foreground" style={{fontSize:16, color:'var(--muted-foreground)'}}>calendar_today</span>
-                    <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Período</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    {presets.map(p => {
-                        const isActive = p.from() === from && p.to() === to;
-                        return (
-                            <button
-                                key={p.label}
-                                onClick={() => { setFrom(p.from()); setTo(p.to()); }}
-                                className={cn(
-                                    "h-8 px-3 rounded-md text-xs font-medium transition-colors",
-                                    "border",
-                                    isActive
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "bg-transparent hover:bg-accent hover:text-accent-foreground"
-                                )}
-                                style={{borderColor: isActive ? 'var(--primary)' : 'var(--border)'}}
-                            >{p.label}</button>
-                        );
-                    })}
-                </div>
-                <div className="h-6 w-px" style={{background:'var(--border)'}}/>
-                <div className="flex items-center gap-2">
-                    <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                        className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
-                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
-                    <span className="text-xs" style={{color:'var(--muted-foreground)'}}>→</span>
-                    <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                        className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
-                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
-                </div>
-            </div>
-
-            {/* Tabs */}
+            {/* Tabs + Período en la misma fila (período como pill estilo TabsList) */}
             <Tabs value={tab} onChange={setTab}>
-                <TabsList className="h-10 p-1" style={{background:'var(--secondary)'}}>
-                    <TabsTrigger value="summary" className="h-8 px-4 gap-1.5">
-                        <span className="material-icons-round" style={{fontSize:15}}>dashboard</span>Resumen
-                    </TabsTrigger>
-                    <TabsTrigger value="by_agent" className="h-8 px-4 gap-1.5">
-                        <span className="material-icons-round" style={{fontSize:15}}>support_agent</span>Por agente
-                    </TabsTrigger>
-                    <TabsTrigger value="by_queue" className="h-8 px-4 gap-1.5">
-                        <span className="material-icons-round" style={{fontSize:15}}>queue</span>Por cola
-                    </TabsTrigger>
-                    <TabsTrigger value="calls" className="h-8 px-4 gap-1.5">
-                        <span className="material-icons-round" style={{fontSize:15}}>phone</span>Llamadas
-                    </TabsTrigger>
-                    <TabsTrigger value="pauses" className="h-8 px-4 gap-1.5">
-                        <span className="material-icons-round" style={{fontSize:15}}>pause_circle</span>Pausas
-                    </TabsTrigger>
-                </TabsList>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <TabsList className="h-10 p-1" style={{background:'var(--secondary)'}}>
+                        <TabsTrigger value="summary" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>dashboard</span>Resumen
+                        </TabsTrigger>
+                        <TabsTrigger value="by_agent" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>support_agent</span>Por agente
+                        </TabsTrigger>
+                        <TabsTrigger value="by_queue" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>queue</span>Por cola
+                        </TabsTrigger>
+                        <TabsTrigger value="calls" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>phone</span>Llamadas
+                        </TabsTrigger>
+                        <TabsTrigger value="pauses" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>pause_circle</span>Pausas
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* Período pill — mismo tamaño que TabsList */}
+                    <div className="inline-flex items-center h-10 p-1 rounded-lg gap-1 flex-wrap" style={{background:'var(--secondary)'}}>
+                        {presets.map(p => {
+                            const isActive = p.from() === from && p.to() === to;
+                            return (
+                                <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => { setFrom(p.from()); setTo(p.to()); }}
+                                    className={cn(
+                                        "inline-flex items-center justify-center whitespace-nowrap rounded-md h-8 px-3 text-xs font-medium transition-all",
+                                        isActive ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >{p.label}</button>
+                            );
+                        })}
+                        <span className="mx-1 h-5 w-px" style={{background:'var(--border)'}}/>
+                        <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                            className="h-8 w-[124px] px-2 rounded-md text-xs font-medium bg-background text-foreground border-0 focus:outline-none focus:ring-2 focus:ring-ring"/>
+                        <span className="text-xs mx-0.5" style={{color:'var(--muted-foreground)'}}>→</span>
+                        <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                            className="h-8 w-[124px] px-2 rounded-md text-xs font-medium bg-background text-foreground border-0 focus:outline-none focus:ring-2 focus:ring-ring"/>
+                    </div>
+                </div>
 
                 {loading && (
                     <div className="mt-4 rounded-lg border bg-card text-card-foreground p-16 flex flex-col items-center justify-center" style={{borderColor:'var(--border)'}}>
@@ -7241,28 +7231,26 @@ function ReportTabCalls({ data, filters, setFilters }) {
             <div className="p-3 border-b flex items-center gap-2 flex-wrap" style={{borderColor:'var(--border)'}}>
                 <div className="flex items-center gap-1.5 mr-1">
                     <span className="material-icons-round" style={{fontSize:14, color:'var(--muted-foreground)'}}>filter_list</span>
-                    <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Filtros</span>
+                    <Label className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Filtros</Label>
                 </div>
-                <select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})}
-                    className="h-8 px-2 rounded-md text-xs border focus:outline-none focus:ring-2"
-                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', minWidth:140}}>
+                <Select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})} className="h-8 w-[150px] text-xs">
                     <option value="">Todos los estados</option>
                     <option value="ANSWERED">ANSWERED</option>
                     <option value="NO ANSWER">NO ANSWER</option>
                     <option value="BUSY">BUSY</option>
                     <option value="FAILED">FAILED</option>
-                </select>
-                <input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})}
-                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
-                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
-                <input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})}
-                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
-                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
-                <input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})}
-                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
-                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
+                </Select>
+                <Input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})} className="h-8 w-[120px] text-xs"/>
+                <Input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})} className="h-8 w-[120px] text-xs"/>
+                <Input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})} className="h-8 w-[120px] text-xs"/>
+                {(filters.disposition || filters.src || filters.dst || filters.min_dur) && (
+                    <Button variant="ghost" size="sm" onClick={()=>setFilters({disposition:'',src:'',dst:'',min_dur:0})} className="h-8 px-2 text-xs">
+                        <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                        Limpiar
+                    </Button>
+                )}
                 <div className="flex-1"/>
-                <span className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>{calls.length.toLocaleString()} resultados</span>
+                <Badge variant="secondary" className="text-xs">{calls.length.toLocaleString()} resultados</Badge>
             </div>
             <CardContent className="p-0">
                 <div className="overflow-auto max-h-[70vh]">
@@ -7312,8 +7300,8 @@ function ReportTabPauses({ data, from, to }) {
     const pauses = data.pauses || [];
     const byMotive = {};
     pauses.forEach(p => {
-        const k = p.pause_label || p.pause_type_code;
-        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
+        const k = p.pause_label || p.pause_type_code || 'sin_motivo';
+        if (!byMotive[k]) byMotive[k] = { label: p.pause_label || p.pause_type_code || 'Sin motivo', color: p.pause_color || '#f59e0b', count: 0, total: 0 };
         byMotive[k].count++;
         byMotive[k].total += parseInt(p.duration_seconds || 0);
     });
@@ -7412,7 +7400,6 @@ function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
         return () => { cancelled = true; };
     }, [agentId, from, to, toast]);
 
-    const k = data?.kpi || {};
     const exportUrl = useCallback((fmt) =>
         `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agentId)}`,
         [agentId, from, to]);
@@ -10421,38 +10408,45 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
 
             <div className="tfbar-spacer" />
 
-            <div className="tfbar-pill" title="Extensión donde recibís las escuchas (ChanSpy)" style={{padding:'4px 8px', gap:6}} onClick={e=>e.stopPropagation()}>
+            <div className="tfbar-pill" title="Extensión donde recibís las escuchas (ChanSpy)" onClick={e=>e.stopPropagation()}>
                 <span className="material-icons-round" style={{fontSize:14, color:'var(--horizon-green)'}}>headset_mic</span>
-                <input type="text" value={spyExt} onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
+                <Input
+                    type="text"
+                    value={spyExt}
+                    onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
                     placeholder="Ext. escucha"
                     title="Tu extensión SIP — al apretar Escuchar en un toast de llamada entrante, llama acá y vos escuchás la conversación"
-                    style={{width:90, padding:'3px 6px', border:'1px solid var(--border)', borderRadius:6, background:'var(--background)', color:'var(--foreground)', fontSize:11, fontFamily:'monospace', fontWeight:700, outline:'none'}}/>
+                    className="h-7 w-[100px] px-2 text-xs font-mono font-bold border-0 shadow-none focus-visible:ring-0"
+                />
                 {spyExt && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)'}} title="Configurada"/>}
             </div>
 
             <div style={{position:'relative'}}>
                 <div className="tfbar-avatar" onClick={(e)=>{ e.stopPropagation(); setShowUserMenu(v=>!v); }}>{inits(userName)}</div>
                 {showUserMenu && (
-                    <div className="tfbar-dropdown tfbar-user-pop" style={{right:0,left:'auto',minWidth:220}} onClick={e=>e.stopPropagation()}>
-                        <div style={{padding:'8px 10px 6px',borderBottom:'1px solid var(--border)',marginBottom:4}}>
-                            <div style={{fontSize:12,fontWeight:800}}>{userName}</div>
-                            <div style={{fontSize:10,color:'var(--muted)',display:'flex',alignItems:'center',gap:5,marginTop:2}}>
-                                <span style={{width:5,height:5,borderRadius:'50%',background:'#22c55e'}}/>
-                                {isAgent ? 'Agente' : 'Administrador'}
+                    <div className="tfbar-dropdown tfbar-user-pop" style={{right:0,left:'auto',minWidth:240}} onClick={e=>e.stopPropagation()}>
+                        <div className="px-2.5 py-2 mb-1 border-b" style={{borderColor:'var(--border)'}}>
+                            <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>{userName}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="rounded-full" style={{width:6,height:6,background:'#22c55e',boxShadow:'0 0 4px rgba(34,197,94,.5)'}}/>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    {isAgent ? 'Agente' : 'Administrador'}
+                                </span>
                             </div>
                         </div>
-                        <div className="tfbar-drop-item" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
+                        <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
                             <span className="material-icons-round">tune</span>
                             <div className="tfbar-drop-text"><div>Configuración</div></div>
-                        </div>
-                        <div className="tfbar-drop-item" onClick={()=>{ setDarkMode(!darkMode); }}>
+                        </button>
+                        <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setDarkMode(!darkMode); }}>
                             <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
                             <div className="tfbar-drop-text"><div>Modo {darkMode?'Claro':'Oscuro'}</div></div>
-                        </div>
-                        <div className="tfbar-drop-item" style={{color:'#ef4444'}} onClick={onLogout}>
-                            <span className="material-icons-round" style={{color:'#ef4444'}}>logout</span>
-                            <div className="tfbar-drop-text"><div>Cerrar sesión</div></div>
-                        </div>
+                        </button>
+                        <Separator className="my-1"/>
+                        <button className="tfbar-drop-item w-full text-left" style={{color:'var(--destructive)'}} onClick={onLogout}>
+                            <span className="material-icons-round" style={{color:'var(--destructive)'}}>logout</span>
+                            <div className="tfbar-drop-text"><div style={{color:'var(--destructive)',fontWeight:600}}>Cerrar sesión</div></div>
+                        </button>
                     </div>
                 )}
             </div>
