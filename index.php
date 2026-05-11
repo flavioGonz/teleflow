@@ -77,20 +77,20 @@ header('Expires: 0');
             theme: {
                 extend: {
                     colors: {
-                        border: 'hsl(var(--border))',
-                        input: 'hsl(var(--input))',
-                        ring: 'hsl(var(--ring))',
-                        background: 'hsl(var(--background))',
-                        foreground: 'hsl(var(--foreground))',
-                        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
-                        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
-                        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
-                        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
-                        accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
-                        popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
-                        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
-                        success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
-                        warning: { DEFAULT: 'hsl(var(--warning))', foreground: 'hsl(var(--warning-foreground))' },
+                        border: 'var(--border)',
+                        input: 'var(--input)',
+                        ring: 'var(--ring)',
+                        background: 'var(--background)',
+                        foreground: 'var(--foreground)',
+                        primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
+                        secondary: { DEFAULT: 'var(--secondary)', foreground: 'var(--secondary-foreground)' },
+                        destructive: { DEFAULT: 'var(--destructive)', foreground: 'var(--destructive-foreground)' },
+                        muted: { DEFAULT: 'var(--muted)', foreground: 'var(--muted-foreground)' },
+                        accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
+                        popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
+                        card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
+                        success: { DEFAULT: 'var(--success)', foreground: 'var(--success-foreground)' },
+                        warning: { DEFAULT: 'var(--warning)', foreground: 'var(--warning-foreground)' },
                     },
                     borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
                     fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
@@ -103,58 +103,55 @@ header('Expires: 0');
         };
     </script>
     <style>
-    /* HORIZON: shadcn/ui design tokens (HSL para Tailwind/shadcn) */
+    /* HORIZON: shadcn/ui design tokens (colores completos para compat con legacy var(--x)) */
     :root, .light {
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
-        --primary: 263 70% 50%;             /* morado Horizon */
-        --primary-foreground: 0 0% 98%;
-        --secondary: 240 4.8% 95.9%;
-        --secondary-foreground: 240 5.9% 10%;
-        --muted: 240 4.8% 95.9%;
-        --muted-foreground: 240 3.8% 46.1%;
-        --accent: 240 4.8% 95.9%;
-        --accent-foreground: 240 5.9% 10%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --success: 142 71% 45%;
-        --success-foreground: 0 0% 98%;
-        --warning: 38 92% 50%;
-        --warning-foreground: 240 5.9% 10%;
-        --border: 240 5.9% 90%;
-        --input: 240 5.9% 90%;
-        --ring: 263 70% 50%;
+        --background: #ffffff;
+        --foreground: #0a0a0a;
+        --card: #ffffff;
+        --card-foreground: #0a0a0a;
+        --popover: #ffffff;
+        --popover-foreground: #0a0a0a;
+        --primary: #7c3aed;             /* morado Horizon */
+        --primary-foreground: #fafafa;
+        --secondary: #f4f4f5;
+        --secondary-foreground: #18181b;
+        --muted-foreground: #71717a;
+        --accent-foreground: #18181b;
+        --destructive: #ef4444;
+        --destructive-foreground: #fafafa;
+        --success: #16a34a;
+        --success-foreground: #fafafa;
+        --warning: #f59e0b;
+        --warning-foreground: #18181b;
+        --input: #e4e4e7;
+        --ring: #7c3aed;
         --radius: 0.5rem;
     }
     .dark {
-        --background: 240 12% 5%;            /* near-black, levemente morado */
-        --foreground: 0 0% 98%;
-        --card: 240 10% 8%;
-        --card-foreground: 0 0% 98%;
-        --popover: 240 10% 6%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 263 70% 60%;
-        --primary-foreground: 240 5.9% 10%;
-        --secondary: 240 5% 13%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 240 5% 13%;
-        --muted-foreground: 240 5% 64.9%;
-        --accent: 240 5% 13%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 50%;
-        --destructive-foreground: 0 0% 98%;
-        --success: 142 71% 45%;
-        --success-foreground: 0 0% 98%;
-        --warning: 38 92% 50%;
-        --warning-foreground: 240 5.9% 10%;
-        --border: 240 5% 18%;
-        --input: 240 5% 18%;
-        --ring: 263 70% 60%;
+        --background: #0a0a0d;          /* near-black levemente morado */
+        --foreground: #fafafa;
+        --card: #14141a;
+        --card-foreground: #fafafa;
+        --popover: #14141a;
+        --popover-foreground: #fafafa;
+        --primary: #8b5cf6;
+        --primary-foreground: #0a0a0d;
+        --secondary: #1f1f26;
+        --secondary-foreground: #fafafa;
+        --muted-foreground: #a1a1aa;
+        --accent-foreground: #fafafa;
+        --destructive: #ef4444;
+        --destructive-foreground: #fafafa;
+        --success: #22c55e;
+        --success-foreground: #0a0a0d;
+        --warning: #f59e0b;
+        --warning-foreground: #0a0a0d;
+        --input: #2a2a33;
+        --ring: #8b5cf6;
     }
+    /* IMPORTANTE: --border, --muted, --accent, --text, --bg, --surface, --surface2
+       son tokens legacy (rgba/hex completos) definidos en el primer :root mas abajo.
+       NO los redefinimos acá para no romper var(--border) etc. */
     /* Animaciones shadcn */
     @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
     @keyframes slide-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
@@ -163,7 +160,133 @@ header('Expires: 0');
     .animate-slide-in { animation: slide-in-right 0.25s ease-out; }
     .animate-fade-in { animation: fade-in 0.2s ease-out; }
     /* Body: heredar background/foreground del token */
-    body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
+    body { background-color: var(--background); color: var(--foreground); }
+    
+        /* ═══════════════════════════════════════════════════════════════════════════
+           HORIZON: shadcn/ui — overrides finales para tablas y modales legacy
+           Ningún color hardcoded — todo deriva de HSL tokens (hsl(var(--xxx)))
+           Compatible con theme light/dark automático
+           ═══════════════════════════════════════════════════════════════════════════ */
+
+        /* Tabla shadcn (override de .tf-table) */
+        .tf-table {
+            width: 100%;
+            border-collapse: collapse;
+            caption-side: bottom;
+            font-size: 13px;
+            color: var(--foreground);
+        }
+        .tf-table thead {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+        }
+        .tf-table th {
+            height: 40px;
+            padding: 0 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            vertical-align: middle;
+        }
+        .tf-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.15s ease;
+        }
+        .tf-table tbody tr:last-child {
+            border-bottom: none;
+        }
+        .tf-table tbody tr:hover {
+            background-color: color-mix(in srgb, var(--muted) 50%, transparent);
+        }
+        .tf-table td {
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--foreground);
+            vertical-align: middle;
+            border-bottom: none; /* lo maneja el tr */
+        }
+        body.light .tf-table thead,
+        body.light .tf-table tbody tr:hover {
+            background: transparent;
+        }
+        body.light .tf-table tbody tr:hover {
+            background-color: color-mix(in srgb, var(--muted) 50%, transparent);
+        }
+
+        /* Modal / Drawer backdrops shadcn */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            padding: 16px;
+            animation: fade-in 0.2s ease-out;
+        }
+        .modal-box {
+            background: var(--background);
+            color: var(--foreground);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 24px 48px -12px rgba(0,0,0,0.35), 0 0 0 1px var(--border);
+            animation: fade-in 0.2s ease-out;
+        }
+        .drawer-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            animation: fade-in 0.2s ease-out;
+        }
+        .drawer {
+            position: fixed; right: 0; top: 0; bottom: 0;
+            width: 100%; max-width: 440px;
+            background: var(--background);
+            color: var(--foreground);
+            border-left: 1px solid var(--border);
+            z-index: 9999;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: -12px 0 40px -8px rgba(0,0,0,0.35);
+            animation: slide-in-right 0.25s ease-out;
+        }
+
+        /* Inputs / selects legacy: heredar tokens */
+        .input-tf {
+            background: var(--background) !important;
+            color: var(--foreground) !important;
+            border: 1px solid var(--input) !important;
+            border-radius: calc(var(--radius) - 2px) !important;
+        }
+        .input-tf:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 40%, transparent) !important;
+            border-color: var(--ring) !important;
+        }
+
+        /* Cards legacy con className="glass" — alinear a shadcn Card */
+        .glass {
+            background-color: var(--card);
+            color: var(--card-foreground);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        body.light .glass {
+            background: var(--card) !important;
+        }
+
+        /* Scrollbar shadcn-flavor */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--muted-foreground) 50%, transparent); }
+
     </style>
     <style>
         :root {
@@ -1158,6 +1281,34 @@ function Toaster() {
         </div>
     );
 }
+
+
+// HORIZON: wrapper para migrar modales legacy a Dialog shadcn sin reescribir todo el contenido
+function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '90vh', children, className }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
+    if (!open) return null;
+    return (
+        <div
+            onClick={onClose}
+            className="fixed inset-0 z-[1000] flex items-start justify-center animate-fade-in"
+            style={{background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:'5vh 20px', overflowY:'auto'}}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className={cn("relative bg-card text-card-foreground border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden animate-fade-in", className)}
+                style={{maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth, width:'100%', maxHeight}}
+            >
+                {children}
+            </div>
+        </div>
+    );
+}
+
 
 
 // ─────────────────────────────────────────────
@@ -2765,9 +2916,8 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
     const lbl = agent.in_call?'En llamada':(agent.logged_in?'Disponible':'Offline');
     const inits = (agent.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase();
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)',overflow:'hidden'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={560}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 22px',background:`linear-gradient(135deg, ${sc}22, transparent 70%)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:54,height:54,borderRadius:14,background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:18,boxShadow:`0 6px 18px ${sc}55`,position:'relative',flexShrink:0}}>
@@ -2842,9 +2992,8 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
                         Editar agente
                     </button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3403,9 +3552,9 @@ function HotdeskingWizard({ onClose }) {
     ];
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:680,maxWidth:'94%',maxHeight:'90vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.4)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={680}>
                 <div style={{padding:'18px 24px',background:'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08))',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>school</span>
@@ -3440,9 +3589,8 @@ function HotdeskingWizard({ onClose }) {
                     <div style={{fontSize:11,color:'var(--muted)'}}>Tip: para alta/baja de agentes usá "Nuevo Agente". Para login manual, click en "Login" en cualquier fila.</div>
                     <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Entendido</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3508,9 +3656,8 @@ function QueueAgentsModal({ open, onClose, queue, queueName, toast, onDone}) {
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:640,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.6)'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={640}>
                 <div style={{padding:'18px 24px',background:'linear-gradient(135deg,rgba(34,197,94,0.18),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>group</span>
@@ -3578,9 +3725,8 @@ function QueueAgentsModal({ open, onClose, queue, queueName, toast, onDone}) {
                     </div>
                     <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Cerrar</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3610,9 +3756,8 @@ function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:520,maxWidth:'92%',maxHeight:'80vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column'}}>
+
+        <LegacyDialogShell onClose={onClose} maxWidth={520}>
                 <div style={{padding:'16px 22px',background:'linear-gradient(135deg,rgba(239,68,68,0.15),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
                     <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>logout</span>
@@ -3653,9 +3798,8 @@ function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -3724,9 +3868,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
 
     if (!open) return null;
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width: mode==='logout' ? 560 : 880,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.45)',transition:'width .25s ease'}}>
+        <LegacyDialogShell onClose={onClose} maxWidth={mode==='logout' ? 560 : 880}>
                 {/* Header compacto */}
                 <div style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,background:`linear-gradient(135deg, ${mode==='login'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'}, transparent 70%)`}}>
                     <div style={{width:40,height:40,borderRadius:11,background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
@@ -3843,9 +3985,8 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 function QueueDrawer({ queue, onClose, onSaved, toast }) {
@@ -8101,9 +8242,9 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
     ];
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',maxHeight:'92vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={560}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'rgba(139,92,246,0.18)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'#8b5cf6,#6d28d9'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'rgba(139,92,246,0.4)'}`}}>
@@ -8265,9 +8406,8 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
@@ -8379,9 +8519,9 @@ function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
     };
 
     return (
-        <TFModalPortal>
-        <div onClick={onClose} className="tf-modal-overlay">
-            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:24,borderRadius:16,width:480,maxWidth:'90%',border:'1px solid var(--border)'}}>
+
+
+        <LegacyDialogShell onClose={onClose} maxWidth={480}>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
                     <div style={{width:46,height:46,borderRadius:'50%',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>swap_horiz</span>
@@ -8403,9 +8543,8 @@ function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
                     <button onClick={onClose} style={{padding:'8px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
                     <button onClick={submit} disabled={!target||busy} style={{padding:'8px 18px',borderRadius:9,border:'none',cursor:!target||busy?'not-allowed':'pointer',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',fontWeight:800,fontSize:12,opacity:!target||busy?0.5:1}}>{busy?'Redirigiendo...':'Redirigir'}</button>
                 </div>
-            </div>
-        </div>
-        </TFModalPortal>
+            
+        </LegacyDialogShell>
     );
 }
 
