@@ -5248,467 +5248,451 @@ function AgentReportPanel({ agentNumber, onClose, embedded }) {
 }
 
 function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent }) {
-    const d=new Date(); d.setDate(d.getDate()-7);
-    const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
-    const [end, setEnd] = useState(() => new Date().toISOString().split('T')[0]);
-    const [stats, setStats] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const chartRef = useRef(null);
-    const chartInst = useRef(null);
-    const donutRef = useRef(null);
-    const donutInst = useRef(null);
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    const [from, setFrom] = useState(() => d.toISOString().split('T')[0]);
+    const [to, setTo] = useState(() => new Date().toISOString().split('T')[0]);
+    const [tab, setTab] = useState('summary'); // summary|by_agent|by_queue|calls|pauses
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [callFilters, setCallFilters] = useState({ disposition: '', src: '', dst: '', min_dur: 0 });
+    const [agentDetail, setAgentDetail] = useState(null);
+
+    // HORIZON: presets de rangos rápidos
+    const presets = [
+        { label: 'Hoy', from: () => new Date().toISOString().split('T')[0], to: () => new Date().toISOString().split('T')[0] },
+        { label: 'Ayer', from: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; }, to: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; } },
+        { label: '7 días', from: () => { const x=new Date(); x.setDate(x.getDate()-7); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+        { label: '30 días', from: () => { const x=new Date(); x.setDate(x.getDate()-30); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+        { label: 'Mes actual', from: () => { const x=new Date(); x.setDate(1); return x.toISOString().split('T')[0]; }, to: () => new Date().toISOString().split('T')[0] },
+    ];
+
+    const buildParams = () => {
+        const p = new URLSearchParams({ from, to });
+        if (tab === 'calls') {
+            if (callFilters.disposition) p.set('disposition', callFilters.disposition);
+            if (callFilters.src) p.set('src', callFilters.src);
+            if (callFilters.dst) p.set('dst', callFilters.dst);
+            if (callFilters.min_dur > 0) p.set('min_dur', callFilters.min_dur);
+            p.set('limit', '500');
+        }
+        return p.toString();
+    };
 
     const load = async () => {
-        setLoading(true);
+        setLoading(true); setData(null);
         try {
-            const qParam = queue ? `&queue=${queue}` : '';
-            const r = await fetch(`api/index.php?action=get_reports&start=${start}&end=${end}${qParam}`);
-            const d = await r.json();
-            if(d.success) setStats(d);
-            else toast(d.error||'Error al cargar reportes','error');
-        } catch { toast('Error de red al obtener reportes','error'); }
+            const params = buildParams();
+            const r = await fetch(`api/reports.php?action=${tab}&${params}`, { credentials: 'include' });
+            const j = await r.json();
+            if (j.status === 'ok') setData(j);
+            else toast?.(j.message || 'Error cargando reporte', 'error');
+        } catch (e) { toast?.('Error de red', 'error'); }
         setLoading(false);
     };
 
-    useEffect(() => { load(); }, [queue, start, end]);
+    useEffect(() => { load(); }, [tab, from, to, JSON.stringify(callFilters)]);
 
-    useEffect(() => {
-        if (!stats || !chartRef.current || !window.Chart) return;
-        if (chartInst.current) chartInst.current.destroy();
-        
-        const labels = Object.keys(stats.trend);
-        const answered = labels.map(l => stats.trend[l].ANSWERED || 0);
-        const failed = labels.map(l => (stats.trend[l].FAILED || 0) + (stats.trend[l]['NO ANSWER'] || 0) + (stats.trend[l].BUSY || 0));
-        
-        chartInst.current = new window.Chart(chartRef.current, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Contestadas', data: answered, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.2)', fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: '#22c55e', pointBorderColor: '#fff', pointRadius: 4, pointHoverRadius: 6 },
-                    { label: 'Otras/Fallidas', data: failed, borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: true, tension: 0.4, borderWidth: 2, pointBackgroundColor: '#ef4444', pointBorderColor: '#fff', pointRadius: 3, pointHoverRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { labels: { color: '#9ca3af', font: { family: 'Inter', weight: 600 } } },
-                    tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', borderColor:'rgba(139,92,246,0.3)', borderWidth:1, padding:12, boxPadding:6, usePointStyle:true }
-                },
-                scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } }, beginAtZero: true },
-                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { family: 'monospace' } } }
-                }
-            }
-        });
-
-        // Donut chart de distribución por estado
-        if (donutRef.current) {
-            if (donutInst.current) donutInst.current.destroy();
-            const dd = stats.stats || {};
-            donutInst.current = new window.Chart(donutRef.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Contestadas','Sin resp.','Ocupado','Falladas'],
-                    datasets: [{
-                        data: [dd.answered||0, dd.no_answer||0, dd.busy||0, dd.failed||0],
-                        backgroundColor: ['#22c55e','#f59e0b','#ef4444','#6b7280'],
-                        borderColor: 'rgba(0,0,0,0)',
-                        borderWidth: 3,
-                        hoverOffset: 12
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', padding:10 }
-                    }
-                }
-            });
+    const exportUrl = (format, type = tab, extraParams = {}) => {
+        const p = new URLSearchParams({ type, format, from, to, ...extraParams });
+        if (type === 'calls') {
+            if (callFilters.disposition) p.set('disposition', callFilters.disposition);
+            if (callFilters.src) p.set('src', callFilters.src);
+            if (callFilters.dst) p.set('dst', callFilters.dst);
         }
-    }, [stats]);
-
-
-    const exportXLSX = () => {
-        if (!stats || !window.XLSX) { toast?.('Sin datos para exportar','error'); return; }
-        const wb = window.XLSX.utils.book_new();
-        const period = `${start} a ${end}`;
-        const total = stats.stats.total||0;
-        const ans = stats.stats.answered||0;
-        const eff = total>0 ? Math.round((ans/total)*100) : 0;
-
-        // Hoja Resumen ejecutivo
-        const summary = [
-            ['TELEFLOW — REPORTE ANALÍTICO', ''],
-            ['Horizon Seguridad', ''],
-            ['Período', period],
-            ['Generado', new Date().toLocaleString('es-UY')],
-            queue ? ['Cola filtrada', '#'+queue] : ['Alcance', 'Todas las colas'],
-            ['', ''],
-            ['INDICADOR', 'VALOR'],
-            ['Llamadas totales', total],
-            ['Contestadas', ans],
-            ['Sin respuesta',(stats.stats.no_answer||0)],
-            ['Ocupado', (stats.stats.busy||0)],
-            ['Falladas', (stats.stats.failed||0)],
-            ['Efectividad %', eff],
-            ['Espera promedio (s)', Math.round(stats.stats.avg_wait||0)],
-            ['Duración promedio (s)', Math.round(stats.stats.avg_duration||0)],
-        ];
-        const ws1 = window.XLSX.utils.aoa_to_sheet(summary);
-        ws1['!cols'] = [{wch:34},{wch:24}];
-        // Estilos: títulos en negrita / fondos color
-        const styleHead = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'8B5CF6'}}, alignment:{vertical:'center'} };
-        const styleSub  = { font:{bold:true,color:{rgb:'1F2937'}}, fill:{fgColor:{rgb:'EDE9FE'}} };
-        const styleNum  = { font:{bold:true,color:{rgb:'059669'}} };
-        ['A1','B1'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleHead; });
-        ['A7','B7'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleSub;  });
-        for (let r=8; r<=15; r++) { const c='B'+r; if(ws1[c]) ws1[c].s = styleNum; }
-        ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:1}},{s:{r:1,c:0},e:{r:1,c:1}}];
-        window.XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
-
-        // Hoja Tendencia diaria
-        const trend = stats.trend || {};
-        const trendRows = [['Fecha','Contestadas','Sin respuesta','Ocupado','Fallidas','Total día']];
-        Object.keys(trend).forEach(d => {
-            const t = trend[d];
-            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
-            trendRows.push([d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot]);
-        });
-        const ws2 = window.XLSX.utils.aoa_to_sheet(trendRows);
-        ws2['!cols'] = [{wch:14},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12}];
-        ['A1','B1','C1','D1','E1','F1'].forEach(c=>{ if(ws2[c]) ws2[c].s = styleHead; });
-        window.XLSX.utils.book_append_sheet(wb, ws2, 'Tendencia diaria');
-
-        // Hoja Top orígenes
-        if (stats.origins?.length) {
-            const oRows = [['#','Origen','Llamadas']];
-            stats.origins.forEach((o,i)=>oRows.push([i+1,o.src,o.count]));
-            const ws3 = window.XLSX.utils.aoa_to_sheet(oRows);
-            ws3['!cols'] = [{wch:5},{wch:24},{wch:12}];
-            ['A1','B1','C1'].forEach(c=>{ if(ws3[c]) ws3[c].s = styleHead; });
-            window.XLSX.utils.book_append_sheet(wb, ws3, 'Top orígenes');
-        }
-        // Hoja Top destinos
-        if (stats.dests?.length) {
-            const dRows = [['#','Destino','Llamadas']];
-            stats.dests.forEach((o,i)=>dRows.push([i+1,o.dst,o.count]));
-            const ws4 = window.XLSX.utils.aoa_to_sheet(dRows);
-            ws4['!cols'] = [{wch:5},{wch:24},{wch:12}];
-            ['A1','B1','C1'].forEach(c=>{ if(ws4[c]) ws4[c].s = styleHead; });
-            window.XLSX.utils.book_append_sheet(wb, ws4, 'Top destinos');
-        }
-
-        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.xlsx`;
-        window.XLSX.writeFile(wb, fname);
-        toast?.('Exportado a Excel','success');
+        return `api/reports_export.php?${p.toString()}`;
     };
 
-    const exportPDF = () => {
-        if (!stats || !window.jspdf) { toast?.('Sin datos para exportar','error'); return; }
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-        const W = 210, H = 297;
-        const total = stats.stats.total||0;
-        const ans   = stats.stats.answered||0;
-        const eff   = total>0 ? Math.round((ans/total)*100) : 0;
+    const tabs = [
+        { id:'summary', label:'Resumen', icon:'analytics' },
+        { id:'by_agent', label:'Por agente', icon:'support_agent' },
+        { id:'by_queue', label:'Por cola', icon:'queue' },
+        { id:'calls', label:'Llamadas', icon:'phone' },
+        { id:'pauses', label:'Pausas', icon:'pause_circle' },
+    ];
 
-        // Banner
-        doc.setFillColor(139,92,246); doc.rect(0,0,W,30,'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont(undefined,'bold');
-        doc.text('TeleFlow', 14, 14);
-        doc.setFontSize(10); doc.setFont(undefined,'normal');
-        doc.text('Reporte Analítico de Callcenter · Horizon Seguridad', 14, 21);
-        doc.setFontSize(8);
-        doc.text(`Período: ${start}  →  ${end}${queue?'  ·  Cola #'+queue:''}`, 14, 26);
-        doc.setTextColor(255,255,255,0.85);
-        doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, W-14, 26, {align:'right'});
-
-        // KPI cards
-        const cards = [
-            { l:'Total', v:total.toLocaleString(), c:[139,92,246] },
-            { l:'Contestadas', v:ans.toLocaleString(), c:[34,197,94] },
-            { l:'Efectividad', v:eff+'%', c:[59,130,246] },
-            { l:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), c:[245,158,11] },
-            { l:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), c:[236,72,153] },
-        ];
-        const cw = (W - 28 - (cards.length-1)*5) / cards.length;
-        let cx = 14, cy = 38;
-        cards.forEach(k => {
-            doc.setFillColor(k.c[0],k.c[1],k.c[2]); doc.setDrawColor(k.c[0],k.c[1],k.c[2]);
-            doc.roundedRect(cx, cy, cw, 22, 3, 3, 'FD');
-            doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
-            doc.text(k.l.toUpperCase(), cx+3, cy+5);
-            doc.setFontSize(13); doc.text(String(k.v), cx+3, cy+15);
-            cx += cw + 5;
-        });
-
-        // Chart como imagen
-        let nextY = cy + 32;
-        try {
-            const canv = chartRef.current;
-            if (canv) {
-                const img = canv.toDataURL('image/png', 1.0);
-                doc.setTextColor(40,40,55); doc.setFont(undefined,'bold'); doc.setFontSize(11);
-                doc.text('Tendencia diaria', 14, nextY);
-                doc.addImage(img, 'PNG', 14, nextY+3, W-28, 60);
-                nextY += 70;
-            }
-        } catch(e) {}
-
-        // Tabla tendencia
-        const trend = stats.trend || {};
-        const tBody = Object.keys(trend).map(d => {
-            const t = trend[d];
-            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
-            return [d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot];
-        });
-        if (tBody.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['Fecha','Contestadas','Sin resp.','Ocupado','Fallidas','Total']],
-                body: tBody,
-                theme: 'grid',
-                headStyles: { fillColor: [99,102,241], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                alternateRowStyles: { fillColor: [248,250,252] },
-                margin: { left: 14, right: 14 }
-            });
-            nextY = doc.lastAutoTable.finalY + 6;
-        }
-
-        // Top orígenes + destinos en 2 columnas
-        const colW = (W-28-6)/2;
-        if (stats.origins?.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['#','Origen','Calls']],
-                body: stats.origins.map((o,i)=>[i+1,o.src,o.count]),
-                theme: 'striped',
-                headStyles: { fillColor: [139,92,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                margin: { left: 14, right: 14 + colW + 6 },
-                tableWidth: colW
-            });
-        }
-        if (stats.dests?.length) {
-            doc.autoTable({
-                startY: nextY,
-                head: [['#','Destino','Calls']],
-                body: stats.dests.map((d,i)=>[i+1,d.dst,d.count]),
-                theme: 'striped',
-                headStyles: { fillColor: [59,130,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
-                bodyStyles: { fontSize: 8 },
-                margin: { left: 14 + colW + 6, right: 14 },
-                tableWidth: colW
-            });
-        }
-
-        // Footer
-        const pages = doc.internal.getNumberOfPages();
-        for (let i=1;i<=pages;i++) {
-            doc.setPage(i);
-            doc.setFontSize(7); doc.setTextColor(140);
-            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad  ·  ${new Date().toLocaleDateString('es-UY')}`, W/2, H-8, {align:'center'});
-        }
-        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.pdf`;
-        doc.save(fname);
-        toast?.('Exportado a PDF','success');
-    };
-
-    const Card = ({ title, value, sub, icon, color, bg }) => (
-        <div className="glass" style={{padding:20,display:'flex',alignItems:'center',gap:16}}>
-            <div style={{width:50,height:50,borderRadius:16,background:bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 8px 24px ${bg}`}}>
-                <span className="material-icons-round" style={{fontSize:24,color:color}}>{icon}</span>
-            </div>
-            <div>
-                <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:4}}>{title}</div>
-                <div style={{fontSize:28,fontWeight:900,color:'var(--text)',lineHeight:1}}>{value}</div>
-                <div style={{fontSize:11,color:'#6b7280',marginTop:6,fontWeight:600}}>{sub}</div>
-            </div>
-        </div>
-    );
-
-    if (agentReport && agentReport.number) {
-        return (
-            <div className="content-area view-enter">
-                <PageActions>
-                    <button onClick={onClearAgent} style={{padding:'7px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>arrow_back</span>Volver a Reportes Generales
-                    </button>
-                </PageActions>
-                <AgentReportPanel agentNumber={agentReport.number} embedded={true}/>
-            </div>
-        );
-    }
-
-    return(
-        <div className="content-area view-enter">
-            {/* Filtros (queue back-button) */}
-            <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
-                <div style={{display:'flex', alignItems:'center', gap:10}}>
-                    {queue && (
-                        <button onClick={onClearQueue} style={{width:36, height:36, borderRadius:10, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted)'}}>
-                            <span className="material-icons-round">arrow_back</span>
-                        </button>
-                    )}
-                    {queue && <div style={{fontSize:13,fontWeight:800,color:'#c4b5fd'}}>Cola #{queue}</div>}
+    return (
+        <div className="content-area">
+            {/* Header con date pickers y export */}
+            <div className="glass" style={{padding:14,borderRadius:14,marginBottom:14,display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span className="material-icons-round" style={{fontSize:22,color:'#8b5cf6'}}>analytics</span>
+                    <span style={{fontSize:14,fontWeight:900,color:'var(--text)'}}>Reportes</span>
                 </div>
-                <PageActions>
-                    <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 6px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10}}>
-                        <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6',marginLeft:4}}>date_range</span>
-                        <input type="date" value={start} onChange={e=>setStart(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
-                        <span style={{color:'var(--muted)',fontSize:10,fontWeight:800,letterSpacing:'.06em'}}>→</span>
-                        <input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
-                    </div>
-                    <button className="btn-primary" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:5,boxShadow:'0 4px 14px rgba(139,92,246,0.3)'}} onClick={load} disabled={loading}>
-                        <span className="material-icons-round" style={{fontSize:15,animation:loading?'spin 1s linear infinite':'none'}}>{loading?'autorenew':'refresh'}</span>{loading?'Cargando':'Actualizar'}
-                    </button>
-                    <button onClick={exportXLSX} disabled={!stats} title="Exportar a Excel" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(34,197,94,0.18),rgba(34,197,94,0.06))',border:'1px solid rgba(34,197,94,0.4)',color:'#22c55e',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>table_chart</span>Excel
-                    </button>
-                    <button onClick={exportPDF} disabled={!stats} title="Exportar a PDF" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(239,68,68,0.06))',border:'1px solid rgba(239,68,68,0.4)',color:'#ef4444',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
-                        <span className="material-icons-round" style={{fontSize:15}}>picture_as_pdf</span>PDF
-                    </button>
-                </PageActions>
+                <div style={{flex:1}}/>
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    {presets.map(p => (
+                        <button key={p.label} onClick={()=>{setFrom(p.from()); setTo(p.to());}} style={{padding:'5px 10px',fontSize:11,borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>{p.label}</button>
+                    ))}
+                </div>
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    <input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}/>
+                    <span style={{color:'var(--muted)',fontSize:11}}>→</span>
+                    <input type="date" value={to} onChange={e=>setTo(e.target.value)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}/>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                    <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{padding:'6px 12px',fontSize:11,borderRadius:6,border:'1px solid #ef4444',background:'rgba(239,68,68,0.12)',color:'#ef4444',cursor:'pointer',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:14}}>picture_as_pdf</span>PDF</a>
+                    <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{padding:'6px 12px',fontSize:11,borderRadius:6,border:'1px solid #16a34a',background:'rgba(22,163,74,0.12)',color:'#16a34a',cursor:'pointer',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:14}}>table_chart</span>Excel</a>
+                </div>
             </div>
 
-            {loading && !stats && <div style={{textAlign:'center',padding:40,color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:40,animation:'spin-slow 2s linear infinite'}}>refresh</span><div style={{marginTop:10}}>Generando reporte...</div></div>}
+            {/* Tab bar */}
+            <div style={{display:'flex',gap:4,marginBottom:14,borderBottom:'1px solid var(--border)'}}>
+                {tabs.map(t => (
+                    <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 16px',background:'transparent',border:'none',borderBottom:tab===t.id?'2px solid #8b5cf6':'2px solid transparent',color:tab===t.id?'#fff':'var(--muted)',cursor:'pointer',fontSize:12,fontWeight:800,display:'inline-flex',alignItems:'center',gap:6,transition:'all 0.2s'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>{t.label}
+                    </button>
+                ))}
+            </div>
 
-            {stats && (
-                <>
-                    {/* Hero: período + 5 KPI cards */}
-                    <div className="anim-fadeup" style={{padding:'18px 22px',marginBottom:18,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:14,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:14}}>
-                            <div style={{width:54,height:54,borderRadius:14,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(139,92,246,0.35)'}}>
-                                <span className="material-icons-round" style={{color:'#fff',fontSize:26}}>analytics</span>
-                            </div>
-                            <div>
-                                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em'}}>Reporte analítico · {start} → {end}</div>
-                                <div style={{fontSize:22,fontWeight:900,letterSpacing:'-0.5px',marginTop:2,color:'var(--text)'}}>{(stats.stats.total||0).toLocaleString()} llamadas procesadas</div>
-                                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{Object.keys(stats.trend||{}).length} días · {stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad global</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:20}} className="anim-fadeup">
-                        {[
-                            {t:'Total', v:(stats.stats.total||0).toLocaleString(), s:'Procesadas', i:'functions', c:'#8b5cf6'},
-                            {t:'Contestadas', v:(stats.stats.answered||0).toLocaleString(), s:`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad`, i:'check_circle', c:'#22c55e'},
-                            {t:'Sin respuesta', v:(stats.stats.no_answer||0).toLocaleString(), s:'No atendidas', i:'phone_missed', c:'#f59e0b'},
-                            {t:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), s:'Hasta atender', i:'hourglass_top', c:'#3b82f6'},
-                            {t:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), s:'Tiempo habla', i:'timer', c:'#ec4899'},
-                        ].map((k,i)=>(
-                            <div key={i} className="glass" style={{padding:'14px 16px',borderRadius:14,position:'relative',overflow:'hidden',border:`1px solid ${k.c}33`,background:`linear-gradient(135deg,${k.c}10,transparent 70%),var(--surface)`}}>
-                                <div style={{position:'absolute',top:-12,right:-12,width:70,height:70,borderRadius:'50%',background:`radial-gradient(circle,${k.c}33,transparent 70%)`,pointerEvents:'none'}}/>
-                                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,position:'relative'}}>
-                                    <div style={{width:30,height:30,borderRadius:9,background:`linear-gradient(135deg,${k.c},${k.c}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 12px ${k.c}55`}}>
-                                        <span className="material-icons-round" style={{color:'#fff',fontSize:16}}>{k.i}</span>
-                                    </div>
-                                    <span style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{k.t}</span>
-                                </div>
-                                <div style={{fontSize:24,fontWeight:900,color:k.c,lineHeight:1,letterSpacing:'-0.5px'}}>{k.v}</div>
-                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4,fontWeight:600}}>{k.s}</div>
-                            </div>
-                        ))}
-                    </div>
+            {/* Content */}
+            {loading && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}><span className="material-icons-round" style={{fontSize:32,animation:'spin 1.2s linear infinite'}}>autorenew</span><div style={{marginTop:6,fontSize:11}}>Cargando…</div></div>}
 
-                    {/* Layout principal: 2/3 chart + 1/3 donut */}
-                    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:18}} className="anim-fadeup-2">
-                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column'}}>
-                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                    <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>trending_up</span>
-                                    <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Tendencia diaria</span>
-                                </div>
-                                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>{Object.keys(stats.trend||{}).length} días · linea suavizada</div>
-                            </div>
-                            <div style={{flex:1,position:'relative',minHeight:0}}>
-                                <canvas ref={chartRef} />
-                            </div>
-                        </div>
-                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column',alignItems:'center'}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',alignSelf:'flex-start',display:'flex',alignItems:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>donut_large</span>Distribución
-                            </div>
-                            <div style={{flex:1,position:'relative',minHeight:0,width:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <canvas ref={donutRef} style={{maxHeight:240}} />
-                            </div>
-                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,width:'100%',marginTop:10,fontSize:11}}>
-                                {[
-                                    {l:'Contestadas',v:stats.stats.answered||0,c:'#22c55e'},
-                                    {l:'Sin resp.',v:stats.stats.no_answer||0,c:'#f59e0b'},
-                                    {l:'Ocupado',v:stats.stats.busy||0,c:'#ef4444'},
-                                    {l:'Falladas',v:stats.stats.failed||0,c:'#6b7280'},
-                                ].map((d,i)=>(
-                                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',borderRadius:7,background:'var(--surface2)'}}>
-                                        <span style={{width:8,height:8,borderRadius:'50%',background:d.c,flexShrink:0}}/>
-                                        <span style={{flex:1,color:'var(--muted)',fontWeight:700}}>{d.l}</span>
-                                        <span style={{fontWeight:800,color:d.c,fontFamily:'monospace'}}>{d.v.toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+            {!loading && data && tab === 'summary' && <ReportTabSummary data={data}/>}
+            {!loading && data && tab === 'by_agent' && <ReportTabByAgent data={data} onPick={(a)=>setAgentDetail(a)}/>}
+            {!loading && data && tab === 'by_queue' && <ReportTabByQueue data={data}/>}
+            {!loading && data && tab === 'calls' && <ReportTabCalls data={data} filters={callFilters} setFilters={setCallFilters}/>}
+            {!loading && data && tab === 'pauses' && <ReportTabPauses data={data} from={from} to={to}/>}
 
-                    {/* Tops */}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}} className="anim-fadeup-3">
-                        {(() => {
-                            const maxOrig = Math.max(1, ...(stats.origins||[]).map(o=>o.count));
-                            const maxDest = Math.max(1, ...(stats.dests||[]).map(d=>d.count));
-                            const TopRow = ({label, count, max, color, idx, total}) => {
-                                const pct = Math.round((count/max)*100);
-                                return (
-                                    <div style={{padding:'10px 14px',borderRadius:12,background:'var(--surface2)',border:'1px solid var(--border)',position:'relative',overflow:'hidden'}}>
-                                        <div style={{position:'absolute',top:0,bottom:0,left:0,width:`${pct}%`,background:`linear-gradient(90deg,${color}15,${color}05)`,zIndex:0}}/>
-                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,position:'relative'}}>
-                                            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
-                                                <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${color}33,${color}11)`,color:color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,flexShrink:0}}>{idx+1}</div>
-                                                <span style={{fontSize:13,fontWeight:700,fontFamily:'monospace',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
-                                            </div>
-                                            <div style={{display:'flex',alignItems:'baseline',gap:5,flexShrink:0}}>
-                                                <span style={{fontSize:14,fontWeight:900,color:color}}>{count}</span>
-                                                <span style={{fontSize:9,color:'var(--muted)',fontFamily:'monospace'}}>{total>0?Math.round((count/total)*100):0}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            };
-                            const totalOrig = (stats.origins||[]).reduce((s,o)=>s+o.count,0);
-                            const totalDest = (stats.dests||[]).reduce((s,d)=>s+d.count,0);
-                            return (<>
-                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span>Top orígenes</div>
-                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.origins||[]).length} únicos</span>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {(stats.origins||[]).map((o,i)=>(<TopRow key={i} label={o.src} count={o.count} max={maxOrig} color="#8b5cf6" idx={i} total={totalOrig}/>))}
-                                {!(stats.origins||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin orígenes registrados</div>}
-                            </div>
-                        </div>
-                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>call_received</span>Top destinos</div>
-                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.dests||[]).length} únicos</span>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {(stats.dests||[]).map((d,i)=>(<TopRow key={i} label={d.dst} count={d.count} max={maxDest} color="#3b82f6" idx={i} total={totalDest}/>))}
-                                {!(stats.dests||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin destinos registrados</div>}
-                            </div>
-                        </div>
-                            </>);
-                        })()}
-                    </div>
-                </>
-            )}
+            {/* Drill-down agent */}
+            {agentDetail && <AgentDetailDrawer agent={agentDetail} from={from} to={to} onClose={()=>setAgentDetail(null)} toast={toast}/>}
         </div>
     );
 }
+
+function KPICard({ label, value, sub, icon, color }) {
+    return (
+        <div className="glass" style={{padding:16,borderRadius:12,border:`1px solid ${color}33`,background:`linear-gradient(135deg, ${color}15, transparent 70%), var(--surface)`}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <span className="material-icons-round" style={{color:'#fff',fontSize:16}}>{icon}</span>
+                </div>
+                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em'}}>{label}</div>
+            </div>
+            <div style={{fontSize:24,fontWeight:900,color,lineHeight:1}}>{value}</div>
+            {sub && <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>{sub}</div>}
+        </div>
+    );
+}
+
+function ReportTabSummary({ data }) {
+    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
+                <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`Período: ${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
+                <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
+                <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre total ofrecidas" icon="trending_down" color="#ef4444"/>
+                <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
+                <KPICard label="Talk time total" value={tfFmtSecs(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
+                <KPICard label="Sesiones agentes" value={s.sessions||0} sub={`${s.unique_agents||0} únicos · Total login: ${tfFmtSecs(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
+                <KPICard label="Pausas totales" value={p.total_pauses||0} sub={`Tiempo total: ${tfFmtSecs(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
+            </div>
+        </div>
+    );
+}
+
+function ReportTabByAgent({ data, onPick }) {
+    const agents = data.agents || [];
+    const fmt = tfFmtSecs;
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{agents.length} agentes con actividad</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Nombre</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Sesiones</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Login</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>T. Pausa</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Productivo%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Llam.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Talk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {agents.map((a,i)=>(
+                            <tr key={i} onClick={()=>onPick&&onPick(a)} style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:700}}>{a.ext}</td>
+                                <td style={{padding:'8px 10px',color:'#8b5cf6'}}>{a.agent_number||'—'}</td>
+                                <td style={{padding:'8px 10px'}}>{a.name||'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.session_count||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#3b82f6'}}>{fmt(a.login_sec)}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#f59e0b'}}>{fmt(a.pause_sec)}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:a.productive_pct>80?'#22c55e':(a.productive_pct>50?'#f59e0b':'#ef4444')}}>{a.productive_pct!==null?a.productive_pct+'%':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.calls||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{a.answered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.avg_aht!==null?a.avg_aht+'s':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{fmt(a.total_talk)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {agents.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabByQueue({ data }) {
+    const queues = data.queues || []; const sl = data.sl_threshold || 20;
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
+                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{queues.length} colas con tráfico · Service Level @ ≤{sl}s</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Cola</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Descripción</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Ofrec.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>SL%</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Esp. prom.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Máx. esp.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {queues.map((q,i)=>(
+                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:800}}>{q.queue}</td>
+                                <td style={{padding:'8px 10px',color:'#c4b5fd'}}>{q.descr||'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.offered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{q.answered||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',color:'#ef4444'}}>{q.abandoned||0}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.abandon_rate>20?'#ef4444':(q.abandon_rate>10?'#f59e0b':'#22c55e')}}>{q.abandon_rate}%</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.service_level>=80?'#22c55e':(q.service_level>=60?'#f59e0b':'#ef4444')}}>{q.service_level!==null?q.service_level+'%':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.avg_wait!==null?q.avg_wait+'s':'—'}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.max_wait||'—'}{q.max_wait?'s':''}</td>
+                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{q.avg_talk?q.avg_talk+'s':'—'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {queues.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabCalls({ data, filters, setFilters }) {
+    const calls = data.calls || [];
+    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
+    return (
+        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+            <div style={{padding:12,borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontSize:11,fontWeight:800,color:'var(--muted)'}}>FILTROS</span>
+                <select value={filters.disposition} onChange={e=>setFilters({...filters,disposition:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}>
+                    <option value="">Todos los estados</option>
+                    <option value="ANSWERED">ANSWERED</option>
+                    <option value="NO ANSWER">NO ANSWER</option>
+                    <option value="BUSY">BUSY</option>
+                    <option value="FAILED">FAILED</option>
+                </select>
+                <input placeholder="Origen" value={filters.src} onChange={e=>setFilters({...filters,src:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
+                <input placeholder="Destino" value={filters.dst} onChange={e=>setFilters({...filters,dst:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
+                <input placeholder="Mín dur (s)" type="number" value={filters.min_dur||''} onChange={e=>setFilters({...filters,min_dur:parseInt(e.target.value)||0})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:90}}/>
+                <span style={{flex:1}}/>
+                <span style={{fontSize:11,color:'var(--muted)'}}>{calls.length} resultados</span>
+            </div>
+            <div style={{overflow:'auto',maxHeight:'70vh'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                        <tr style={{borderBottom:'1px solid var(--border)'}}>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fecha/Hora</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Origen</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Destino</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>CallerID</th>
+                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Estado</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Dur.</th>
+                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Hablado</th>
+                            <th style={{padding:'8px 10px',textAlign:'center',color:'var(--muted)',fontWeight:800}}>Grab.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {calls.map((c,i)=>(
+                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{c.calldate}</td>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.src}</td>
+                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.dst}</td>
+                                <td style={{padding:'6px 10px',color:'var(--muted)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.clid}</td>
+                                <td style={{padding:'6px 10px'}}><span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span></td>
+                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.duration}s</td>
+                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</td>
+                                <td style={{padding:'6px 10px',textAlign:'center'}}>{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title={c.recordingfile}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {calls.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin llamadas que coincidan</div>}
+            </div>
+        </div>
+    );
+}
+
+function ReportTabPauses({ data, from, to }) {
+    const pauses = data.pauses || [];
+    // Agrupar por motivo para mini-charts
+    const byMotive = {};
+    pauses.forEach(p => {
+        const k = p.pause_label || p.pause_type_code;
+        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
+        byMotive[k].count++; byMotive[k].total += parseInt(p.duration_seconds || 0);
+    });
+    const motives = Object.values(byMotive).sort((a,b)=>b.total-a.total);
+    const maxTotal = Math.max(1, ...motives.map(m=>m.total));
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {/* Resumen por motivo */}
+            <div className="glass" style={{padding:16,borderRadius:12}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10}}>Distribución por motivo</div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {motives.map((m,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+                            <span style={{minWidth:120,fontSize:11,fontWeight:700}}>{m.label}</span>
+                            <div style={{flex:1,height:18,background:'rgba(255,255,255,0.04)',borderRadius:4,overflow:'hidden',position:'relative'}}>
+                                <div style={{width:`${(m.total/maxTotal)*100}%`,height:'100%',background:m.color||'#8b5cf6'}}/>
+                                <span style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',fontSize:10,fontFamily:'monospace',color:'#fff',fontWeight:700,textShadow:'0 1px 2px rgba(0,0,0,0.5)'}}>{tfFmtSecs(m.total)}</span>
+                            </div>
+                            <span style={{minWidth:50,fontSize:11,fontWeight:800,textAlign:'right'}}>{m.count}x</span>
+                        </div>
+                    ))}
+                </div>
+                {motives.length===0 && <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:12}}>Sin pausas</div>}
+            </div>
+
+            {/* Tabla detallada */}
+            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
+                <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
+                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{pauses.length} pausas registradas</span>
+                </div>
+                <div style={{overflow:'auto',maxHeight:'50vh'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                        <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
+                            <tr style={{borderBottom:'1px solid var(--border)'}}>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Motivo</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Inicio</th>
+                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fin</th>
+                                <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Duración</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pauses.map((p,i)=>(
+                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
+                                    <td style={{padding:'6px 10px',color:'#8b5cf6'}}>{p.agent_number||'—'}</td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{p.agent_ext}</td>
+                                    <td style={{padding:'6px 10px'}}><span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>{p.pause_label||p.pause_type_code}</span></td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_start}</td>
+                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_end||<span style={{color:'#22c55e'}}>(activa)</span>}</td>
+                                    <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700}}>{tfFmtSecs(p.duration_seconds)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
+    const [data, setData] = useState(null); const [loading, setLoading] = useState(true);
+    useEffect(()=>{
+        (async()=>{
+            try {
+                const r = await fetch(`api/reports.php?action=agent_detail&agent=${encodeURIComponent(agent.agent_number||agent.ext)}&from=${from}&to=${to}`, {credentials:'include'});
+                const j = await r.json(); if (j.status==='ok') setData(j); else toast?.(j.message||'Error', 'error');
+            } catch(e){ toast?.('Error de red', 'error'); }
+            setLoading(false);
+        })();
+    }, [agent, from, to]);
+    const k = data?.kpi || {};
+    const exportUrl = (fmt) => `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agent.agent_number||agent.ext)}`;
+    return (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',justifyContent:'flex-end'}} onClick={onClose}>
+            <div onClick={e=>e.stopPropagation()} style={{width:'min(720px,95%)',background:'var(--bg)',borderLeft:'1px solid var(--border)',padding:0,overflow:'auto'}}>
+                <div style={{position:'sticky',top:0,background:'var(--surface)',padding:'14px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10,zIndex:1}}>
+                    <span className="material-icons-round" style={{color:'#8b5cf6'}}>support_agent</span>
+                    <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:900}}>Agente #{agent.agent_number||agent.ext}</div>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>{agent.name||'—'} · ext {agent.ext}</div>
+                    </div>
+                    <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{padding:'5px 10px',fontSize:10,borderRadius:6,border:'1px solid #ef4444',background:'rgba(239,68,68,0.12)',color:'#ef4444',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:13}}>picture_as_pdf</span>PDF</a>
+                    <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{padding:'5px 10px',fontSize:10,borderRadius:6,border:'1px solid #16a34a',background:'rgba(22,163,74,0.12)',color:'#16a34a',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:13}}>table_chart</span>Excel</a>
+                    <button onClick={onClose} style={{padding:6,border:'none',background:'transparent',color:'var(--muted)',cursor:'pointer'}}><span className="material-icons-round">close</span></button>
+                </div>
+                <div style={{padding:16}}>
+                    {loading && <div style={{padding:30,textAlign:'center'}}>Cargando…</div>}
+                    {!loading && data && (
+                        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:8}}>
+                                <KPICard label="Sesiones" value={k.sessions_count||0} icon="badge" color="#8b5cf6"/>
+                                <KPICard label="Login total" value={tfFmtSecs(k.total_login_sec)} icon="login" color="#3b82f6"/>
+                                <KPICard label="Pausas" value={k.pauses_count||0} icon="pause_circle" color="#f59e0b"/>
+                                <KPICard label="T. Pausa" value={tfFmtSecs(k.total_pause_sec)} icon="schedule" color="#ef4444"/>
+                                <KPICard label="Productivo" value={k.productive_pct!==null?k.productive_pct+'%':'—'} icon="trending_up" color="#22c55e"/>
+                                <KPICard label="Llamadas" value={k.total_calls||0} icon="phone" color="#ec4899"/>
+                            </div>
+                            {data.pause_breakdown?.length>0 && (
+                                <div className="glass" style={{padding:12,borderRadius:10}}>
+                                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>PAUSAS POR MOTIVO</div>
+                                    {data.pause_breakdown.map((p,i)=>(
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                                            <span style={{minWidth:100,fontSize:11}}>{p.label}</span>
+                                            <span style={{fontSize:11,fontFamily:'monospace',color:p.color||'#f59e0b',fontWeight:700}}>{tfFmtSecs(p.total_sec)}</span>
+                                            <span style={{fontSize:10,color:'var(--muted)'}}>· {p.count} pausas</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="glass" style={{padding:12,borderRadius:10}}>
+                                <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>SESIONES ({data.sessions?.length||0})</div>
+                                <div style={{maxHeight:200,overflow:'auto',fontSize:10}}>
+                                    {(data.sessions||[]).map((s,i)=>(
+                                        <div key={i} style={{padding:'4px 0',borderBottom:'1px solid var(--border)',display:'flex',gap:8}}>
+                                            <span style={{flex:1,fontFamily:'monospace'}}>{s.login_time}</span>
+                                            <span style={{color:'var(--muted)'}}>→</span>
+                                            <span style={{flex:1,fontFamily:'monospace'}}>{s.logout_time||<span style={{color:'#22c55e'}}>(activa)</span>}</span>
+                                            <span style={{fontWeight:700,color:'#3b82f6'}}>{tfFmtSecs(s.duration_sec)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="glass" style={{padding:12,borderRadius:10}}>
+                                <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',marginBottom:8}}>ÚLTIMAS LLAMADAS ({data.calls?.length||0})</div>
+                                <div style={{maxHeight:300,overflow:'auto',fontSize:10}}>
+                                    {(data.calls||[]).slice(0,50).map((c,i)=>(
+                                        <div key={i} style={{padding:'4px 0',borderBottom:'1px solid var(--border)',display:'grid',gridTemplateColumns:'auto 60px 60px 80px 50px',gap:6,alignItems:'center'}}>
+                                            <span style={{fontFamily:'monospace',fontSize:9}}>{c.calldate}</span>
+                                            <span style={{fontFamily:'monospace'}}>{c.src}</span>
+                                            <span style={{fontFamily:'monospace'}}>{c.dst}</span>
+                                            <span style={{fontSize:9,color:c.disposition==='ANSWERED'?'#22c55e':'#f59e0b'}}>{c.disposition}</span>
+                                            <span style={{textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 // El Softphone ahora es una PWA independiente en /softphone/
 
