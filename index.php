@@ -7794,28 +7794,34 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
 }
 
 // ─── Premium KPI card (shadcn-flavored) ────────────────────────────────────
-function KPICard({ label, value, sub, icon, color = 'primary', compact = false }) {
-    // color puede ser nombre tailwind (primary, destructive, etc.) o hex
+function KPICard({ label, value, sub, icon, color = 'var(--primary)', compact = false }) {
+    // color puede ser hex (#XXXXXX), CSS variable (var(--*)), tailwind name, o nombre estilo 'success'
     const isHex = typeof color === 'string' && color.startsWith('#');
-    const iconBg = isHex
-        ? { background: `linear-gradient(135deg, ${color}, ${color}cc)`, boxShadow: `0 4px 12px ${color}44` }
+    const isVar = typeof color === 'string' && color.startsWith('var(');
+    const isCss = isHex || isVar;
+    // Para CSS values usamos color-mix donde antes había concat con sufijos hex
+    const iconBg = isCss
+        ? {
+            background: `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 75%, #000))`,
+            boxShadow: `0 4px 12px color-mix(in srgb, ${color} 30%, transparent)`
+          }
         : {};
-    const iconClass = isHex ? '' : `bg-${color}/90 text-${color}-foreground shadow-${color}/30`;
-    const valueColor = isHex ? color : undefined;
+    const iconClass = isCss ? '' : `bg-${color}/90 text-${color}-foreground shadow-${color}/30`;
+    const valueColor = isCss ? color : undefined;
     return (
         <Card className={cn("relative overflow-hidden", compact ? "min-h-[90px]" : "min-h-[110px]")}>
             <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full opacity-30 pointer-events-none"
-                 style={{background: isHex ? `radial-gradient(circle, ${color}33, transparent 70%)` : undefined}}/>
+                 style={{background: isCss ? `radial-gradient(circle, color-mix(in srgb, ${color} 20%, transparent), transparent 70%)` : undefined}}/>
             <div className={cn("relative p-4", compact && "p-3")}>
                 <div className="flex items-center gap-2 mb-2">
                     <div className={cn("flex items-center justify-center rounded-lg flex-shrink-0", compact ? "w-7 h-7" : "w-9 h-9", iconClass)} style={iconBg}>
                         <span className="material-icons-round text-white" style={{fontSize: compact ? 14 : 18}}>{icon}</span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</span>
                 </div>
                 <div className={cn("font-black leading-none tabular-nums truncate", compact ? "text-xl" : "text-2xl")}
                      style={{color: valueColor}}>{value}</div>
-                {sub && <div className="text-[10px] text-muted-foreground mt-1 font-semibold">{sub}</div>}
+                {sub && <div className="text-[10px] mt-1 font-semibold" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
             </div>
         </Card>
     );
@@ -8167,42 +8173,84 @@ function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
 
     return (
         <Sheet open={!!agent} onOpenChange={(o) => !o && onClose?.()} size="3xl">
-            <SheetHeader className="p-5 border-b border-border">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white font-black text-base shadow-lg flex-shrink-0">{initials}</div>
+            {/* ─── Header del drawer (sticky superior) ─── */}
+            <SheetHeader className="px-5 pt-5 pb-0 border-b" style={{borderColor:'var(--border)'}}>
+                {/* Row 1: avatar + identidad + acciones */}
+                <div className="flex items-center gap-3 pb-4">
+                    {/* Avatar con paleta Horizon */}
+                    <div className="rounded-full flex items-center justify-center text-white font-black flex-shrink-0"
+                         style={{
+                             width:48, height:48, fontSize:15,
+                             background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                             boxShadow:'0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent)'
+                         }}>
+                        {initials}
+                    </div>
+                    {/* Identidad */}
                     <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-primary">Agente</div>
-                        <SheetTitle className="truncate">{agent?.name || agentId}</SheetTitle>
-                        <SheetDescription className="text-xs flex gap-2 items-center mt-0.5">
-                            <span className="font-mono font-bold text-primary">#{agentId}</span>
-                            {agent?.ext && <span>· ext {agent.ext}</span>}
-                            <span>· {from} → {to}</span>
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--primary)'}}>
+                            <span className="material-icons-round" style={{fontSize:12}}>support_agent</span>
+                            Agente
+                        </div>
+                        <SheetTitle className="truncate text-lg" style={{color:'var(--foreground)'}}>
+                            {agent?.name || agentId}
+                        </SheetTitle>
+                        <SheetDescription className="text-xs flex flex-wrap gap-x-2 gap-y-0.5 items-center mt-0.5">
+                            <span className="font-mono font-bold" style={{color:'var(--primary)'}}>#{agentId}</span>
+                            {agent?.ext && <span style={{color:'var(--muted-foreground)'}}>· ext <span className="font-mono">{agent.ext}</span></span>}
+                            <span className="inline-flex items-center gap-1" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round" style={{fontSize:12}}>date_range</span>
+                                {from} → {to}
+                            </span>
                         </SheetDescription>
                     </div>
-                    <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
-                        <span className="material-icons-round text-sm">picture_as_pdf</span>PDF
-                    </Button>
-                    <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
-                        <span className="material-icons-round text-sm">table_chart</span>Excel
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={onClose} title="Cerrar (Esc)">
-                        <span className="material-icons-round text-base">close</span>
-                    </Button>
+                    {/* Acciones */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button asLink href={exportUrl('pdf')} target="_blank" variant="outline" size="sm" title="Exportar PDF">
+                            <span className="material-icons-round" style={{fontSize:14, color:'var(--destructive)'}}>picture_as_pdf</span>
+                            <span className="hidden sm:inline">PDF</span>
+                        </Button>
+                        <Button asLink href={exportUrl('xlsx')} target="_blank" variant="outline" size="sm" title="Exportar Excel">
+                            <span className="material-icons-round" style={{fontSize:14, color:'var(--horizon-green)'}}>table_chart</span>
+                            <span className="hidden sm:inline">Excel</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={onClose} title="Cerrar (Esc)" className="h-8 w-8">
+                            <span className="material-icons-round" style={{fontSize:16}}>close</span>
+                        </Button>
+                    </div>
                 </div>
-                <Tabs value={section} onChange={setSection} className="mt-3">
-                    <TabsList>
-                        <TabsTrigger value="overview"><span className="material-icons-round text-sm mr-1">dashboard</span>Resumen</TabsTrigger>
-                        <TabsTrigger value="sessions"><span className="material-icons-round text-sm mr-1">login</span>Sesiones {data?.sessions ? `(${data.sessions.length})` : ''}</TabsTrigger>
-                        <TabsTrigger value="pauses"><span className="material-icons-round text-sm mr-1">pause_circle</span>Pausas {data?.pauses ? `(${data.pauses.length})` : ''}</TabsTrigger>
-                        <TabsTrigger value="calls"><span className="material-icons-round text-sm mr-1">phone</span>Llamadas {data?.calls ? `(${data.calls.length})` : ''}</TabsTrigger>
+                {/* Row 2: Tabs full-width */}
+                <Tabs value={section} onChange={setSection}>
+                    <TabsList className="h-10 p-1 w-full justify-start flex-wrap" style={{background:'var(--secondary)'}}>
+                        <TabsTrigger value="overview" className="h-8 px-3 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:14}}>dashboard</span>
+                            Resumen
+                        </TabsTrigger>
+                        <TabsTrigger value="sessions" className="h-8 px-3 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:14}}>login</span>
+                            Sesiones
+                            {data?.sessions && <Badge variant="secondary" className="ml-1 text-[9px] px-1.5">{data.sessions.length}</Badge>}
+                        </TabsTrigger>
+                        <TabsTrigger value="pauses" className="h-8 px-3 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:14}}>pause_circle</span>
+                            Pausas
+                            {data?.pauses && <Badge variant="secondary" className="ml-1 text-[9px] px-1.5">{data.pauses.length}</Badge>}
+                        </TabsTrigger>
+                        <TabsTrigger value="calls" className="h-8 px-3 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:14}}>phone</span>
+                            Llamadas
+                            {data?.calls && <Badge variant="secondary" className="ml-1 text-[9px] px-1.5">{data.calls.length}</Badge>}
+                        </TabsTrigger>
                     </TabsList>
                 </Tabs>
+                <div className="h-3"/>
             </SheetHeader>
-            <SheetContent className="p-5 space-y-4">
+            {/* ─── Body ─── */}
+            <SheetContent className="p-5 space-y-4" style={{background:'color-mix(in srgb, var(--muted) 25%, var(--background))'}}>
                 {loading && (
-                    <div className="py-16 text-center text-muted-foreground">
-                        <span className="material-icons-round text-4xl animate-spin text-primary">autorenew</span>
-                        <div className="mt-2 text-sm">Cargando datos del agente…</div>
+                    <div className="py-20 text-center" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:36, color:'var(--primary)'}}>autorenew</span>
+                        <div className="mt-3 text-sm font-medium">Cargando datos del agente…</div>
                     </div>
                 )}
                 {!loading && data && section === 'overview' && <AgentOverviewSection data={data}/>}
@@ -8218,42 +8266,49 @@ function AgentOverviewSection({ data }) {
     const k = data.kpi || {};
     const breakdown = data.pause_breakdown || [];
     const maxPause = Math.max(1, ...breakdown.map(b => parseInt(b.total_sec || 0)));
-    const prodColor = k.productive_pct > 80 ? '#22c55e' : (k.productive_pct > 50 ? '#f59e0b' : '#ef4444');
+    // Productividad con tokens semánticos
+    const prodVariant = k.productive_pct == null ? 'muted' : (k.productive_pct > 80 ? 'success' : (k.productive_pct > 50 ? 'warning' : 'destructive'));
+    const prodColor = prodVariant === 'success' ? 'var(--horizon-green)' : (prodVariant === 'warning' ? 'var(--warning)' : (prodVariant === 'destructive' ? 'var(--destructive)' : 'var(--muted-foreground)'));
+    const activeSec = Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0));
     return (
         <div className="space-y-4">
+            {/* ─── KPI Grid — paleta Horizon coherente ─── */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="En el período" icon="badge" color="var(--primary)"/>
-                <KPICard compact label="Login total" value={fmtDurationCompact(k.total_login_sec)} sub="Tiempo logueado" icon="login" color="#3b82f6"/>
-                <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={prodColor}/>
-                <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Total: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
-                <KPICard compact label="Llamadas" value={(k.total_calls || 0).toLocaleString()} sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas'} icon="phone" color="#ec4899"/>
-                <KPICard compact label="Última actividad" value={data.sessions?.[0]?.logout_time ? 'Cerrada' : (data.sessions?.length ? 'Activa' : '—')} sub={data.sessions?.[0] ? fmtDateTime(data.sessions[0].login_time) : 'Sin actividad'} icon="schedule" color="#06b6d4"/>
+                <KPICard compact label="Sesiones"           value={k.sessions_count || 0}                                                       sub="En el período"                                                              icon="badge"          color="var(--primary)"/>
+                <KPICard compact label="Login total"        value={fmtDurationCompact(k.total_login_sec)}                                       sub="Tiempo logueado"                                                            icon="login"          color="var(--primary)"/>
+                <KPICard compact label="Productivo"         value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'}                    sub={`${fmtDurationCompact(activeSec)} activos`}                                  icon="trending_up"    color={prodColor}/>
+                <KPICard compact label="Pausas"             value={k.pauses_count || 0}                                                         sub={`Total: ${fmtDurationCompact(k.total_pause_sec)}`}                            icon="pause_circle"   color="var(--warning)"/>
+                <KPICard compact label="Llamadas"           value={(k.total_calls || 0).toLocaleString()}                                       sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas'} icon="phone"        color="var(--primary)"/>
+                <KPICard compact label="Última actividad"   value={data.sessions?.[0]?.logout_time ? 'Cerrada' : (data.sessions?.length ? 'Activa' : '—')} sub={data.sessions?.[0] ? fmtDateTime(data.sessions[0].login_time) : 'Sin actividad'} icon="schedule" color="var(--muted-foreground)"/>
             </div>
 
+            {/* ─── Distribución de pausas ─── */}
             {breakdown.length > 0 && (
                 <Card>
-                    <CardHeader className="p-4 pb-2">
+                    <CardHeader className="pb-3">
                         <CardTitle className="text-sm flex items-center gap-2">
-                            <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
+                            <span className="material-icons-round" style={{fontSize:18, color:'var(--warning)'}}>pie_chart</span>
                             Distribución de pausas
-                            <span className="ml-auto text-xs font-normal text-muted-foreground">Total: {fmtDurationCompact(k.total_pause_sec)}</span>
+                            <span className="ml-auto text-xs font-normal" style={{color:'var(--muted-foreground)'}}>
+                                Total: <strong className="font-mono" style={{color:'var(--foreground)'}}>{fmtDurationCompact(k.total_pause_sec)}</strong>
+                            </span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-2 space-y-2">
+                    <CardContent className="space-y-2.5">
                         {breakdown.map((p) => {
                             const pct = (parseInt(p.total_sec) / maxPause) * 100;
-                            const c = p.color || '#f59e0b';
+                            const c = p.color || 'var(--warning)';
                             return (
                                 <div key={p.code} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
                                     <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{background: c}}/>
-                                        <span className="text-xs font-semibold truncate">{p.label}</span>
+                                        <span className="rounded-full flex-shrink-0" style={{width:8, height:8, background: c}}/>
+                                        <span className="text-xs font-semibold truncate" style={{color:'var(--foreground)'}}>{p.label}</span>
                                     </div>
-                                    <div className="h-3.5 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${c}aa, ${c})`}}/>
+                                    <div className="h-2.5 rounded-full overflow-hidden" style={{background:'color-mix(in srgb, var(--muted) 50%, transparent)'}}>
+                                        <div className="h-full rounded-full transition-all duration-500" style={{width: `${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${c} 80%, transparent), ${c})`}}/>
                                     </div>
                                     <span className="text-xs font-mono font-bold text-right" style={{color: c}}>{fmtDurationCompact(p.total_sec)}</span>
-                                    <span className="text-xs text-muted-foreground font-semibold text-right">{p.count}x</span>
+                                    <span className="text-[10px] font-semibold text-right" style={{color:'var(--muted-foreground)'}}>{p.count}× veces</span>
                                 </div>
                             );
                         })}
@@ -8261,21 +8316,23 @@ function AgentOverviewSection({ data }) {
                 </Card>
             )}
 
+            {/* ─── Indicadores del período ─── */}
             <Card>
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="pb-3">
                     <CardTitle className="text-sm flex items-center gap-2">
-                        <span className="material-icons-round text-blue-500 text-base">insights</span>
+                        <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>insights</span>
                         Indicadores del período
                     </CardTitle>
+                    <CardDescription className="text-[11px]">Métricas agregadas del rango seleccionado</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 pt-2">
+                <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        <Row label="Tiempo total de login" value={fmtDurationCompact(k.total_login_sec)} color="#3b82f6"/>
-                        <Row label="Tiempo en pausa" value={fmtDurationCompact(k.total_pause_sec)} color="#f59e0b"/>
-                        <Row label="Tiempo activo (productivo)" value={fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} color="#22c55e"/>
-                        <Row label="% Productividad" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} color={prodColor}/>
-                        <Row label="Llamadas atendidas" value={(k.total_calls || 0).toLocaleString()} color="#ec4899"/>
-                        <Row label="Cantidad de pausas" value={k.pauses_count || 0} color="#f59e0b"/>
+                        <Row label="Tiempo total de login"        value={fmtDurationCompact(k.total_login_sec)}             icon="login"           tone="primary"/>
+                        <Row label="Tiempo en pausa"              value={fmtDurationCompact(k.total_pause_sec)}             icon="pause_circle"    tone="warning"/>
+                        <Row label="Tiempo activo (productivo)"   value={fmtDurationCompact(activeSec)}                     icon="play_circle"     tone="success"/>
+                        <Row label="% Productividad"              value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} icon="trending_up" tone={prodVariant}/>
+                        <Row label="Llamadas atendidas"           value={(k.total_calls || 0).toLocaleString()}             icon="phone"           tone="primary"/>
+                        <Row label="Cantidad de pausas"           value={k.pauses_count || 0}                               icon="pause"           tone="warning"/>
                     </div>
                 </CardContent>
             </Card>
@@ -8283,11 +8340,26 @@ function AgentOverviewSection({ data }) {
     );
 }
 
-function Row({ label, value, color }) {
+function Row({ label, value, color, icon, tone }) {
+    // tone: 'primary' | 'success' | 'warning' | 'destructive' | 'muted'
+    const toneColor = color || (
+        tone === 'primary'    ? 'var(--primary)'      :
+        tone === 'success'    ? 'var(--horizon-green)':
+        tone === 'warning'    ? 'var(--warning)'      :
+        tone === 'destructive'? 'var(--destructive)'  :
+                                'var(--muted-foreground)'
+    );
     return (
-        <div className="flex justify-between items-center px-3 py-1.5 bg-muted/40 rounded-md">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-mono font-bold" style={{color: color || undefined}}>{value}</span>
+        <div className="flex justify-between items-center px-3 py-2 rounded-md border"
+             style={{
+                 background:'color-mix(in srgb, var(--muted) 35%, transparent)',
+                 borderColor:'var(--border)'
+             }}>
+            <span className="flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
+                {icon && <span className="material-icons-round" style={{fontSize:14, color:toneColor, opacity:0.8}}>{icon}</span>}
+                {label}
+            </span>
+            <span className="font-mono font-bold text-xs" style={{color: toneColor}}>{value}</span>
         </div>
     );
 }
