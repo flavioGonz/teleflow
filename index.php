@@ -1640,24 +1640,40 @@ function Toaster() {
 
 
 // HORIZON: wrapper para migrar modales legacy a Dialog shadcn sin reescribir todo el contenido
-function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '90vh', children, className }) {
+function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '90vh', children, className, autoHeight = true }) {
     useEffect(() => {
         if (!open) return;
         const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
         document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
+        // Bloquear scroll del body cuando el modal está abierto
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
     }, [open, onClose]);
     if (!open) return null;
     return (
         <div
             onClick={onClose}
-            className="fixed inset-0 z-[1000] flex items-start justify-center animate-fade-in"
-            style={{background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:'5vh 20px', overflowY:'auto'}}
+            className="fixed inset-0 z-[1000] flex items-center justify-center animate-fade-in"
+            style={{background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:'4vh 20px', overflowY:'auto'}}
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className={cn("relative bg-card text-card-foreground border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden animate-fade-in", className)}
-                style={{maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth, width:'100%', maxHeight}}
+                className={cn(
+                    "relative bg-card text-card-foreground border border-border rounded-lg shadow-2xl",
+                    "flex flex-col overflow-hidden animate-fade-in",
+                    className
+                )}
+                style={{
+                    maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth,
+                    width: '100%',
+                    maxHeight,
+                    /* min-height: 0 + flex permite que los hijos con flex:1 puedan scrollear internamente */
+                    minHeight: 0
+                }}
             >
                 {children}
             </div>
@@ -4302,9 +4318,9 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                 </div>
 
                 {/* BODY: 2 columnas en login, 1 columna en logout */}
-                <div style={{flex:1,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
+                <div style={{flex:1,minHeight:0,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
                     {/* COLUMNA IZQUIERDA: Selector de agente */}
-                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
                         <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                             <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>person</span>
                             Agente
@@ -4332,7 +4348,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
 
                     {/* COLUMNA DERECHA: Datos de login (oculta en logout) */}
                     {mode === 'login' && (
-                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
                             <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                                 <span className="material-icons-round" style={{fontSize:14,color:'#3b82f6'}}>dialpad</span>
                                 Extensión donde se sienta
@@ -8483,12 +8499,15 @@ function ViewHotdesking({ data, toast }) {
                         const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
                         const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
                         return (
-                        <div key={a.id} className="glass" style={{padding:0,borderRadius:14,overflow:'hidden',border:`1px solid ${sc}33`,boxShadow:a.in_call||a.paused?`0 0 24px ${sc}33`:(a.logged_in?`0 4px 14px ${sc}22`:'none'),transition:'all 0.3s',cursor:'pointer'}} onClick={()=>setEditing(a)}>
-                            {/* Top neon bar */}
-                            <div style={{height:3,background:`linear-gradient(90deg, ${sc}, ${sc}66)`,boxShadow:`0 0 10px ${sc}88`}}/>
-                            <div style={{padding:'12px 12px 10px',position:'relative'}}>
-                                {/* Background glow if active */}
-                                {a.logged_in && <div style={{position:'absolute',top:-30,right:-30,width:100,height:100,borderRadius:'50%',background:`radial-gradient(circle, ${sc}22, transparent 70%)`,pointerEvents:'none'}}/>}
+                        <div
+                            key={a.id}
+                            onClick={()=>setEditing(a)}
+                            className="rounded-lg border border-border bg-card text-card-foreground overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
+                            style={{borderColor:'var(--border)'}}
+                        >
+                            {/* Top accent stripe (subtle, status-coloured) */}
+                            <div style={{height:2,background:sc,opacity:a.logged_in?1:0.35}}/>
+                            <div style={{padding:'14px 14px 12px',position:'relative'}}>
                                 
                                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
                                     <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative',boxShadow:`0 4px 12px ${sc}66`}}>
