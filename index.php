@@ -102,6 +102,22 @@ header('Expires: 0');
             }
         };
     </script>
+    <script>
+    // Pre-paint theme: aplica .dark al <html> y .light al body antes del primer render
+    // Evita el flash en blanco cuando el usuario tiene dark mode preferido
+    (function() {
+        try {
+            var dark = localStorage.getItem('tf_dark');
+            var isDark = dark !== '0'; // default = dark
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.body && document.body.classList.add('light');
+            // Aplicar también al body tan pronto como exista
+            document.addEventListener('DOMContentLoaded', function() {
+                if (!isDark) document.body.classList.add('light');
+            });
+        } catch(e) {}
+    })();
+    </script>
     <style>
     /* HORIZON: shadcn/ui design tokens (colores completos para compat con legacy var(--x)) */
     :root, .light {
@@ -9600,23 +9616,32 @@ function ViewHotdesking({ data, toast }) {
                     <div
                         key={a.id}
                         onClick={()=>setEditing(a)}
-                        className="rounded-lg border border-border bg-card text-card-foreground overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
-                        style={{opacity:0.7}}
-                    >
-                        <div style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
-                            <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg, #6b7280, #4b5563)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:11, fontWeight:900, flexShrink:0}}>
-                                {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
-                            </div>
-                            <div style={{flex:1, minWidth:0}}>
-                                <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
-                                <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{a.number}</div>
-                            </div>
-                            <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
-                                className="rounded-md border font-bold transition-colors"
-                                style={{padding:'4px 10px', fontSize:10, color:'var(--horizon-green)', borderColor:'rgba(17,179,40,0.4)', background:'rgba(17,179,40,0.1)'}}>
-                                Login
-                            </button>
+                        className="rounded-lg border cursor-pointer transition-all hover:shadow-sm flex items-center gap-2.5 px-3 py-2"
+                        style={{
+                            borderColor:'var(--border)',
+                            background:'color-mix(in srgb, var(--muted) 30%, var(--card))',
+                            color:'var(--card-foreground)'
+                        }}>
+                        <div className="rounded-full flex items-center justify-center font-black text-white shrink-0"
+                             style={{
+                                 width:32, height:32, fontSize:11,
+                                 background:'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 70%, #000), color-mix(in srgb, var(--muted-foreground) 90%, #000))'
+                             }}>
+                            {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
                         </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
+                            <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>#{a.number}</div>
+                        </div>
+                        <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
+                                className="rounded-md border px-2.5 py-1 text-[10px] font-bold transition-colors hover:shadow-sm"
+                                style={{
+                                    color:'var(--horizon-green)',
+                                    borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)',
+                                    background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)'
+                                }}>
+                            Login
+                        </button>
                     </div>
                 );
 
@@ -9721,9 +9746,9 @@ function ViewHotdesking({ data, toast }) {
 
                         {/* RIGHT: agentes offline (compactos) */}
                         <div>
-                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-                                <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
-                                <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} offline</span>
+                            <div className="flex items-center gap-2 mb-2.5">
+                                <span className="rounded-full" style={{width:6, height:6, background:'var(--muted-foreground)'}}/>
+                                <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{offlineAgents.length} offline</span>
                             </div>
                             {offlineAgents.length > 0 ? (
                                 <div style={{display:'grid', gridTemplateColumns:'1fr', gap:6}}>
@@ -10733,8 +10758,11 @@ function App() {
     useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
     useEffect(() => { localStorage.setItem('tf_dark', darkMode ? '1' : '0'); }, [darkMode]);
 
-    // Dark/light toggle
-    useEffect(()=>{ document.body.classList.toggle('light',!darkMode); },[darkMode]);
+    // Dark/light toggle — sincroniza ambos sistemas: legacy (body.light) + shadcn (html.dark)
+    useEffect(()=>{
+        document.body.classList.toggle('light', !darkMode);
+        document.documentElement.classList.toggle('dark', darkMode);
+    },[darkMode]);
 
     // Toast helper
     const showToast = (msg, type='info') => {
