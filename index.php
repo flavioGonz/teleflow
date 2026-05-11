@@ -122,25 +122,26 @@ header('Expires: 0');
     /* HORIZON: shadcn/ui design tokens (colores completos para compat con legacy var(--x)) */
     :root, .light {
         --background: #ffffff;
-        --foreground: #0a0a0a;
+        --foreground: #1A1A1A;           /* Horizon black */
         --card: #ffffff;
-        --card-foreground: #0a0a0a;
+        --card-foreground: #1A1A1A;
         --popover: #ffffff;
-        --popover-foreground: #0a0a0a;
-        --primary: #7c3aed;             /* morado Horizon */
-        --primary-foreground: #fafafa;
-        --secondary: #f4f4f5;
-        --secondary-foreground: #18181b;
-        --muted-foreground: #71717a;
-        --accent-foreground: #18181b;
+        --popover-foreground: #1A1A1A;
+        --primary: #11B328;              /* Horizon green */
+        --primary-foreground: #ffffff;
+        --secondary: #E6E7E8;            /* Horizon bg light */
+        --secondary-foreground: #1A1A1A;
+        --muted-foreground: #6b7280;
+        --accent: #E6E7E8;
+        --accent-foreground: #1A1A1A;
         --destructive: #ef4444;
-        --destructive-foreground: #fafafa;
-        --success: #16a34a;
-        --success-foreground: #fafafa;
+        --destructive-foreground: #ffffff;
+        --success: #11B328;
+        --success-foreground: #ffffff;
         --warning: #f59e0b;
-        --warning-foreground: #18181b;
-        --input: #e4e4e7;
-        --ring: #7c3aed;
+        --warning-foreground: #1A1A1A;
+        --input: #d4d4d8;
+        --ring: #11B328;
         --radius: 0.5rem;
         /* Horizon brand colors */
         --horizon-green: #11B328;
@@ -149,26 +150,27 @@ header('Expires: 0');
         --horizon-bg-light: #E6E7E8;
     }
     .dark {
-        --background: #0a0a0d;          /* near-black levemente morado */
-        --foreground: #fafafa;
-        --card: #14141a;
-        --card-foreground: #fafafa;
-        --popover: #14141a;
-        --popover-foreground: #fafafa;
-        --primary: #8b5cf6;
-        --primary-foreground: #0a0a0d;
-        --secondary: #1f1f26;
-        --secondary-foreground: #fafafa;
-        --muted-foreground: #a1a1aa;
-        --accent-foreground: #fafafa;
+        --background: #0d0d0d;           /* near-black */
+        --foreground: #f5f5f5;
+        --card: #1A1A1A;                 /* Horizon black */
+        --card-foreground: #f5f5f5;
+        --popover: #1A1A1A;
+        --popover-foreground: #f5f5f5;
+        --primary: #11B328;              /* Horizon green — mismo en ambos themes */
+        --primary-foreground: #0d0d0d;
+        --secondary: #242424;
+        --secondary-foreground: #f5f5f5;
+        --muted-foreground: #a3a3a3;
+        --accent: #242424;
+        --accent-foreground: #f5f5f5;
         --destructive: #ef4444;
-        --destructive-foreground: #fafafa;
-        --success: #22c55e;
-        --success-foreground: #0a0a0d;
+        --destructive-foreground: #ffffff;
+        --success: #11B328;
+        --success-foreground: #0d0d0d;
         --warning: #f59e0b;
-        --warning-foreground: #0a0a0d;
-        --input: #2a2a33;
-        --ring: #8b5cf6;
+        --warning-foreground: #0d0d0d;
+        --input: #2a2a2a;
+        --ring: #11B328;
     }
     /* IMPORTANTE: --border, --muted, --accent, --text, --bg, --surface, --surface2
        son tokens legacy (rgba/hex completos) definidos en el primer :root mas abajo.
@@ -683,15 +685,15 @@ header('Expires: 0');
     </style>
     <style>
         :root {
-            --bg: #07070d;
-            --surface: #0f0f1a;
-            --surface2: #15151f;
-            --border: rgba(255,255,255,0.07);
-            --accent: #8b5cf6;
-            --accent2: #6d28d9;
-            --accent-glow: rgba(139,92,246,0.35);
-            --text: #f0f0ff;
-            --muted: #6b7280;
+            --bg: #0d0d0d;
+            --surface: #1A1A1A;
+            --surface2: #242424;
+            --border: rgba(255,255,255,0.08);
+            --accent: #11B328;
+            --accent2: #0d8a1f;
+            --accent-glow: rgba(17,179,40,0.35);
+            --text: #f5f5f5;
+            --muted: #a3a3a3;
             --green: #22c55e;
             --red: #ef4444;
             --yellow: #f59e0b;
@@ -699,15 +701,17 @@ header('Expires: 0');
             --sidebar-w: 230px;
         }
         body.light {
-            --bg: #f5f7fb;
+            --bg: #ffffff;
             --surface: #ffffff;
-            --surface2: #f0f2f7;
-            --border: rgba(0,0,0,0.08);
-            --text: #111827;
+            --surface2: #E6E7E8;
+            --border: rgba(0,0,0,0.10);
+            --text: #1A1A1A;
             --muted: #6b7280;
-            --accent-glow: rgba(139,92,246,0.18);
+            --accent: #11B328;
+            --accent2: #0d8a1f;
+            --accent-glow: rgba(17,179,40,0.18);
         }
-        body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f5f7fb; }
+        body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,color-mix(in srgb, var(--primary) 18%, transparent) 0%,transparent 70%),#f5f7fb; }
         body.light .glass { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         body.light .sidebar { background: linear-gradient(180deg,#fafbff,#f5f7fb) !important; border-right: 1px solid var(--border); }
         body.light .nav-item:hover { background: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
@@ -792,20 +796,20 @@ header('Expires: 0');
             cursor: pointer;
             transition: all 0.2s;
         }
-        .context-menu-item:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+        .context-menu-item:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--text); }
         .context-menu-item.danger:hover { background: rgba(239,68,68,0.1); color: #f87171; }
 
         /* ── LOGIN ── */
         .login-bg {
-            background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.25) 0%, transparent 70%),
-                        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(109,40,217,0.15) 0%, transparent 60%),
+            background: radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in srgb, var(--primary) 25%, transparent) 0%, transparent 70%),
+                        radial-gradient(ellipse 50% 40% at 80% 80%, color-mix(in srgb, var(--primary) 15%, transparent) 0%, transparent 60%),
                         var(--bg);
         }
         .login-card {
             background: rgba(15,15,26,0.7);
             backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid rgba(139,92,246,0.2);
-            box-shadow: 0 0 80px rgba(139,92,246,0.1), 0 40px 80px rgba(0,0,0,0.6);
+            border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+            box-shadow: 0 0 80px color-mix(in srgb, var(--primary) 10%, transparent), 0 40px 80px rgba(0,0,0,0.6);
         }
         .login-orb {
             position: absolute;
@@ -887,7 +891,7 @@ header('Expires: 0');
         }
         .input-tf:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
         }
         .input-tf::placeholder { color: #6b7280; }
         /* Light mode inputs */
@@ -1037,7 +1041,7 @@ header('Expires: 0');
         @media (max-width: 768px) {
             .tfbar-menu { display: none; }
             .tfbar-mobile-toggle { display: flex; padding: 7px; border-radius: 8px; cursor: pointer; }
-            .tfbar-mobile-toggle:hover { background: rgba(139,92,246,.10); }
+            .tfbar-mobile-toggle:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
             .tfbar-mobile-panel { position: fixed; top: 56px; left: 0; right: 0; background: var(--surface); border-bottom: 1px solid var(--border); max-height: calc(100vh - 56px); overflow-y: auto; z-index: 95; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
             .tfbar-mobile-section { font-size: 9.5px; font-weight: 800; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; padding: 10px 12px 4px; }
         }
@@ -1159,7 +1163,7 @@ header('Expires: 0');
             margin-bottom: 8px;
             background: var(--surface);
         }
-        .agent-row:hover { border-color: rgba(139,92,246,.35); background: var(--surface2); }
+        .agent-row:hover { border-color: color-mix(in srgb, var(--primary) 35%, transparent); background: var(--surface2); }
         .agent-avatar {
             width: 38px; height: 38px; border-radius: 10px;
             display: flex; align-items:center; justify-content:center;
@@ -1173,8 +1177,8 @@ header('Expires: 0');
 
         /* ── LIVE CALL ── */
         .live-call-card {
-            background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,40,217,0.05));
-            border: 1px solid rgba(139,92,246,.3);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), color-mix(in srgb, var(--primary) 5%, transparent));
+            border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
             border-radius: 14px;
             padding: 16px;
         }
@@ -1191,7 +1195,7 @@ header('Expires: 0');
 
         /* ── MODAL ── */
         .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(8px); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; }
-        .modal-box { background: var(--surface); border: 1px solid rgba(139,92,246,.25); border-radius: 20px; padding: 28px; max-width: 520px; width: 100%; box-shadow: 0 40px 80px rgba(0,0,0,.6); }
+        .modal-box { background: var(--surface); border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent); border-radius: 20px; padding: 28px; max-width: 520px; width: 100%; box-shadow: 0 40px 80px rgba(0,0,0,.6); }
 
         /* ── DRAWER ── */
         .drawer-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);z-index:300; }
@@ -1199,7 +1203,7 @@ header('Expires: 0');
             position:fixed;right:0;top:0;bottom:0;
             width:100%; max-width:440px;
             background:var(--surface);
-            border-left:1px solid rgba(139,92,246,.25);
+            border-left:1px solid color-mix(in srgb, var(--primary) 25%, transparent);
             z-index:9999;
             display:flex; flex-direction:column;
             overflow:hidden;
@@ -1222,7 +1226,7 @@ header('Expires: 0');
             -webkit-overflow-scrolling:touch;
         }
         .drawer-body::-webkit-scrollbar { width:4px; }
-        .drawer-body::-webkit-scrollbar-thumb { background:rgba(139,92,246,.3); border-radius:4px; }
+        .drawer-body::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--primary) 30%, transparent); border-radius:4px; }
         .drawer-footer {
             flex:0 0 auto;
             padding:16px 24px;
@@ -1258,12 +1262,12 @@ header('Expires: 0');
         .toast-warning { background:#431407;border:1px solid #9a3412;color:#fb923c; }
         /* HORIZON: Tabla estilo UCM/Grandstream — limpia y profesional */
         .tf-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-        .tf-table thead { background: rgba(139,92,246,0.05); border-bottom: 1px solid var(--border); }
+        .tf-table thead { background: color-mix(in srgb, var(--primary) 5%, transparent); border-bottom: 1px solid var(--border); }
         body.light .tf-table thead { background: #f0f2f7; }
         .tf-table th { padding: 12px 14px; text-align: left; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
         .tf-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
         .tf-table tbody tr { transition: background 0.15s; }
-        .tf-table tbody tr:hover { background: rgba(139,92,246,0.04); }
+        .tf-table tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, transparent); }
         body.light .tf-table tbody tr:hover { background: #f5f7fb; }
         .tf-table tbody tr:last-child td { border-bottom: none; }
         /* HORIZON: Sileo-style notifications */
@@ -1311,7 +1315,7 @@ header('Expires: 0');
             width: 40px; height: 40px; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
             font-size: 18px; flex-shrink: 0;
-            background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff;
+            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, #000)); color: #fff;
         }
         .sileo-notif.call .sileo-icon {
             background: linear-gradient(135deg, #22c55e, #16a34a);
@@ -1324,8 +1328,8 @@ header('Expires: 0');
         .sileo-msg { font-size: 11.5px; opacity: 0.78; line-height: 1.35; }
         .sileo-actions { display: flex; gap: 6px; margin-top: 8px; }
         .sileo-btn { padding: 5px 12px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
-        .sileo-btn.primary { background: rgba(139,92,246,0.25); color: #c4b5fd; }
-        .sileo-btn.primary:hover { background: rgba(139,92,246,0.4); color: #fff; }
+        .sileo-btn.primary { background: color-mix(in srgb, var(--primary) 25%, transparent); color: color-mix(in srgb, var(--primary) 65%, white); }
+        .sileo-btn.primary:hover { background: color-mix(in srgb, var(--primary) 40%, transparent); color: #fff; }
         .sileo-btn.secondary { background: rgba(255,255,255,0.06); color: #fff; }
         body.light .sileo-btn.secondary { background: rgba(0,0,0,0.05); color: #111827; }
         .sileo-close { 
@@ -1729,7 +1733,7 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
         const setup = () => {
             if (cancelled || !window.WaveSurfer || !containerRef.current) return;
             if (wsRef.current) { try { wsRef.current.destroy(); } catch(e) {} wsRef.current = null; }
-            const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#7c3aed';
+            const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || 'var(--primary)';
             const muted   = getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim() || '#71717a';
             const ws = window.WaveSurfer.create({
                 container: containerRef.current,
@@ -2292,7 +2296,7 @@ function AgentCallTimer({ seconds }) {
     }, []);
     return <span className="font-mono font-bold tracking-tight">{fmtTime(elapsed)}</span>;
 }
-const avatarColors = ['from-violet-500 to-purple-700','from-blue-500 to-cyan-600','from-rose-500 to-red-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-600','from-pink-500 to-fuchsia-600'];
+const avatarColors = ['from-green-500 to-emerald-700','from-blue-500 to-cyan-600','from-rose-500 to-red-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-600','from-pink-500 to-fuchsia-600'];
 const getColor = (n) => avatarColors[(n?.charCodeAt(0) || 0) % avatarColors.length];
 const initials = (n) => { const s = (typeof n === 'string') ? n : (n && (n.name || n.agent_name || n.username || '')); const str = String(s||'').trim() || '?'; return str.split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase(); };
 // HORIZON: formato del destino de una llamada (ext, cola, grupo, externo)
@@ -2621,7 +2625,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
     return (
         <div className={`sidebar${collapsed?' collapsed':''} ${!collapsed && window.innerWidth < 768 ? 'mobile-open' : ''}`} style={{ position: 'relative' }}>
             <div className="sidebar-logo" style={{display:'flex',alignItems:'center',gap:10,padding:collapsed?'18px 0':'20px 14px 14px',justifyContent:collapsed?'center':'flex-start'}}>
-                <div style={{width:32,height:32,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}} onClick={()=>setCollapsed(!collapsed)}>
+                <div style={{width:32,height:32,background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}} onClick={()=>setCollapsed(!collapsed)}>
                     <span className="material-icons-round" style={{fontSize:16,color:'white'}}>{collapsed?'chevron_right':'sensors'}</span>
                 </div>
                 {!collapsed&&<div className="sidebar-logo-text"><div style={{fontSize:14,fontWeight:800,color:'var(--text)',letterSpacing:-0.5,fontStyle:'italic'}}>TeleFlow</div><div style={{fontSize:9,fontWeight:600,color:'#6b7280',letterSpacing:'0.1em',textTransform:'uppercase'}}>PBX Control</div></div>}
@@ -2677,13 +2681,13 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                 )}
 
                 <div 
-                    className="flex items-center p-2 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-purple-500/20 group relative cursor-pointer" 
+                    className="flex items-center p-2 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-transparent hover:border-primary/20 group relative cursor-pointer" 
                     style={{gap:collapsed?0:10, justifyContent:collapsed?'center':'flex-start'}}
                     onClick={() => setShowUserMenu(!showUserMenu)}
                 >
                     <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-lg shadow-purple-500/20 transform group-hover:scale-105 transition-transform"
-                        style={{background:'linear-gradient(135deg,#8b5cf6,#6d28d9)', flexShrink:0}}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-lg shadow-primary/20 transform group-hover:scale-105 transition-transform"
+                        style={{background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))', flexShrink:0}}
                     >
                         {initials(user)}
                     </div>
@@ -2855,7 +2859,7 @@ function ViewDashboard({ data }) {
     // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
     const systemStats = [
         { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
-        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'rgba(139,92,246,0.12)',  color:'var(--primary)' },
+        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'color-mix(in srgb, var(--primary) 12%, transparent)',  color:'var(--primary)' },
         { label: 'Disco',       val: `${disk}%`, icon: 'storage',    bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b' },
         { label: 'Conexiones',  val: conn,       icon: 'cable',      bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
     ];
@@ -2904,7 +2908,7 @@ function ViewDashboard({ data }) {
                 <KPIBig label="Agentes activos" value={`${agentsLogged}/${agentsLogged > 0 ? agentsLogged : '—'}`} sub={`${agentsAvail} disponibles · ${agentsBusy} en llamada`} icon="support_agent" color="#22c55e"/>
                 <KPIBig label="Llamadas en curso" value={upCalls} sub={`${ringingCalls} sonando`} icon="phone_in_talk" color="#3b82f6"/>
                 <KPIBig label="En espera" value={totalWaiting} sub={`${queues.length} colas configuradas`} icon="hourglass_top" color={totalWaiting>0?'#ef4444':'#f59e0b'}/>
-                <KPIBig label="Extensiones online" value={`${online}/${exts.length}`} sub={`${busy} en llamada`} icon="dialpad" color="#8b5cf6"/>
+                <KPIBig label="Extensiones online" value={`${online}/${exts.length}`} sub={`${busy} en llamada`} icon="dialpad" color="var(--primary)"/>
             </div>
 
             {/* 3 columnas: Colas activas | Cards en llamada | Sistema */}
@@ -3126,12 +3130,12 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
                 onDrop={e=>{e.preventDefault(); setDragOver(false); upload(e.dataTransfer.files[0]);}}
                 style={{
                     width:size, height:size, borderRadius:'50%', cursor:'pointer',
-                    background: effectiveImgOk ? `url("${url}") center/cover` : 'linear-gradient(135deg,#8b5cf6,#6d28d9)',
-                    border: dragOver ? '2px dashed #c4b5fd' : '2px solid var(--border)',
+                    background: effectiveImgOk ? `url("${url}") center/cover` : 'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',
+                    border: dragOver ? '2px dashed color-mix(in srgb, var(--primary) 65%, white)' : '2px solid var(--border)',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     color:'#fff', fontWeight:900, fontSize:size*0.32,
                     position:'relative', transition:'all 0.2s',
-                    boxShadow:'0 4px 14px rgba(139,92,246,0.2)'
+                    boxShadow:'0 4px 14px color-mix(in srgb, var(--primary) 20%, transparent)'
                 }}
             >
                 {imgOk && url && (
@@ -3533,7 +3537,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     ];
 
     const devOptions = [
-        { v:'webrtc', l:'WebRTC', c:'#8b5cf6', i:'computer', d:'Softphone en navegador' },
+        { v:'webrtc', l:'WebRTC', c:'var(--primary)', i:'computer', d:'Softphone en navegador' },
         { v:'sip', l:'SIP Fijo', c:'#3b82f6', i:'phone', d:'Teléfono físico SIP' },
         { v:'video', l:'Video', c:'#ec4899', i:'videocam', d:'Con cámara WebRTC' }
     ];
@@ -4207,7 +4211,7 @@ function ExtensionRow({ e, liveCalls, onClick }) {
 
     // HORIZON: tipo interno desde data global
     const tipo = (window._tfExtMeta || {})[e.ext]?.tipo || '';
-    const tipoColor = tipo === 'cliente' ? '#3b82f6' : (tipo === 'horizon' ? '#8b5cf6' : '#6b7280');
+    const tipoColor = tipo === 'cliente' ? '#3b82f6' : (tipo === 'horizon' ? 'var(--primary)' : '#6b7280');
     const tipoLabel = tipo === 'cliente' ? 'Cliente' : (tipo === 'horizon' ? 'Horizon' : '—');
 
     return (
@@ -4225,7 +4229,7 @@ function ExtensionRow({ e, liveCalls, onClick }) {
                     if (isKnown404 || (!e.avatar) || e.avatar.includes('ui-avatars')) return null;
                     return <img src={e.avatar} style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{try{localStorage.setItem('tf_av_404_'+e.ext,'1');}catch(_){}; ev.target.style.display='none'; if(ev.target.nextSibling) ev.target.nextSibling.style.display='flex';}} />;
                 })()}
-                <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:e.avatar && !e.avatar.includes('ui-avatars')?'none':'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:900}}>
+                <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',display:e.avatar && !e.avatar.includes('ui-avatars')?'none':'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:900}}>
                     {(e.name||e.ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
                 </div>
             </td>
@@ -4353,7 +4357,7 @@ function ViewExtensiones({ data, toast }) {
                 <Chip label="Offline" count={offlineTotal} status="OFFLINE" color="#9ca3af" bg="rgba(107,114,128,0.1)" />
                 <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
                     {['grid','table'].map(m=>(
-                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ext_view',m);}catch(e){}}} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ext_view',m);}catch(e){}}} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'color-mix(in srgb, var(--primary) 25%, transparent)':'transparent',color:viewMode===m?'color-mix(in srgb, var(--primary) 65%, white)':'#6b7280',transition:'all .2s'}}>
                             <span className="material-icons-round" style={{fontSize:16,display:'block'}}>{m==='grid'?'grid_view':'table_rows'}</span>
                         </button>
                     ))}
@@ -4582,7 +4586,7 @@ function ViewAgentes({ toast, data }) {
                     value={search} onChange={e=>setSearch(e.target.value)} />
                 <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
                     {['table','grid'].map(m=>(
-                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ag_view',m);}catch(e){}}} style={{padding:'6px 14px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m?'#c4b5fd':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ag_view',m);}catch(e){}}} style={{padding:'6px 14px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'color-mix(in srgb, var(--primary) 25%, transparent)':'transparent',color:viewMode===m?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
                             <span className="material-icons-round" style={{fontSize:14}}>{m==='grid'?'grid_view':'table_rows'}</span>
                             {m==='grid'?'Tarjetas':'Tabla'}
                         </button>
@@ -4785,11 +4789,11 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
                 </div>
 
                 {/* Footer con acciones */}
-                <div style={{padding:'14px 22px',borderTop:'1px solid var(--border)',display:'flex',gap:8,justifyContent:'flex-end',background:'rgba(139,92,246,0.04)'}}>
+                <div style={{padding:'14px 22px',borderTop:'1px solid var(--border)',display:'flex',gap:8,justifyContent:'flex-end',background:'color-mix(in srgb, var(--primary) 4%, transparent)'}}>
                     <button onClick={onClose} style={{padding:'9px 16px',borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer'}}>
                         Cerrar
                     </button>
-                    <button onClick={onEdit} style={{padding:'9px 18px',borderRadius:10,border:'none',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:'0 4px 14px rgba(139,92,246,0.4)'}}>
+                    <button onClick={onEdit} style={{padding:'9px 18px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:'0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)'}}>
                         <span className="material-icons-round" style={{fontSize:16}}>edit</span>
                         Editar agente
                     </button>
@@ -4994,13 +4998,13 @@ function ExportButton({ rows, filename, title, stats }) {
             </button>
             {open && (
                 <div style={{position:'absolute',right:0,top:'100%',marginTop:4,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:6,boxShadow:'0 8px 24px rgba(0,0,0,0.3)',zIndex:10,minWidth:160}}>
-                    <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <span className="material-icons-round" style={{fontSize:16,color:'#22c55e'}}>description</span>CSV
                     </button>
-                    <button onClick={exportXLSX} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <button onClick={exportXLSX} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <span className="material-icons-round" style={{fontSize:16,color:'#16a34a'}}>table_chart</span>Excel (.xlsx)
                     </button>
-                    <button onClick={exportPDF} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <button onClick={exportPDF} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <span className="material-icons-round" style={{fontSize:16,color:'#ef4444'}}>picture_as_pdf</span>PDF profesional
                     </button>
                 </div>
@@ -5060,7 +5064,7 @@ function ViewCDR() {
     };
 
     const statCards = [
-        {l:'Llamadas Totales',v:stats.total||0,c:'#c4b5fd',bg:'rgba(139,92,246,0.12)',ic:'list_alt'},
+        {l:'Llamadas Totales',v:stats.total||0,c:'color-mix(in srgb, var(--primary) 65%, white)',bg:'color-mix(in srgb, var(--primary) 12%, transparent)',ic:'list_alt'},
         {l:'Contestadas',v:stats.answered||0,c:'#4ade80',bg:'rgba(34,197,94,0.12)',ic:'call'},
         {l:'Sin Respuesta',v:stats.no_answer||0,c:'#9ca3af',bg:'rgba(107,114,128,0.15)',ic:'phone_missed'},
         {l:'En Ocupado',v:stats.busy||0,c:'#fbbf24',bg:'rgba(245,158,11,0.12)',ic:'phone_in_talk'},
@@ -5073,7 +5077,7 @@ function ViewCDR() {
             {/* Hero summary */}
             <div className="anim-fadeup" style={{padding:'18px 22px',marginBottom:14,borderRadius:18,background:'linear-gradient(135deg,rgba(168,85,247,0.08),rgba(59,130,246,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:14,flex:1,minWidth:280}}>
-                    <div style={{width:52,height:52,borderRadius:13,background:'linear-gradient(135deg,#a855f7,#6366f1)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 22px rgba(168,85,247,0.35)'}}>
+                    <div style={{width:52,height:52,borderRadius:13,background:'linear-gradient(135deg,var(--primary),#6366f1)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 22px rgba(168,85,247,0.35)'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:24}}>history</span>
                     </div>
                     <div>
@@ -5084,7 +5088,7 @@ function ViewCDR() {
                 </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                     {[
-                        {l:'Total',v:(stats.total||0).toLocaleString(),c:'#a855f7',i:'list_alt'},
+                        {l:'Total',v:(stats.total||0).toLocaleString(),c:'var(--primary)',i:'list_alt'},
                         {l:'OK',v:(stats.answered||0).toLocaleString(),c:'#22c55e',i:'check_circle'},
                         {l:'NO',v:(stats.no_answer||0).toLocaleString(),c:'#f59e0b',i:'phone_missed'},
                         {l:'BSY',v:(stats.busy||0).toLocaleString(),c:'#ef4444',i:'phone_in_talk'},
@@ -5187,7 +5191,7 @@ function ViewCDR() {
                                         </td>
                                     </tr>
                                     {isExp&&r.recordingfile&&(
-                                        <tr><td colSpan={6} style={{padding:'14px 16px 16px',background:'linear-gradient(180deg,rgba(139,92,246,0.06),rgba(139,92,246,0.02))',borderTop:'none'}}>
+                                        <tr><td colSpan={6} style={{padding:'14px 16px 16px',background:'linear-gradient(180deg,color-mix(in srgb, var(--primary) 6%, transparent),color-mix(in srgb, var(--primary) 2%, transparent))',borderTop:'none'}}>
                                             <CDRAudioPlayer file={r.recordingfile} meta={{src:r.src, dst:r.dst, duration:r.billsec}} />
                                         </td></tr>
                                     )}
@@ -5254,8 +5258,8 @@ function HotdeskingWizard({ onClose }) {
 
 
         <LegacyDialogShell onClose={onClose} maxWidth={680}>
-                <div style={{padding:'18px 24px',background:'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08))',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
-                    <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div style={{padding:'18px 24px',background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), rgba(59,130,246,0.08))',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,var(--primary),#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>school</span>
                     </div>
                     <div style={{flex:1}}>
@@ -5810,7 +5814,7 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
         <div className="mb-5">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">{label}</label>
             <input 
-                className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-500/40'}`} 
+                className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/40'}`} 
                 type={type} 
                 placeholder={ph} 
                 value={form[k]} 
@@ -5838,7 +5842,7 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
                     
                     <div className="mb-5">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Distribución</label>
-                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
+                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
                             {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
                         </select>
                     </div>
@@ -5846,18 +5850,18 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
                     <div className="grid grid-cols-2 gap-4 mb-5">
                         <div>
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Timeout (seg)</label>
-                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} />
+                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} />
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Wrapup (seg)</label>
-                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} />
+                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} />
                         </div>
                     </div>
 
                     <div className="mb-6">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Internos miembros (separar con comas)</label>
                         <textarea 
-                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-purple-500/40 min-h-[100px] leading-relaxed" 
+                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40 min-h-[100px] leading-relaxed" 
                             placeholder="Ej: 1001, 1002, 1005" 
                             value={form.members} 
                             onChange={e=>set('members',e.target.value)}
@@ -5951,7 +5955,7 @@ function ViewColas({ toast, onReport, data }) {
             <PageActions>
                 <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
                     {['table','grid'].map(m=>(
-                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_q_view',m);}catch(e){}}} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m?'#c4b5fd':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_q_view',m);}catch(e){}}} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'color-mix(in srgb, var(--primary) 25%, transparent)':'transparent',color:viewMode===m?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
                             <span className="material-icons-round" style={{fontSize:14}}>{m==='grid'?'grid_view':'table_rows'}</span>
                             {m==='grid'?'Tarjetas':'Tabla'}
                         </button>
@@ -6005,7 +6009,7 @@ function ViewColas({ toast, onReport, data }) {
                                                 const isLocalChannel = /^(?:Local|Agent)\//i.test(m.iface||'');
                                                 const eInfo = mExt ? extensions.find(e=>e.ext===mExt) : null;
                                                 const stat = eInfo?.status || 'OFFLINE';
-                                                const dotC = stat==='BUSY'?'#ef4444':(stat==='ONLINE'?'#22c55e':(isLocalChannel?'#8b5cf6':'#6b7280'));
+                                                const dotC = stat==='BUSY'?'#ef4444':(stat==='ONLINE'?'#22c55e':(isLocalChannel?'var(--primary)':'#6b7280'));
                                                 const dn = m.name && m.name!==mExt ? m.name : (eInfo?.name || mExt || '?');
                                                 const ini = (dn||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase();
                                                 return (
@@ -6303,7 +6307,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
     const STRATEGIES = [
         {v:'ringall',    l:'Timbre Simultáneo', i:'ring_volume',     c:'#22c55e', desc:'Todos timbran a la vez'},
         {v:'hunt',       l:'Secuencial',         i:'trending_flat',  c:'#60a5fa', desc:'De a uno, en orden'},
-        {v:'memoryhunt', l:'Mem. Secuencial',    i:'memory',         c:'#a78bfa', desc:'Recuerda donde quedó'},
+        {v:'memoryhunt', l:'Mem. Secuencial',    i:'memory',         c:'color-mix(in srgb, var(--primary) 80%, white)', desc:'Recuerda donde quedó'},
         {v:'firstavailable', l:'1ro Disponible', i:'bolt',           c:'#f59e0b', desc:'El primero que conteste'},
     ];
 
@@ -6375,7 +6379,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                         <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Estadísticas</div>
                         {[
                             {l:'Miembros',      v: members.length,           c:'#60a5fa'},
-                            {l:'Tiempo timbre', v: `${form.grptime}s`,       c:'#c4b5fd'},
+                            {l:'Tiempo timbre', v: `${form.grptime}s`,       c:'color-mix(in srgb, var(--primary) 65%, white)'},
                             {l:'Estrategia',    v: form.strategy,            c:'#22c55e'},
                             {l:'En llamada',    v: activeCalls.filter(c=>members.includes(c.ext)).length, c:'#f87171'},
                         ].map(({l,v}) => (
@@ -6449,7 +6453,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                                 type="range" min="5" max="120" step="5"
                                 value={form.grptime}
                                 onChange={e=>set('grptime', e.target.value)}
-                                style={{flex:1, accentColor:'#8b5cf6', height:6}}
+                                style={{flex:1, accentColor:'var(--primary)', height:6}}
                             />
                             <input
                                 className="input-tf"
@@ -6537,7 +6541,7 @@ function GroupEditPage({ group, activeCalls, onBack, onSaved, toast }) {
                                 ))}
                             </div>
                         ) : (
-                            <div style={{padding:'20px',textAlign:'center',borderRadius:12,border:'1px dashed rgba(139,92,246,0.2)',color:'#4b5563',fontSize:12}}>
+                            <div style={{padding:'20px',textAlign:'center',borderRadius:12,border:'1px dashed color-mix(in srgb, var(--primary) 20%, transparent)',color:'#4b5563',fontSize:12}}>
                                 Sin miembros. Agrega extensiones con el campo de arriba.
                             </div>
                         )}
@@ -6647,7 +6651,7 @@ function ViewGrupos({ toast }) {
                                 {(g.members||[]).map((m,j) => {
                                     const onCall = activeCalls.some(c => c.ext === m);
                                     return (
-                                        <div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'rgba(139,92,246,0.1)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'rgba(139,92,246,.2)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'#c4b5fd',display:'flex',alignItems:'center',gap:5}}>
+                                        <div key={j} style={{padding:'4px 12px',borderRadius:8,background:onCall?'rgba(239,68,68,0.12)':'color-mix(in srgb, var(--primary) 10%, transparent)',border:`1px solid ${onCall?'rgba(239,68,68,.3)':'color-mix(in srgb, var(--primary) 20%, transparent)'}`,fontSize:11,fontWeight:700,color:onCall?'#f87171':'color-mix(in srgb, var(--primary) 65%, white)',display:'flex',alignItems:'center',gap:5}}>
                                             {onCall && <span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink 1s infinite',flexShrink:0}} />}
                                             #{m}
                                         </div>
@@ -6691,20 +6695,20 @@ const RadarIVRNode = ({ data }) => {
     const H = data.Handle;
     const P = data.Position;
     return (
-        <div className="radar-node-glass border-purple-500/50" style={{ 
+        <div className="radar-node-glass border-primary/50" style={{ 
             width: 140, height: 140, borderRadius: '2rem', background: 'rgba(168,85,247,0.05)', 
             border: '2px solid rgba(168,85,247,0.4)', display: 'flex', flexDirection: 'column', 
             alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)'
         }}>
-            <div className="absolute -top-3 px-3 py-1 bg-purple-600 rounded-full text-[9px] font-black text-white tracking-widest uppercase">Menú IVR</div>
-            <span className="material-icons-round text-4xl text-purple-400 mb-2">account_tree</span>
+            <div className="absolute -top-3 px-3 py-1 bg-primary rounded-full text-[9px] font-black text-white tracking-widest uppercase">Menú IVR</div>
+            <span className="material-icons-round text-4xl text-primary mb-2">account_tree</span>
             <div className="text-sm font-bold text-white uppercase">{data.name || 'IVR'}</div>
-            <div className="text-[10px] text-purple-300 opacity-60">ID: {data.id}</div>
+            <div className="text-[10px] text-primary opacity-60">ID: {data.id}</div>
             
             {H && (
                 <>
-                    <H type="target" position={P?.Left} id="l" style={{ background: '#a855f7' }} />
-                    <H type="source" position={P?.Right} id="r" style={{ background: '#a855f7' }} />
+                    <H type="target" position={P?.Left} id="l" style={{ background: 'var(--primary)' }} />
+                    <H type="source" position={P?.Right} id="r" style={{ background: 'var(--primary)' }} />
                 </>
             )}
         </div>
@@ -6975,7 +6979,7 @@ function ViewRadar({ data, toast }) {
 
             {/* Toolbar: filtros + búsqueda */}
             <div className="glass" style={{padding:'10px 14px',borderRadius:12,marginBottom:12,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                <StatChip label="Todas" value="all" count={calls.length} color="#8b5cf6" icon="filter_list"/>
+                <StatChip label="Todas" value="all" count={calls.length} color="var(--primary)" icon="filter_list"/>
                 <StatChip label="En conversación" value="up" count={upCount} color="#22c55e" icon="phone_in_talk"/>
                 <StatChip label="Sonando" value="ringing" count={ringCount} color="#f59e0b" icon="ring_volume"/>
                 <StatChip label="Otras" value="other" count={otherCount} color="#6b7280" icon="more_horiz"/>
@@ -7000,7 +7004,7 @@ function ViewRadar({ data, toast }) {
                         const isRing = /Ring/.test(c.state||'');
                         const sc = isUp ? '#22c55e' : (isRing ? '#f59e0b' : '#6b7280');
                         const dur = parseDur(c.duration) + (isUp ? tick : 0);
-                        const fromTipoColor = c.from_tipo === 'cliente' ? '#3b82f6' : (c.from_tipo === 'horizon' ? '#8b5cf6' : null);
+                        const fromTipoColor = c.from_tipo === 'cliente' ? '#3b82f6' : (c.from_tipo === 'horizon' ? 'var(--primary)' : null);
                         return (
                         <div key={c.channel||i} className="glass" style={{padding:0,borderRadius:14,border:`1px solid ${sc}33`,overflow:'hidden',position:'relative',boxShadow:isUp?`0 4px 18px ${sc}22`:(isRing?`0 4px 18px ${sc}33`:'none')}}>
                             {/* Top status bar */}
@@ -7030,7 +7034,7 @@ function ViewRadar({ data, toast }) {
                                         <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.to_name||c.destLabel}</div>
                                         <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>{c.to_ext?'#'+c.to_ext:c.context||''}{c.to_ip&&c.to_ip!=='—'?' · '+c.to_ip:''}</div>
                                     </div>
-                                    <div style={{width:38,height:38,borderRadius:'50%',background:c.to_queue?'linear-gradient(135deg,#f59e0b,#d97706)':'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                    <div style={{width:38,height:38,borderRadius:'50%',background:c.to_queue?'linear-gradient(135deg,#f59e0b,#d97706)':'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
                                         {c.to_queue ? <span className="material-icons-round" style={{fontSize:18}}>queue</span> : (c.to_ext ? (c.to_name||c.to_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase() : <span className="material-icons-round" style={{fontSize:16}}>more_horiz</span>)}
                                     </div>
                                 </div>
@@ -7322,7 +7326,7 @@ function ViewVivo2({ data, toast, initialFilter }) {
                                         <div style={{fontSize:13,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.to_name||c.destLabel}</div>
                                         <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>{c.to_ext?'#'+c.to_ext:''}</div>
                                     </div>
-                                    <div style={{width:42,height:42,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                    <div style={{width:42,height:42,borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
                                         {c.to_ext ? (c.to_name||c.to_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase() : <span className="material-icons-round" style={{fontSize:18}}>queue</span>}
                                     </div>
                                 </div>
@@ -7539,7 +7543,7 @@ function AgentReportPanel({ agentNumber, onClose, embedded }) {
             {/* Header con filtros */}
             <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',padding:'10px 14px',background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:200}}>
-                    <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:14}}>{(ag.name||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}</div>
+                    <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:14}}>{(ag.name||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}</div>
                     <div>
                         <div style={{fontSize:14,fontWeight:900}}>{ag.name}</div>
                         <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>Agente #{ag.number} · {ag.type}</div>
@@ -7567,7 +7571,7 @@ function AgentReportPanel({ agentNumber, onClose, embedded }) {
                 <KPI label="Llamadas" value={s.total_calls||0} color="#22c55e" icon="phone_in_talk"/>
                 <KPI label="Atendidas" value={s.answered_calls||0} color="#22c55e" icon="call_received"/>
                 <KPI label="AHT" value={tfFmtSecs(s.aht_seconds)} color="#ec4899" icon="timer"/>
-                <KPI label="Occupancy" value={(s.occupancy_pct||0)+'%'} color="#8b5cf6" icon="trending_up"/>
+                <KPI label="Occupancy" value={(s.occupancy_pct||0)+'%'} color="var(--primary)" icon="trending_up"/>
             </div>
 
             {/* Pausas por motivo */}
@@ -7844,7 +7848,7 @@ function ReportTabSummary({ data }) {
     const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
+            <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="var(--primary)"/>
             <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
             <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre ofrecidas" icon="trending_down" color="#ef4444"/>
             <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
@@ -8217,7 +8221,7 @@ function AgentOverviewSection({ data }) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="En el período" icon="badge" color="#8b5cf6"/>
+                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="En el período" icon="badge" color="var(--primary)"/>
                 <KPICard compact label="Login total" value={fmtDurationCompact(k.total_login_sec)} sub="Tiempo logueado" icon="login" color="#3b82f6"/>
                 <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={prodColor}/>
                 <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Total: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
@@ -8456,7 +8460,7 @@ const SIP_PARSERS = [
     { re: /\b487 Request Terminated\b/i, color:'#9ca3af', label:'TERM', icon:'cancel' },
     { re: /\b5\d\d\b/,      color:'#f87171', label:'5xx ERROR',  icon:'error' },
     { re: /\b603 Declined\b/i, color:'#ef4444', label:'DECLINED', icon:'do_not_disturb_on' },
-    { re: /Received\s+SIP/i, color:'#a78bfa', label:'SIP RX',   icon:'arrow_downward' },
+    { re: /Received\s+SIP/i, color:'color-mix(in srgb, var(--primary) 80%, white)', label:'SIP RX',   icon:'arrow_downward' },
     { re: /Sending\s+SIP/i,  color:'#34d399', label:'SIP TX',   icon:'arrow_upward' },
     { re: /\bINVITE\b/,     color:'#f59e0b', label:'INVITE',   icon:'phone_forwarded' },
     { re: /\bBYE\b/,        color:'#f87171', label:'BYE',      icon:'call_end' },
@@ -8510,7 +8514,7 @@ function SIPLogLine({ line, idx }) {
             style={{
                 display:'flex', alignItems:'flex-start', gap:10,
                 padding:'8px 12px', borderRadius:10, cursor:'pointer',
-                background: open ? 'rgba(139,92,246,0.06)' : 'transparent',
+                background: open ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'transparent',
                 borderLeft:`3px solid ${parsed.color}`,
                 marginBottom:2,
                 transition:'background .15s'
@@ -8630,7 +8634,7 @@ const NodeStart = ({ data }) => {
 const NodeMenu = ({ data, selected }) => {
     const isLive = data.isLive;
     return (
-        <div className={isLive ? 'anim-vibrate anim-phone-ring' : ''} style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 30px rgba(34,197,94,0.5), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px rgba(139,92,246,0.15)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
+        <div className={isLive ? 'anim-vibrate anim-phone-ring' : ''} style={{background:'var(--surface)', border: selected ? '2px solid var(--accent)' : `1px solid ${isLive ? '#22c55e' : 'var(--border)'}`, borderRadius:16, padding:16, width:260, boxShadow: isLive ? '0 0 30px rgba(34,197,94,0.5), inset 0 0 10px rgba(34,197,94,0.1)' : (selected ? '0 10px 25px color-mix(in srgb, var(--primary) 15%, transparent)' : '0 10px 25px rgba(0,0,0,0.05)'), transition:'all 0.3s'}}>
             {Handle && <Handle type="target" position={Position.Left} id="target" style={{width:12, height:12, background:'var(--surface)', border:`2px solid ${isLive ? '#22c55e' : 'var(--accent)'}`}} />}
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
                 <div style={{width:32, height:32, background: isLive ? 'rgba(34,197,94,0.2)' : 'var(--accent)', borderRadius:8, color: isLive ? '#22c55e' : 'white', display:'flex', alignItems:'center', justifyContent:'center'}}>
@@ -9083,7 +9087,7 @@ function IVRDesignerApp({ toast }) {
                                         const val = e.target.value;
                                         let icon = 'phone_forwarded', color = '#3b82f6', colorbg = 'rgba(59,130,246,0.1)';
                                         if(val.startsWith('Cola:')) { icon = 'trending_up'; color = '#6366f1'; colorbg = 'rgba(99,102,241,0.1)'; }
-                                        if(val.startsWith('Grupo:')) { icon = 'groups'; color = '#8b5cf6'; colorbg = 'rgba(139,92,246,0.1)'; }
+                                        if(val.startsWith('Grupo:')) { icon = 'groups'; color = 'var(--primary)'; colorbg = 'color-mix(in srgb, var(--primary) 10%, transparent)'; }
                                         if(val === 'Colgar Llamada') { icon = 'call_end'; color = '#ef4444'; colorbg = 'rgba(239,68,68,0.1)'; }
                                         updateNodeData('label', val); updateNodeData('icon', icon); updateNodeData('color', color); updateNodeData('colorbg', colorbg);
                                     }} style={{width:'100%', padding:'12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:10, color:'var(--text)', outline:'none', fontWeight:600}}>
@@ -9258,7 +9262,7 @@ function ViewConfiguracion() {
                     <div className="glass" style={{padding:'12px 16px', borderRadius:16, marginBottom:12, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
                         <div style={{display:'flex', alignItems:'center', gap:10, marginRight:10}}>
                             <div className={pjsipActive ? 'pulse-green' : ''} style={{width:8, height:8, borderRadius:'50%', background: pjsipActive ? '#22c55e' : '#4b5563'}}></div>
-                            <span style={{fontWeight:800, color: pjsipActive ? '#8b5cf6' : '#6b7280', fontSize:14, whiteSpace:'nowrap'}}>PJSIP Logger {pjsipActive ? '(ON)' : '(OFF)'}</span>
+                            <span style={{fontWeight:800, color: pjsipActive ? 'var(--primary)' : '#6b7280', fontSize:14, whiteSpace:'nowrap'}}>PJSIP Logger {pjsipActive ? '(ON)' : '(OFF)'}</span>
                         </div>
 
                         <div style={{display:'flex', gap:6, background:'rgba(0,0,0,0.15)', padding:3, borderRadius:12, marginRight:10}}>
@@ -9294,7 +9298,7 @@ function ViewConfiguracion() {
                                 style={{
                                     padding:'6px 12px 6px 32px', borderRadius:10, fontSize:12, width:150,
                                     background:'var(--surface2)', border:'1px solid var(--border)',
-                                    color: senderFilter ? '#c4b5fd' : '#6b7280',
+                                    color: senderFilter ? 'color-mix(in srgb, var(--primary) 65%, white)' : '#6b7280',
                                     cursor:'pointer', appearance:'none', outline:'none'
                                 }}
                                 value={senderFilter}
@@ -9352,11 +9356,11 @@ function ViewConfiguracion() {
                                 title="Activar Asterisk Verbose 6 + PJSIP Logger"
                                 style={{
                                     width:32, height:32, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
-                                    background: pjsipActive ? 'rgba(139,92,246,0.3)' : 'rgba(59,130,246,0.1)', 
-                                    border: pjsipActive ? '1px solid #8b5cf6' : '1px solid rgba(59,130,246,0.3)', 
-                                    color: pjsipActive ? '#c4b5fd' : '#60a5fa', 
+                                    background: pjsipActive ? 'color-mix(in srgb, var(--primary) 30%, transparent)' : 'rgba(59,130,246,0.1)', 
+                                    border: pjsipActive ? '1px solid var(--primary)' : '1px solid rgba(59,130,246,0.3)', 
+                                    color: pjsipActive ? 'color-mix(in srgb, var(--primary) 65%, white)' : '#60a5fa', 
                                     cursor:'pointer',
-                                    boxShadow: pjsipActive ? '0 0 15px rgba(139,92,246,0.4)' : 'none'
+                                    boxShadow: pjsipActive ? '0 0 15px color-mix(in srgb, var(--primary) 40%, transparent)' : 'none'
                                 }}
                             >
                                 <span className="material-icons-round" style={{fontSize:18}}>{pjsipActive ? 'running_with_errors' : 'bug_report'}</span>
@@ -9382,7 +9386,7 @@ function ViewConfiguracion() {
                     {/* Log Panel */}
                     <div className="glass" style={{
                         background:'rgba(5,5,12,0.98)',
-                        border:'1px solid rgba(139,92,246,0.15)',
+                        border:'1px solid color-mix(in srgb, var(--primary) 15%, transparent)',
                         borderRadius:16, overflow:'hidden'
                     }}>
                         {/* Log header */}
@@ -9796,7 +9800,7 @@ function ViewConfigPBX() {
                     <span className="material-icons-round" style={{fontSize:18,animation:testing?'spin 1s linear infinite':''}}>{testing?'autorenew':'cable'}</span>
                     {testing ? 'Probando...' : 'Probar Conexión'}
                 </button>
-                <button onClick={save} disabled={!dirty} style={{padding:'10px 22px',borderRadius:10,border:'none',background: dirty ? 'linear-gradient(135deg,#8b5cf6,#6d28d9)' : 'var(--surface2)', color:dirty?'white':'var(--muted)',cursor:dirty?'pointer':'not-allowed',fontWeight:700,opacity:dirty?1:0.6}}>
+                <button onClick={save} disabled={!dirty} style={{padding:'10px 22px',borderRadius:10,border:'none',background: dirty ? 'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))' : 'var(--surface2)', color:dirty?'white':'var(--muted)',cursor:dirty?'pointer':'not-allowed',fontWeight:700,opacity:dirty?1:0.6}}>
                     <span className="material-icons-round" style={{fontSize:16,marginRight:6,verticalAlign:'middle'}}>save</span>
                     Guardar {dirty>0 && `(${dirty})`}
                 </button>
@@ -9835,7 +9839,7 @@ function ViewCallCenter({ user, onLogout, data }) {
         return (
             <div className="content-area view-enter">
                 <div className="glass" style={{padding:32,borderRadius:18,textAlign:'center',maxWidth:680,margin:'40px auto'}}>
-                    <div style={{width:84,height:84,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',margin:'0 auto 20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <div style={{width:84,height:84,borderRadius:'50%',background:'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',margin:'0 auto 20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <span className="material-icons-round" style={{fontSize:42,color:'#fff'}}>headset_mic</span>
                     </div>
                     <h2 style={{fontSize:22,fontWeight:900,marginBottom:10}}>Mi Consola</h2>
@@ -10217,7 +10221,7 @@ function ViewHotdesking({ data, toast }) {
     return (
         <div className="content-area view-enter">
             <PageActions>
-                <FilterChip value="all" label="Todos" count={agents.length} color="#8b5cf6"/>
+                <FilterChip value="all" label="Todos" count={agents.length} color="var(--primary)"/>
                 <FilterChip value="available" label="Disponibles" count={totalAvail} color="#22c55e"/>
                 <FilterChip value="busy" label="En Llamada" count={totalBusy} color="#ef4444"/>
                 <FilterChip value="paused" label="En Pausa" count={totalPaused} color="#f59e0b"/>
@@ -10232,7 +10236,7 @@ function ViewHotdesking({ data, toast }) {
                         {v:'wallboard',i:'dashboard',t:'Wallboard'},
                         {v:'table',i:'table_rows',t:'Tabla'}
                     ].map(m=>(
-                        <button key={m.v} title={m.t} onClick={()=>{setViewMode(m.v);try{localStorage.setItem('tf_hd_view',m.v);}catch(e){}}} style={{padding:'5px 10px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m.v?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m.v?'#c4b5fd':'var(--muted)'}}>
+                        <button key={m.v} title={m.t} onClick={()=>{setViewMode(m.v);try{localStorage.setItem('tf_hd_view',m.v);}catch(e){}}} style={{padding:'5px 10px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m.v?'color-mix(in srgb, var(--primary) 25%, transparent)':'transparent',color:viewMode===m.v?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)'}}>
                             <span className="material-icons-round" style={{fontSize:15}}>{m.i}</span>
                         </button>
                     ))}
@@ -10635,8 +10639,8 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
 
         <LegacyDialogShell onClose={onClose} maxWidth={560}>
                 {/* Header con gradient */}
-                <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'rgba(139,92,246,0.18)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
-                    <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'#8b5cf6,#6d28d9'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'rgba(139,92,246,0.4)'}`}}>
+                <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'color-mix(in srgb, var(--primary) 18%, transparent)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'var(--primary),color-mix(in srgb, var(--primary) 75%, #000)'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'color-mix(in srgb, var(--primary) 40%, transparent)'}`}}>
                         <span className="material-icons-round" style={{color:'#fff',fontSize:24}}>{isNew?'person_add':'edit'}</span>
                     </div>
                     <div style={{flex:1}}>
@@ -10708,9 +10712,9 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                         </label>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
                             {typeOptions.map(o => (
-                                <div key={o.v} onClick={()=>set('type',o.v)} title={o.d} style={{padding:'10px 8px',borderRadius:10,border:`2px solid ${form.type===o.v?'#8b5cf6cc':'var(--border)'}`,background:form.type===o.v?'rgba(139,92,246,0.1)':'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.15s'}}>
-                                    <span className="material-icons-round" style={{fontSize:18,color:form.type===o.v?'#c4b5fd':'var(--muted)',display:'block',marginBottom:3}}>{o.i}</span>
-                                    <div style={{fontSize:11,fontWeight:800,color:form.type===o.v?'#c4b5fd':'var(--text)'}}>{o.l}</div>
+                                <div key={o.v} onClick={()=>set('type',o.v)} title={o.d} style={{padding:'10px 8px',borderRadius:10,border:`2px solid ${form.type===o.v?'var(--primary)cc':'var(--border)'}`,background:form.type===o.v?'color-mix(in srgb, var(--primary) 10%, transparent)':'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.15s'}}>
+                                    <span className="material-icons-round" style={{fontSize:18,color:form.type===o.v?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)',display:'block',marginBottom:3}}>{o.i}</span>
+                                    <div style={{fontSize:11,fontWeight:800,color:form.type===o.v?'color-mix(in srgb, var(--primary) 65%, white)':'var(--text)'}}>{o.l}</div>
                                 </div>
                             ))}
                         </div>
@@ -10749,7 +10753,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
 
                 {/* Acciones de sesión telefónica (Login/Logout inline) + Reporte */}
                 {!isNew && (
-                    <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'rgba(139,92,246,0.04)',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                    <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'color-mix(in srgb, var(--primary) 4%, transparent)',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                         <div style={{flex:1,minWidth:0,fontSize:11,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',display:'flex',alignItems:'center',gap:6}}>
                             <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>headset_mic</span>
                             Sesión telefónica
@@ -10757,7 +10761,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                         <button type="button" onClick={()=>{
                             window.dispatchEvent(new CustomEvent('tf-open-report', {detail: agent}));
                             onClose();
-                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid color-mix(in srgb, var(--primary) 40%, transparent)',background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                             <span className="material-icons-round" style={{fontSize:16}}>analytics</span>Reporte
                         </button>
                         {agent?.logged_in ? (
@@ -10789,7 +10793,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                     </div>
                     <div style={{display:'flex',gap:8}}>
                         <button onClick={onClose} style={{padding:'9px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
-                        <button onClick={handleSubmit} disabled={submitting} className="btn-primary" style={{padding:'9px 22px',borderRadius:10,fontSize:12,fontWeight:800,cursor:submitting?'wait':'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:`0 4px 14px ${isNew?'rgba(34,197,94,0.35)':'rgba(139,92,246,0.35)'}`,background:isNew?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#8b5cf6,#6d28d9)',border:'none',color:'#fff'}}>
+                        <button onClick={handleSubmit} disabled={submitting} className="btn-primary" style={{padding:'9px 22px',borderRadius:10,fontSize:12,fontWeight:800,cursor:submitting?'wait':'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:`0 4px 14px ${isNew?'rgba(34,197,94,0.35)':'color-mix(in srgb, var(--primary) 35%, transparent)'}`,background:isNew?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,var(--primary),color-mix(in srgb, var(--primary) 75%, #000))',border:'none',color:'#fff'}}>
                             <span className="material-icons-round" style={{fontSize:16,animation:submitting?'spin 1s linear infinite':'none'}}>{submitting?'autorenew':(isNew?'person_add':'save')}</span>
                             {submitting?'Guardando...':(isNew?'Crear agente':'Guardar cambios')}
                         </button>
@@ -10922,8 +10926,8 @@ function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
                 </div>
                 <div style={{marginBottom:14}}>
                     <div style={{display:'flex',gap:6,padding:4,background:'var(--surface2)',borderRadius:10,marginBottom:10}}>
-                        <button onClick={()=>setType('extension')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='extension'?'rgba(139,92,246,0.2)':'transparent',color:type==='extension'?'#c4b5fd':'var(--muted)',fontWeight:800,fontSize:11}}>A extensión</button>
-                        <button onClick={()=>setType('queue')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='queue'?'rgba(139,92,246,0.2)':'transparent',color:type==='queue'?'#c4b5fd':'var(--muted)',fontWeight:800,fontSize:11}}>A cola</button>
+                        <button onClick={()=>setType('extension')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='extension'?'color-mix(in srgb, var(--primary) 20%, transparent)':'transparent',color:type==='extension'?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)',fontWeight:800,fontSize:11}}>A extensión</button>
+                        <button onClick={()=>setType('queue')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='queue'?'color-mix(in srgb, var(--primary) 20%, transparent)':'transparent',color:type==='queue'?'color-mix(in srgb, var(--primary) 65%, white)':'var(--muted)',fontWeight:800,fontSize:11}}>A cola</button>
                     </div>
                     <input className="input-tf py-2 px-3 rounded-lg text-sm w-full" placeholder={type==='extension'?'Ej: 9006':'Ej: 8000'} value={target} onChange={e=>setTarget(e.target.value)} />
                     <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>{type==='extension'?'Llamada se transfiere directo a esa ext':'Llamada vuelve a entrar en esa cola'}</div>
@@ -11270,11 +11274,11 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
                             {[
                                 {l:'Estado', v:'Online', c:'#22c55e', i:'check_circle'},
                                 {l:'Uptime', v:data?.system?.uptime||'—', c:'#3b82f6', i:'schedule'},
-                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'#8b5cf6', i:'memory'},
+                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'var(--primary)', i:'memory'},
                                 {l:'RAM', v:`${data?.system?.ram||0}%`, c:'#ec4899', i:'sd_storage'},
                                 {l:'Disco', v:`${data?.system?.disk||0}%`, c:'#f59e0b', i:'storage'},
                                 {l:'Conexiones TCP', v:data?.system?.connections||0, c:'#06b6d4', i:'lan'},
-                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+(pbxBrand.variant||'')):'detectando...', c:'#a855f7', i:'router'},
+                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+(pbxBrand.variant||'')):'detectando...', c:'var(--primary)', i:'router'},
                                 {l:'Asterisk', v:pbxBrand?.asterisk_version||'—', c:'#10b981', i:'tag'},
                             ].map((s,i)=>(
                                 <div key={i} className="glass" style={{padding:14,borderRadius:12}}>
@@ -11336,7 +11340,7 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
     const busyExts = exts.filter(e => e.status === 'BUSY').length;
 
     const ClickStat = ({icon, label, value, color, sub, onClick, badge}) => (
-        <button onClick={onClick} disabled={!onClick} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderRight:'1px solid var(--border)',background:'transparent',border:'none',cursor:onClick?'pointer':'default',transition:'background 0.15s',position:'relative'}} onMouseEnter={e=>{if(onClick) e.currentTarget.style.background='rgba(139,92,246,0.06)'}} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+        <button onClick={onClick} disabled={!onClick} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderRight:'1px solid var(--border)',background:'transparent',border:'none',cursor:onClick?'pointer':'default',transition:'background 0.15s',position:'relative'}} onMouseEnter={e=>{if(onClick) e.currentTarget.style.background='color-mix(in srgb, var(--primary) 6%, transparent)'}} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
             <div style={{width:32,height:32,borderRadius:8,background:`${color}22`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
                 <span className="material-icons-round" style={{fontSize:17,color}}>{icon}</span>
                 {badge && <span style={{position:'absolute',top:-3,right:-3,width:10,height:10,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse 1s infinite'}}/>}
@@ -11358,7 +11362,7 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
             <ClickStat icon="ring_volume" label="Sonando" value={ringCount} color="#f59e0b" badge={ringCount>0} onClick={()=>goVivo('ringing')} />
             <ClickStat icon="hourglass_empty" label="En Espera" value={totalWaiting} color={totalWaiting>0?'#ef4444':'#6b7280'} badge={totalWaiting>0} onClick={()=>setView?.('colas')} />
             <ClickStat icon="support_agent" label="Agentes" value={agentsLogged} sub={'logueados'} color="#3b82f6" onClick={()=>setView?.('hotdesking')} />
-            <ClickStat icon="dialpad" label="Internos" value={onlineExts} sub={`/ ${exts.length}`} color="#8b5cf6" onClick={()=>goExtensiones('ONLINE')} />
+            <ClickStat icon="dialpad" label="Internos" value={onlineExts} sub={`/ ${exts.length}`} color="var(--primary)" onClick={()=>goExtensiones('ONLINE')} />
             <ClickStat icon="bar_chart" label="Activos PBX" value={busyExts + upCount} color="#ec4899" onClick={()=>goVivo('all')} />
             <div style={{flex:1}}/>
 
@@ -11379,7 +11383,7 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
             {pbxBrand && (() => {
                 const brandColors = { grandstream:'#3b82f6', asterisk:'#6b7280' };
                 const brandLabels = { grandstream:'Grandstream UCM', asterisk: pbxBrand.variant==='issabel'?'Issabel':(pbxBrand.variant==='freepbx'?'FreePBX':'Asterisk') };
-                const c = brandColors[pbxBrand.brand] || '#8b5cf6';
+                const c = brandColors[pbxBrand.brand] || 'var(--primary)';
                 return (
                     <div title={`${brandLabels[pbxBrand.brand]} · Asterisk ${pbxBrand.asterisk_version} · parser ${pbxBrand.recommended_parser}`} style={{padding:'5px 10px',marginRight:6,borderRadius:7,background:`${c}15`,border:`1px solid ${c}55`,fontSize:10,color:c,fontWeight:800,display:'flex',alignItems:'center',gap:5}}>
                         <span className="material-icons-round" style={{fontSize:12}}>memory</span>
@@ -11430,11 +11434,11 @@ function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme 
                             {[
                                 {l:'Estado', v:'Online', c:'#22c55e', i:'check_circle'},
                                 {l:'Uptime', v:data?.system?.uptime||'—', c:'#3b82f6', i:'schedule'},
-                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'#8b5cf6', i:'memory'},
+                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'var(--primary)', i:'memory'},
                                 {l:'RAM', v:`${data?.system?.ram||0}%`, c:'#ec4899', i:'sd_storage'},
                                 {l:'Disco', v:`${data?.system?.disk||0}%`, c:'#f59e0b', i:'storage'},
                                 {l:'Conexiones TCP', v:data?.system?.connections||0, c:'#06b6d4', i:'lan'},
-                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+pbxBrand.variant):'detectando...', c:'#a855f7', i:'router'},
+                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+pbxBrand.variant):'detectando...', c:'var(--primary)', i:'router'},
                                 {l:'Asterisk', v:pbxBrand?.asterisk_version||'—', c:'#10b981', i:'tag'},
                             ].map((s,i)=>(
                                 <div key={i} className="glass" style={{padding:14,borderRadius:12}}>
