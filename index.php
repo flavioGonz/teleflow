@@ -126,6 +126,11 @@ header('Expires: 0');
         --input: #e4e4e7;
         --ring: #7c3aed;
         --radius: 0.5rem;
+        /* Horizon brand colors */
+        --horizon-green: #11B328;
+        --horizon-green-glow: rgba(17, 179, 40, 0.45);
+        --horizon-black: #1A1A1A;
+        --horizon-bg-light: #E6E7E8;
     }
     .dark {
         --background: #0a0a0d;          /* near-black levemente morado */
@@ -286,6 +291,291 @@ header('Expires: 0');
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--muted-foreground) 50%, transparent); }
+
+        /* ═══════════════════════════════════════════════════════════════════════════
+           HORIZON LOGIN (infratec-style, brand green #11B328)
+           ═══════════════════════════════════════════════════════════════════════════ */
+        .hzn-login-root {
+            position: fixed; inset: 0;
+            display: grid;
+            grid-template-columns: 1fr 480px;
+            background: var(--horizon-black);
+            color: var(--horizon-black);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        @media (max-width: 900px) {
+            .hzn-login-root { grid-template-columns: 1fr; }
+            .hzn-login-hero { display: none; }
+        }
+
+        /* ── HERO (left) ── */
+        .hzn-login-hero {
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        .hzn-login-hero-image {
+            position: absolute; inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: saturate(1.05);
+        }
+        .hzn-login-hero-overlay {
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse at 30% 50%, rgba(17,179,40,0.18), transparent 60%),
+                linear-gradient(135deg, rgba(26,26,26,0.65) 0%, rgba(26,26,26,0.45) 50%, rgba(26,26,26,0.75) 100%);
+        }
+        .hzn-login-hero-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 50px 60px;
+            color: #fff;
+        }
+        .hzn-logo {
+            display: flex; align-items: center; gap: 14px;
+        }
+        .hzn-logo-mark {
+            display: flex; align-items: center; justify-content: center;
+            width: 52px; height: 52px;
+            background: rgba(255,255,255,0.96);
+            border-radius: 50%;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 4px rgba(17,179,40,0.18);
+        }
+        .hzn-logo-text {
+            font-size: 26px; font-weight: 900;
+            letter-spacing: 0.08em;
+            color: #fff;
+            line-height: 1;
+        }
+        .hzn-logo-sub {
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.32em;
+            color: var(--horizon-green);
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+        .hzn-login-tagline { max-width: 520px; }
+        .hzn-login-tagline h1 {
+            font-size: 42px; font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin: 0 0 14px;
+            color: #fff;
+        }
+        .hzn-login-tagline p {
+            font-size: 15px; font-weight: 500;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.78);
+            margin: 0;
+        }
+
+        /* ── FORM (right) ── */
+        .hzn-login-form-wrap {
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            overflow-y: auto;
+        }
+        @media (max-width: 900px) {
+            .hzn-login-form-wrap {
+                background-image:
+                    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(255,255,255,0.92)),
+                    url('assets/login-bg.jpg');
+                background-size: cover;
+                background-position: center;
+            }
+        }
+        .hzn-login-form-inner {
+            width: 100%;
+            max-width: 380px;
+        }
+        .hzn-login-mobile-logo {
+            display: none;
+            align-items: center; justify-content: center; gap: 12px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 900px) {
+            .hzn-login-mobile-logo { display: flex; }
+        }
+        .hzn-logo-text-mobile {
+            font-size: 22px; font-weight: 900;
+            letter-spacing: 0.08em;
+            color: var(--horizon-black);
+        }
+        .hzn-login-heading {
+            margin-bottom: 28px;
+        }
+        .hzn-login-heading h2 {
+            font-size: 28px; font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--horizon-black);
+            margin: 0;
+            line-height: 1.1;
+        }
+        .hzn-login-heading p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 8px 0 0;
+            line-height: 1.5;
+        }
+
+        /* ── Role tabs ── */
+        .hzn-role-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 4px;
+            background: var(--horizon-bg-light);
+            border-radius: 10px;
+            margin-bottom: 22px;
+        }
+        .hzn-role-tabs button {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 10px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 7px;
+            font-size: 12px; font-weight: 700;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .hzn-role-tabs button .material-icons-round { font-size: 16px; }
+        .hzn-role-tabs button:hover { color: var(--horizon-black); }
+        .hzn-role-tabs button.active {
+            background: #fff;
+            color: var(--horizon-black);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+        }
+
+        /* ── Form fields ── */
+        .hzn-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .hzn-field { display: block; }
+        .hzn-label {
+            display: block;
+            font-size: 12px; font-weight: 700;
+            color: var(--horizon-black);
+            margin-bottom: 6px;
+            letter-spacing: 0.01em;
+        }
+        .hzn-input-wrap {
+            position: relative;
+        }
+        .hzn-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px 0 42px;
+            background: #fff;
+            border: 1.5px solid #d4d4d8;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--horizon-black);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            font-family: inherit;
+        }
+        .hzn-input:focus {
+            outline: none;
+            border-color: var(--horizon-green);
+            box-shadow: 0 0 0 3px rgba(17,179,40,0.18);
+        }
+        .hzn-input::placeholder { color: #9ca3af; }
+        .hzn-input.pr-12 { padding-right: 44px; }
+        .hzn-input-icon {
+            position: absolute;
+            left: 13px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #9ca3af;
+            pointer-events: none;
+            transition: color 0.15s ease;
+        }
+        .hzn-input:focus ~ .hzn-input-icon,
+        .hzn-input-wrap:focus-within .hzn-input-icon {
+            color: var(--horizon-green);
+        }
+        .hzn-input-toggle {
+            position: absolute;
+            right: 8px; top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #9ca3af;
+            display: inline-flex;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .hzn-input-toggle:hover {
+            color: var(--horizon-black);
+            background: var(--horizon-bg-light);
+        }
+        .hzn-input-toggle .material-icons-round { font-size: 18px; }
+        .hzn-field-help {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        /* ── Alert ── */
+        .hzn-alert {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.32);
+            border-radius: 8px;
+            font-size: 12.5px; font-weight: 600;
+            color: #b91c1c;
+        }
+        .hzn-alert .material-icons-round { font-size: 18px; color: #dc2626; }
+
+        /* ── Primary button (green Horizon) ── */
+        .hzn-btn-primary {
+            width: 100%;
+            height: 46px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            background: var(--horizon-green);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px; font-weight: 700;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            box-shadow: 0 4px 12px var(--horizon-green-glow), inset 0 -2px 0 rgba(0,0,0,0.08);
+            transition: all 0.18s ease;
+            margin-top: 4px;
+        }
+        .hzn-btn-primary:hover:not(:disabled) {
+            background: #0ea021;
+            box-shadow: 0 6px 18px var(--horizon-green-glow), inset 0 -2px 0 rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .hzn-btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .hzn-btn-primary:disabled { opacity: 0.65; cursor: not-allowed; }
+        .hzn-btn-primary .material-icons-round { font-size: 18px; }
+
+        /* ── Footer ── */
+        .hzn-login-footer {
+            margin-top: 28px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        .hzn-dot { opacity: 0.4; }
+
 
     </style>
     <style>
@@ -1390,7 +1680,7 @@ const useRadarStore = createStore((set) => ({
 // LOGIN
 // ─────────────────────────────────────────────
 function Login({ onLogin }) {
-    const [role, setRole] = useState('admin');  // 'admin' | 'agent'
+    const [role, setRole] = useState('admin');
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
     const [callbackExt, setCallbackExt] = useState('');
@@ -1423,113 +1713,146 @@ function Login({ onLogin }) {
     };
 
     return (
-        <div className="login-bg h-screen flex items-center justify-center relative overflow-hidden">
-            {/* Orbs decorativos */}
-            <div className="login-orb" style={{width:500,height:500,background:'radial-gradient(circle,rgba(139,92,246,0.2),transparent)',top:'-10%',left:'-5%'}} />
-            <div className="login-orb" style={{width:400,height:400,background:'radial-gradient(circle,rgba(109,40,217,0.15),transparent)',bottom:'-5%',right:'-5%',animationDelay:'4s'}} />
-
-            {/* Líneas de grid decorativas */}
-            <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(139,92,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,0.03) 1px,transparent 1px)',backgroundSize:'50px 50px',pointerEvents:'none'}} />
-
-            <div className="login-card rounded-[32px] p-10 w-full max-w-[420px] relative z-10">
-                {/* Logo */}
-                <div className="anim-fadeup flex flex-col items-center mb-10">
-                    <div style={{width:68,height:68,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'0 0 40px rgba(139,92,246,0.5)'}}>
-                        <span className="material-icons-round" style={{fontSize:34,color:'white'}}>sensors</span>
+        <div className="hzn-login-root">
+            {/* ───────── LEFT: imagen + overlay verde ───────── */}
+            <div className="hzn-login-hero">
+                <div className="hzn-login-hero-image" style={{backgroundImage:"url('assets/login-bg.jpg')"}}/>
+                <div className="hzn-login-hero-overlay"/>
+                <div className="hzn-login-hero-content">
+                    <div className="hzn-logo">
+                        <div className="hzn-logo-mark">
+                            <svg viewBox="0 0 100 100" width="36" height="36">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
+                                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div className="hzn-logo-text">HORIZON</div>
+                            <div className="hzn-logo-sub">SEGURIDAD</div>
+                        </div>
                     </div>
-
-                    {/* Pulse rings */}
-                    <div style={{position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',marginBottom:6}}>
-                        <div style={{position:'absolute',width:16,height:16,borderRadius:'50%',background:'var(--accent)',boxShadow:'0 0 12px var(--accent)',animation:'pulse-ring 2s ease-out infinite'}} />
-                        <div style={{position:'absolute',width:16,height:16,borderRadius:'50%',background:'var(--accent)',boxShadow:'0 0 12px var(--accent)',animation:'pulse-ring 2s ease-out infinite',animationDelay:'.6s'}} />
+                    <div className="hzn-login-tagline">
+                        <h1>Centro de Monitoreo</h1>
+                        <p>Plataforma unificada de control de telefonía y videovigilancia.</p>
                     </div>
-
-                    <h1 style={{fontSize:36,fontWeight:900,letterSpacing:-1,color:'white',fontStyle:'italic',marginTop:10}}>TeleFlow</h1>
-                    <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.25em',color:'#6b7280',textTransform:'uppercase',marginTop:4}}>Next-Gen PBX Control · Infratec</p>
                 </div>
+            </div>
 
-                {/* Toggle Admin/Agente */}
-                <div className="anim-fadeup-2" style={{display:'flex',background:'rgba(255,255,255,0.04)',border:'1px solid var(--border)',borderRadius:14,padding:4,marginBottom:18}}>
-                    <button type="button" onClick={()=>setRole('admin')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='admin'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='admin'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>shield</span>
-                        Admin
-                    </button>
-                    <button type="button" onClick={()=>setRole('agent')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='agent'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='agent'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>support_agent</span>
-                        Agente
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={submit} className="anim-fadeup-2 space-y-4">
-                    <div style={{position:'relative'}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>{role==='agent'?'badge':'person'}</span>
-                        <input
-                            className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
-                            type="text"
-                            placeholder={role==='agent'?'Número de agente (ej. 200)':'Usuario'}
-                            value={user}
-                            onChange={e=>setUser(e.target.value)}
-                            required
-                        />
+            {/* ───────── RIGHT: form ───────── */}
+            <div className="hzn-login-form-wrap">
+                <div className="hzn-login-form-inner">
+                    {/* Logo mobile (visible solo en mobile) */}
+                    <div className="hzn-login-mobile-logo">
+                        <svg viewBox="0 0 100 100" width="44" height="44">
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                        </svg>
+                        <div className="hzn-logo-text-mobile">HORIZON</div>
                     </div>
-                    <div style={{position:'relative'}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>lock</span>
-                        <input
-                            className="input-tf py-3.5 pl-11 pr-12 rounded-[14px] text-sm"
-                            type={showPass?'text':'password'}
-                            placeholder="Contraseña"
-                            value={pass}
-                            onChange={e=>setPass(e.target.value)}
-                            required
-                        />
-                        <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#4b5563',padding:0}}>
-                            <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+
+                    <div className="hzn-login-heading">
+                        <h2>Bienvenido</h2>
+                        <p>Iniciá sesión para acceder al panel de control</p>
+                    </div>
+
+                    {/* Toggle Admin / Agente */}
+                    <div className="hzn-role-tabs" role="tablist">
+                        <button type="button" role="tab" aria-selected={role==='admin'} onClick={()=>setRole('admin')} className={role==='admin'?'active':''}>
+                            <span className="material-icons-round">shield</span>
+                            <span>Administrador</span>
+                        </button>
+                        <button type="button" role="tab" aria-selected={role==='agent'} onClick={()=>setRole('agent')} className={role==='agent'?'active':''}>
+                            <span className="material-icons-round">support_agent</span>
+                            <span>Agente</span>
                         </button>
                     </div>
 
-                    {role === 'agent' && (
-                        <div style={{position:'relative'}}>
-                            <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>phone_in_talk</span>
-                            <input
-                                className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
-                                type="text"
-                                placeholder="Extensión callback (ej. SIP/9006 o 9006)"
-                                value={callbackExt}
-                                onChange={e=>setCallbackExt(e.target.value)}
-                                required
-                            />
-                            <div style={{fontSize:10,color:'var(--muted)',marginTop:4,paddingLeft:4}}>El teléfono donde recibirás las llamadas hoy</div>
-                        </div>
-                    )}
+                    <form onSubmit={submit} className="hzn-form">
+                        <label className="hzn-field">
+                            <span className="hzn-label">{role==='agent' ? 'Número de agente' : 'Usuario'}</span>
+                            <div className="hzn-input-wrap">
+                                <span className="material-icons-round hzn-input-icon">{role==='agent'?'badge':'person'}</span>
+                                <input
+                                    className="hzn-input"
+                                    type="text"
+                                    placeholder={role==='agent' ? 'ej. 200' : 'admin'}
+                                    value={user}
+                                    onChange={e=>setUser(e.target.value)}
+                                    autoComplete="username"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                        </label>
 
-                    {err && (
-                        <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#f87171',display:'flex',alignItems:'center',gap:8}}>
-                            <span className="material-icons-round" style={{fontSize:16}}>error_outline</span>
-                            {err}
-                        </div>
-                    )}
+                        <label className="hzn-field">
+                            <span className="hzn-label">Contraseña</span>
+                            <div className="hzn-input-wrap">
+                                <span className="material-icons-round hzn-input-icon">lock</span>
+                                <input
+                                    className="hzn-input pr-12"
+                                    type={showPass?'text':'password'}
+                                    placeholder="••••••••"
+                                    value={pass}
+                                    onChange={e=>setPass(e.target.value)}
+                                    autoComplete="current-password"
+                                    required
+                                />
+                                <button type="button" onClick={()=>setShowPass(!showPass)} className="hzn-input-toggle" aria-label="Toggle password visibility">
+                                    <span className="material-icons-round">{showPass?'visibility_off':'visibility'}</span>
+                                </button>
+                            </div>
+                        </label>
 
-                    <button type="submit" className="btn-primary w-full py-3.5 rounded-[14px] text-sm uppercase tracking-widest mt-2" disabled={loading}>
-                        {loading
-                            ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,animation:'spin-slow 1s linear infinite'}}>refresh</span> Verificando...
-                              </span>
-                            : 'Acceder al Sistema'}
-                    </button>
-                </form>
+                        {role === 'agent' && (
+                            <label className="hzn-field">
+                                <span className="hzn-label">Extensión de callback</span>
+                                <div className="hzn-input-wrap">
+                                    <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
+                                    <input
+                                        className="hzn-input"
+                                        type="text"
+                                        placeholder="ej. 9006"
+                                        value={callbackExt}
+                                        onChange={e=>setCallbackExt(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="hzn-field-help">El teléfono donde recibirás las llamadas hoy</div>
+                            </label>
+                        )}
 
-                <p className="anim-fadeup-3" style={{textAlign:'center',marginTop:24,fontSize:11,color:'#374151'}}>
-                    TeleFlow v18 · © Infratec {new Date().getFullYear()}
-                </p>
+                        {err && (
+                            <div className="hzn-alert" role="alert">
+                                <span className="material-icons-round">error_outline</span>
+                                <span>{err}</span>
+                            </div>
+                        )}
+
+                        <button type="submit" className="hzn-btn-primary" disabled={loading}>
+                            {loading
+                                ? <>
+                                    <span className="material-icons-round" style={{animation:'spin 1s linear infinite'}}>autorenew</span>
+                                    Verificando…
+                                  </>
+                                : <>
+                                    <span>Iniciar sesión</span>
+                                    <span className="material-icons-round">arrow_forward</span>
+                                  </>}
+                        </button>
+                    </form>
+
+                    <div className="hzn-login-footer">
+                        <span>TeleFlow v18</span>
+                        <span className="hzn-dot">·</span>
+                        <span>© Infratec {new Date().getFullYear()}</span>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────
-// SILEO TOAST (notificaciones premium)
-// ─────────────────────────────────────────────
 const SID = {success:{bg:'linear-gradient(135deg,#052e16,#14532d)',border:'#166534',ic:'check_circle',color:'#4ade80'},error:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#991b1b',ic:'cancel',color:'#f87171'},warning:{bg:'linear-gradient(135deg,#431407,#7c2d12)',border:'#9a3412',ic:'warning',color:'#fb923c'},info:{bg:'linear-gradient(135deg,#0c1445,#1e1b4b)',border:'#3730a3',ic:'info',color:'#a5b4fc'},call:{bg:'linear-gradient(135deg,#450a0a,#7f1d1d)',border:'#dc2626',ic:'call',color:'#fca5a5'}};
 function Toast({ toasts, remove }) {
     return (
