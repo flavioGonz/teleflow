@@ -1266,6 +1266,14 @@ function ViewDashboard({ data }) {
     const todayAns = ts.answered || 0;
     const eff = todayTotal > 0 ? Math.round((todayAns/todayTotal)*100) : 0;
 
+    // HORIZON: signos vitales del servidor PBX (CPU/RAM/Disco/Conexiones)
+    const systemStats = [
+        { label: 'CPU',         val: `${cpu}%`,  icon: 'memory',     bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
+        { label: 'RAM',         val: `${ram}%`,  icon: 'memory',     bg: 'rgba(139,92,246,0.12)',  color: '#8b5cf6' },
+        { label: 'Disco',       val: `${disk}%`, icon: 'storage',    bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b' },
+        { label: 'Conexiones',  val: conn,       icon: 'cable',      bg: 'rgba(34,197,94,0.12)',   color: '#22c55e' },
+    ];
+
     const KPIBig = ({label, value, sub, icon, color}) => (
         <div className="glass" style={{padding:'18px 20px',borderRadius:16,position:'relative',overflow:'hidden',border:`1px solid ${color}33`,background:`linear-gradient(135deg,${color}15,transparent 70%),var(--surface)`}}>
             <div style={{position:'absolute',top:-15,right:-15,width:90,height:90,borderRadius:'50%',background:`radial-gradient(circle,${color}33,transparent 70%)`,pointerEvents:'none'}}/>
