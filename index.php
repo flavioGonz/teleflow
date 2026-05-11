@@ -54,29 +54,6 @@ header('Expires: 0');
             } catch(e) {}
         })();
     </script>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script>
-        tailwind.config = {
-          theme: {
-            extend: {
-              colors: {
-                brand: {
-                  bg: '#050508',
-                  surface: '#0d0d14',
-                  accent: '#7c3aed',
-                  success: '#10b981',
-                  warning: '#f59e0b',
-                  danger: '#ef4444'
-                }
-              },
-              fontFamily: {
-                sans: ['Inter', 'sans-serif'],
-                mono: ['JetBrains Mono', 'Fira Code', 'monospace']
-              }
-            }
-          }
-        }
-    </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -92,6 +69,102 @@ header('Expires: 0');
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- HORIZON: Tailwind CDN + shadcn tokens (migración progresiva A1) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: 'hsl(var(--border))',
+                        input: 'hsl(var(--input))',
+                        ring: 'hsl(var(--ring))',
+                        background: 'hsl(var(--background))',
+                        foreground: 'hsl(var(--foreground))',
+                        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+                        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+                        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+                        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+                        accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+                        popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+                        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+                        success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
+                        warning: { DEFAULT: 'hsl(var(--warning))', foreground: 'hsl(var(--warning-foreground))' },
+                    },
+                    borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+                    fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+                    keyframes: {
+                        'accordion-down': { from: { height: 0 }, to: { height: 'var(--radix-accordion-content-height)' } },
+                        'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: 0 } },
+                    },
+                }
+            }
+        };
+    </script>
+    <style>
+    /* HORIZON: shadcn/ui design tokens (HSL para Tailwind/shadcn) */
+    :root, .light {
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 3.9%;
+        --primary: 263 70% 50%;             /* morado Horizon */
+        --primary-foreground: 0 0% 98%;
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --success: 142 71% 45%;
+        --success-foreground: 0 0% 98%;
+        --warning: 38 92% 50%;
+        --warning-foreground: 240 5.9% 10%;
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 263 70% 50%;
+        --radius: 0.5rem;
+    }
+    .dark {
+        --background: 240 12% 5%;            /* near-black, levemente morado */
+        --foreground: 0 0% 98%;
+        --card: 240 10% 8%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 10% 6%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 263 70% 60%;
+        --primary-foreground: 240 5.9% 10%;
+        --secondary: 240 5% 13%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 5% 13%;
+        --muted-foreground: 240 5% 64.9%;
+        --accent: 240 5% 13%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 50%;
+        --destructive-foreground: 0 0% 98%;
+        --success: 142 71% 45%;
+        --success-foreground: 0 0% 98%;
+        --warning: 38 92% 50%;
+        --warning-foreground: 240 5.9% 10%;
+        --border: 240 5% 18%;
+        --input: 240 5% 18%;
+        --ring: 263 70% 60%;
+    }
+    /* Animaciones shadcn */
+    @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes slide-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    .animate-slide-in { animation: slide-in-right 0.25s ease-out; }
+    .animate-fade-in { animation: fade-in 0.2s ease-out; }
+    /* Body: heredar background/foreground del token */
+    body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
+    </style>
     <style>
         :root {
             --bg: #07070d;
@@ -750,6 +823,342 @@ header('Expires: 0');
 <script src="sw.js"></script>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HORIZON: shadcn/ui primitives — adaptados a JSX inline + Tailwind CDN
+// (sin Radix porque no tenemos build pipeline; comportamiento manual)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Utility para mergear clases tipo cn() de shadcn
+function cn(...classes) {
+    return classes.filter(Boolean).join(' ');
+}
+
+// ─── Theme management ──────────────────────────────────────────────────────
+const ThemeContext = React.createContext({ theme: 'dark', setTheme: () => {} });
+
+function ThemeProvider({ children }) {
+    const [theme, setThemeState] = useState(() => {
+        try { return localStorage.getItem('tf_theme') || 'dark'; } catch(e) { return 'dark'; }
+    });
+    useEffect(() => {
+        const root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+        document.body.classList.remove('light', 'dark');
+        document.body.classList.add(theme);
+        try { localStorage.setItem('tf_theme', theme); } catch(e) {}
+    }, [theme]);
+    const setTheme = useCallback((t) => setThemeState(t), []);
+    const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+function useTheme() { return useContext(ThemeContext); }
+
+function ThemeToggle({ className }) {
+    const { theme, setTheme } = useTheme();
+    const next = theme === 'dark' ? 'light' : 'dark';
+    return (
+        <button
+            type="button"
+            onClick={() => setTheme(next)}
+            className={cn(
+                "inline-flex items-center justify-center rounded-md h-9 w-9 transition-colors",
+                "border border-border bg-card hover:bg-accent hover:text-accent-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                className
+            )}
+            title={theme === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
+        >
+            <span className="material-icons-round text-base">
+                {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+            </span>
+        </button>
+    );
+}
+
+// ─── Button ─────────────────────────────────────────────────────────────────
+const BUTTON_VARIANTS = {
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    ghost: 'hover:bg-accent hover:text-accent-foreground',
+    link: 'text-primary underline-offset-4 hover:underline',
+    success: 'bg-green-600 text-white hover:bg-green-700',
+};
+const BUTTON_SIZES = {
+    default: 'h-9 px-4 py-2 text-sm',
+    sm: 'h-8 rounded-md px-3 text-xs',
+    lg: 'h-10 rounded-md px-8 text-sm',
+    icon: 'h-9 w-9',
+};
+function Button({ children, variant = 'default', size = 'default', className, type = 'button', asLink = false, href, target, ...props }) {
+    const cls = cn(
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'disabled:pointer-events-none disabled:opacity-50',
+        BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.default,
+        BUTTON_SIZES[size] || BUTTON_SIZES.default,
+        className
+    );
+    if (asLink) {
+        return <a href={href} target={target} rel={target === '_blank' ? 'noopener noreferrer' : undefined} className={cls} {...props}>{children}</a>;
+    }
+    return <button type={type} className={cls} {...props}>{children}</button>;
+}
+
+// ─── Card ───────────────────────────────────────────────────────────────────
+function Card({ children, className, ...props }) {
+    return <div className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className)} {...props}>{children}</div>;
+}
+function CardHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props}>{children}</div>;
+}
+function CardTitle({ children, className, ...props }) {
+    return <h3 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h3>;
+}
+function CardDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function CardContent({ children, className, ...props }) {
+    return <div className={cn("p-6 pt-0", className)} {...props}>{children}</div>;
+}
+function CardFooter({ children, className, ...props }) {
+    return <div className={cn("flex items-center p-6 pt-0", className)} {...props}>{children}</div>;
+}
+
+// ─── Input ──────────────────────────────────────────────────────────────────
+function Input({ className, type = 'text', ...props }) {
+    return (
+        <input
+            type={type}
+            className={cn(
+                "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm",
+                "transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+                className
+            )}
+            {...props}
+        />
+    );
+}
+
+// ─── Select (HTML nativo con styles shadcn) ─────────────────────────────────
+function Select({ className, children, ...props }) {
+    return (
+        <select
+            className={cn(
+                "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm",
+                "focus:outline-none focus:ring-1 focus:ring-ring",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+                className
+            )}
+            {...props}
+        >{children}</select>
+    );
+}
+
+// ─── Label ──────────────────────────────────────────────────────────────────
+function Label({ children, className, htmlFor, ...props }) {
+    return <label htmlFor={htmlFor} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)} {...props}>{children}</label>;
+}
+
+// ─── Badge ──────────────────────────────────────────────────────────────────
+const BADGE_VARIANTS = {
+    default: 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
+    secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+    destructive: 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
+    outline: 'text-foreground border-border',
+    success: 'border-transparent bg-green-500/15 text-green-600 dark:text-green-400',
+    warning: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    info: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400',
+};
+function Badge({ children, variant = 'default', className, ...props }) {
+    return (
+        <span className={cn(
+            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+            BADGE_VARIANTS[variant] || BADGE_VARIANTS.default,
+            className
+        )} {...props}>{children}</span>
+    );
+}
+
+// ─── Separator ──────────────────────────────────────────────────────────────
+function Separator({ className, orientation = 'horizontal', ...props }) {
+    return (
+        <div className={cn(
+            'shrink-0 bg-border',
+            orientation === 'horizontal' ? 'h-[1px] w-full' : 'h-full w-[1px]',
+            className
+        )} {...props}/>
+    );
+}
+
+// ─── Skeleton ───────────────────────────────────────────────────────────────
+function Skeleton({ className, ...props }) {
+    return <div className={cn("animate-pulse rounded-md bg-muted", className)} {...props}/>;
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+const TabsContext = React.createContext({ value: '', onChange: () => {} });
+function Tabs({ value, onChange, defaultValue, children, className, ...props }) {
+    const [internal, setInternal] = useState(defaultValue || '');
+    const current = value !== undefined ? value : internal;
+    const setCurrent = (v) => { if (value === undefined) setInternal(v); onChange?.(v); };
+    const ctx = useMemo(() => ({ value: current, onChange: setCurrent }), [current]);
+    return <TabsContext.Provider value={ctx}><div className={cn('', className)} {...props}>{children}</div></TabsContext.Provider>;
+}
+function TabsList({ children, className, ...props }) {
+    return <div role="tablist" className={cn("inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground", className)} {...props}>{children}</div>;
+}
+function TabsTrigger({ value, children, className, ...props }) {
+    const { value: current, onChange } = useContext(TabsContext);
+    const active = current === value;
+    return (
+        <button
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(value)}
+            className={cn(
+                'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:pointer-events-none disabled:opacity-50',
+                active && 'bg-background text-foreground shadow',
+                className
+            )}
+            {...props}
+        >{children}</button>
+    );
+}
+function TabsContent({ value, children, className, ...props }) {
+    const { value: current } = useContext(TabsContext);
+    if (current !== value) return null;
+    return <div role="tabpanel" className={cn('mt-4 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', className)} {...props}>{children}</div>;
+}
+
+// ─── Dialog (modal) ─────────────────────────────────────────────────────────
+function Dialog({ open, onOpenChange, children }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open, onOpenChange]);
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
+            <div className="relative z-50 grid w-full max-w-lg gap-4 border border-border bg-background p-6 shadow-lg rounded-lg animate-fade-in" onClick={e => e.stopPropagation()}>
+                {children}
+                <button onClick={() => onOpenChange?.(false)} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                    <span className="material-icons-round text-base">close</span>
+                </button>
+            </div>
+        </div>
+    );
+}
+function DialogHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props}>{children}</div>;
+}
+function DialogTitle({ children, className, ...props }) {
+    return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props}>{children}</h2>;
+}
+function DialogDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function DialogFooter({ children, className, ...props }) {
+    return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4", className)} {...props}>{children}</div>;
+}
+
+// ─── Sheet (drawer lateral) ─────────────────────────────────────────────────
+function Sheet({ open, onOpenChange, side = 'right', children, size = 'default' }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onOpenChange?.(false); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open, onOpenChange]);
+    if (!open) return null;
+    const widths = { sm: 'sm:max-w-sm', default: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl', '3xl': 'sm:max-w-3xl', '4xl': 'sm:max-w-4xl' };
+    const sideClass = side === 'right'
+        ? `right-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-l animate-slide-in`
+        : `left-0 inset-y-0 h-full w-3/4 ${widths[size] || widths.default} border-r animate-slide-in`;
+    return (
+        <div className="fixed inset-0 z-50 animate-fade-in">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
+            <div className={cn("fixed bg-background shadow-lg flex flex-col", sideClass)}>{children}</div>
+        </div>
+    );
+}
+function SheetHeader({ children, className, ...props }) {
+    return <div className={cn("flex flex-col space-y-2 text-left p-6", className)} {...props}>{children}</div>;
+}
+function SheetTitle({ children, className, ...props }) {
+    return <h2 className={cn("text-lg font-semibold text-foreground", className)} {...props}>{children}</h2>;
+}
+function SheetDescription({ children, className, ...props }) {
+    return <p className={cn("text-sm text-muted-foreground", className)} {...props}>{children}</p>;
+}
+function SheetContent({ children, className, ...props }) {
+    return <div className={cn("flex-1 overflow-auto px-6 pb-6", className)} {...props}>{children}</div>;
+}
+
+// ─── Table ──────────────────────────────────────────────────────────────────
+function ShTable({ children, className, ...props }) {
+    return (
+        <div className="relative w-full overflow-auto">
+            <table className={cn("w-full caption-bottom text-sm", className)} {...props}>{children}</table>
+        </div>
+    );
+}
+function ShTHead({ children, className, ...props }) {
+    return <thead className={cn("[&_tr]:border-b sticky top-0 bg-background z-10", className)} {...props}>{children}</thead>;
+}
+function ShTBody({ children, className, ...props }) {
+    return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props}>{children}</tbody>;
+}
+function ShTR({ children, className, onClick, ...props }) {
+    return <tr onClick={onClick} className={cn("border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", onClick && "cursor-pointer", className)} {...props}>{children}</tr>;
+}
+function ShTH({ children, className, align = 'left', ...props }) {
+    return <th className={cn("h-10 px-3 align-middle font-semibold text-muted-foreground text-xs uppercase tracking-wider", align === 'right' && 'text-right', align === 'center' && 'text-center', className)} {...props}>{children}</th>;
+}
+function ShTD({ children, className, align = 'left', mono = false, ...props }) {
+    return <td className={cn("px-3 py-2 align-middle text-sm", align === 'right' && 'text-right', align === 'center' && 'text-center', mono && 'font-mono text-xs', className)} {...props}>{children}</td>;
+}
+
+// ─── Toaster (sistema simple por window.shToast) ────────────────────────────
+const ToasterContext = React.createContext({ push: () => {}, items: [] });
+function Toaster() {
+    const [items, setItems] = useState([]);
+    useEffect(() => {
+        window.shToast = (msg, variant = 'default', durationMs = 4000) => {
+            const id = Date.now() + Math.random();
+            setItems((arr) => [...arr, { id, msg, variant }]);
+            setTimeout(() => setItems((arr) => arr.filter((t) => t.id !== id)), durationMs);
+        };
+        return () => { delete window.shToast; };
+    }, []);
+    return (
+        <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2">
+            {items.map((t) => {
+                const cls = t.variant === 'destructive' ? 'border-destructive/40 bg-destructive text-destructive-foreground'
+                          : t.variant === 'success' ? 'border-green-600/40 bg-green-600 text-white'
+                          : 'border-border bg-popover text-popover-foreground';
+                return (
+                    <div key={t.id} className={cn("animate-slide-in pointer-events-auto flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg min-w-[300px] max-w-[420px]", cls)}>
+                        <span className="material-icons-round text-base">{t.variant === 'destructive' ? 'error' : t.variant === 'success' ? 'check_circle' : 'info'}</span>
+                        <span className="flex-1 text-sm">{t.msg}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -5251,13 +5660,12 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
     const d = new Date(); d.setDate(d.getDate() - 7);
     const [from, setFrom] = useState(() => d.toISOString().split('T')[0]);
     const [to, setTo] = useState(() => new Date().toISOString().split('T')[0]);
-    const [tab, setTab] = useState('summary'); // summary|by_agent|by_queue|calls|pauses
+    const [tab, setTab] = useState('summary');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [callFilters, setCallFilters] = useState({ disposition: '', src: '', dst: '', min_dur: 0 });
     const [agentDetail, setAgentDetail] = useState(null);
 
-    // HORIZON: presets de rangos rápidos
     const presets = [
         { label: 'Hoy', from: () => new Date().toISOString().split('T')[0], to: () => new Date().toISOString().split('T')[0] },
         { label: 'Ayer', from: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; }, to: () => { const x=new Date(); x.setDate(x.getDate()-1); return x.toISOString().split('T')[0]; } },
@@ -5293,10 +5701,10 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
         return () => { cancelled = true; };
     }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur, toast]);
 
-    useEffect(() => { load(); }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur]);
+    useEffect(() => { load(); }, [load]);
 
-    const exportUrl = (format, type = tab, extraParams = {}) => {
-        const p = new URLSearchParams({ type, format, from, to, ...extraParams });
+    const exportUrl = (format, type = tab, extra = {}) => {
+        const p = new URLSearchParams({ type, format, from, to, ...extra });
         if (type === 'calls') {
             if (callFilters.disposition) p.set('disposition', callFilters.disposition);
             if (callFilters.src) p.set('src', callFilters.src);
@@ -5305,356 +5713,96 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
         return `api/reports_export.php?${p.toString()}`;
     };
 
-    const tabs = [
-        { id:'summary', label:'Resumen', icon:'analytics' },
-        { id:'by_agent', label:'Por agente', icon:'support_agent' },
-        { id:'by_queue', label:'Por cola', icon:'queue' },
-        { id:'calls', label:'Llamadas', icon:'phone' },
-        { id:'pauses', label:'Pausas', icon:'pause_circle' },
-    ];
-
     return (
-        <div className="content-area">
-            {/* Header con date pickers y export */}
-            <div className="glass" style={{padding:14,borderRadius:14,marginBottom:14,display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span className="material-icons-round" style={{fontSize:22,color:'#8b5cf6'}}>analytics</span>
-                    <span style={{fontSize:14,fontWeight:900,color:'var(--text)'}}>Reportes</span>
-                </div>
-                <div style={{flex:1}}/>
-                <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                    {presets.map(p => (
-                        <button key={p.label} onClick={()=>{setFrom(p.from()); setTo(p.to());}} style={{padding:'5px 10px',fontSize:11,borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',cursor:'pointer',fontWeight:700}}>{p.label}</button>
-                    ))}
-                </div>
-                <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                    <input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}/>
-                    <span style={{color:'var(--muted)',fontSize:11}}>→</span>
-                    <input type="date" value={to} onChange={e=>setTo(e.target.value)} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}/>
-                </div>
-                <div style={{display:'flex',gap:6}}>
-                    <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{padding:'6px 12px',fontSize:11,borderRadius:6,border:'1px solid #ef4444',background:'rgba(239,68,68,0.12)',color:'#ef4444',cursor:'pointer',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:14}}>picture_as_pdf</span>PDF</a>
-                    <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{padding:'6px 12px',fontSize:11,borderRadius:6,border:'1px solid #16a34a',background:'rgba(22,163,74,0.12)',color:'#16a34a',cursor:'pointer',fontWeight:800,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:14}}>table_chart</span>Excel</a>
-                </div>
-            </div>
-
-            {/* Tab bar */}
-            <div style={{display:'flex',gap:4,marginBottom:14,borderBottom:'1px solid var(--border)'}}>
-                {tabs.map(t => (
-                    <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 16px',background:'transparent',border:'none',borderBottom:tab===t.id?'2px solid #8b5cf6':'2px solid transparent',color:tab===t.id?'#fff':'var(--muted)',cursor:'pointer',fontSize:12,fontWeight:800,display:'inline-flex',alignItems:'center',gap:6,transition:'all 0.2s'}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>{t.icon}</span>{t.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Content */}
-            {loading && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}><span className="material-icons-round" style={{fontSize:32,animation:'spin 1.2s linear infinite'}}>autorenew</span><div style={{marginTop:6,fontSize:11}}>Cargando…</div></div>}
-
-            {!loading && data && tab === 'summary' && <ReportTabSummary data={data}/>}
-            {!loading && data && tab === 'by_agent' && <ReportTabByAgent data={data} onPick={(a)=>setAgentDetail(a)}/>}
-            {!loading && data && tab === 'by_queue' && <ReportTabByQueue data={data}/>}
-            {!loading && data && tab === 'calls' && <ReportTabCalls data={data} filters={callFilters} setFilters={setCallFilters}/>}
-            {!loading && data && tab === 'pauses' && <ReportTabPauses data={data} from={from} to={to}/>}
-
-            {/* Drill-down agent */}
-            {agentDetail && <AgentDetailDrawer agent={agentDetail} from={from} to={to} onClose={()=>setAgentDetail(null)} toast={toast}/>}
-        </div>
-    );
-}
-
-function ReportTabSummary({ data }) {
-    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
-    return (
-        <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
-                <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`Período: ${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
-                <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
-                <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre total ofrecidas" icon="trending_down" color="#ef4444"/>
-                <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
-                <KPICard label="Talk time total" value={tfFmtSecs(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
-                <KPICard label="Sesiones agentes" value={s.sessions||0} sub={`${s.unique_agents||0} únicos · Total login: ${tfFmtSecs(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
-                <KPICard label="Pausas totales" value={p.total_pauses||0} sub={`Tiempo total: ${tfFmtSecs(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
-            </div>
-        </div>
-    );
-}
-
-function ReportTabByAgent({ data, onPick }) {
-    const agents = data.agents || [];
-    const fmt = tfFmtSecs;
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{agents.length} agentes con actividad</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Nombre</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Sesiones</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Login</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>T. Pausa</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Productivo%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Llam.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Talk</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {agents.map((a,i)=>(
-                            <tr key={i} onClick={()=>onPick&&onPick(a)} style={{borderBottom:'1px solid var(--border)',cursor:'pointer',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:700}}>{a.ext}</td>
-                                <td style={{padding:'8px 10px',color:'#8b5cf6'}}>{a.agent_number||'—'}</td>
-                                <td style={{padding:'8px 10px'}}>{a.name||'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.session_count||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#3b82f6'}}>{fmt(a.login_sec)}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',color:'#f59e0b'}}>{fmt(a.pause_sec)}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:a.productive_pct>80?'#22c55e':(a.productive_pct>50?'#f59e0b':'#ef4444')}}>{a.productive_pct!==null?a.productive_pct+'%':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.calls||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{a.answered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{a.avg_aht!==null?a.avg_aht+'s':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{fmt(a.total_talk)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {agents.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
-            </div>
-        </div>
-    );
-}
-
-function ReportTabByQueue({ data }) {
-    const queues = data.queues || []; const sl = data.sl_threshold || 20;
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{queues.length} colas con tráfico · Service Level @ ≤{sl}s</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Cola</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Descripción</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Ofrec.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Contest.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Aband.%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>SL%</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Esp. prom.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Máx. esp.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>AHT</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {queues.map((q,i)=>(
-                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'8px 10px',fontFamily:'monospace',fontWeight:800}}>{q.queue}</td>
-                                <td style={{padding:'8px 10px',color:'#c4b5fd'}}>{q.descr||'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.offered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#22c55e'}}>{q.answered||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',color:'#ef4444'}}>{q.abandoned||0}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.abandon_rate>20?'#ef4444':(q.abandon_rate>10?'#f59e0b':'#22c55e')}}>{q.abandon_rate}%</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:q.service_level>=80?'#22c55e':(q.service_level>=60?'#f59e0b':'#ef4444')}}>{q.service_level!==null?q.service_level+'%':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.avg_wait!==null?q.avg_wait+'s':'—'}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right'}}>{q.max_wait||'—'}{q.max_wait?'s':''}</td>
-                                <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace'}}>{q.avg_talk?q.avg_talk+'s':'—'}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {queues.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos en este rango</div>}
-            </div>
-        </div>
-    );
-}
-
-function ReportTabCalls({ data, filters, setFilters }) {
-    const calls = data.calls || [];
-    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
-    return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:12,borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                <span style={{fontSize:11,fontWeight:800,color:'var(--muted)'}}>FILTROS</span>
-                <select value={filters.disposition} onChange={e=>setFilters({...filters,disposition:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11}}>
-                    <option value="">Todos los estados</option>
-                    <option value="ANSWERED">ANSWERED</option>
-                    <option value="NO ANSWER">NO ANSWER</option>
-                    <option value="BUSY">BUSY</option>
-                    <option value="FAILED">FAILED</option>
-                </select>
-                <input placeholder="Origen" value={filters.src} onChange={e=>setFilters({...filters,src:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
-                <input placeholder="Destino" value={filters.dst} onChange={e=>setFilters({...filters,dst:e.target.value})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:110}}/>
-                <input placeholder="Mín dur (s)" type="number" value={filters.min_dur||''} onChange={e=>setFilters({...filters,min_dur:parseInt(e.target.value)||0})} style={{padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:11,width:90}}/>
-                <span style={{flex:1}}/>
-                <span style={{fontSize:11,color:'var(--muted)'}}>{calls.length} resultados</span>
-            </div>
-            <div style={{overflow:'auto',maxHeight:'70vh'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fecha/Hora</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Origen</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Destino</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>CallerID</th>
-                            <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Estado</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Dur.</th>
-                            <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Hablado</th>
-                            <th style={{padding:'8px 10px',textAlign:'center',color:'var(--muted)',fontWeight:800}}>Grab.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {calls.map((c,i)=>(
-                            <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{c.calldate}</td>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.src}</td>
-                                <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{c.dst}</td>
-                                <td style={{padding:'6px 10px',color:'var(--muted)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.clid}</td>
-                                <td style={{padding:'6px 10px'}}><span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span></td>
-                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.duration}s</td>
-                                <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace'}}>{c.billsec}s</td>
-                                <td style={{padding:'6px 10px',textAlign:'center'}}>{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title={c.recordingfile}><span className="material-icons-round" style={{fontSize:16}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {calls.length===0 && <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin llamadas que coincidan</div>}
-            </div>
-        </div>
-    );
-}
-
-function ReportTabPauses({ data, from, to }) {
-    const pauses = data.pauses || [];
-    // Agrupar por motivo para mini-charts
-    const byMotive = {};
-    pauses.forEach(p => {
-        const k = p.pause_label || p.pause_type_code;
-        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
-        byMotive[k].count++; byMotive[k].total += parseInt(p.duration_seconds || 0);
-    });
-    const motives = Object.values(byMotive).sort((a,b)=>b.total-a.total);
-    const maxTotal = Math.max(1, ...motives.map(m=>m.total));
-    return (
-        <div style={{display:'flex',flexDirection:'column',gap:14}}>
-            {/* Resumen por motivo */}
-            <div className="glass" style={{padding:16,borderRadius:12}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10}}>Distribución por motivo</div>
-                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    {motives.map((m,i)=>(
-                        <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
-                            <span style={{minWidth:120,fontSize:11,fontWeight:700}}>{m.label}</span>
-                            <div style={{flex:1,height:18,background:'rgba(255,255,255,0.04)',borderRadius:4,overflow:'hidden',position:'relative'}}>
-                                <div style={{width:`${(m.total/maxTotal)*100}%`,height:'100%',background:m.color||'#8b5cf6'}}/>
-                                <span style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',fontSize:10,fontFamily:'monospace',color:'#fff',fontWeight:700,textShadow:'0 1px 2px rgba(0,0,0,0.5)'}}>{tfFmtSecs(m.total)}</span>
-                            </div>
-                            <span style={{minWidth:50,fontSize:11,fontWeight:800,textAlign:'right'}}>{m.count}x</span>
+        <div className="content-area p-4 md:p-6 space-y-4">
+            {/* Header card con date controls y export */}
+            <Card>
+                <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="material-icons-round text-primary text-2xl">analytics</span>
+                        <div>
+                            <CardTitle className="text-base">Reportes</CardTitle>
+                            <CardDescription className="text-xs">Análisis detallado del callcenter</CardDescription>
                         </div>
-                    ))}
-                </div>
-                {motives.length===0 && <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:12}}>Sin pausas</div>}
-            </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                        {presets.map(p => (
+                            <Button key={p.label} variant="outline" size="sm" onClick={() => { setFrom(p.from()); setTo(p.to()); }}>{p.label}</Button>
+                        ))}
+                        <Separator orientation="vertical" className="h-6 mx-1"/>
+                        <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 w-[140px] text-xs"/>
+                        <span className="text-muted-foreground text-xs">→</span>
+                        <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 w-[140px] text-xs"/>
+                        <Separator orientation="vertical" className="h-6 mx-1"/>
+                        <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
+                            <span className="material-icons-round text-sm">picture_as_pdf</span>PDF
+                        </Button>
+                        <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
+                            <span className="material-icons-round text-sm">table_chart</span>Excel
+                        </Button>
+                    </div>
+                </CardHeader>
+            </Card>
 
-            {/* Tabla detallada */}
-            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)'}}>
-                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>{pauses.length} pausas registradas</span>
-                </div>
-                <div style={{overflow:'auto',maxHeight:'50vh'}}>
-                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                        <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                            <tr style={{borderBottom:'1px solid var(--border)'}}>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Agente</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Ext</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Motivo</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Inicio</th>
-                                <th style={{padding:'8px 10px',textAlign:'left',color:'var(--muted)',fontWeight:800}}>Fin</th>
-                                <th style={{padding:'8px 10px',textAlign:'right',color:'var(--muted)',fontWeight:800}}>Duración</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pauses.map((p,i)=>(
-                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                    <td style={{padding:'6px 10px',color:'#8b5cf6'}}>{p.agent_number||'—'}</td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{p.agent_ext}</td>
-                                    <td style={{padding:'6px 10px'}}><span style={{padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>{p.pause_label||p.pause_type_code}</span></td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_start}</td>
-                                    <td style={{padding:'6px 10px',fontFamily:'monospace',fontSize:10}}>{p.pause_end||<span style={{color:'#22c55e'}}>(activa)</span>}</td>
-                                    <td style={{padding:'6px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700}}>{tfFmtSecs(p.duration_seconds)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            {/* Tabs */}
+            <Tabs value={tab} onChange={setTab}>
+                <TabsList>
+                    <TabsTrigger value="summary"><span className="material-icons-round text-sm mr-1">dashboard</span>Resumen</TabsTrigger>
+                    <TabsTrigger value="by_agent"><span className="material-icons-round text-sm mr-1">support_agent</span>Por agente</TabsTrigger>
+                    <TabsTrigger value="by_queue"><span className="material-icons-round text-sm mr-1">queue</span>Por cola</TabsTrigger>
+                    <TabsTrigger value="calls"><span className="material-icons-round text-sm mr-1">phone</span>Llamadas</TabsTrigger>
+                    <TabsTrigger value="pauses"><span className="material-icons-round text-sm mr-1">pause_circle</span>Pausas</TabsTrigger>
+                </TabsList>
+
+                {loading && (
+                    <Card className="mt-4 p-12 flex items-center justify-center">
+                        <div className="text-center text-muted-foreground">
+                            <span className="material-icons-round text-4xl animate-spin">autorenew</span>
+                            <div className="mt-2 text-sm">Cargando…</div>
+                        </div>
+                    </Card>
+                )}
+
+                {!loading && data && tab === 'summary' && <TabsContent value="summary"><ReportTabSummary data={data}/></TabsContent>}
+                {!loading && data && tab === 'by_agent' && <TabsContent value="by_agent"><ReportTabByAgent data={data} onPick={setAgentDetail}/></TabsContent>}
+                {!loading && data && tab === 'by_queue' && <TabsContent value="by_queue"><ReportTabByQueue data={data}/></TabsContent>}
+                {!loading && data && tab === 'calls' && <TabsContent value="calls"><ReportTabCalls data={data} filters={callFilters} setFilters={setCallFilters}/></TabsContent>}
+                {!loading && data && tab === 'pauses' && <TabsContent value="pauses"><ReportTabPauses data={data} from={from} to={to}/></TabsContent>}
+            </Tabs>
+
+            {agentDetail && <AgentDetailDrawer agent={agentDetail} from={from} to={to} onClose={() => setAgentDetail(null)} toast={toast}/>}
         </div>
     );
 }
 
-
-
-// HORIZON: KPICard premium reutilizable para drawer y main dashboard
-function KPICard({ label, value, sub, icon, color, compact = false }) {
-    const padding = compact ? '12px' : '16px';
-    const iconSize = compact ? 28 : 36;
-    const valueSize = compact ? 20 : 26;
+// ─── Premium KPI card (shadcn-flavored) ────────────────────────────────────
+function KPICard({ label, value, sub, icon, color = 'primary', compact = false }) {
+    // color puede ser nombre tailwind (primary, destructive, etc.) o hex
+    const isHex = typeof color === 'string' && color.startsWith('#');
+    const iconBg = isHex
+        ? { background: `linear-gradient(135deg, ${color}, ${color}cc)`, boxShadow: `0 4px 12px ${color}44` }
+        : {};
+    const iconClass = isHex ? '' : `bg-${color}/90 text-${color}-foreground shadow-${color}/30`;
+    const valueColor = isHex ? color : undefined;
     return (
-        <div style={{
-            padding,
-            borderRadius: 12,
-            border: `1px solid ${color}33`,
-            background: `linear-gradient(135deg, ${color}18 0%, ${color}08 50%, transparent 100%), var(--surface)`,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            position: 'relative',
-            overflow: 'hidden',
-            minHeight: compact ? 90 : 110,
-        }}>
-            <div style={{
-                position: 'absolute', top: -20, right: -20, width: 80, height: 80,
-                borderRadius: '50%',
-                background: `radial-gradient(circle, ${color}22, transparent 70%)`,
-                pointerEvents: 'none',
-            }}/>
-            <div style={{display:'flex',alignItems:'center',gap:8,position:'relative'}}>
-                <div style={{
-                    width: iconSize, height: iconSize, borderRadius: 9,
-                    background: `linear-gradient(135deg, ${color}, ${color}cc)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 4px 12px ${color}44`,
-                    flexShrink: 0,
-                }}>
-                    <span className="material-icons-round" style={{color:'#fff',fontSize:iconSize*0.55}}>{icon}</span>
+        <Card className={cn("relative overflow-hidden", compact ? "min-h-[90px]" : "min-h-[110px]")}>
+            <div className="absolute -top-5 -right-5 w-20 h-20 rounded-full opacity-30 pointer-events-none"
+                 style={{background: isHex ? `radial-gradient(circle, ${color}33, transparent 70%)` : undefined}}/>
+            <div className={cn("relative p-4", compact && "p-3")}>
+                <div className="flex items-center gap-2 mb-2">
+                    <div className={cn("flex items-center justify-center rounded-lg flex-shrink-0", compact ? "w-7 h-7" : "w-9 h-9", iconClass)} style={iconBg}>
+                        <span className="material-icons-round text-white" style={{fontSize: compact ? 14 : 18}}>{icon}</span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
                 </div>
-                <div style={{
-                    fontSize: 10, fontWeight: 800, color: 'var(--muted)',
-                    textTransform: 'uppercase', letterSpacing: '.06em',
-                    lineHeight: 1.2,
-                }}>{label}</div>
+                <div className={cn("font-black leading-none tabular-nums truncate", compact ? "text-xl" : "text-2xl")}
+                     style={{color: valueColor}}>{value}</div>
+                {sub && <div className="text-[10px] text-muted-foreground mt-1 font-semibold">{sub}</div>}
             </div>
-            <div style={{
-                fontSize: valueSize, fontWeight: 900, color,
-                lineHeight: 1, letterSpacing: '-0.4px',
-                fontVariantNumeric: 'tabular-nums',
-                wordBreak: 'normal', whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>{value}</div>
-            {sub && <div style={{
-                fontSize: 10, color: 'var(--muted)',
-                marginTop: 'auto',
-                fontWeight: 600, lineHeight: 1.3,
-            }}>{sub}</div>}
-        </div>
+        </Card>
     );
 }
 
-// HORIZON: formatear duraciones de manera compacta y consistente (ej. "1098h 01m" → "45d 18h")
 function fmtDurationCompact(secs) {
     secs = parseInt(secs || 0);
     if (secs <= 0) return '0s';
@@ -5670,7 +5818,6 @@ function fmtDurationCompact(secs) {
     return h ? `${d}d ${h}h` : `${d}d`;
 }
 
-// HORIZON: formatear fecha/hora ISO en formato local rioplatense
 function fmtDateTime(ts) {
     if (!ts) return '—';
     const d = new Date(ts.replace(' ', 'T'));
@@ -5679,465 +5826,578 @@ function fmtDateTime(ts) {
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// HORIZON: AgentDetailDrawer — panel profesional con secciones bien definidas
+// ─── ReportTab* (shadcn-styled) ────────────────────────────────────────────
+function ReportTabSummary({ data }) {
+    const k = data.kpis || {}; const s = data.sessions || {}; const p = data.pauses || {};
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <KPICard label="Total llamadas" value={Number(k.total||0).toLocaleString()} sub={`${data.period?.from?.substring(0,10)} → ${data.period?.to?.substring(0,10)}`} icon="phone" color="#8b5cf6"/>
+            <KPICard label="Contestadas" value={`${Number(k.answered||0).toLocaleString()} (${k.answer_rate||0}%)`} sub={`${k.no_answer||0} sin resp · ${k.busy||0} ocup · ${k.failed||0} fall`} icon="check_circle" color="#22c55e"/>
+            <KPICard label="Tasa abandono" value={`${k.abandon_rate||0}%`} sub="Sobre ofrecidas" icon="trending_down" color="#ef4444"/>
+            <KPICard label="AHT promedio" value={`${k.avg_billsec||0}s`} sub={`Espera prom: ${k.avg_wait||0}s`} icon="schedule" color="#3b82f6"/>
+            <KPICard label="Talk time total" value={fmtDurationCompact(k.total_talk_seconds||0)} sub={`Máx call: ${k.max_billsec||0}s`} icon="forum" color="#ec4899"/>
+            <KPICard label="Sesiones" value={s.sessions||0} sub={`${s.unique_agents||0} agentes · Login: ${fmtDurationCompact(s.total_login_sec||0)}`} icon="badge" color="#06b6d4"/>
+            <KPICard label="Pausas" value={p.total_pauses||0} sub={`Total: ${fmtDurationCompact(p.total_pause_sec||0)}`} icon="pause_circle" color="#f59e0b"/>
+        </div>
+    );
+}
+
+function ReportTabByAgent({ data, onPick }) {
+    const agents = data.agents || [];
+    return (
+        <Card>
+            <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-sm">Por agente</CardTitle>
+                    <CardDescription className="text-xs">{agents.length} agentes con actividad · click para detalle</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0 pt-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Ext</ShTH>
+                                <ShTH>Agente</ShTH>
+                                <ShTH>Nombre</ShTH>
+                                <ShTH align="right">Sesiones</ShTH>
+                                <ShTH align="right">Login</ShTH>
+                                <ShTH align="right">T. Pausa</ShTH>
+                                <ShTH align="right">Productivo%</ShTH>
+                                <ShTH align="right">Llam.</ShTH>
+                                <ShTH align="right">Contest.</ShTH>
+                                <ShTH align="right">AHT</ShTH>
+                                <ShTH align="right">Talk</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {agents.map((a) => (
+                                <ShTR key={a.ext} onClick={() => onPick?.(a)}>
+                                    <ShTD mono>{a.ext}</ShTD>
+                                    <ShTD><span className="text-primary font-semibold">{a.agent_number||'—'}</span></ShTD>
+                                    <ShTD>{a.name||'—'}</ShTD>
+                                    <ShTD align="right">{a.session_count||0}</ShTD>
+                                    <ShTD align="right" mono><span className="text-blue-500">{fmtDurationCompact(a.login_sec)}</span></ShTD>
+                                    <ShTD align="right" mono><span className="text-amber-500">{fmtDurationCompact(a.pause_sec)}</span></ShTD>
+                                    <ShTD align="right">
+                                        {a.productive_pct !== null
+                                            ? <Badge variant={a.productive_pct > 80 ? 'success' : (a.productive_pct > 50 ? 'warning' : 'destructive')}>{a.productive_pct}%</Badge>
+                                            : '—'}
+                                    </ShTD>
+                                    <ShTD align="right">{a.calls||0}</ShTD>
+                                    <ShTD align="right"><span className="text-green-500">{a.answered||0}</span></ShTD>
+                                    <ShTD align="right">{a.avg_aht !== null ? `${a.avg_aht}s` : '—'}</ShTD>
+                                    <ShTD align="right" mono>{fmtDurationCompact(a.total_talk)}</ShTD>
+                                </ShTR>
+                            ))}
+                        </ShTBody>
+                    </ShTable>
+                    {agents.length === 0 && <EmptyState icon="support_agent" title="Sin datos" subtitle="No hay agentes con actividad en este rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabByQueue({ data }) {
+    const queues = data.queues || []; const sl = data.sl_threshold || 20;
+    return (
+        <Card>
+            <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-sm">Por cola</CardTitle>
+                    <CardDescription className="text-xs">{queues.length} colas con tráfico · SL @ ≤{sl}s</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Cola</ShTH>
+                                <ShTH>Descripción</ShTH>
+                                <ShTH align="right">Ofrec.</ShTH>
+                                <ShTH align="right">Contest.</ShTH>
+                                <ShTH align="right">Aband.</ShTH>
+                                <ShTH align="right">Aband.%</ShTH>
+                                <ShTH align="right">SL%</ShTH>
+                                <ShTH align="right">Esp. prom.</ShTH>
+                                <ShTH align="right">Máx. esp.</ShTH>
+                                <ShTH align="right">AHT</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {queues.map((q) => (
+                                <ShTR key={q.queue}>
+                                    <ShTD mono>{q.queue}</ShTD>
+                                    <ShTD className="text-primary/80">{q.descr||'—'}</ShTD>
+                                    <ShTD align="right">{q.offered||0}</ShTD>
+                                    <ShTD align="right"><span className="text-green-500">{q.answered||0}</span></ShTD>
+                                    <ShTD align="right"><span className="text-destructive">{q.abandoned||0}</span></ShTD>
+                                    <ShTD align="right">
+                                        <Badge variant={q.abandon_rate > 20 ? 'destructive' : (q.abandon_rate > 10 ? 'warning' : 'success')}>{q.abandon_rate}%</Badge>
+                                    </ShTD>
+                                    <ShTD align="right">
+                                        {q.service_level !== null
+                                            ? <Badge variant={q.service_level >= 80 ? 'success' : (q.service_level >= 60 ? 'warning' : 'destructive')}>{q.service_level}%</Badge>
+                                            : '—'}
+                                    </ShTD>
+                                    <ShTD align="right">{q.avg_wait !== null ? `${q.avg_wait}s` : '—'}</ShTD>
+                                    <ShTD align="right">{q.max_wait ? `${q.max_wait}s` : '—'}</ShTD>
+                                    <ShTD align="right" mono>{q.avg_talk ? `${q.avg_talk}s` : '—'}</ShTD>
+                                </ShTR>
+                            ))}
+                        </ShTBody>
+                    </ShTable>
+                    {queues.length === 0 && <EmptyState icon="queue" title="Sin datos" subtitle="No hay tráfico de colas en este rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabCalls({ data, filters, setFilters }) {
+    const calls = data.calls || [];
+    return (
+        <Card>
+            <CardHeader className="p-4 pb-3 flex-row items-center gap-2 flex-wrap space-y-0">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Filtros</span>
+                <Select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})} className="h-8 w-auto text-xs">
+                    <option value="">Todos los estados</option>
+                    <option value="ANSWERED">ANSWERED</option>
+                    <option value="NO ANSWER">NO ANSWER</option>
+                    <option value="BUSY">BUSY</option>
+                    <option value="FAILED">FAILED</option>
+                </Select>
+                <Input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})} className="h-8 w-[110px] text-xs"/>
+                <Input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})} className="h-8 w-[110px] text-xs"/>
+                <Input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})} className="h-8 w-[100px] text-xs"/>
+                <div className="flex-1"/>
+                <span className="text-xs text-muted-foreground">{calls.length} resultados</span>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-auto max-h-[70vh]">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Fecha/Hora</ShTH>
+                                <ShTH>Origen</ShTH>
+                                <ShTH>Destino</ShTH>
+                                <ShTH>CallerID</ShTH>
+                                <ShTH>Estado</ShTH>
+                                <ShTH align="right">Dur.</ShTH>
+                                <ShTH align="right">Hablado</ShTH>
+                                <ShTH align="center">Grab.</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {calls.map((c, i) => {
+                                const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                                return (
+                                    <ShTR key={c.uniqueid || i}>
+                                        <ShTD mono>{c.calldate}</ShTD>
+                                        <ShTD mono>{c.src}</ShTD>
+                                        <ShTD mono>{c.dst}</ShTD>
+                                        <ShTD className="max-w-[200px] truncate text-muted-foreground">{c.clid}</ShTD>
+                                        <ShTD><Badge variant={variant}>{c.disposition}</Badge></ShTD>
+                                        <ShTD align="right" mono>{c.duration}s</ShTD>
+                                        <ShTD align="right" mono>{c.billsec}s</ShTD>
+                                        <ShTD align="center">
+                                            {c.recordingfile
+                                                ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                                : <span className="text-muted-foreground">—</span>}
+                                        </ShTD>
+                                    </ShTR>
+                                );
+                            })}
+                        </ShTBody>
+                    </ShTable>
+                    {calls.length === 0 && <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="Ajustá los filtros o el rango"/>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ReportTabPauses({ data, from, to }) {
+    const pauses = data.pauses || [];
+    const byMotive = {};
+    pauses.forEach(p => {
+        const k = p.pause_label || p.pause_type_code;
+        if (!byMotive[k]) byMotive[k] = { label: k, color: p.pause_color, count: 0, total: 0 };
+        byMotive[k].count++;
+        byMotive[k].total += parseInt(p.duration_seconds || 0);
+    });
+    const motives = Object.values(byMotive).sort((a, b) => b.total - a.total);
+    const maxTotal = Math.max(1, ...motives.map(m => m.total));
+
+    return (
+        <div className="space-y-4">
+            <Card>
+                <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
+                        Distribución por motivo
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2 space-y-2">
+                    {motives.map((m) => {
+                        const pct = (m.total / maxTotal) * 100;
+                        return (
+                            <div key={m.label} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
+                                <span className="text-xs font-semibold truncate">{m.label}</span>
+                                <div className="h-3.5 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${m.color||'#f59e0b'}aa, ${m.color||'#f59e0b'})`}}/>
+                                </div>
+                                <span className="text-xs font-mono font-bold text-right" style={{color: m.color || '#f59e0b'}}>{fmtDurationCompact(m.total)}</span>
+                                <span className="text-xs text-muted-foreground font-semibold text-right">{m.count}x</span>
+                            </div>
+                        );
+                    })}
+                    {motives.length === 0 && <EmptyState icon="pause_circle" title="Sin pausas" subtitle="No hay pausas en este rango"/>}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-sm">Detalle de pausas</CardTitle>
+                    <span className="text-xs text-muted-foreground">{pauses.length} registradas</span>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-auto max-h-[50vh]">
+                        <ShTable>
+                            <ShTHead>
+                                <ShTR>
+                                    <ShTH>Agente</ShTH>
+                                    <ShTH>Ext</ShTH>
+                                    <ShTH>Motivo</ShTH>
+                                    <ShTH>Inicio</ShTH>
+                                    <ShTH>Fin</ShTH>
+                                    <ShTH align="right">Duración</ShTH>
+                                </ShTR>
+                            </ShTHead>
+                            <ShTBody>
+                                {pauses.map((p) => (
+                                    <ShTR key={p.id}>
+                                        <ShTD><span className="text-primary">{p.agent_number||'—'}</span></ShTD>
+                                        <ShTD mono>{p.agent_ext}</ShTD>
+                                        <ShTD>
+                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>
+                                                {p.pause_label||p.pause_type_code}
+                                            </span>
+                                        </ShTD>
+                                        <ShTD mono>{p.pause_start}</ShTD>
+                                        <ShTD mono>{p.pause_end || <span className="text-green-500 font-semibold">(activa)</span>}</ShTD>
+                                        <ShTD align="right" mono><span className="font-bold" style={{color: p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></ShTD>
+                                    </ShTR>
+                                ))}
+                            </ShTBody>
+                        </ShTable>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// ─── AgentDetailDrawer (shadcn Sheet) ──────────────────────────────────────
 function AgentDetailDrawer({ agent, from, to, onClose, toast }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [section, setSection] = useState('overview'); // overview | sessions | pauses | calls
-
+    const [section, setSection] = useState('overview');
     const agentId = useMemo(() => agent?.agent_number || agent?.ext || '', [agent]);
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        setData(null);
+        setLoading(true); setData(null);
         (async () => {
             try {
-                const url = `api/reports.php?action=agent_detail&agent=${encodeURIComponent(agentId)}&from=${from}&to=${to}`;
-                const r = await fetch(url, { credentials: 'include' });
+                const r = await fetch(`api/reports.php?action=agent_detail&agent=${encodeURIComponent(agentId)}&from=${from}&to=${to}`, { credentials: 'include' });
                 const j = await r.json();
                 if (cancelled) return;
                 if (j.status === 'ok') setData(j);
                 else toast?.(j.message || 'Error', 'error');
-            } catch (e) {
-                if (!cancelled) toast?.('Error de red', 'error');
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
+            } catch (e) { if (!cancelled) toast?.('Error de red', 'error'); }
+            finally { if (!cancelled) setLoading(false); }
         })();
         return () => { cancelled = true; };
     }, [agentId, from, to, toast]);
-
-    // Escape para cerrar
-    useEffect(() => {
-        const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
 
     const k = data?.kpi || {};
     const exportUrl = useCallback((fmt) =>
         `api/reports_export.php?type=agent_detail&format=${fmt}&from=${from}&to=${to}&agent=${encodeURIComponent(agentId)}`,
         [agentId, from, to]);
 
-    const sections = [
-        { id:'overview', label:'Resumen', icon:'dashboard' },
-        { id:'sessions', label:'Sesiones', icon:'login', count: data?.sessions?.length },
-        { id:'pauses',   label:'Pausas',   icon:'pause_circle', count: data?.pauses?.length },
-        { id:'calls',    label:'Llamadas', icon:'phone',    count: data?.calls?.length },
-    ];
-
     const initials = (agent?.name || '').split(/\s+/).map(x => x[0]).join('').substring(0, 2).toUpperCase() || '?';
 
     return (
-        <div onClick={onClose} style={{
-            position:'fixed', inset:0,
-            background:'rgba(0,0,0,0.65)',
-            backdropFilter:'blur(4px)',
-            zIndex:1000,
-            display:'flex', justifyContent:'flex-end',
-            animation: 'fade-in 0.2s',
-        }}>
-            <div onClick={e => e.stopPropagation()} style={{
-                width: 'min(820px, 100%)',
-                height: '100%',
-                background: 'var(--bg)',
-                borderLeft: '1px solid var(--border)',
-                boxShadow: '-12px 0 40px rgba(0,0,0,0.4)',
-                display: 'flex', flexDirection: 'column',
-                animation: 'slide-in-right 0.25s ease-out',
-            }}>
-                {/* ─── Header con identidad del agente ─── */}
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08) 50%, transparent), var(--surface)',
-                    padding: '18px 22px',
-                    borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                }}>
-                    <div style={{
-                        width: 52, height: 52, borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 900, fontSize: 18,
-                        boxShadow: '0 6px 18px rgba(139,92,246,0.4)',
-                        flexShrink: 0,
-                    }}>{initials}</div>
-                    <div style={{flex:1, minWidth:0}}>
-                        <div style={{fontSize: 11, fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '.08em'}}>Agente</div>
-                        <div style={{fontSize: 18, fontWeight: 900, color: 'var(--text)', lineHeight: 1.15, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                            {agent?.name || agentId}
-                        </div>
-                        <div style={{fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'flex', gap: 8, alignItems: 'center'}}>
-                            <span style={{fontFamily:'monospace',fontWeight:700,color:'#8b5cf6'}}>#{agentId}</span>
+        <Sheet open={!!agent} onOpenChange={(o) => !o && onClose?.()} size="3xl">
+            <SheetHeader className="p-5 border-b border-border">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white font-black text-base shadow-lg flex-shrink-0">{initials}</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-primary">Agente</div>
+                        <SheetTitle className="truncate">{agent?.name || agentId}</SheetTitle>
+                        <SheetDescription className="text-xs flex gap-2 items-center mt-0.5">
+                            <span className="font-mono font-bold text-primary">#{agentId}</span>
                             {agent?.ext && <span>· ext {agent.ext}</span>}
                             <span>· {from} → {to}</span>
-                        </div>
+                        </SheetDescription>
                     </div>
-                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                        <a href={exportUrl('pdf')} target="_blank" rel="noopener" style={{
-                            padding: '7px 12px', borderRadius: 8,
-                            border: '1px solid #ef4444', background: 'rgba(239,68,68,0.12)',
-                            color: '#fca5a5', fontWeight: 800, fontSize: 11,
-                            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
-                            transition: 'transform .15s',
-                        }} title="Exportar a PDF">
-                            <span className="material-icons-round" style={{fontSize:15}}>picture_as_pdf</span>PDF
-                        </a>
-                        <a href={exportUrl('xlsx')} target="_blank" rel="noopener" style={{
-                            padding: '7px 12px', borderRadius: 8,
-                            border: '1px solid #16a34a', background: 'rgba(22,163,74,0.12)',
-                            color: '#86efac', fontWeight: 800, fontSize: 11,
-                            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
-                        }} title="Exportar a Excel">
-                            <span className="material-icons-round" style={{fontSize:15}}>table_chart</span>Excel
-                        </a>
-                        <button onClick={onClose} style={{
-                            padding: 8, border: '1px solid var(--border)', borderRadius: 8,
-                            background: 'var(--surface2)', color: 'var(--muted)',
-                            cursor: 'pointer', display: 'inline-flex',
-                        }} title="Cerrar (Esc)">
-                            <span className="material-icons-round" style={{fontSize:18}}>close</span>
-                        </button>
+                    <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
+                        <span className="material-icons-round text-sm">picture_as_pdf</span>PDF
+                    </Button>
+                    <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
+                        <span className="material-icons-round text-sm">table_chart</span>Excel
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onClose} title="Cerrar (Esc)">
+                        <span className="material-icons-round text-base">close</span>
+                    </Button>
+                </div>
+                <Tabs value={section} onChange={setSection} className="mt-3">
+                    <TabsList>
+                        <TabsTrigger value="overview"><span className="material-icons-round text-sm mr-1">dashboard</span>Resumen</TabsTrigger>
+                        <TabsTrigger value="sessions"><span className="material-icons-round text-sm mr-1">login</span>Sesiones {data?.sessions ? `(${data.sessions.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="pauses"><span className="material-icons-round text-sm mr-1">pause_circle</span>Pausas {data?.pauses ? `(${data.pauses.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="calls"><span className="material-icons-round text-sm mr-1">phone</span>Llamadas {data?.calls ? `(${data.calls.length})` : ''}</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </SheetHeader>
+            <SheetContent className="p-5 space-y-4">
+                {loading && (
+                    <div className="py-16 text-center text-muted-foreground">
+                        <span className="material-icons-round text-4xl animate-spin text-primary">autorenew</span>
+                        <div className="mt-2 text-sm">Cargando datos del agente…</div>
                     </div>
-                </div>
-
-                {/* ─── Section nav ─── */}
-                <div style={{
-                    display: 'flex', gap: 2,
-                    padding: '0 22px',
-                    background: 'var(--surface)',
-                    borderBottom: '1px solid var(--border)',
-                }}>
-                    {sections.map(s => (
-                        <button key={s.id} onClick={() => setSection(s.id)} style={{
-                            padding: '10px 14px',
-                            background: 'transparent', border: 'none',
-                            borderBottom: section === s.id ? '2px solid #8b5cf6' : '2px solid transparent',
-                            color: section === s.id ? '#fff' : 'var(--muted)',
-                            cursor: 'pointer',
-                            fontSize: 11, fontWeight: 800,
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            transition: 'all .15s',
-                        }}>
-                            <span className="material-icons-round" style={{fontSize:15}}>{s.icon}</span>
-                            {s.label}
-                            {s.count !== undefined && s.count !== null && (
-                                <span style={{
-                                    padding: '1px 6px', borderRadius: 8,
-                                    background: section === s.id ? '#8b5cf6' : 'var(--surface2)',
-                                    color: section === s.id ? '#fff' : 'var(--muted)',
-                                    fontSize: 9, fontWeight: 800,
-                                }}>{s.count}</span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-
-                {/* ─── Body scrollable ─── */}
-                <div style={{flex:1, overflow:'auto', padding: '20px 22px'}}>
-                    {loading && (
-                        <div style={{padding:60,textAlign:'center',color:'var(--muted)'}}>
-                            <span className="material-icons-round" style={{fontSize:36,animation:'spin 1.2s linear infinite',color:'#8b5cf6'}}>autorenew</span>
-                            <div style={{marginTop:10,fontSize:12}}>Cargando datos del agente…</div>
-                        </div>
-                    )}
-
-                    {!loading && data && section === 'overview' && <AgentOverviewSection data={data}/>}
-                    {!loading && data && section === 'sessions' && <AgentSessionsSection sessions={data.sessions}/>}
-                    {!loading && data && section === 'pauses' && <AgentPausesSection pauses={data.pauses} breakdown={data.pause_breakdown}/>}
-                    {!loading && data && section === 'calls' && <AgentCallsSection calls={data.calls}/>}
-                </div>
-            </div>
-        </div>
+                )}
+                {!loading && data && section === 'overview' && <AgentOverviewSection data={data}/>}
+                {!loading && data && section === 'sessions' && <AgentSessionsSection sessions={data.sessions}/>}
+                {!loading && data && section === 'pauses' && <AgentPausesSection pauses={data.pauses} breakdown={data.pause_breakdown}/>}
+                {!loading && data && section === 'calls' && <AgentCallsSection calls={data.calls}/>}
+            </SheetContent>
+        </Sheet>
     );
 }
 
-// HORIZON: secciones reutilizables del drawer
 function AgentOverviewSection({ data }) {
     const k = data.kpi || {};
     const breakdown = data.pause_breakdown || [];
-    const maxPauseSec = Math.max(1, ...breakdown.map(b => parseInt(b.total_sec || 0)));
+    const maxPause = Math.max(1, ...breakdown.map(b => parseInt(b.total_sec || 0)));
+    const prodColor = k.productive_pct > 80 ? '#22c55e' : (k.productive_pct > 50 ? '#f59e0b' : '#ef4444');
     return (
-        <div style={{display:'flex',flexDirection:'column',gap:16}}>
-            {/* KPI grid — 3 columnas para evitar wrap */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3, minmax(0, 1fr))',gap:10}}>
-                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="Total en período" icon="badge" color="#8b5cf6"/>
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <KPICard compact label="Sesiones" value={k.sessions_count || 0} sub="En el período" icon="badge" color="#8b5cf6"/>
                 <KPICard compact label="Login total" value={fmtDurationCompact(k.total_login_sec)} sub="Tiempo logueado" icon="login" color="#3b82f6"/>
-                <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={k.productive_pct > 80 ? '#22c55e' : (k.productive_pct > 50 ? '#f59e0b' : '#ef4444')}/>
-                <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Tiempo: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
-                <KPICard compact label="Llamadas" value={(k.total_calls || 0).toLocaleString()} sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas en sesiones'} icon="phone" color="#ec4899"/>
+                <KPICard compact label="Productivo" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} sub={`${fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} activos`} icon="trending_up" color={prodColor}/>
+                <KPICard compact label="Pausas" value={k.pauses_count || 0} sub={`Total: ${fmtDurationCompact(k.total_pause_sec)}`} icon="pause_circle" color="#f59e0b"/>
+                <KPICard compact label="Llamadas" value={(k.total_calls || 0).toLocaleString()} sub={k.total_talk_sec ? `Talk: ${fmtDurationCompact(k.total_talk_sec)}` : 'Atendidas'} icon="phone" color="#ec4899"/>
                 <KPICard compact label="Última actividad" value={data.sessions?.[0]?.logout_time ? 'Cerrada' : (data.sessions?.length ? 'Activa' : '—')} sub={data.sessions?.[0] ? fmtDateTime(data.sessions[0].login_time) : 'Sin actividad'} icon="schedule" color="#06b6d4"/>
             </div>
 
-            {/* Distribución de pausas — barras horizontales con leyenda */}
             {breakdown.length > 0 && (
-                <div className="glass" style={{padding:16,borderRadius:12}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                        <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>pie_chart</span>
-                        <span style={{fontSize:12,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.06em'}}>Distribución de pausas</span>
-                        <span style={{flex:1}}/>
-                        <span style={{fontSize:10,color:'var(--muted)'}}>Total: {fmtDurationCompact(k.total_pause_sec)}</span>
-                    </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                        {breakdown.map((p, i) => {
-                            const pct = (parseInt(p.total_sec) / maxPauseSec) * 100;
-                            const color = p.color || '#f59e0b';
+                <Card>
+                    <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                            <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
+                            Distribución de pausas
+                            <span className="ml-auto text-xs font-normal text-muted-foreground">Total: {fmtDurationCompact(k.total_pause_sec)}</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2 space-y-2">
+                        {breakdown.map((p) => {
+                            const pct = (parseInt(p.total_sec) / maxPause) * 100;
+                            const c = p.color || '#f59e0b';
                             return (
-                                <div key={p.code} style={{display:'grid',gridTemplateColumns:'140px 1fr 80px 60px',gap:10,alignItems:'center'}}>
-                                    <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                                        <span style={{width:8,height:8,borderRadius:'50%',background:color,flexShrink:0}}/>
-                                        <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.label}</span>
+                                <div key={p.code} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{background: c}}/>
+                                        <span className="text-xs font-semibold truncate">{p.label}</span>
                                     </div>
-                                    <div style={{height:14,background:'rgba(255,255,255,0.04)',borderRadius:7,overflow:'hidden'}}>
-                                        <div style={{
-                                            width:`${pct}%`,height:'100%',
-                                            background:`linear-gradient(90deg, ${color}aa, ${color})`,
-                                            borderRadius:7,
-                                            transition: 'width 0.4s ease-out',
-                                        }}/>
+                                    <div className="h-3.5 bg-muted rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${c}aa, ${c})`}}/>
                                     </div>
-                                    <span style={{fontSize:11,fontFamily:'monospace',fontWeight:700,color,textAlign:'right'}}>{fmtDurationCompact(p.total_sec)}</span>
-                                    <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,textAlign:'right'}}>{p.count}x</span>
+                                    <span className="text-xs font-mono font-bold text-right" style={{color: c}}>{fmtDurationCompact(p.total_sec)}</span>
+                                    <span className="text-xs text-muted-foreground font-semibold text-right">{p.count}x</span>
                                 </div>
                             );
                         })}
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             )}
 
-            {/* Resumen de actividad reciente */}
-            <div className="glass" style={{padding:16,borderRadius:12}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>insights</span>
-                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.06em'}}>Indicadores del período</span>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:11}}>
-                    <Row label="Tiempo total de login" value={fmtDurationCompact(k.total_login_sec)} color="#3b82f6"/>
-                    <Row label="Tiempo en pausa" value={fmtDurationCompact(k.total_pause_sec)} color="#f59e0b"/>
-                    <Row label="Tiempo activo (productivo)" value={fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} color="#22c55e"/>
-                    <Row label="% Productividad" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} color={k.productive_pct > 80 ? '#22c55e' : '#f59e0b'}/>
-                    <Row label="Llamadas atendidas" value={(k.total_calls || 0).toLocaleString()} color="#ec4899"/>
-                    <Row label="Cantidad de pausas" value={k.pauses_count || 0} color="#f59e0b"/>
-                </div>
-            </div>
+            <Card>
+                <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="material-icons-round text-blue-500 text-base">insights</span>
+                        Indicadores del período
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <Row label="Tiempo total de login" value={fmtDurationCompact(k.total_login_sec)} color="#3b82f6"/>
+                        <Row label="Tiempo en pausa" value={fmtDurationCompact(k.total_pause_sec)} color="#f59e0b"/>
+                        <Row label="Tiempo activo (productivo)" value={fmtDurationCompact(Math.max(0,(k.total_login_sec||0)-(k.total_pause_sec||0)))} color="#22c55e"/>
+                        <Row label="% Productividad" value={k.productive_pct !== null ? `${k.productive_pct}%` : '—'} color={prodColor}/>
+                        <Row label="Llamadas atendidas" value={(k.total_calls || 0).toLocaleString()} color="#ec4899"/>
+                        <Row label="Cantidad de pausas" value={k.pauses_count || 0} color="#f59e0b"/>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
 
 function Row({ label, value, color }) {
     return (
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 10px',background:'rgba(255,255,255,0.02)',borderRadius:6}}>
-            <span style={{color:'var(--muted)'}}>{label}</span>
-            <span style={{fontFamily:'monospace',fontWeight:800,color:color||'var(--text)'}}>{value}</span>
+        <div className="flex justify-between items-center px-3 py-1.5 bg-muted/40 rounded-md">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-mono font-bold" style={{color: color || undefined}}>{value}</span>
         </div>
     );
 }
 
 function AgentSessionsSection({ sessions = [] }) {
-    if (sessions.length === 0) {
-        return <EmptyState icon="login" title="Sin sesiones" subtitle="Este agente no se logueó en el período seleccionado"/>;
-    }
+    if (sessions.length === 0) return <EmptyState icon="login" title="Sin sesiones" subtitle="Este agente no se logueó en el período"/>;
     return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
-                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>history</span>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Historial de sesiones</span>
-                <span style={{flex:1}}/>
-                <span style={{fontSize:10,color:'var(--muted)'}}>{sessions.length} total</span>
-            </div>
-            <div style={{maxHeight:'calc(100vh - 240px)',overflow:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <Th>Estado</Th>
-                            <Th>Login</Th>
-                            <Th>Logout</Th>
-                            <Th align="right">Duración</Th>
-                            <Th align="right">Ext</Th>
-                            <Th align="right">Llamadas</Th>
-                            <Th align="right">Talk time</Th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <Card>
+            <CardContent className="p-0">
+                <ShTable>
+                    <ShTHead>
+                        <ShTR>
+                            <ShTH>Estado</ShTH>
+                            <ShTH>Login</ShTH>
+                            <ShTH>Logout</ShTH>
+                            <ShTH align="right">Duración</ShTH>
+                            <ShTH align="right">Ext</ShTH>
+                            <ShTH align="right">Llamadas</ShTH>
+                            <ShTH align="right">Talk</ShTH>
+                        </ShTR>
+                    </ShTHead>
+                    <ShTBody>
                         {sessions.map((s, i) => {
                             const active = !s.logout_time;
                             return (
-                                <tr key={s.session_id || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                    <Td>
-                                        <span style={{
-                                            padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,letterSpacing:'.05em',
-                                            background: active ? 'rgba(34,197,94,0.18)' : 'rgba(107,114,128,0.18)',
-                                            color: active ? '#22c55e' : '#9ca3af',
-                                            display:'inline-flex',alignItems:'center',gap:4,
-                                        }}>
-                                            <span style={{width:6,height:6,borderRadius:'50%',background:active?'#22c55e':'#6b7280',animation:active?'pulse 2s infinite':''}}/>
-                                            {active ? 'ACTIVA' : 'CERRADA'}
-                                        </span>
-                                    </Td>
-                                    <Td mono>{fmtDateTime(s.login_time)}</Td>
-                                    <Td mono>{s.logout_time ? fmtDateTime(s.logout_time) : '—'}</Td>
-                                    <Td align="right" mono><span style={{color:'#3b82f6',fontWeight:700}}>{fmtDurationCompact(s.duration_sec)}</span></Td>
-                                    <Td align="right" mono>{s.agent_ext}</Td>
-                                    <Td align="right">{s.total_calls || 0}</Td>
-                                    <Td align="right" mono>{s.total_talk_time ? fmtDurationCompact(s.total_talk_time) : '—'}</Td>
-                                </tr>
+                                <ShTR key={s.session_id || i}>
+                                    <ShTD><Badge variant={active ? 'success' : 'secondary'}>{active ? 'ACTIVA' : 'CERRADA'}</Badge></ShTD>
+                                    <ShTD mono>{fmtDateTime(s.login_time)}</ShTD>
+                                    <ShTD mono>{s.logout_time ? fmtDateTime(s.logout_time) : '—'}</ShTD>
+                                    <ShTD align="right" mono><span className="text-blue-500 font-bold">{fmtDurationCompact(s.duration_sec)}</span></ShTD>
+                                    <ShTD align="right" mono>{s.agent_ext}</ShTD>
+                                    <ShTD align="right">{s.total_calls || 0}</ShTD>
+                                    <ShTD align="right" mono>{s.total_talk_time ? fmtDurationCompact(s.total_talk_time) : '—'}</ShTD>
+                                </ShTR>
                             );
                         })}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    </ShTBody>
+                </ShTable>
+            </CardContent>
+        </Card>
     );
 }
 
 function AgentPausesSection({ pauses = [], breakdown = [] }) {
-    if (pauses.length === 0) {
-        return <EmptyState icon="pause_circle" title="Sin pausas" subtitle="Este agente no tomó pausas en el período"/>;
-    }
+    if (pauses.length === 0) return <EmptyState icon="pause_circle" title="Sin pausas" subtitle="Este agente no tomó pausas en el período"/>;
     return (
-        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div className="space-y-4">
             {breakdown.length > 0 && (
-                <div className="glass" style={{padding:16,borderRadius:12}}>
-                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:10}}>Por motivo</div>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
-                        {breakdown.map(b => (
-                            <div key={b.code} style={{padding:10,borderRadius:8,background:`${b.color||'#f59e0b'}15`,border:`1px solid ${b.color||'#f59e0b'}33`}}>
-                                <div style={{fontSize:10,fontWeight:800,color:b.color||'#f59e0b',marginBottom:4}}>{b.label}</div>
-                                <div style={{fontSize:18,fontWeight:900,color:'var(--text)',fontFamily:'monospace'}}>{fmtDurationCompact(b.total_sec)}</div>
-                                <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{b.count} pausas</div>
-                            </div>
-                        ))}
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {breakdown.map(b => (
+                        <Card key={b.code} className="p-3" style={{borderColor: (b.color||'#f59e0b')+'33', background: (b.color||'#f59e0b')+'10'}}>
+                            <div className="text-[10px] font-bold uppercase mb-1" style={{color: b.color||'#f59e0b'}}>{b.label}</div>
+                            <div className="text-xl font-black font-mono">{fmtDurationCompact(b.total_sec)}</div>
+                            <div className="text-[10px] text-muted-foreground mt-1">{b.count} pausas</div>
+                        </Card>
+                    ))}
                 </div>
             )}
-            <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-                <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
-                    <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>list</span>
-                    <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Detalle de pausas</span>
-                    <span style={{flex:1}}/>
-                    <span style={{fontSize:10,color:'var(--muted)'}}>{pauses.length} total</span>
-                </div>
-                <div style={{maxHeight:'calc(100vh - 380px)',overflow:'auto'}}>
-                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                        <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                            <tr style={{borderBottom:'1px solid var(--border)'}}>
-                                <Th>Motivo</Th>
-                                <Th>Inicio</Th>
-                                <Th>Fin</Th>
-                                <Th align="right">Duración</Th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pauses.map((p, i) => (
-                                <tr key={p.id || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                    <Td>
-                                        <span style={{padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,background:(p.pause_color||'#f59e0b')+'22',color:p.pause_color||'#f59e0b'}}>
-                                            {p.pause_label || p.pause_type_code}
-                                        </span>
-                                    </Td>
-                                    <Td mono>{fmtDateTime(p.pause_start)}</Td>
-                                    <Td mono>{p.pause_end ? fmtDateTime(p.pause_end) : <span style={{color:'#22c55e',fontWeight:700}}>(activa)</span>}</Td>
-                                    <Td align="right" mono><span style={{fontWeight:700,color:p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></Td>
-                                </tr>
+            <Card>
+                <CardContent className="p-0">
+                    <ShTable>
+                        <ShTHead>
+                            <ShTR>
+                                <ShTH>Motivo</ShTH>
+                                <ShTH>Inicio</ShTH>
+                                <ShTH>Fin</ShTH>
+                                <ShTH align="right">Duración</ShTH>
+                            </ShTR>
+                        </ShTHead>
+                        <ShTBody>
+                            {pauses.map(p => (
+                                <ShTR key={p.id}>
+                                    <ShTD>
+                                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>{p.pause_label || p.pause_type_code}</span>
+                                    </ShTD>
+                                    <ShTD mono>{fmtDateTime(p.pause_start)}</ShTD>
+                                    <ShTD mono>{p.pause_end ? fmtDateTime(p.pause_end) : <span className="text-green-500 font-bold">(activa)</span>}</ShTD>
+                                    <ShTD align="right" mono><span className="font-bold" style={{color: p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></ShTD>
+                                </ShTR>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                        </ShTBody>
+                    </ShTable>
+                </CardContent>
+            </Card>
         </div>
     );
 }
 
 function AgentCallsSection({ calls = [] }) {
-    if (calls.length === 0) {
-        return <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="No hay registros de CDR para este agente"/>;
-    }
-    const dispoColors = { 'ANSWERED':'#22c55e', 'NO ANSWER':'#f59e0b', 'BUSY':'#ef4444', 'FAILED':'#6b7280' };
+    if (calls.length === 0) return <EmptyState icon="phone_disabled" title="Sin llamadas" subtitle="No hay registros de CDR para este agente"/>;
     return (
-        <div className="glass" style={{padding:0,borderRadius:12,overflow:'hidden'}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
-                <span className="material-icons-round" style={{fontSize:18,color:'#ec4899'}}>phone</span>
-                <span style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Historial de llamadas</span>
-                <span style={{flex:1}}/>
-                <span style={{fontSize:10,color:'var(--muted)'}}>{calls.length} llamadas</span>
-            </div>
-            <div style={{maxHeight:'calc(100vh - 240px)',overflow:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-                    <thead style={{position:'sticky',top:0,background:'var(--surface)',zIndex:1}}>
-                        <tr style={{borderBottom:'1px solid var(--border)'}}>
-                            <Th>Fecha/Hora</Th>
-                            <Th>Origen</Th>
-                            <Th>Destino</Th>
-                            <Th>Estado</Th>
-                            <Th align="right">Duración</Th>
-                            <Th align="right">Hablado</Th>
-                            <Th align="center">Grab.</Th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {calls.slice(0, 200).map((c, i) => (
-                            <tr key={c.uniqueid || i} style={{borderBottom:'1px solid var(--border)',background:i%2?'rgba(255,255,255,0.02)':'transparent'}}>
-                                <Td mono>{fmtDateTime(c.calldate)}</Td>
-                                <Td mono>{c.src}</Td>
-                                <Td mono>{c.dst}</Td>
-                                <Td>
-                                    <span style={{padding:'2px 8px',borderRadius:4,fontSize:9,fontWeight:800,background:(dispoColors[c.disposition]||'#6b7280')+'22',color:dispoColors[c.disposition]||'#6b7280'}}>{c.disposition}</span>
-                                </Td>
-                                <Td align="right" mono>{c.duration}s</Td>
-                                <Td align="right" mono>{c.billsec ? fmtDurationCompact(c.billsec) : '—'}</Td>
-                                <Td align="center">{c.recordingfile ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener" style={{color:'#8b5cf6'}} title="Reproducir"><span className="material-icons-round" style={{fontSize:16,verticalAlign:'middle'}}>play_circle</span></a> : <span style={{color:'var(--muted)'}}>—</span>}</Td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+        <Card>
+            <CardContent className="p-0">
+                <ShTable>
+                    <ShTHead>
+                        <ShTR>
+                            <ShTH>Fecha/Hora</ShTH>
+                            <ShTH>Origen</ShTH>
+                            <ShTH>Destino</ShTH>
+                            <ShTH>Estado</ShTH>
+                            <ShTH align="right">Duración</ShTH>
+                            <ShTH align="right">Hablado</ShTH>
+                            <ShTH align="center">Grab.</ShTH>
+                        </ShTR>
+                    </ShTHead>
+                    <ShTBody>
+                        {calls.slice(0, 200).map((c, i) => {
+                            const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                            return (
+                                <ShTR key={c.uniqueid || i}>
+                                    <ShTD mono>{fmtDateTime(c.calldate)}</ShTD>
+                                    <ShTD mono>{c.src}</ShTD>
+                                    <ShTD mono>{c.dst}</ShTD>
+                                    <ShTD><Badge variant={variant}>{c.disposition}</Badge></ShTD>
+                                    <ShTD align="right" mono>{c.duration}s</ShTD>
+                                    <ShTD align="right" mono>{c.billsec ? fmtDurationCompact(c.billsec) : '—'}</ShTD>
+                                    <ShTD align="center">
+                                        {c.recordingfile
+                                            ? <a href={`api/recording.php?file=${encodeURIComponent(c.recordingfile)}`} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex"><span className="material-icons-round text-base">play_circle</span></a>
+                                            : <span className="text-muted-foreground">—</span>}
+                                    </ShTD>
+                                </ShTR>
+                            );
+                        })}
+                    </ShTBody>
+                </ShTable>
                 {calls.length > 200 && (
-                    <div style={{padding:'10px 16px',background:'var(--surface2)',borderTop:'1px solid var(--border)',textAlign:'center',fontSize:10,color:'var(--muted)'}}>
+                    <div className="px-4 py-2 bg-muted/40 border-t border-border text-center text-xs text-muted-foreground">
                         Mostrando 200 más recientes de {calls.length}. Usá el export para el listado completo.
                     </div>
                 )}
-            </div>
-        </div>
-    );
-}
-
-// HORIZON: helpers de tabla
-function Th({ children, align = 'left' }) {
-    return (
-        <th style={{
-            padding: '8px 12px',
-            textAlign: align,
-            color: 'var(--muted)',
-            fontWeight: 800,
-            fontSize: 10,
-            textTransform: 'uppercase',
-            letterSpacing: '.05em',
-        }}>{children}</th>
-    );
-}
-
-function Td({ children, align = 'left', mono = false }) {
-    return (
-        <td style={{
-            padding: '8px 12px',
-            textAlign: align,
-            fontFamily: mono ? 'monospace' : 'inherit',
-            fontSize: mono ? 10 : 11,
-        }}>{children}</td>
+            </CardContent>
+        </Card>
     );
 }
 
 function EmptyState({ icon, title, subtitle }) {
     return (
-        <div style={{padding:50,textAlign:'center'}}>
-            <span className="material-icons-round" style={{fontSize:48,color:'var(--muted)',opacity:0.5}}>{icon}</span>
-            <div style={{marginTop:10,fontSize:14,fontWeight:700,color:'var(--text)'}}>{title}</div>
-            <div style={{marginTop:4,fontSize:11,color:'var(--muted)'}}>{subtitle}</div>
+        <div className="py-12 text-center">
+            <span className="material-icons-round text-5xl text-muted-foreground/40">{icon}</span>
+            <div className="mt-2 text-base font-bold text-foreground">{title}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
         </div>
     );
 }
-
 
 
 // El Softphone ahora es una PWA independiente en /softphone/
@@ -8889,7 +9149,7 @@ function App() {
     );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<SileoProvider><App /></SileoProvider>);
+ReactDOM.createRoot(document.getElementById("root")).render(<ThemeProvider><SileoProvider><App /></SileoProvider><Toaster /></ThemeProvider>);
 </script>
 
 </body>
