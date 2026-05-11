@@ -1,12 +1,37 @@
+<?php
+// HORIZON: anti-cache para que el browser siempre traiga la última versión del JSX
+header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0a0a0f">
+    <!-- HORIZON: cache busters -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
+        }
+        if ('caches' in window) caches.keys().then(ks => ks.forEach(k => caches.delete(k)));
+      } catch(e) {}
+    </script>
+    <!-- TF_BUILD: 2026-05-08T1778189164-SESSION -->
     <title>TeleFlow · Next-Gen PBX Control</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📞</text></svg>'>
+    <link rel="icon" type="image/svg+xml" href="icon-192.svg">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TeleFlow">
+    <meta name="mobile-web-app-capable" content="yes">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script>
@@ -56,6 +81,13 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/style.css">
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
@@ -78,14 +110,70 @@
             --sidebar-w: 230px;
         }
         body.light {
-            --bg: #f1f3f9;
+            --bg: #f5f7fb;
             --surface: #ffffff;
-            --surface2: #f8f9fc;
+            --surface2: #f0f2f7;
             --border: rgba(0,0,0,0.08);
             --text: #111827;
             --muted: #6b7280;
+            --accent-glow: rgba(139,92,246,0.18);
         }
-        body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f1f3f9; }
+        body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.18) 0%,transparent 70%),#f5f7fb; }
+        body.light .glass { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        body.light .sidebar { background: linear-gradient(180deg,#fafbff,#f5f7fb) !important; border-right: 1px solid var(--border); }
+        body.light .nav-item:hover { background: rgba(139,92,246,0.08) !important; }
+        body.light .nav-item.active { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)) !important; color: #6d28d9 !important; }
+        body.light .input-tf { background: #ffffff !important; color: #111827 !important; border:1px solid var(--border) !important; }
+        body.light .tf-table { color: #111827; }
+        body.light .tf-table thead { background: #f0f2f7; }
+        body.light .tf-table tr:hover { background: #f5f7fb; }
+        body.light .badge-online { background: rgba(34,197,94,0.15); color: #15803d; }
+        body.light .badge-offline { background: rgba(107,114,128,0.12); color: #4b5563; }
+        body.light .badge-busy { background: rgba(245,158,11,0.15); color: #b45309; }
+
+        /* Theme toggle animated button */
+        .theme-toggle {
+            position: relative; width: 52px; height: 28px; border-radius: 14px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+            border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+        body.light .theme-toggle {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .theme-toggle .knob {
+            position: absolute; top: 2px; left: 2px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; justify-content: center;
+        }
+        body.light .theme-toggle .knob { transform: translateX(24px); }
+        .theme-toggle .knob .moon { color: #1e3a8a; font-size: 14px; transition: all 0.4s; }
+        .theme-toggle .knob .sun  { color: #f59e0b; font-size: 14px; transition: all 0.4s; position:absolute; opacity: 0; transform: rotate(-90deg); }
+        body.light .theme-toggle .knob .moon { opacity: 0; transform: rotate(90deg); }
+        body.light .theme-toggle .knob .sun  { opacity: 1; transform: rotate(0deg); }
+        /* Stars + sky decoration */
+        .theme-toggle .stars { position:absolute; inset:0; transition: opacity 0.4s; }
+        .theme-toggle .stars::before, .theme-toggle .stars::after {
+            content: ''; position: absolute; width: 2px; height: 2px;
+            background: #fff; border-radius: 50%; box-shadow: 8px 6px 0 rgba(255,255,255,0.6), 18px 14px 0 rgba(255,255,255,0.5);
+        }
+        .theme-toggle .stars::before { top: 4px; left: 4px; }
+        body.light .theme-toggle .stars { opacity: 0; }
+        .theme-toggle .clouds {
+            position:absolute; inset:0; opacity: 0; transition: opacity 0.4s;
+        }
+        body.light .theme-toggle .clouds { opacity: 1; }
+        .theme-toggle .clouds::before {
+            content: ''; position: absolute; left: 4px; top: 8px;
+            width: 10px; height: 6px; border-radius: 4px;
+            background: rgba(255,255,255,0.7);
+            box-shadow: 8px 4px 0 -1px rgba(255,255,255,0.6);
+        }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; transition: background 0.4s ease, color 0.4s ease; }
         .theme-transition * { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease !important; }
         
@@ -138,6 +226,19 @@
         }
         @keyframes orbFloat { from { transform: translateY(0) scale(1); } to { transform: translateY(-30px) scale(1.1); } }
         @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes ring-pulse {
+            0% { opacity: 0.7; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.7); }
+        }
+        @keyframes phone-shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-12deg); }
+            75% { transform: rotate(12deg); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
         @keyframes pulse-ring {
             0% { transform: scale(1); opacity: .6; }
             100% { transform: scale(1.5); opacity: 0; }
@@ -196,6 +297,44 @@
         /* Light mode inputs */
         body.light .input-tf { background: rgba(0,0,0,0.05); color: #111827; }
         body.light .input-tf::placeholder { color: #9ca3af; }
+        /* HORIZON FIX (refuerzo): caja de inputs siempre con buen contraste */
+        input.input-tf, .login-card input.input-tf {
+            background: rgba(255,255,255,0.06) !important;
+            color: #f0f0ff !important;
+            -webkit-text-fill-color: #f0f0ff !important;
+            caret-color: #f0f0ff !important;
+        }
+        body.light input.input-tf, body.light .login-card input.input-tf {
+            background: rgba(0,0,0,0.05) !important;
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            caret-color: #111827 !important;
+        }
+        /* HORIZON FIX: forzar color de texto en inputs (override autofill de Chrome) */
+        .input-tf, input.input-tf, input[type="text"].input-tf, input[type="password"].input-tf, input[type="email"].input-tf {
+            color: var(--text) !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }
+        body.light .input-tf, body.light input.input-tf {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+        }
+        /* Override del autofill amarillo de Chrome */
+        .input-tf:-webkit-autofill,
+        .input-tf:-webkit-autofill:hover,
+        .input-tf:-webkit-autofill:focus,
+        .input-tf:-webkit-autofill:active {
+            -webkit-text-fill-color: var(--text) !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(255,255,255,0.06) inset !important;
+            transition: background-color 5000s ease-in-out 0s !important;
+            caret-color: var(--text) !important;
+        }
+        body.light .input-tf:-webkit-autofill,
+        body.light .input-tf:-webkit-autofill:hover,
+        body.light .input-tf:-webkit-autofill:focus {
+            -webkit-text-fill-color: #111827 !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(0,0,0,0.05) inset !important;
+        }
         /* Selects same as inputs */
         select.input-tf option { background: var(--surface); color: var(--text); }
         .btn-primary {
@@ -229,6 +368,87 @@
         .sidebar.collapsed .nav-item { justify-content:center; padding:10px 0; }
         .sidebar.collapsed .sidebar-logo { padding:16px 0; justify-content:center; }
         .sidebar.collapsed .sidebar-logo-text { display:none; }
+
+        /* ═══ TOPBAR UNIFICADO (HORIZON) ═══ */
+        .tf-q-btn:hover { background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)) !important; transform: translateX(2px); }
+        .tf-q-btn:active { transform: translateX(2px) scale(.98); }
+
+        /* ═══ MODAL OVERLAY UNIFICADO ═══ */
+        .tf-modal-overlay { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex; align-items: flex-start; justify-content: center; background: rgba(8, 10, 18, 0.78); backdrop-filter: blur(20px) saturate(0.8) brightness(0.55); -webkit-backdrop-filter: blur(20px) saturate(0.8) brightness(0.55); animation: tfModalFade .18s ease both; padding: 5vh 20px; overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; transform: none !important; filter: none !important; will-change: auto !important; contain: none !important; }
+        .tf-modal-overlay > div { flex-shrink: 0; }
+        /* Máscara superior fija para el blur — fade del contenido al hacer scroll */
+        .tf-modal-overlay::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 40px; background: linear-gradient(180deg, rgba(7,11,22,0.6), transparent); pointer-events: none; z-index: 100000; }
+        body.light .tf-modal-overlay { background: rgba(30, 35, 60, 0.72); }
+        
+        #tf-modal-root > * { pointer-events: auto; }
+        #tf-modal-root:not(:empty) { pointer-events: auto; }
+        
+        
+
+        @keyframes tfModalFade { from { opacity: 0; } to { opacity: 1; } }
+        .tf-modal-card { animation: tfModalPop .22s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes tfModalPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        body.tf-modal-open { overflow: hidden; }
+
+        .tf-page-header { display: flex; align-items: center; justify-content: center; padding: 6px 4px 14px; margin: 0 0 12px 0; gap: 14px; flex-wrap: wrap; }
+        .tf-page-actions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+
+        .tfbar { position: sticky; top: 0; z-index: 90; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; box-shadow: 0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04); backdrop-filter: blur(6px); overflow: visible; }
+        .tfbar-logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; cursor: pointer; }
+        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(139,92,246,0.35); }
+        .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
+        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
+        .tfbar-menu { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; overflow: visible; flex-wrap: nowrap; min-width: 0; }
+        .tfbar-menu::-webkit-scrollbar { display: none; }
+        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
+        .tfbar-item:hover { background: rgba(139,92,246,.10); color: var(--text); }
+        .tfbar-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
+        .tfbar-item .material-icons-round { font-size: 17px; }
+        .tfbar-item .chev { font-size: 14px; opacity: .55; margin-left: -2px; transition: transform .2s; }
+        .tfbar-item.open .chev { transform: rotate(180deg); }
+        .tfbar-dropdown { position: fixed; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.10); padding: 6px; z-index: 9000; animation: tfDrop .18s ease both; overflow: hidden; }
+        @keyframes tfDrop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .tfbar-drop-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text); transition: background .12s; }
+        .tfbar-drop-item:hover { background: rgba(139,92,246,.10); }
+        .tfbar-drop-item.active { background: rgba(139,92,246,.20); color: #c4b5fd; }
+        .tfbar-drop-item .material-icons-round { font-size: 18px; color: var(--muted); flex-shrink: 0; }
+        .tfbar-drop-item.active .material-icons-round { color: #c4b5fd; }
+        .tfbar-drop-item .tfbar-drop-text { flex: 1; min-width: 0; }
+        .tfbar-drop-item .tfbar-drop-sub { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+        .tfbar-badge { background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 9px; min-width: 16px; text-align: center; }
+        .tfbar-spacer { flex: 1; }
+        .tfbar-stat { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 8px; cursor: pointer; transition: background .12s; border: none; background: transparent; color: inherit; }
+        .tfbar-stat:hover { background: rgba(139,92,246,.08); }
+        .tfbar-stat-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+        .tfbar-stat-icon .material-icons-round { font-size: 15px; }
+        .tfbar-stat-val { font-size: 12.5px; font-weight: 800; line-height: 1; color: var(--text); }
+        .tfbar-stat-lbl { font-size: 8.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; line-height: 1; margin-top: 2px; }
+        .tfbar-divider { width: 1px; height: 26px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+        .tfbar-pill { display: flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 10.5px; font-weight: 700; border: 1px solid rgba(34,197,94,.25); background: rgba(34,197,94,.08); color: #22c55e; }
+        .tfbar-pill:hover { background: rgba(34,197,94,.13); }
+        .tfbar-avatar { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; cursor: pointer; box-shadow: 0 2px 8px rgba(139,92,246,.30); user-select: none; }
+        .tfbar-avatar:hover { transform: scale(1.04); }
+        .tfbar-mobile-toggle { display: none; }
+        @media (max-width: 900px) {
+            .tfbar { padding: 0 8px; gap: 8px; }
+            .tfbar-stat-val, .tfbar-stat-lbl { display: none; }
+            .tfbar-stat { padding: 5px 6px; }
+            .tfbar-pill > div { display: none; }
+            .tfbar-pill > div:first-child { display: block; }
+        }
+        @media (max-width: 768px) {
+            .tfbar-menu { display: none; }
+            .tfbar-mobile-toggle { display: flex; padding: 7px; border-radius: 8px; cursor: pointer; }
+            .tfbar-mobile-toggle:hover { background: rgba(139,92,246,.10); }
+            .tfbar-mobile-panel { position: fixed; top: 56px; left: 0; right: 0; background: var(--surface); border-bottom: 1px solid var(--border); max-height: calc(100vh - 56px); overflow-y: auto; z-index: 95; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+            .tfbar-mobile-section { font-size: 9.5px; font-weight: 800; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; padding: 10px 12px 4px; }
+        }
+        /* Override #app: ya no es flex horizontal, todo va vertical */
+        #app.tfshell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #app.tfshell .main-content { flex: 1; min-height: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+        #app.tfshell .main-scroll { flex: 1; overflow-y: auto; padding: 14px; }
+        body.light .tfbar { background: linear-gradient(180deg, #ffffff, #fafbff) !important; }
+
         @keyframes viewIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         .view-enter { animation: viewIn .25s ease both; }
         .sidebar-logo {
@@ -438,13 +658,98 @@
         .toast-error { background:#450a0a;border:1px solid #991b1b;color:#f87171; }
         .toast-info { background:#1e1b4b;border:1px solid #3730a3;color:#a5b4fc; }
         .toast-warning { background:#431407;border:1px solid #9a3412;color:#fb923c; }
+        /* HORIZON: Tabla estilo UCM/Grandstream — limpia y profesional */
+        .tf-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .tf-table thead { background: rgba(139,92,246,0.05); border-bottom: 1px solid var(--border); }
+        body.light .tf-table thead { background: #f0f2f7; }
+        .tf-table th { padding: 12px 14px; text-align: left; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .tf-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+        .tf-table tbody tr { transition: background 0.15s; }
+        .tf-table tbody tr:hover { background: rgba(139,92,246,0.04); }
+        body.light .tf-table tbody tr:hover { background: #f5f7fb; }
+        .tf-table tbody tr:last-child td { border-bottom: none; }
+        /* HORIZON: Sileo-style notifications */
+        @keyframes sileo-in {
+            0% { opacity: 0; transform: translateY(120%) translateX(20%) scale(0.85); }
+            60% { opacity: 1; transform: translateY(-6px) translateX(0) scale(1.02); }
+            100% { opacity: 1; transform: translateY(0) translateX(0) scale(1); }
+        }
+        @keyframes sileo-out {
+            0% { opacity: 1; transform: translateY(0) translateX(0) scale(1); }
+            100% { opacity: 0; transform: translateY(40%) translateX(20%) scale(0.85); }
+        }
+        @keyframes sileo-pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+            100% { box-shadow: 0 0 0 12px rgba(34,197,94,0); }
+        }
+        .sileo-stack { 
+            position: fixed; bottom: 18px; right: 18px; z-index: 9999;
+            display: flex; flex-direction: column-reverse; gap: 10px;
+            pointer-events: none;
+            max-height: calc(100vh - 36px); overflow: hidden;
+        }
+        .sileo-notif {
+            min-width: 340px; max-width: 380px;
+            background: rgba(20,20,32,0.92);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px;
+            padding: 12px 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
+            color: #f0f0ff;
+            pointer-events: auto;
+            animation: sileo-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; gap: 12px; align-items: flex-start;
+        }
+        .sileo-notif.dismissing { animation: sileo-out 0.3s ease forwards; }
+        body.light .sileo-notif {
+            background: rgba(255,255,255,0.95);
+            border-color: rgba(0,0,0,0.08);
+            color: #111827;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .sileo-icon {
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff;
+        }
+        .sileo-notif.call .sileo-icon {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            animation: sileo-pulse-ring 1.4s infinite;
+        }
+        .sileo-notif.warning .sileo-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .sileo-notif.error .sileo-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .sileo-body { flex: 1; min-width: 0; }
+        .sileo-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.2px; margin-bottom: 2px; }
+        .sileo-msg { font-size: 11.5px; opacity: 0.78; line-height: 1.35; }
+        .sileo-actions { display: flex; gap: 6px; margin-top: 8px; }
+        .sileo-btn { padding: 5px 12px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .sileo-btn.primary { background: rgba(139,92,246,0.25); color: #c4b5fd; }
+        .sileo-btn.primary:hover { background: rgba(139,92,246,0.4); color: #fff; }
+        .sileo-btn.secondary { background: rgba(255,255,255,0.06); color: #fff; }
+        body.light .sileo-btn.secondary { background: rgba(0,0,0,0.05); color: #111827; }
+        .sileo-close { 
+            width: 22px; height: 22px; border-radius: 50%; border: none; 
+            background: rgba(255,255,255,0.08); color: #999; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            font-size: 14px; transition: all 0.15s;
+        }
+        .sileo-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        body.light .sileo-close { background: rgba(0,0,0,0.06); }
+        body.light .sileo-close:hover { background: rgba(0,0,0,0.1); color: #111; }
+        .sileo-time { font-size: 9.5px; opacity: 0.55; font-variant-numeric: tabular-nums; }
+
+
     </style>
 </head>
 <body>
 <div id="root"></div>
+<div id="tf-modal-root" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;"></div>
 <script src="sw.js"></script>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -461,7 +766,25 @@ function AgentCallTimer({ seconds }) {
 }
 const avatarColors = ['from-violet-500 to-purple-700','from-blue-500 to-cyan-600','from-rose-500 to-red-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-600','from-pink-500 to-fuchsia-600'];
 const getColor = (n) => avatarColors[(n?.charCodeAt(0) || 0) % avatarColors.length];
-const initials = (n='') => n.split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase();
+const initials = (n) => { const s = (typeof n === 'string') ? n : (n && (n.name || n.agent_name || n.username || '')); const str = String(s||'').trim() || '?'; return str.split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase(); };
+// HORIZON: formato del destino de una llamada (ext, cola, grupo, externo)
+
+// HORIZON: helper para formatear segundos a hh:mm:ss
+function tfFmtSecs(s) {
+    s = parseInt(s) || 0;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = s % 60;
+    return h > 0 ? `${h}h ${String(m).padStart(2,'0')}m` : (m > 0 ? `${m}m ${String(sc).padStart(2,'0')}s` : `${sc}s`);
+}
+
+function fmtDest(c) {
+    if (!c) return '—';
+    const d = c.dest || c.peer_ext || c.exten || '';
+    const ctx = c.context || '';
+    if (/macro-dial-one|grp-|ext-group/i.test(ctx)) return d ? `Grupo ${d}` : 'Grupo';
+    if (/macro-queue|app-queue|ext-queues/i.test(ctx)) return d ? `Cola ${d}` : 'Cola';
+    if (/^\d{2,5}$/.test(String(d))) return `Ext ${d}`;
+    return String(d || '—');
+}
 
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
@@ -507,25 +830,34 @@ const useRadarStore = createStore((set) => ({
 // LOGIN
 // ─────────────────────────────────────────────
 function Login({ onLogin }) {
+    const [role, setRole] = useState('admin');  // 'admin' | 'agent'
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
+    const [callbackExt, setCallbackExt] = useState('');
     const [err, setErr] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
 
     const submit = async (e) => {
         e.preventDefault(); setErr(''); setLoading(true);
-        const fd = new FormData();
-        fd.append('username', user); fd.append('password', pass);
         try {
-            const r = await fetch('api/index.php?action=login', { 
-                method: 'POST', 
-                body: fd,
-                credentials: 'include'
-            });
-            const d = await r.json();
-            if (d.status === 'success') onLogin(d.user);
-            else setErr('Credenciales incorrectas. Verificá usuario y contraseña.');
+            if (role === 'admin') {
+                const fd = new FormData();
+                fd.append('username', user); fd.append('password', pass);
+                const r = await fetch('api/index.php?action=login', { method:'POST', body:fd, credentials:'include' });
+                const d = await r.json();
+                if (d.status === 'success') onLogin({ name: d.user, role: 'admin' });
+                else setErr('Credenciales incorrectas.');
+            } else {
+                const fd = new FormData();
+                fd.append('agent_number', user);
+                fd.append('password', pass);
+                fd.append('callback_extension', callbackExt);
+                const r = await fetch('api/agent.php?action=login', { method:'POST', body:fd, credentials:'include' });
+                const d = await r.json();
+                if (d.status === 'success') onLogin({ name: d.agent.name, role: 'agent', agent: d.agent });
+                else setErr(d.message || 'Login de agente falló.');
+            }
         } catch { setErr('Error de conexión con el servidor.'); }
         setLoading(false);
     };
@@ -556,14 +888,26 @@ function Login({ onLogin }) {
                     <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.25em',color:'#6b7280',textTransform:'uppercase',marginTop:4}}>Next-Gen PBX Control · Infratec</p>
                 </div>
 
+                {/* Toggle Admin/Agente */}
+                <div className="anim-fadeup-2" style={{display:'flex',background:'rgba(255,255,255,0.04)',border:'1px solid var(--border)',borderRadius:14,padding:4,marginBottom:18}}>
+                    <button type="button" onClick={()=>setRole('admin')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='admin'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='admin'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>shield</span>
+                        Admin
+                    </button>
+                    <button type="button" onClick={()=>setRole('agent')} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:role==='agent'?'linear-gradient(135deg,#8b5cf6,#6d28d9)':'transparent',color:role==='agent'?'#fff':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>support_agent</span>
+                        Agente
+                    </button>
+                </div>
+
                 {/* Form */}
                 <form onSubmit={submit} className="anim-fadeup-2 space-y-4">
                     <div style={{position:'relative'}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>person</span>
+                        <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>{role==='agent'?'badge':'person'}</span>
                         <input
                             className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
                             type="text"
-                            placeholder="Usuario"
+                            placeholder={role==='agent'?'Número de agente (ej. 200)':'Usuario'}
                             value={user}
                             onChange={e=>setUser(e.target.value)}
                             required
@@ -583,6 +927,21 @@ function Login({ onLogin }) {
                             <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
                         </button>
                     </div>
+
+                    {role === 'agent' && (
+                        <div style={{position:'relative'}}>
+                            <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#4b5563'}}>phone_in_talk</span>
+                            <input
+                                className="input-tf py-3.5 pl-11 pr-4 rounded-[14px] text-sm"
+                                type="text"
+                                placeholder="Extensión callback (ej. SIP/9006 o 9006)"
+                                value={callbackExt}
+                                onChange={e=>setCallbackExt(e.target.value)}
+                                required
+                            />
+                            <div style={{fontSize:10,color:'var(--muted)',marginTop:4,paddingLeft:4}}>El teléfono donde recibirás las llamadas hoy</div>
+                        </div>
+                    )}
 
                     {err && (
                         <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#f87171',display:'flex',alignItems:'center',gap:8}}>
@@ -652,19 +1011,28 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
         setTimeout(() => document.body.classList.remove('theme-transition'), 500);
     };
 
+    // HORIZON: badges para agentes logueados + grupos sonando
+    const agentsLogged = (data?._agentsLogged ?? 0);
+    const groupsRinging = (data?.pbx?.live_calls || []).filter(c => 
+        (c.context || '').includes('macro-dial-one') || /grp/i.test(c.dest || '')
+    ).length;
+
     const nav = [
         { section: 'Principal' },
         { id:'dashboard', icon:'grid_view', label:'Dashboard' },
         { id:'extensiones', icon:'group', label:'Extensiones', badge: extsOnline, badgeColor: '#22c55e' },
-        { id:'agentes', icon:'support_agent', label:'Agentes' },
+        { id:'agentes', icon:'support_agent', label:'Agentes', badge: agentsLogged, badgeColor: '#22c55e' },
         { section: 'Call Center' },
+        { id:'callcenter', icon:'headset_mic', label:'Mi Consola' },
+        { id:'hotdesking', icon:'phonelink_setup', label:'Hotdesking' },
         { id:'vivo', icon:'sensors', label:'Llamas en Vivo', badge: activeCalls, badgeColor: '#ef4444' },
         { id:'colas', icon:'queue', label:'Colas', badge: qWaiting, badgeColor: '#f59e0b' },
-        { id:'grupos', icon:'ring_volume', label:'Grupos' },
+        { id:'grupos', icon:'ring_volume', label:'Grupos', badge: groupsRinging, badgeColor: '#f59e0b' },
         { id:'ivr', icon:'account_tree', label:'IVR' },
         { id:'radar', icon:'radar', label:'Tráfico', icColor: '#3b82f6' },
         { section: 'Herramientas' },
         { id:'cdr', icon:'history', label:'CDR' },
+        { id:'reportes', icon:'analytics', label:'Reportes' },
         { id:'configuracion', icon:'settings', label:'Configuración' },
     ];
 
@@ -704,28 +1072,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
             </div>
 
             <div className="sidebar-bottom">
-                {/* System Stats (only when expanded) */}
-                {!collapsed && data?.system && (
-                    <div className="mb-4 px-2 anim-fadeup" style={{animationDelay:'0.4s'}}>
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PBX Status</span>
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] anim-blink" />
-                                <span className="text-[10px] text-green-500 font-bold uppercase">Online</span>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                                <div className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">CPU Load</div>
-                                <div className="text-xs font-black text-purple-400">{data?.system?.cpu}%</div>
-                            </div>
-                            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                                <div className="text-[8px] text-gray-500 font-bold uppercase mb-0.5">Uptime</div>
-                                <div className="text-xs font-black text-blue-400">{data?.system?.uptime?.split(' ')[0]}d</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+
 
                 {/* Context Menu */}
                 {showUserMenu && (
@@ -761,7 +1108,7 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
                     
                     {!collapsed && (
                         <div style={{flex:1, minWidth:0}}>
-                            <div style={{fontSize:13, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{user}</div>
+                            <div style={{fontSize:13, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{(typeof user === 'string') ? user : ((user && typeof user === 'object') ? (user.name || user.agent_name || user.tf_user || 'Usuario') : 'Cargando…')}</div>
                             <div style={{fontSize:9, color:'#22c55e', display:'flex', alignItems:'center', gap:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px'}}>
                                 <span style={{width:4,height:4,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Conectado
                             </div>
@@ -872,44 +1219,188 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
 // VISTA: DASHBOARD
 // ─────────────────────────────────────────────
 function ViewDashboard({ data }) {
+    const [agentsLogged, setAgentsLogged] = useState(0);
+    const [agentsAvail, setAgentsAvail] = useState(0);
+    const [agentsBusy, setAgentsBusy] = useState(0);
+    const [todayStats, setTodayStats] = useState(null);
+
+    useEffect(() => {
+        const fetchAg = () => {
+            fetch('api/hotdesking.php?action=list',{credentials:'include'})
+                .then(r=>r.json()).then(j=>{
+                    if (j.status==='ok') {
+                        const ags = j.agents||[];
+                        setAgentsLogged(ags.filter(a=>a.logged_in).length);
+                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call).length);
+                        setAgentsBusy(ags.filter(a=>a.in_call).length);
+                    }
+                }).catch(()=>{});
+        };
+        fetchAg();
+        const t = setInterval(fetchAg, 5000);
+        return () => clearInterval(t);
+    }, []);
+
+    useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
+        fetch(`api/index.php?action=get_reports&start=${today}&end=${today}`)
+            .then(r=>r.json()).then(d=>{ if (d.success) setTodayStats(d.stats); })
+            .catch(()=>{});
+    }, []);
+
     const exts = data?.pbx?.extensions || [];
     const online = exts.filter(e=>e.status==='ONLINE').length;
     const busy = exts.filter(e=>e.status==='BUSY').length;
-    const recs = data?.pbx?.recordings || [];
+    const queues = data?.pbx?.queues || [];
+    const liveCalls = data?.pbx?.live_calls || [];
+    const upCalls = liveCalls.filter(c => c.state === 'Up').length;
+    const ringingCalls = liveCalls.filter(c => /Ring/.test(c.state||'')).length;
+    const totalWaiting = queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
     const cpu = data?.system?.cpu || 0;
     const ram = data?.system?.ram || 0;
     const disk = data?.system?.disk || 0;
     const conn = data?.system?.connections || 0;
     const uptime = data?.system?.uptime || 'Desconocido';
+    const ts = todayStats || {};
+    const todayTotal = ts.total || 0;
+    const todayAns = ts.answered || 0;
+    const eff = todayTotal > 0 ? Math.round((todayAns/todayTotal)*100) : 0;
 
-    const mainStats = [
-        { label:'Extensiones Online', val:`${online}/${exts.length}`, icon:'group', color:'#22c55e', bg:'rgba(34,197,94,0.12)' },
-        { label:'En Llamada', val:busy, icon:'call', color:'#f59e0b', bg:'rgba(245,158,11,0.12)' },
-        { label:'Grabaciones Hoy', val:recs.length, icon:'mic', color:'#8b5cf6', bg:'rgba(139,92,246,0.12)' },
-    ];
-
-    const systemStats = [
-        { label:'CPU PBX', val:`${cpu}%`, icon:'memory', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-        { label:'RAM PBX', val:`${ram}%`, icon:'memory', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-        { label:'Disco', val:`${disk}%`, icon:'storage', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-        { label:'Conexiones', val:conn, icon:'router', color:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-    ];
+    const KPIBig = ({label, value, sub, icon, color}) => (
+        <div className="glass" style={{padding:'18px 20px',borderRadius:16,position:'relative',overflow:'hidden',border:`1px solid ${color}33`,background:`linear-gradient(135deg,${color}15,transparent 70%),var(--surface)`}}>
+            <div style={{position:'absolute',top:-15,right:-15,width:90,height:90,borderRadius:'50%',background:`radial-gradient(circle,${color}33,transparent 70%)`,pointerEvents:'none'}}/>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
+                <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 16px ${color}55`}}>
+                    <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{icon}</span>
+                </div>
+                <span style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{label}</span>
+            </div>
+            <div style={{fontSize:28,fontWeight:900,color,lineHeight:1,letterSpacing:'-0.6px'}}>{value}</div>
+            {sub && <div style={{fontSize:11,color:'var(--muted)',marginTop:6,fontWeight:600}}>{sub}</div>}
+        </div>
+    );
 
     return (
         <div className="content-area">
-            {/* Main Stats PBX */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:16}}>
-                {mainStats.map(s=>(
-                    <div key={s.label} className="glass stat-card glass-hover">
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                            <div className="stat-label">{s.label}</div>
-                            <div style={{width:36,height:36,borderRadius:10,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:s.color}}>{s.icon}</span>
-                            </div>
-                        </div>
-                        <div className="stat-val" style={{color:s.color}}>{s.val}</div>
+            {/* Hero — pulse del callcenter */}
+            <div className="anim-fadeup" style={{padding:'20px 24px',marginBottom:14,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.10),rgba(34,197,94,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:18,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
+                <div style={{width:62,height:62,borderRadius:16,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 10px 28px rgba(139,92,246,0.4)',position:'relative'}}>
+                    <span className="material-icons-round" style={{color:'#fff',fontSize:30}}>insights</span>
+                    <span style={{position:'absolute',top:-3,right:-3,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'3px solid var(--surface)',boxShadow:'0 0 10px #22c55e'}}/>
+                </div>
+                <div style={{flex:1,minWidth:240}}>
+                    <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em',display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 2s infinite',boxShadow:'0 0 6px #22c55e'}}/>EN VIVO · {new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}
                     </div>
-                ))}
+                    <div style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px',marginTop:3,color:'var(--text)'}}>TeleFlow Operations</div>
+                    <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>{agentsLogged} agentes activos · {upCalls + ringingCalls} canales en uso · {totalWaiting > 0 ? `${totalWaiting} en espera` : 'sin espera'}</div>
+                </div>
+                <div style={{display:'flex',gap:14,alignItems:'center'}}>
+                    <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>Hoy</div>
+                        <div style={{fontSize:22,fontWeight:900,color:'#22c55e'}}>{todayAns.toLocaleString()}</div>
+                        <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>de {todayTotal.toLocaleString()} ({eff}%)</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 4 KPI cards principales */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:14}}>
+                <KPIBig label="Agentes activos" value={`${agentsLogged}/${agentsLogged > 0 ? agentsLogged : '—'}`} sub={`${agentsAvail} disponibles · ${agentsBusy} en llamada`} icon="support_agent" color="#22c55e"/>
+                <KPIBig label="Llamadas en curso" value={upCalls} sub={`${ringingCalls} sonando`} icon="phone_in_talk" color="#3b82f6"/>
+                <KPIBig label="En espera" value={totalWaiting} sub={`${queues.length} colas configuradas`} icon="hourglass_top" color={totalWaiting>0?'#ef4444':'#f59e0b'}/>
+                <KPIBig label="Extensiones online" value={`${online}/${exts.length}`} sub={`${busy} en llamada`} icon="dialpad" color="#8b5cf6"/>
+            </div>
+
+            {/* 3 columnas: Colas activas | Cards en llamada | Sistema */}
+            <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr',gap:14,marginBottom:14}}>
+                <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#f59e0b'}}>queue</span>
+                            <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Colas en vivo</span>
+                        </div>
+                        <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{queues.length} colas</span>
+                    </div>
+                    {queues.length === 0 ? <div style={{padding:30,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin colas configuradas</div> : (
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:8}}>
+                            {queues.slice(0,12).map(q => {
+                                const w = q.calls_waiting || 0;
+                                const c = w > 5 ? '#ef4444' : (w > 0 ? '#f59e0b' : '#22c55e');
+                                return (
+                                    <div key={q.id} style={{padding:'10px 12px',borderRadius:10,background:'var(--surface2)',border:`1px solid ${c}33`,position:'relative'}}>
+                                        <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',fontFamily:'monospace'}}>Q{q.id}</div>
+                                        <div style={{fontSize:11,fontWeight:600,color:'var(--text)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{q.name||'—'}</div>
+                                        <div style={{display:'flex',alignItems:'baseline',gap:4,marginTop:6}}>
+                                            <span style={{fontSize:18,fontWeight:900,color:c,lineHeight:1}}>{w}</span>
+                                            <span style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>en espera</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>sensors</span>
+                            <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Llamadas activas</span>
+                        </div>
+                        <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{liveCalls.length} canales</span>
+                    </div>
+                    {liveCalls.length === 0 ? <div style={{padding:30,textAlign:'center',color:'var(--muted)',fontSize:11}}><span className="material-icons-round" style={{fontSize:36,color:'var(--muted)',display:'block',marginBottom:6}}>phone_disabled</span>Sin llamadas en curso</div> : (
+                        <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:280,overflowY:'auto'}}>
+                            {liveCalls.slice(0,10).map((c,i) => {
+                                const isUp = c.state === 'Up';
+                                const isRing = /Ring/.test(c.state||'');
+                                const sc = isUp?'#22c55e':(isRing?'#f59e0b':'#6b7280');
+                                return (
+                                    <div key={i} style={{padding:'8px 10px',borderRadius:9,background:'var(--surface2)',border:`1px solid ${sc}33`,display:'flex',alignItems:'center',gap:8}}>
+                                        <span style={{width:8,height:8,borderRadius:'50%',background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}cc`,flexShrink:0}}/>
+                                        <div style={{flex:1,minWidth:0}}>
+                                            <div style={{fontSize:11,fontFamily:'monospace',fontWeight:700,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.ext||c.callerid||'?'} → {c.dest||'?'}</div>
+                                            <div style={{fontSize:9,color:'var(--muted)',fontFamily:'monospace'}}>{c.duration||'00:00'} · {isUp?'En conversación':(isRing?'Sonando':c.state)}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Salud del sistema PBX */}
+            <div className="glass" style={{padding:'18px 22px',borderRadius:16,marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span className="material-icons-round" style={{fontSize:18,color:'#06b6d4'}}>monitor_heart</span>
+                        <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Salud del PBX</span>
+                    </div>
+                    <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace',padding:'4px 10px',borderRadius:7,background:'var(--surface2)'}}>Uptime · {uptime}</div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10}}>
+                    {[
+                        {l:'CPU',v:cpu,u:'%',c:cpu>80?'#ef4444':(cpu>50?'#f59e0b':'#22c55e'),i:'memory'},
+                        {l:'RAM',v:ram,u:'%',c:ram>80?'#ef4444':(ram>50?'#f59e0b':'#22c55e'),i:'sd_storage'},
+                        {l:'Disco',v:disk,u:'%',c:disk>80?'#ef4444':(disk>50?'#f59e0b':'#22c55e'),i:'storage'},
+                        {l:'Conexiones',v:conn,u:'',c:'#06b6d4',i:'lan'},
+                    ].map((m,i)=>(
+                        <div key={i} style={{padding:'10px 12px',borderRadius:10,background:'var(--surface2)',border:`1px solid ${m.c}33`}}>
+                            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                                <span className="material-icons-round" style={{fontSize:14,color:m.c}}>{m.i}</span>
+                                <span style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em'}}>{m.l}</span>
+                            </div>
+                            <div style={{fontSize:18,fontWeight:900,color:m.c,fontFamily:'monospace'}}>{m.v}{m.u}</div>
+                            {m.u==='%' && (
+                                <div style={{height:4,background:'var(--border)',borderRadius:2,marginTop:6,overflow:'hidden'}}>
+                                    <div style={{height:'100%',width:`${m.v}%`,background:m.c,borderRadius:2,transition:'width .5s'}}/>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
             
             {/* System Status */}
@@ -994,294 +1485,478 @@ function ViewDashboard({ data }) {
 // ExtDrawer left as dead code for reference, replaced by ExtEditPage below
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COMPONENTE: AvatarUploader (drag&drop + click)
+// ─────────────────────────────────────────────
+function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
+    const fileRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+    const [bust, setBust] = useState(Date.now());
+    const [dragOver, setDragOver] = useState(false);
+    const [error, setError] = useState('');
+    const initials = (name||'').split(' ').map(s=>s[0]).join('').substring(0,2).toUpperCase() || '?';
+    const url = ext ? `uploads/avatars/${ext}.jpg?v=${bust}` : null;
+    const [imgOk, setImgOk] = useState(true);
+
+    const upload = async (file) => {
+        if (!file || !file.type.match(/^image\//)) { setError('Solo imágenes'); return; }
+        if (file.size > 2*1024*1024) { setError('Máx 2MB'); return; }
+        setError(''); setUploading(true);
+        const fd = new FormData();
+        fd.append('ext', ext);
+        fd.append('avatar', file);
+        try {
+            const r = await fetch('api/index.php?action=upload_avatar', { method:'POST', body:fd, credentials:'include' });
+            const d = await r.json();
+            if (d.success) {
+                setBust(Date.now());
+                setImgOk(true);
+                onUploaded && onUploaded(d.url);
+            } else {
+                setError(d.error || 'Error al subir');
+            }
+        } catch(e) { setError('Error de red'); }
+        setUploading(false);
+    };
+
+    // HORIZON: cache "no existe" para no re-pedir avatar 404 cada render
+    const knownMissing = (typeof localStorage !== 'undefined') && localStorage.getItem('tf_av_404_'+ext) === '1';
+    const effectiveImgOk = imgOk && url && !knownMissing;
+    return (
+        <div style={{display:'inline-flex', flexDirection:'column', alignItems:'center', gap:6}}>
+            <div
+                onClick={()=>fileRef.current?.click()}
+                onDragOver={e=>{e.preventDefault(); setDragOver(true);}}
+                onDragLeave={()=>setDragOver(false)}
+                onDrop={e=>{e.preventDefault(); setDragOver(false); upload(e.dataTransfer.files[0]);}}
+                style={{
+                    width:size, height:size, borderRadius:'50%', cursor:'pointer',
+                    background: effectiveImgOk ? `url("${url}") center/cover` : 'linear-gradient(135deg,#8b5cf6,#6d28d9)',
+                    border: dragOver ? '2px dashed #c4b5fd' : '2px solid var(--border)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    color:'#fff', fontWeight:900, fontSize:size*0.32,
+                    position:'relative', transition:'all 0.2s',
+                    boxShadow:'0 4px 14px rgba(139,92,246,0.2)'
+                }}
+            >
+                {imgOk && url && (
+                    <img src={url} alt="" style={{display:'none'}} onError={()=>{setImgOk(false); try{localStorage.setItem('tf_av_404_'+ext,'1');}catch(e){}}} onLoad={()=>{setImgOk(true); try{localStorage.removeItem('tf_av_404_'+ext);}catch(e){}}} />
+                )}
+                {(!imgOk || !url) && initials}
+                {uploading && (
+                    <div style={{position:'absolute',inset:0,borderRadius:'50%',background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:24,animation:'spin 1s linear infinite'}}>autorenew</span>
+                    </div>
+                )}
+                {!uploading && (
+                    <div style={{position:'absolute',bottom:0,right:0,width:size*0.32,height:size*0.32,borderRadius:'50%',background:'#8b5cf6',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--surface)',boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:size*0.18}}>photo_camera</span>
+                    </div>
+                )}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={e=>upload(e.target.files[0])} style={{display:'none'}} />
+            {error && <div style={{fontSize:10,color:'#ef4444'}}>{error}</div>}
+            {!error && <div style={{fontSize:9,color:'var(--muted)',textTransform:'uppercase',fontWeight:700,letterSpacing:'.05em'}}>Click o arrastrá imagen</div>}
+        </div>
+    );
+}
+
+
 // FICHA DEL INTERNO — Página dedicada (no modal)
 // ─────────────────────────────────────────────
 function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
-    const [form, setForm] = useState({ ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '' });
+    const [form, setForm] = useState({ 
+        ext: ext?.ext||'', name: ext?.name||'', secret: '', email: '', 
+        tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '' 
+    });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
     const [showPass, setShowPass] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState(ext?.avatar || null);
 
     useEffect(() => {
         if (!isNew && ext.ext) {
             fetch(`api/index.php?action=get_extension&ext=${ext.ext}`, { credentials: 'include' })
                 .then(r=>r.json())
-                .then(d=>{ if(d.success) setForm(f=>({...f, secret: d.secret||''})); });
+                .then(d=>{ if(d.success) {
+                    setForm(f=>({...f, secret: d.secret||''}));
+                    if (d.device_type) setDevType(d.device_type);
+                }});
         }
     }, [ext, isNew]);
 
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+    const ini = ((form.name||form.ext||'?').split(/[\s\-_]+/).filter(s=>s.length>0).map(s=>s[0]||'').join('') || '?').substring(0,2).toUpperCase();
+    const statusColor = ext?.status === 'BUSY' ? '#ef4444' : (ext?.status === 'ONLINE' ? '#22c55e' : '#6b7280');
+    const statusLabel = ext?.status === 'BUSY' ? 'En llamada' : (ext?.status === 'ONLINE' ? 'Disponible' : 'Desconectado');
+
+    const tipoConfig = {
+        '': { color: '#6b7280', icon: 'help_outline', label: 'Sin asignar', desc: 'Sin clasificar' },
+        'horizon': { color: '#8b5cf6', icon: 'business', label: 'Horizon', desc: 'Interno propio' },
+        'cliente': { color: '#3b82f6', icon: 'person', label: 'Cliente', desc: 'Cliente externo' }
+    };
+
+    const recOptions = [
+        { v:'always', l:'Siempre', c:'#22c55e', i:'fiber_manual_record', d:'Toda llamada queda grabada' },
+        { v:'dontcare', l:'Opcional', c:'#9ca3af', i:'radio_button_unchecked', d:'Decisión por usuario' },
+        { v:'never', l:'Nunca', c:'#ef4444', i:'block', d:'Jamás se graba' }
+    ];
+
+    const devOptions = [
+        { v:'webrtc', l:'WebRTC', c:'#8b5cf6', i:'computer', d:'Softphone en navegador' },
+        { v:'sip', l:'SIP Fijo', c:'#3b82f6', i:'phone', d:'Teléfono físico SIP' },
+        { v:'video', l:'Video', c:'#ec4899', i:'videocam', d:'Con cámara WebRTC' }
+    ];
 
     const save = async () => {
         setSaving(true);
         const fd = new FormData();
         Object.entries(form).forEach(([k,v])=>fd.append(k,v));
         fd.append('device_type', devType);
+        fd.append('recording', recording);
         const action = isNew ? 'create_extension' : 'update_extension';
-        const r = await fetch(`api/index.php?action=${action}`, { 
-            method: 'POST', 
-            body: fd,
-            credentials: 'include'
-        });
-        const d = await r.json();
-        if (d.success) {
-            if (!isNew) {
-                const fd2=new FormData(); fd2.append('ext',form.ext); fd2.append('mode',recording);
-                await fetch('api/index.php?action=set_recording',{method:'POST',body:fd2});
-            }
-            toast(d.message,'success'); onSaved();
-        } else toast(d.error||'Error al guardar','error');
+        // Guardar tipo en ext_meta si cambió
+        if (form.tipo !== ((window._tfExtMeta||{})[form.ext]?.tipo || '')) {
+            const tfd = new FormData(); tfd.append('ext', form.ext); tfd.append('tipo', form.tipo);
+            fetch('api/index.php?action=set_ext_meta', {method:'POST',body:tfd,credentials:'include'})
+                .then(r=>r.json()).then(j=>{ if(j.success) { window._tfExtMeta = window._tfExtMeta||{}; window._tfExtMeta[form.ext] = {ext:form.ext, tipo:form.tipo}; } });
+        }
+        try {
+            const r = await fetch(`api/index.php?action=${action}`, { method:'POST', body:fd, credentials:'include' });
+            const d = await r.json();
+            if (d.success) { toast('Cambios guardados','success'); onSaved?.(); }
+            else toast(d.error || 'Error guardando','error');
+        } catch(e) { toast('Error de red','error'); }
         setSaving(false);
     };
 
-    const del = async () => {
-        if(!confirm(`¿Eliminar extensión #${form.ext}?`)) return;
+    const remove = async () => {
+        if (!confirm(`¿Eliminar interno #${form.ext}? Esta acción no se puede deshacer.`)) return;
         setDeleting(true);
-        const fd=new FormData(); fd.append('ext',form.ext);
-        const d=await(await fetch('api/index.php?action=delete_extension',{method:'POST',body:fd})).json();
-        if(d.success){toast(d.message,'success');onSaved();}
-        else { toast(d.error||'Error','error'); setDeleting(false); }
+        const fd = new FormData(); fd.append('ext', form.ext);
+        try {
+            const r = await fetch('api/index.php?action=delete_extension', {method:'POST',body:fd,credentials:'include'});
+            const d = await r.json();
+            if (d.success) { toast('Interno eliminado','success'); onBack?.(); }
+            else toast(d.error || 'Error','error');
+        } catch(e) { toast('Error de red','error'); }
+        setDeleting(false);
     };
-
-    const recOptions=[{v:'always',l:'Siempre',c:'#4ade80',i:'fiber_manual_record'},{v:'dontcare',l:'Opcional',c:'#9ca3af',i:'radio_button_unchecked'},{v:'never',l:'Nunca',c:'#f87171',i:'not_interested'}];
-    const devOptions=[{v:'audio',l:'SIP Fijo',i:'call'},{v:'video',l:'Video',i:'videocam'},{v:'webrtc',l:'WebRTC',i:'laptop'}];
-
-    const ini = form.name ? form.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : (form.ext || '?');
-    const statusColor = ext?.status === 'ONLINE' ? '#22c55e' : ext?.status === 'BUSY' ? '#f59e0b' : '#6b7280';
 
     return (
         <div className="content-area view-enter">
-            {/* Breadcrumb header */}
-            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:24}}>
-                <button
-                    onClick={onBack}
-                    style={{
-                        width:38, height:38, borderRadius:12,
-                        background:'var(--surface)', border:'1px solid var(--border)',
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        cursor:'pointer', color:'var(--muted)', transition:'all .2s'
-                    }}
-                    onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
-                    onMouseLeave={e=>e.currentTarget.style.color='var(--muted)'}
-                >
-                    <span className="material-icons-round" style={{fontSize:20}}>arrow_back</span>
+            {/* HEADER navegacion */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <button onClick={onBack} style={{padding:8,borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',color:'var(--text)'}}>
+                    <span className="material-icons-round" style={{fontSize:18}}>arrow_back</span>
                 </button>
-                <div style={{display:'flex', alignItems:'center', gap:8, fontSize:12, color:'var(--muted)'}}>
-                    <span style={{cursor:'pointer', fontWeight:600}} onClick={onBack}>Extensiones</span>
-                    <span className="material-icons-round" style={{fontSize:14}}>chevron_right</span>
-                    <span style={{color:'var(--text)', fontWeight:700}}>
-                        {isNew ? 'Nueva Extensión' : `Interno #${ext.ext}`}
-                    </span>
-                </div>
-                <div style={{flex:1}} />
-                {!isNew && (
-                    <button
-                        onClick={del}
-                        disabled={deleting}
-                        style={{
-                            padding:'8px 16px', borderRadius:10, fontSize:12, fontWeight:700,
-                            background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.25)',
-                            color:'#f87171', cursor:'pointer', display:'flex', alignItems:'center', gap:6,
-                            transition:'all .2s'
-                        }}
-                    >
-                        <span className="material-icons-round" style={{fontSize:16}}>{deleting?'hourglass_top':'delete_outline'}</span>
-                        {deleting ? 'Eliminando...' : 'Eliminar Interno'}
-                    </button>
-                )}
+                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Extensiones <span style={{margin:'0 6px'}}>›</span></div>
+                <div style={{fontSize:13,fontWeight:800}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</div>
+                <div style={{flex:1}}/>
+                {!isNew && <button onClick={remove} disabled={deleting} style={{padding:'8px 14px',borderRadius:10,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>delete</span>
+                    {deleting?'Eliminando...':'Eliminar Interno'}
+                </button>}
             </div>
 
-            {/* Main two-column layout */}
-            <div style={{display:'grid', gridTemplateColumns:'280px 1fr', gap:24, alignItems:'start'}}>
-
-                {/* LEFT — Avatar / Info card */}
-                <div style={{display:'flex', flexDirection:'column', gap:16}}>
-                    {/* Avatar big */}
-                    <div className="glass" style={{padding:28, textAlign:'center', borderRadius:20}}>
+            {/* HERO con avatar + nombre + status pill */}
+            <div className="glass" style={{padding:0,borderRadius:18,marginBottom:14,overflow:'hidden',position:'relative'}}>
+                <div style={{height:88,background:`linear-gradient(135deg, ${statusColor}99 0%, ${statusColor}33 50%, transparent 100%), linear-gradient(45deg, #8b5cf6 0%, #3b82f6 100%)`,position:'relative'}}>
+                    <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at 25% 30%, rgba(255,255,255,0.18), transparent 60%)'}}/>
+                </div>
+                <div style={{padding:'0 24px 20px',display:'flex',alignItems:'flex-end',gap:18,marginTop:-46,position:'relative',flexWrap:'wrap'}}>
+                    <div style={{position:'relative'}}>
+                        {form.ext && avatarUrl ? (
+                            <img src={`uploads/avatars/${form.ext}.jpg?v=${Date.now()}`} 
+                                 style={{width:96,height:96,borderRadius:'50%',objectFit:'cover',border:'5px solid var(--surface)',boxShadow:'0 8px 24px rgba(0,0,0,0.4)'}}
+                                 onError={ev=>{ev.target.style.display='none';ev.target.nextSibling.style.display='flex';}}/>
+                        ) : null}
                         <div style={{
-                            width:80, height:80, borderRadius:22, margin:'0 auto 16px',
-                            background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            fontSize:28, fontWeight:900, color:'white',
-                            boxShadow:'0 8px 32px rgba(139,92,246,0.45)'
+                            width:96, height:96, borderRadius:'50%',
+                            background:`linear-gradient(135deg, #8b5cf6, #6d28d9)`,
+                            display: form.ext && avatarUrl ? 'none' : 'flex',
+                            alignItems:'center', justifyContent:'center',
+                            fontSize:32, fontWeight:900, color:'#fff',
+                            border:'5px solid var(--surface)',
+                            boxShadow:'0 8px 24px rgba(0,0,0,0.4)'
                         }}>{ini}</div>
-                        <div style={{fontSize:18, fontWeight:900, color:'var(--text)'}}>{form.name || 'Sin nombre'}</div>
-                        <div style={{fontFamily:'monospace', fontSize:13, color:'#c4b5fd', fontWeight:700, marginTop:4}}>#{form.ext || '—'}</div>
-                        {ext?.status && (
-                            <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'center', marginTop:12}}>
-                                <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 8px ${statusColor}`}} />
-                                <span style={{fontSize:11, fontWeight:700, color:statusColor}}>{ext.status}</span>
+                    </div>
+                    <div style={{flex:1,paddingTop:50,minWidth:200}}>
+                        <h1 style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px'}}>{form.name || 'Sin nombre'}</h1>
+                        <div style={{fontFamily:'monospace',fontSize:14,color:'#c4b5fd',fontWeight:800,marginTop:2}}>#{form.ext || '----'}</div>
+                    </div>
+                    <div style={{display:'flex',gap:8,paddingTop:50,flexWrap:'wrap'}}>
+                        {ext?.status && <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:24,background:`${statusColor}22`,border:`1.5px solid ${statusColor}66`,boxShadow:`0 4px 12px ${statusColor}33`}}>
+                            <span style={{width:8,height:8,borderRadius:'50%',background:statusColor,boxShadow:`0 0 10px ${statusColor}`,animation:ext.status==='BUSY'?'pulse 1s infinite':'none'}}/>
+                            <span style={{fontSize:11,fontWeight:900,color:statusColor,textTransform:'uppercase',letterSpacing:'.05em'}}>{statusLabel}</span>
+                        </div>}
+                        {ext?.ip && ext.ip !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(139,92,246,0.15)',border:'1px solid rgba(139,92,246,0.3)'}}>
+                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>IP</span>
+                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#c4b5fd'}}>{ext.ip}</span>
+                        </div>}
+                        {ext?.rtt && ext.rtt !== '—' && <div style={{padding:'7px 12px',borderRadius:24,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.25)'}}>
+                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginRight:5}}>RTT</span>
+                            <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:'#22c55e'}}>{ext.rtt}</span>
+                        </div>}
+                    </div>
+                </div>
+            </div>
+
+            {/* FORM en grid 2 columnas */}
+            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14}}>
+                {/* COLUMNA PRINCIPAL */}
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                    {/* Información Básica */}
+                    <div className="glass" style={{padding:22,borderRadius:16}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>info</span>
+                            <h3 style={{fontSize:13,fontWeight:800,letterSpacing:'.02em'}}>Información Básica</h3>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Número de interno</label>
+                                <input className="input-tf" value={form.ext} onChange={e=>set('ext',e.target.value)} disabled={!isNew} placeholder="Ej: 1000" style={{padding:'10px 14px',borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700}}/>
                             </div>
-                        )}
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Nombre o alias</label>
+                                <input className="input-tf" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ej: Recepción" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
+                            </div>
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Correo electrónico</label>
+                                <input className="input-tf" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="usuario@empresa.com" style={{padding:'10px 14px',borderRadius:10,fontSize:13}}/>
+                            </div>
+                            <div>
+                                <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:6}}>Contraseña SIP <span style={{color:'#f59e0b'}}>(secret)</span></label>
+                                <div style={{position:'relative'}}>
+                                    <input className="input-tf" type={showPass?'text':'password'} value={form.secret} onChange={e=>set('secret',e.target.value)} style={{padding:'10px 38px 10px 14px',borderRadius:10,fontSize:13,fontFamily:'monospace'}}/>
+                                    <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--muted)'}}>
+                                        <span className="material-icons-round" style={{fontSize:16}}>{showPass?'visibility_off':'visibility'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Network info */}
-                    {ext && (
-                        <div className="glass" style={{padding:16, borderRadius:16}}>
-                            <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'.1em', marginBottom:12}}>Información de Red</div>
-                            {[
-                                {l:'IP', v: ext.ip, c:'#ec4899'},
-                                {l:'RTT', v: ext.rtt, c:'#c4b5fd'},
-                                {l:'MAC', v: ext.mac, c:'#6b7280'},
-                            ].map(({l,v}) => v && v!=='—' ? (
-                                <div key={l} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
-                                    <span style={{fontSize:11, color:'#6b7280', fontWeight:600}}>{l}</span>
-                                    <code style={{fontSize:11, color:'#ec4899', fontFamily:'monospace'}}>{v}</code>
+                    {/* Categoría del interno */}
+                    <div className="glass" style={{padding:22,borderRadius:16}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>category</span>
+                            <h3 style={{fontSize:13,fontWeight:800}}>Categoría del Interno</h3>
+                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,marginLeft:6}}>(opcional, discrimina Cliente vs Horizon)</span>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginTop:14}}>
+                            {Object.entries(tipoConfig).map(([v,o]) => (
+                                <div key={v} onClick={()=>set('tipo',v)} style={{padding:'14px 10px',borderRadius:12,border:`2px solid ${form.tipo===v?o.color+'cc':'var(--border)'}`,background:form.tipo===v?`${o.color}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s',position:'relative',overflow:'hidden'}}>
+                                    {form.tipo===v && <div style={{position:'absolute',top:6,right:6,width:18,height:18,borderRadius:'50%',background:o.color,display:'flex',alignItems:'center',justifyContent:'center'}}><span className="material-icons-round" style={{fontSize:12,color:'#fff'}}>check</span></div>}
+                                    <span className="material-icons-round" style={{fontSize:24,color:o.color,display:'block',marginBottom:6}}>{o.icon}</span>
+                                    <div style={{fontSize:13,fontWeight:800,color:form.tipo===v?o.color:'var(--text)'}}>{o.label}</div>
+                                    <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{o.desc}</div>
                                 </div>
-                            ) : null)}
+                            ))}
                         </div>
-                    )}
+                    </div>
 
-                    {/* Asterisk tip */}
-                    {!isNew && (
-                        <div style={{
-                            padding:14, borderRadius:14,
-                            background:'rgba(139,92,246,0.06)',
-                            border:'1px solid rgba(139,92,246,0.2)'
-                        }}>
-                            <div style={{display:'flex', gap:10, alignItems:'flex-start'}}>
-                                <span className="material-icons-round" style={{fontSize:15, color:'#8b5cf6', marginTop:1}}>info</span>
-                                <span style={{fontSize:11, color:'#a78bfa', lineHeight:1.5}}>Los cambios aplicarán un <b>core reload</b> automático en Asterisk para sincronizar SIP y dialplan.</span>
-                            </div>
+                    {/* Grabación + Tecnología */}
+                    <div className="glass" style={{padding:22,borderRadius:16}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#ef4444'}}>fiber_manual_record</span>
+                            <h3 style={{fontSize:13,fontWeight:800}}>Grabación de llamadas</h3>
                         </div>
-                    )}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:18}}>
+                            {recOptions.map(o => (
+                                <div key={o.v} onClick={()=>setRecording(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${recording===o.v?o.c+'aa':'var(--border)'}`,background:recording===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
+                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
+                                    <div style={{fontSize:12,fontWeight:800,color:recording===o.v?o.c:'var(--text)'}}>{o.l}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>devices</span>
+                            <h3 style={{fontSize:13,fontWeight:800}}>Tecnología de dispositivo</h3>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                            {devOptions.map(o => (
+                                <div key={o.v} onClick={()=>setDevType(o.v)} style={{padding:'12px',borderRadius:10,border:`2px solid ${devType===o.v?o.c+'aa':'var(--border)'}`,background:devType===o.v?`${o.c}11`:'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.2s'}}>
+                                    <span className="material-icons-round" style={{fontSize:20,color:o.c,display:'block',marginBottom:4}}>{o.i}</span>
+                                    <div style={{fontSize:12,fontWeight:800,color:devType===o.v?o.c:'var(--text)'}}>{o.l}</div>
+                                    <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>{o.d}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Action bar */}
+                    <div style={{display:'flex',gap:10,justifyContent:'flex-end',padding:'14px 0'}}>
+                        <button onClick={onBack} style={{padding:'12px 22px',borderRadius:12,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+                        <button onClick={save} disabled={saving} className="btn-primary" style={{padding:'12px 28px',borderRadius:12,fontWeight:800,fontSize:13,cursor:saving?'wait':'pointer',display:'flex',alignItems:'center',gap:8}}>
+                            <span className="material-icons-round" style={{fontSize:18,animation:saving?'spin 1s linear infinite':'none'}}>{saving?'autorenew':'save'}</span>
+                            {saving ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                    </div>
                 </div>
 
-                {/* RIGHT — Form */}
-                <div className="glass" style={{padding:28, borderRadius:20}}>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
-                        {/* Ext number */}
-                        <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Número de Interno</label>
-                            <input
-                                className="input-tf"
-                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, fontWeight:700, width:'100%', boxSizing:'border-box', opacity: isNew ? 1 : 0.7}}
-                                placeholder="Ej: 1005"
-                                value={form.ext}
-                                onChange={e=>set('ext',e.target.value)}
-                                readOnly={!isNew}
-                            />
+                {/* COLUMNA LATERAL */}
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                    {/* Foto de perfil */}
+                    <div className="glass" style={{padding:18,borderRadius:16}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                            <span className="material-icons-round" style={{fontSize:18,color:'#ec4899'}}>photo_camera</span>
+                            <h3 style={{fontSize:12,fontWeight:800}}>Foto de perfil</h3>
                         </div>
-                        {/* Name */}
-                        <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Nombre o Alias</label>
-                            <input
-                                className="input-tf"
-                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
-                                placeholder="Ej: Juan Pérez"
-                                value={form.name}
-                                onChange={e=>set('name',e.target.value)}
-                            />
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+                            <AvatarUploader ext={form.ext} name={form.name} onUploaded={u=>setAvatarUrl(u)} size={100}/>
+                            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:6,lineHeight:1.4}}>JPG/PNG hasta 2MB.<br/>Aparece en toda la app.</div>
                         </div>
-                        {/* Email */}
-                        <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Correo Electrónico</label>
-                            <input
-                                className="input-tf"
-                                style={{padding:'12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
-                                placeholder="usuario@empresa.com"
-                                type="email"
-                                value={form.email}
-                                onChange={e=>set('email',e.target.value)}
-                            />
-                        </div>
-                        {/* Password */}
-                        <div>
-                            <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:8}}>Contraseña SIP (Secret)</label>
-                            <div style={{position:'relative'}}>
-                                <input
-                                    className="input-tf"
-                                    style={{padding:'12px 48px 12px 16px', borderRadius:14, fontSize:14, width:'100%', boxSizing:'border-box'}}
-                                    type={showPass?'text':'password'}
-                                    placeholder="Mínimo 6 caracteres"
-                                    value={form.secret}
-                                    onChange={e=>set('secret',e.target.value)}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={()=>setShowPass(!showPass)}
-                                    style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#6b7280',display:'flex',padding:4}}
-                                >
-                                    <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
-                                </button>
+                    </div>
+
+                    {/* Info de red */}
+                    {!isNew && ext && (
+                        <div className="glass" style={{padding:18,borderRadius:16}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>lan</span>
+                                <h3 style={{fontSize:12,fontWeight:800}}>Información de red</h3>
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:0}}>
+                                {[
+                                    {l:'IP origen', v: ext.ip, c:'#3b82f6'},
+                                    {l:'Latencia', v: ext.rtt, c:'#22c55e'},
+                                    {l:'MAC', v: ext.mac, c:'#9ca3af'},
+                                    {l:'Estado', v: statusLabel, c:statusColor}
+                                ].map(({l,v,c}) => (
+                                    <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                                        <span style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{l}</span>
+                                        <span style={{fontSize:11,fontWeight:800,fontFamily:'monospace',color:c}}>{v||'—'}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Recording */}
-                    <div style={{marginBottom:20}}>
-                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Grabación de Llamadas</label>
-                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
-                            {recOptions.map(o=>(
-                                <button
-                                    key={o.v}
-                                    onClick={()=>setRecording(o.v)}
-                                    style={{
-                                        padding:'14px 10px', borderRadius:14, cursor:'pointer',
-                                        border: recording===o.v ? `1px solid ${o.c}40` : '1px solid var(--border)',
-                                        background: recording===o.v ? `${o.c}12` : 'var(--surface2)',
-                                        color: recording===o.v ? o.c : 'var(--muted)',
-                                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                                        transition:'all .2s', fontWeight:700, fontSize:11
-                                    }}
-                                >
-                                    <span className="material-icons-round" style={{fontSize:22, color:recording===o.v?o.c:'var(--muted)'}}>{o.i}</span>
-                                    {o.l}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Device type */}
-                    <div style={{marginBottom:28}}>
-                        <label style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em',display:'block',marginBottom:12}}>Tecnología de Dispositivo</label>
-                        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10}}>
-                            {devOptions.map(o=>(
-                                <button
-                                    key={o.v}
-                                    onClick={()=>setDevType(o.v)}
-                                    style={{
-                                        padding:'14px 10px', borderRadius:14, cursor:'pointer',
-                                        border: devType===o.v ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border)',
-                                        background: devType===o.v ? 'rgba(139,92,246,0.12)' : 'var(--surface2)',
-                                        color: devType===o.v ? '#c4b5fd' : 'var(--muted)',
-                                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                                        transition:'all .2s', fontWeight:700, fontSize:11
-                                    }}
-                                >
-                                    <span className="material-icons-round" style={{fontSize:22, color:devType===o.v?'#8b5cf6':'var(--muted)'}}>{o.i}</span>
-                                    {o.l}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div style={{display:'flex', gap:12, justifyContent:'flex-end', paddingTop:20, borderTop:'1px solid var(--border)'}}>
-                        <button
-                            onClick={onBack}
-                            style={{
-                                padding:'12px 24px', borderRadius:14, fontWeight:700, fontSize:13,
-                                background:'var(--surface2)', border:'1px solid var(--border)',
-                                color:'var(--muted)', cursor:'pointer', transition:'all .2s'
-                            }}
-                        >Cancelar</button>
-                        <button
-                            onClick={save}
-                            disabled={saving}
-                            className="btn-primary"
-                            style={{padding:'12px 32px', borderRadius:14, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:8}}
-                        >
-                            <span className="material-icons-round" style={{fontSize:18}}>{saving?'hourglass_top':'save'}</span>
-                            {saving ? 'Guardando...' : isNew ? 'Crear Interno' : 'Guardar Cambios'}
-                        </button>
+                    {/* Tip aplicar cambios */}
+                    <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',display:'flex',gap:10,alignItems:'flex-start'}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#c4b5fd',flexShrink:0,marginTop:1}}>info</span>
+                        <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.45}}>Los cambios aplicarán un <strong style={{color:'var(--text)'}}>core reload</strong> automático en Asterisk para sincronizar SIP y dialplan.</div>
                     </div>
                 </div>
             </div>
         </div>
+    );
+}
+function ExtensionRow({ e, liveCalls, onClick }) {
+    const [tick, setTick] = useState(0);
+    // Encontrar la llamada activa de esta extensión
+    const myCall = liveCalls.find(c => 
+        String(c.ext) === String(e.ext) || 
+        String(c.dest) === String(e.ext) ||
+        String(c.peer_ext) === String(e.ext)
+    );
+    // Encontrar peer (la otra parte): si yo soy ext en la llamada, peer es dest; si soy dest, peer es ext
+    let peer = null;
+    if (myCall) {
+        if (String(myCall.ext) === String(e.ext)) peer = myCall.dest || myCall.peer_ext;
+        else if (String(myCall.dest) === String(e.ext)) peer = myCall.ext;
+        else if (String(myCall.peer_ext) === String(e.ext)) peer = myCall.ext;
+        if (peer && !/^\d+$/.test(String(peer))) peer = fmtDest(myCall);
+    }
+    // Timer local: incrementar cada segundo cuando hay llamada
+    useEffect(() => {
+        if (!myCall) return;
+        const t = setInterval(() => setTick(k => k+1), 1000);
+        return () => clearInterval(t);
+    }, [myCall?.channel]);
+
+    // Parsear duración inicial HH:MM:SS o MM:SS
+    const parseDur = (s) => {
+        if (!s) return 0;
+        const parts = String(s).split(':').map(x=>parseInt(x)||0);
+        if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+        if (parts.length===2) return parts[0]*60+parts[1];
+        return parts[0]||0;
+    };
+    const fmtDur = (s) => {
+        const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sc = s%60;
+        return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}` : `${m}:${String(sc).padStart(2,'0')}`;
+    };
+    const liveDur = myCall ? parseDur(myCall.duration) + tick : 0;
+
+    // Status visual: Grandstream-like icons + colors
+    const statusMap = {
+        ONLINE:  { label:'Idle',           color:'#22c55e', bg:'rgba(34,197,94,0.12)',  icon:'check_circle' },
+        BUSY:    { label:'En Llamada',     color:'#ef4444', bg:'rgba(239,68,68,0.12)',  icon:'phone_in_talk' },
+        OFFLINE: { label:'Desconectado',   color:'#6b7280', bg:'rgba(107,114,128,0.12)',icon:'radio_button_unchecked' }
+    };
+    const st = statusMap[e.status] || statusMap.OFFLINE;
+    const isBusy = e.status === 'BUSY';
+
+    // HORIZON: tipo interno desde data global
+    const tipo = (window._tfExtMeta || {})[e.ext]?.tipo || '';
+    const tipoColor = tipo === 'cliente' ? '#3b82f6' : (tipo === 'horizon' ? '#8b5cf6' : '#6b7280');
+    const tipoLabel = tipo === 'cliente' ? 'Cliente' : (tipo === 'horizon' ? 'Horizon' : '—');
+
+    return (
+        <tr onClick={onClick} style={{cursor:'pointer',transition:'background 0.15s'}}>
+            <td style={{padding:'10px 14px'}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:7,fontSize:11,fontWeight:800,color:st.color,padding:'4px 10px',borderRadius:6,background:st.bg,border:`1px solid ${st.color}33`}}>
+                    <span className="material-icons-round" style={{fontSize:13,animation:isBusy?'phone-shake 0.6s ease-in-out infinite':'none'}}>{st.icon}</span>
+                    {st.label}
+                </span>
+            </td>
+            <td>
+                {(() => {
+                    const localUrl = `uploads/avatars/${e.ext}.jpg`;
+                    const isKnown404 = (typeof localStorage !== 'undefined') && localStorage.getItem('tf_av_404_'+e.ext) === '1';
+                    if (isKnown404 || (!e.avatar) || e.avatar.includes('ui-avatars')) return null;
+                    return <img src={e.avatar} style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',border:'2px solid var(--border)'}} onError={ev=>{try{localStorage.setItem('tf_av_404_'+e.ext,'1');}catch(_){}; ev.target.style.display='none'; if(ev.target.nextSibling) ev.target.nextSibling.style.display='flex';}} />;
+                })()}
+                <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:e.avatar && !e.avatar.includes('ui-avatars')?'none':'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:900}}>
+                    {(e.name||e.ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                </div>
+            </td>
+            <td>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontFamily:'monospace',fontWeight:800,color:'var(--text)',fontSize:13}}>#{e.ext}</span>
+                    {e.recording === 'always' && <span title="Grabación siempre" className="material-icons-round" style={{fontSize:13,color:'#ef4444'}}>fiber_manual_record</span>}
+                    {e.device_type === 'softphone' && <span title="WebRTC" className="material-icons-round" style={{fontSize:13,color:'#3b82f6'}}>computer</span>}
+                    {e.device_type === 'phone' && <span title="Teléfono SIP" className="material-icons-round" style={{fontSize:13,color:'#6b7280'}}>phone</span>}
+                </div>
+            </td>
+            <td style={{fontSize:13,fontWeight:600}}>{e.name}</td>
+            <td>
+                {peer ? (
+                    <span style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:'monospace',fontSize:12,fontWeight:700,color:'#fbbf24'}}>
+                        <span className="material-icons-round" style={{fontSize:14}}>swap_horiz</span>
+                        {peer}
+                    </span>
+                ) : <span style={{color:'var(--muted)',fontSize:11}}>—</span>}
+            </td>
+            <td>
+                {isBusy ? (
+                    <span style={{fontFamily:'monospace',fontWeight:800,color:'#22c55e',fontSize:12,display:'inline-flex',alignItems:'center',gap:5}}>
+                        <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 1s infinite'}}/>
+                        {fmtDur(liveDur)}
+                    </span>
+                ) : <span style={{color:'var(--muted)',fontSize:11}}>—</span>}
+            </td>
+            <td><code style={{fontSize:11,color:'#ec4899'}}>{e.ip}</code></td>
+            <td style={{color:'#c4b5fd',fontSize:11,fontFamily:'monospace'}}>{e.rtt}</td>
+            <td>
+                {tipo ? (
+                    <span style={{fontSize:10,padding:'3px 9px',borderRadius:5,background:`${tipoColor}22`,color:tipoColor,fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',border:`1px solid ${tipoColor}55`}}>
+                        {tipoLabel}
+                    </span>
+                ) : <span style={{fontSize:10,color:'var(--muted)'}}>—</span>}
+            </td>
+            <td>
+                <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:'rgba(255,255,255,0.05)',color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>
+                    {e.device_type === 'softphone' ? 'WebRTC' : 'SIP'}
+                </span>
+            </td>
+            <td><span className="material-icons-round" style={{fontSize:17,color:'#6b7280'}}>chevron_right</span></td>
+        </tr>
     );
 }
 
@@ -1289,11 +1964,29 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 function ViewExtensiones({ data, toast }) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [viewMode, setViewMode] = useState('grid');
+    const [viewMode, setViewMode] = useState(localStorage.getItem('tf_ext_view') || 'table');
     const [editing, setEditing] = useState(null); // null | 'new' | ext object
     const [saved, setSaved] = useState(0);
 
+    // HORIZON: skeleton loader si todavía no llegó la primer data
+    if (!data || !data.pbx) {
+        return (
+            <div className="content-area view-enter">
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:16, padding:'20px 0'}}>
+                    {Array.from({length: 12}).map((_,i)=>(
+                        <div key={i} className="glass animate-pulse" style={{padding:18, borderRadius:18, height:110, border:'1px solid var(--border)', background:'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04))'}}>
+                            <div style={{width:48, height:48, borderRadius:'50%', background:'rgba(255,255,255,0.08)', marginBottom:10}} />
+                            <div style={{width:'70%', height:10, borderRadius:4, background:'rgba(255,255,255,0.08)', marginBottom:6}} />
+                            <div style={{width:'40%', height:8, borderRadius:4, background:'rgba(255,255,255,0.06)'}} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     const allExts = data?.pbx?.extensions || [];
+    const liveCalls = data?.pbx?.live_calls || [];
     const onlineTotal = allExts.filter(e=>e.status==='ONLINE').length;
     const busyTotal   = allExts.filter(e=>e.status==='BUSY').length;
     const offlineTotal = allExts.length - onlineTotal - busyTotal;
@@ -1337,31 +2030,25 @@ function ViewExtensiones({ data, toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* Toolbar & Stats */}
-            <div style={{display:'flex', gap:10, alignItems:'center', justifyContent:'flex-end', marginBottom:20, flexWrap:'wrap'}}>
-                <div style={{position:'relative', width:280}}>
+            <PageActions>
+                <div style={{position:'relative',width:240}}>
                     <span className="material-icons-round" style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:17,color:'#6b7280'}}>search</span>
-                    <input className="input-tf py-2.5 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
+                    <input className="input-tf py-2 pl-10 pr-4 rounded-xl text-sm" placeholder="Buscar extensión..." value={search} onChange={e=>setSearch(e.target.value)} style={{padding:'8px 10px 8px 32px',width:'100%'}}/>
                 </div>
-                
-                {/* Status Chips Filter */}
-                <div style={{display:'flex', gap:6}}>
-                    <Chip label="Online" count={onlineTotal} status="ONLINE" color="#4ade80" bg="rgba(34,197,94,0.1)" />
-                    <Chip label="En Llamada" count={busyTotal} status="BUSY" color="#fbbf24" bg="rgba(245,158,11,0.1)" />
-                    <Chip label="Offline" count={offlineTotal} status="OFFLINE" color="#9ca3af" bg="rgba(107,114,128,0.1)" />
-                </div>
-
-                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>  
+                <Chip label="Online" count={onlineTotal} status="ONLINE" color="#4ade80" bg="rgba(34,197,94,0.1)" />
+                <Chip label="En Llamada" count={busyTotal} status="BUSY" color="#ef4444" bg="rgba(239,68,68,0.1)" />
+                <Chip label="Offline" count={offlineTotal} status="OFFLINE" color="#9ca3af" bg="rgba(107,114,128,0.1)" />
+                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
                     {['grid','table'].map(m=>(
-                        <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
-                            <span className="material-icons-round" style={{fontSize:18,display:'block'}}>{m==='grid'?'grid_view':'table_rows'}</span>
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ext_view',m);}catch(e){}}} style={{padding:'6px 10px',borderRadius:8,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,.25)':'transparent',color:viewMode===m?'#c4b5fd':'#6b7280',transition:'all .2s'}}>
+                            <span className="material-icons-round" style={{fontSize:16,display:'block'}}>{m==='grid'?'grid_view':'table_rows'}</span>
                         </button>
                     ))}
                 </div>
-                <button className="btn-primary" style={{padding:'10px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setEditing('new')}>
-                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva
+                <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={()=>setEditing('new')}>
+                    <span className="material-icons-round" style={{fontSize:16}}>add</span>Nueva
                 </button>
-            </div>
+            </PageActions>
 
             {/* GRID */}
             {viewMode==='grid' && (
@@ -1390,28 +2077,28 @@ function ViewExtensiones({ data, toast }) {
                 </div>
             )}
 
-            {/* TABLE */}
+            {/* TABLE — estilo Grandstream UCM */}
             {viewMode==='table' && (
-                <div className="glass" style={{overflow:'hidden'}}>
+                <div className="glass" style={{overflow:'hidden',borderRadius:12}}>
                     <table className="tf-table">
-                        <thead><tr><th>#</th><th>Nombre</th><th>Estado</th><th>IP</th><th>RTT</th><th></th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th style={{width:130}}>Estado</th>
+                                <th style={{width:60}}></th>
+                                <th>Extensión</th>
+                                <th>Nombre</th>
+                                <th>Hablando con</th>
+                                <th>Duración</th>
+                                <th>IP</th>
+                                <th>RTT</th>
+                                <th>Categoría</th>
+                                <th>Tipo</th>
+                                <th style={{width:40}}></th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            {exts.map(e=>(
-                                <tr key={e.ext} style={{cursor:'pointer'}} onClick={()=>setEditing(e)}>
-                                    <td>
-                                        <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                            <span style={{fontFamily:'monospace',fontWeight:800,color:'#c4b5fd'}}>#{e.ext}</span>
-                                            {e.recording === 'always' && <span className="material-icons-round" style={{fontSize:12,color:'#ef4444'}}>fiber_manual_record</span>}
-                                        </div>
-                                    </td>
-                                    <td style={{fontWeight:600}}>{e.name}</td>
-                                    <td><span className={`badge ${badgeCls(e.status)}`}><span className={`badge-dot ${dotCls(e.status)}`}/>{e.status}</span></td>
-                                    <td><code style={{fontSize:11,color:'#ec4899'}}>{e.ip}</code></td>
-                                    <td style={{color:'#c4b5fd'}}>{e.rtt}</td>
-                                    <td><span className="material-icons-round" style={{fontSize:17,color:'#6b7280'}}>chevron_right</span></td>
-                                </tr>
-                            ))}
-                            {exts.length===0&&<tr><td colSpan={6} style={{textAlign:'center',color:'#6b7280',padding:30}}>Sin extensiones</td></tr>}
+                            {exts.map(e => <ExtensionRow key={e.ext} e={e} liveCalls={liveCalls} onClick={()=>setEditing(e)} />)}
+                            {exts.length===0&&<tr><td colSpan={10} style={{textAlign:'center',color:'#6b7280',padding:30}}>Sin extensiones</td></tr>}
                         </tbody>
                     </table>
                 </div>
@@ -1423,350 +2110,323 @@ function ViewExtensiones({ data, toast }) {
 // ─────────────────────────────────────────────
 // VISTA: AGENTES - Dashboard Activo
 // ─────────────────────────────────────────────
-function ViewAgentes({ toast }) {
+function ViewAgentes({ toast, data }) {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [selected, setSelected] = useState(null);
-    const [activeCalls, setActiveCalls] = useState([]);
-    const [isGrid, setIsGrid] = useState(true);
-    const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
-    const [actionLoading, setActionLoading] = useState(null);
-    
-    // UI Enhancements state
-    const [contextMenu, setContextMenu] = useState(null);
-    const [peekHistory, setPeekHistory] = useState(null);
-    const [historyData, setHistoryData] = useState({});
-    const menuRef = useRef(null);
+    const [viewMode, setViewMode] = useState(localStorage.getItem('tf_ag_view') || 'table');
+    const [editing, setEditing] = useState(null);
 
-    useEffect(() => {
-        localStorage.setItem('tf_supervisor_ext', supervisorExt);
-    }, [supervisorExt]);
+    const saveAgent = async (form) => {
+        const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v));
+        const isNew = !form.id;
+        const r = await fetch('api/hotdesking.php?action=' + (isNew?'create':'update'), {method:'POST', body:fd, credentials:'include'});
+        const j = await r.json();
+        if (j.status === 'ok') { toast?.(isNew?'Agente creado':'Actualizado','success'); setEditing(null); load(); }
+        else toast?.(j.message||'Error','error');
+    };
 
-    const load = useCallback(async () => {
+    const liveCalls = data?.pbx?.live_calls || [];
+    const exts = data?.pbx?.extensions || [];
+
+    const load = async () => {
         try {
-            const [ar, cr] = await Promise.all([
-                fetch('api/index.php?action=get_full_data', { credentials: 'include' }).then(r=>r.json()).catch(()=>({success:false})),
-                fetch('api/index.php?action=get_active_calls', { credentials: 'include' }).then(r=>r.json()).catch(()=>({success:false}))
-            ]);
-            // Full data returns extensions in pbx.extensions
-            if (ar.pbx?.extensions) setAgents(ar.pbx.extensions);
-            if (cr.success) setActiveCalls(cr.calls||[]);
-        } catch {}
+            const r = await fetch('api/hotdesking.php?action=list', {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') setAgents(j.agents || []);
+        } catch(e) {}
         setLoading(false);
-    }, []);
-
-    useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
-    
-    // Close context menu on click outside
-    useEffect(() => {
-        const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setContextMenu(null); };
-        document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
-    }, []);
-
-    const handleAction = async (agent, type) => {
-        setContextMenu(null);
-        const callInfo = activeCalls.find(c => c.ext === String(agent.ext));
-        if (!callInfo && (type === 'spy' || type === 'whisper' || type === 'hangup')) {
-            toast('El agente no está en una llamada activa', 'warning');
-            return;
-        }
-        if ((type === 'spy' || type === 'whisper') && !supervisorExt) {
-            toast('Configura tu extensión de supervisor primero', 'error');
-            return;
-        }
-        
-        setActionLoading(agent.ext);
-        try {
-            const fd = new FormData();
-            fd.append('type', type);
-            fd.append('channel', callInfo?.channel || '');
-            fd.append('supervisor', supervisorExt);
-            
-            const r = await fetch('api/index.php?action=call_action', { method: 'POST', body: fd });
-            const d = await r.json();
-            if (d.success) toast(d.message, 'success');
-            else toast(d.error || 'Error', 'error');
-        } catch (e) {
-            toast('Error de conexión', 'error');
-        }
-        setActionLoading(null);
     };
+    useEffect(()=>{ load(); const t = setInterval(load, 6000); return ()=>clearInterval(t); }, []);
 
-    const fetchHistory = async (ext) => {
-        if (historyData[ext]) { setPeekHistory(ext); return; }
-        try {
-            const r = await fetch(`api/index.php?action=get_agent_history&ext=${ext}`, { credentials: 'include' });
-            const d = await r.json();
-            if (d.success) {
-                setHistoryData(prev => ({...prev, [ext]: d.history}));
-                setPeekHistory(ext);
-            }
-        } catch {}
-    };
+    // Cruzar agent.extension con live_calls para detectar EN LLAMADA
+    const enriched = agents.map(a => {
+        const inCall = a.extension && liveCalls.some(c => c.ext === a.extension || c.dest === a.extension);
+        const extInfo = a.extension ? exts.find(x => x.ext === a.extension) : null;
+        return {
+            ...a,
+            in_call: !!inCall,
+            ip: extInfo?.ip,
+            rtt: extInfo?.rtt,
+            ext_name: extInfo?.name,
+            queues: a.queues || []
+        };
+    });
 
-    const onDropTransfer = async (e, targetExt) => {
-        e.preventDefault();
-        const callData = JSON.parse(e.dataTransfer.getData('call') || '{}');
-        if (!callData.channel) return;
-        
-        toast(`Transfiriendo llamada ${callData.ext} -> ${targetExt}...`, 'info');
-        try {
-            const fd = new FormData();
-            fd.append('channel', callData.channel);
-            fd.append('ext', targetExt);
-            const r = await fetch('api/index.php?action=redirect_call', { 
-                method: 'POST', 
-                body: fd,
-                credentials: 'include'
-            });
-            const d = await r.json();
-            if (d.success) toast(d.message, 'success');
-            else toast(d.error, 'error');
-        } catch { toast('Error al transferir', 'error'); }
-    };
+    const totalOnline = enriched.filter(a => a.logged_in && !a.in_call).length;
+    const totalBusy   = enriched.filter(a => a.in_call).length;
+    const totalLogged = enriched.filter(a => a.logged_in).length;
 
-    const getCallInfo = (ext) => activeCalls.find(c => c.ext === String(ext));
-    const getLatencyRef = (rtt) => {
-        const ms = parseInt(rtt) || 999;
-        if (ms < 50) return { color: '#22c55e', label: 'Excelente' };
-        if (ms < 150) return { color: '#f59e0b', label: 'Medio' };
-        return { color: '#ef4444', label: 'Pobre' };
-    };
+    const filtered = enriched.filter(a => {
+        if (statusFilter === 'online' && (!a.logged_in || a.in_call)) return false;
+        if (statusFilter === 'busy' && !a.in_call) return false;
+        if (statusFilter === 'offline' && a.logged_in) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (a.number||'').includes(search) || (a.name||'').toLowerCase().includes(q) || (a.extension||'').includes(search);
+    });
 
-    const filtered = agents.filter(a =>
-        (a.name.toLowerCase().includes(search.toLowerCase()) || String(a.ext).includes(search)) &&
-        (!statusFilter || a.status === statusFilter)
+    if (loading) {
+        return (
+            <div className="content-area view-enter">
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
+                    {Array.from({length:8}).map((_,i)=>(
+                        <div key={i} className="glass animate-pulse" style={{padding:16,borderRadius:14,height:120,opacity:0.5}}>
+                            <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.08)',marginBottom:8}}/>
+                            <div style={{width:'70%',height:10,background:'rgba(255,255,255,0.08)',borderRadius:4}}/>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    const Chip = ({label, count, value, color}) => (
+        <div onClick={()=>setStatusFilter(statusFilter===value?'':value)} style={{
+            padding:'7px 14px', borderRadius:8, cursor:'pointer',
+            background: statusFilter===value ? `${color}33` : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${statusFilter===value ? color : 'var(--border)'}`,
+            color: statusFilter===value ? color : 'var(--muted)',
+            fontWeight:700, fontSize:11, whiteSpace:'nowrap',
+            display:'flex', alignItems:'center', gap:6, transition:'all 0.2s'
+        }}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:color}}/>
+            {count} {label}
+        </div>
     );
-    const online = agents.filter(a=>a.status==='ONLINE').length;
-    const busy   = agents.filter(a=>a.status==='BUSY').length;
-    const calls  = agents.reduce((s,a)=>s+(a.total_calls||0),0);
 
     return (
         <div className="content-area view-enter">
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
-                {[
-                    {l:'Agentes Online',v:`${online}/${agents.length}`,c:'#22c55e',ic:'sensors',bg:'rgba(34,197,94,0.1)'},
-                    {l:'En Llamada',v:busy,c:'#ef4444',ic:'call',bg:'rgba(239,68,68,0.1)'},
-                    {l:'Total Llamadas',v:calls,c:'#8b5cf6',ic:'bar_chart',bg:'rgba(139,92,246,0.1)'},
-                    {l:'Offline',v:agents.length-online-busy,c:'#6b7280',ic:'do_not_disturb',bg:'rgba(255,255,255,0.05)'},
-                ].map(s=>(
-                    <div key={s.l} className="glass" style={{padding:20, borderRadius:20}}>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                            <div style={{fontSize:10,fontWeight:800,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.1em'}}>{s.l}</div>
-                            <div style={{width:36,height:36,borderRadius:10,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:s.c}}>{s.ic}</span>
-                            </div>
-                        </div>
-                        <div style={{fontSize:32,fontWeight:900,color:s.c,marginTop:8,lineHeight:1}}>{s.v}</div>
-                    </div>
-                ))}
-            </div>
-
-            <div style={{display:'flex',gap:12,marginBottom:24,alignItems:'center'}}>
-                <div style={{position:'relative',flex:1}}>
-                    <span className="material-icons-round" style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',fontSize:18,color:'#6b7280'}}>search</span>
-                    <input className="input-tf py-3 pl-12 pr-4 rounded-2xl text-sm" placeholder="Buscar por nombre o extensión..." value={search} onChange={e=>setSearch(e.target.value)} />
+            <PageActions>
+                <Chip label="Online" count={totalOnline} value="online" color="#22c55e" />
+                <Chip label="En Llamada" count={totalBusy} value="busy" color="#ef4444" />
+                <Chip label="Offline" count={agents.length - totalLogged} value="offline" color="#6b7280" />
+                <input className="input-tf py-2 px-4 rounded-xl text-sm" style={{width:220}}
+                    placeholder="Buscar agente, número o ext..."
+                    value={search} onChange={e=>setSearch(e.target.value)} />
+                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
+                    {['table','grid'].map(m=>(
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_ag_view',m);}catch(e){}}} style={{padding:'6px 14px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m?'#c4b5fd':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
+                            <span className="material-icons-round" style={{fontSize:14}}>{m==='grid'?'grid_view':'table_rows'}</span>
+                            {m==='grid'?'Tarjetas':'Tabla'}
+                        </button>
+                    ))}
                 </div>
-                
-                <div className="glass" style={{display:'flex', padding:4, borderRadius:16, background:'rgba(255,255,255,0.02)'}}>
-                    <button onClick={()=>setIsGrid(true)} className={`p-2 rounded-xl transition-all ${isGrid?'bg-white/10 text-white shadow-lg':'text-gray-500 hover:text-gray-300'}`}>
-                        <span className="material-icons-round" style={{fontSize:20}}>grid_view</span>
-                    </button>
-                    <button onClick={()=>setIsGrid(false)} className={`p-2 rounded-xl transition-all ${!isGrid?'bg-white/10 text-white shadow-lg':'text-gray-500 hover:text-gray-300'}`}>
-                        <span className="material-icons-round" style={{fontSize:20}}>format_list_bulleted</span>
-                    </button>
-                </div>
+            </PageActions>
 
-                <div className="glass" style={{display:'flex', alignItems:'center', gap:10, padding:'4px 12px', borderRadius:16}}>
-                    <span className="material-icons-round" style={{fontSize:16, color:'#6b7280'}}>admin_panel_settings</span>
-                    <input type="text" placeholder="Mi Ext" title="Tu extensión para Spy/Whisper" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} className="bg-transparent border-none text-xs font-bold text-white focus:outline-none w-16" />
-                </div>
-
-                <select className="input-tf py-3 px-6 rounded-2xl text-sm" style={{width:'auto'}} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
-                    <option value="">Todos los Estados</option>
-                    <option value="ONLINE">Disponibles</option>
-                    <option value="BUSY">En Llamada</option>
-                    <option value="OFFLINE">Desconectados</option>
-                </select>
-            </div>
-
-            {loading ? (
-                <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Cargando agentes...</div>
-            ) : filtered.length === 0 ? (
-                <div style={{textAlign:'center',padding:40,color:'#6b7280'}}>Sin agentes que coincidan</div>
-            ) : isGrid ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-8 anim-fadeup">
-                    {filtered.map(agent => {
-                        const callInfo = getCallInfo(agent.ext);
-                        const isBusy = agent.status === 'BUSY' || !!callInfo;
-                        const isOffline = agent.status === 'OFFLINE';
-                        const statusColor = isBusy ? '#ef4444' : (isOffline ? '#4b5563' : '#22c55e');
-                        const rttInfo = getLatencyRef(agent.rtt_ms || agent.rtt);
-                        
-                        return (
-                            <div key={agent.ext} className="group relative flex flex-col items-center" 
-                                 onContextMenu={(e)=>{ e.preventDefault(); setContextMenu({x:e.clientX, y:e.clientY, agent}); }}
-                                 onDragOver={(e)=>e.preventDefault()}
-                                 onDrop={(e)=>onDropTransfer(e, agent.ext)}
-                                 onMouseEnter={()=>fetchHistory(agent.ext)}
-                                 onMouseLeave={()=>setPeekHistory(null)}
-                                 style={{cursor:'pointer'}}>
-                                
-                                <div className="relative mb-4">
-                                    <div className={`w-20 h-20 rounded-[28px] bg-gradient-to-br ${getColor(agent.name)} flex items-center justify-center text-xl font-black text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-2`}
-                                         style={{
-                                             boxShadow: isBusy ? `0 10px 40px rgba(239,68,68,0.4)` : (isOffline ? 'none' : `0 10px 40px rgba(34,197,94,0.2)`),
-                                             border: `2px solid ${statusColor}44`,
-                                             filter: isOffline ? 'grayscale(0.8) opacity-0.6' : 'none',
-                                             background: `url(${agent.avatar}) center/cover`
-                                         }}>
-                                        {!agent.avatar.includes('uploads') && initials(agent.name)}
-                                    </div>
-
-                                    {/* Status Badge */}
-                                    <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl border-4 border-[#0b0b14] flex items-center justify-center transform group-hover:scale-110 transition-transform" style={{background: statusColor}}>
-                                        <span className="material-icons-round text-[14px] text-white" style={{animation: isBusy?'pulse-ring 1.5s infinite':'none'}}>
-                                            {isBusy ? 'call' : (isOffline ? 'cloud_off' : 'check')}
+            {viewMode==='table' && (
+                <div className="glass" style={{borderRadius:12,overflow:'hidden'}}>
+                    <table className="tf-table">
+                        <thead>
+                            <tr>
+                                <th style={{padding:'10px 14px',width:90}}>Estado</th>
+                                <th style={{width:50}}></th>
+                                <th>Agente #</th>
+                                <th>Nombre</th>
+                                <th>Extensión</th>
+                                <th>IP</th>
+                                <th>Colas</th>
+                                <th style={{width:80}}></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map(a => {
+                                const sc = a.in_call ? '#ef4444' : (a.logged_in ? '#22c55e' : '#6b7280');
+                                const lbl = a.in_call?'En llamada':(a.logged_in?'Disponible':'Offline');
+                                return (
+                                <tr key={a.id} onClick={()=>setSelected(a)} style={{cursor:'pointer'}}>
+                                    <td style={{padding:'8px 14px'}}>
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,fontWeight:700,color:sc}}>
+                                            <span style={{width:7,height:7,borderRadius:'50%',background:sc,boxShadow:`0 0 8px ${sc}66`}}/>{lbl}
                                         </span>
-                                    </div>
-
-                                    {/* Latency Dot */}
-                                    {!isOffline && (
-                                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0b0b14] flex items-center justify-center shadow-lg" 
-                                             title={`Latencia: ${agent.rtt} (${rttInfo.label})`}
-                                             style={{background: rttInfo.color}}>
-                                            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                    </td>
+                                    <td>
+                                        <div style={{width:30,height:30,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}88)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:900}}>
+                                            {(a.name||'').split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()}
                                         </div>
-                                    )}
-
-                                    {/* Device Badge */}
-                                    <div className="absolute -bottom-1 -left-1 w-6 h-6 rounded-lg bg-surface2 border border-white/5 flex items-center justify-center text-gray-400">
-                                        <span className="material-icons-round text-[12px]">{agent.device_type === 'softphone' ? 'laptop_mac' : 'phone_android'}</span>
-                                    </div>
-
-                                    {/* Quick Hover Actions Overlay */}
-                                    <div className="absolute inset-0 rounded-[28px] bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[4px] group-hover:scale-110 group-hover:-translate-y-2">
-                                        <div className="flex gap-2">
-                                            <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} title="Espiar" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
-                                                <span className="material-icons-round" style={{fontSize:20}}>headphones</span>
-                                            </button>
-                                            <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'whisper'); }} title="Susurrar" className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all">
-                                                <span className="material-icons-round" style={{fontSize:20}}>record_voice_over</span>
-                                            </button>
+                                    </td>
+                                    <td style={{fontFamily:'monospace',fontWeight:700,fontSize:12}}>#{a.number}</td>
+                                    <td style={{fontSize:13,fontWeight:700}}>{a.name}</td>
+                                    <td style={{fontFamily:'monospace',fontSize:12}}>{a.extension||'—'}</td>
+                                    <td style={{fontFamily:'monospace',fontSize:11,color:'var(--muted)'}}>{a.ip||'—'}</td>
+                                    <td>
+                                        <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                                            {a.queues.slice(0,4).map((q,i)=>(
+                                                <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                                    Q{q.queue||q}
+                                                </span>
+                                            ))}
+                                            {a.queues.length>4 && <span style={{fontSize:9,color:'var(--muted)'}}>+{a.queues.length-4}</span>}
                                         </div>
-                                    </div>
-                                </div>
-
-                                <div className="text-center group-hover:translate-y-[-4px] transition-transform">
-                                    <div style={{fontSize:13, fontWeight:900, color:'white'}}>#{agent.ext}</div>
-                                    <div style={{fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{agent.name}</div>
-                                    {isBusy && (
-                                        <div className="mt-2 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 flex items-center gap-1.5 justify-center">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                                            <AgentCallTimer seconds={callInfo?.elapsed_sec || agent.in_call || 0} />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="anim-fadeup">
-                    {filtered.map(agent => {
-                        const callInfo = getCallInfo(agent.ext);
-                        const isBusy = agent.status==='BUSY' || !!callInfo;
-                        return (
-                            <div key={agent.ext} className="agent-row" style={{gridTemplateColumns:'2.5fr 1.2fr 2fr 1.3fr 1.2fr'}} onClick={()=>setSelected(agent)}>
-                                <div style={{display:'flex',alignItems:'center',gap:12}}>
-                                    <div className={`agent-avatar bg-gradient-to-br ${getColor(agent.name)}`} style={{position:'relative'}}>
-                                        {initials(agent.name)}
-                                        {isBusy&&<div style={{position:'absolute',bottom:-2,right:-2,width:8,height:8,borderRadius:'50%',background:'#f59e0b',border:'1px solid var(--surface)',animation:'blink 1s infinite'}} />}
-                                    </div>
-                                    <div>
-                                        <div style={{fontSize:13,fontWeight:700,color:'var(--text)'}}>#{agent.ext}</div>
-                                        <div style={{fontSize:11,color:'#9ca3af'}}>{agent.name}</div>
-                                    </div>
-                                    {isBusy && (
-                                        <button onClick={(e)=>{ e.stopPropagation(); handleAction(agent,'spy'); }} className="ml-auto w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center justify-center">
-                                            <span className="material-icons-round" style={{fontSize:18}}>headphones</span>
-                                        </button>
-                                    )}
-                                </div>
-                                <div style={{textAlign:'center'}}>
-                                    <span className={`badge ${agent.status==='ONLINE'?'badge-online':agent.status==='BUSY'?'badge-busy':'badge-offline'}`}>
-                                        <span className={`badge-dot ${agent.status==='ONLINE'?'dot-online':agent.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                        {agent.status==='ONLINE'?'Online':agent.status==='BUSY'?'Llamada':'Offline'}
-                                    </span>
-                                </div>
-                                <div style={{textAlign:'center'}}>
-                                    {callInfo ? (
-                                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                                            <AgentCallTimer seconds={callInfo.elapsed_sec||0} />
-                                            <div style={{fontSize:10,color:'#ec4899',fontFamily:'monospace'}}>{callInfo.dest||'—'}</div>
-                                        </div>
-                                    ) : (agent.in_call||0)>0 ? (
-                                        <AgentCallTimer seconds={agent.in_call||0} />
-                                    ) : <span style={{fontSize:12,color:'#6b7280'}}>—</span>}
-                                </div>
-                                <div style={{textAlign:'center',display:'flex',gap:14,justifyContent:'center'}}>
-                                    <div style={{textAlign:'center'}}>
-                                        <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.total_calls||0}</div>
-                                        <div style={{fontSize:9,color:'#6b7280'}}>LLAMADAS</div>
-                                    </div>
-                                    <div style={{textAlign:'center'}}>
-                                        <div style={{fontSize:14,fontWeight:800,color:'#c4b5fd'}}>{agent.avg_aht||'0:00'}</div>
-                                        <div style={{fontSize:9,color:'#6b7280'}}>AHT</div>
-                                    </div>
-                                </div>
-                                <div style={{textAlign:'right'}}>
-                                    <div style={{fontSize:10,fontFamily:'monospace',color:'#ec4899'}}>{agent.ip}</div>
-                                    <div style={{fontSize:10,fontFamily:'monospace',color:'#8b5cf6'}}>{agent.rtt}</div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                                    </td>
+                                    <td style={{textAlign:'right',padding:'0 14px'}}>
+                                        <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)'}}>chevron_right</span>
+                                    </td>
+                                </tr>
+                                );
+                            })}
+                            {filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:30,color:'var(--muted)'}}>Ningún agente coincide</td></tr>}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
-            {selected && (
-                <div className="modal-backdrop" onClick={()=>setSelected(null)}>
-                    <div className="modal-box" onClick={e=>e.stopPropagation()}>
-                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
-                            <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                <div className={`agent-avatar bg-gradient-to-br ${getColor(selected.name)}`} style={{width:48,height:48,borderRadius:12,fontSize:15}}>{initials(selected.name)}</div>
-                                <div>
-                                    <div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>#{selected.ext} — {selected.name}</div>
-                                    <span className={`badge ${selected.status==='ONLINE'?'badge-online':selected.status==='BUSY'?'badge-busy':'badge-offline'}`}>
-                                        <span className={`badge-dot ${selected.status==='ONLINE'?'dot-online':selected.status==='BUSY'?'dot-busy':'dot-offline'}`} />
-                                        {selected.status}
-                                    </span>
-                                </div>
+            {/* Grid (tarjetas) opcional */}
+            {viewMode==='grid' && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(290px,1fr))',gap:12}}>
+                {filtered.map(a => {
+                    const statusColor = a.in_call ? '#ef4444' : (a.logged_in ? '#22c55e' : '#6b7280');
+                    return (
+                    <div key={a.id} onClick={()=>setSelected(a)} style={{
+                        padding:14, borderRadius:12, cursor:'pointer',
+                        background:'var(--surface)',
+                        border:`1px solid ${a.logged_in?statusColor+'40':'var(--border)'}`,
+                        transition:'all 0.2s'
+                    }}>
+                        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                            <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${statusColor},${statusColor}88)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative'}}>
+                                {(a.name||'').split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                                {a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
                             </div>
-                            <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#6b7280'}}>
-                                <span className="material-icons-round" style={{fontSize:22}}>close</span>
-                            </button>
+                            <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
+                                <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>Agente #{a.number}</div>
+                            </div>
                         </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                            {[
-                                {l:'IP Origen',v:selected.ip},{l:'MAC',v:selected.mac},
-                                {l:'Latencia RTT',v:selected.rtt},{l:'En Llamada',v:selected.in_call>0?fmtTime(selected.in_call):'No'},
-                                {l:'Llamadas Hoy',v:selected.total_calls},{l:'AHT Promedio',v:selected.avg_aht},
-                            ].map(({l,v})=>(
-                                <div key={l} style={{background:'var(--surface2)',borderRadius:10,padding:'12px',border:'1px solid var(--border)'}}>
-                                    <div style={{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:4}}>{l}</div>
-                                    <div style={{fontSize:13,fontWeight:600,color:'#c4b5fd',fontFamily:'monospace'}}>{v||'—'}</div>
-                                </div>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                            <span style={{fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:5,background:`${statusColor}22`,color:statusColor,textTransform:'uppercase'}}>
+                                {a.in_call ? 'En llamada' : (a.logged_in ? 'Disponible' : 'Offline')}
+                            </span>
+                            {a.extension && (
+                                <span style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>
+                                    ext {a.extension}{a.ip && a.ip!=='—' ? ' · '+a.ip : ''}
+                                </span>
+                            )}
+                        </div>
+                        {a.queues.length > 0 && (
+                            <div style={{display:'flex',flexWrap:'wrap',gap:3}}>
+                                {a.queues.slice(0,5).map((q,i)=>(
+                                    <span key={i} style={{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:700}}>
+                                        Q{q.queue || q}
+                                    </span>
+                                ))}
+                                {a.queues.length > 5 && <span style={{fontSize:9,color:'var(--muted)'}}>+{a.queues.length-5}</span>}
+                            </div>
+                        )}
+                    </div>
+                    );
+                })}
+                {filtered.length===0 && (
+                    <div className="glass" style={{padding:40,textAlign:'center',color:'var(--muted)',gridColumn:'1/-1'}}>
+                        <span className="material-icons-round" style={{fontSize:40}}>person_search</span>
+                        <div style={{marginTop:6,fontSize:12}}>Ningún agente coincide</div>
+                    </div>
+                )}
+            </div>}
+
+            {selected && <AgentDetailModal agent={selected} onClose={()=>setSelected(null)} onEdit={()=>{ setEditing(selected); setSelected(null); }} />}
+            {editing && <HotdeskingEditModal agent={editing} onClose={()=>setEditing(null)} onSave={saveAgent} queues={data?.pbx?.queues||[]} />}
+
+            {/* Footer: contador */}
+            <div style={{marginTop:18,padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8,fontSize:11,color:'var(--muted)',fontWeight:700,borderTop:'1px solid var(--border)'}}>
+                <span className="material-icons-round" style={{fontSize:14,color:'var(--muted)'}}>group</span>
+                Mostrando <strong style={{color:'var(--text)',margin:'0 4px'}}>{filtered.length}</strong>
+                de <strong style={{color:'var(--text)',margin:'0 4px'}}>{agents.length}</strong> agentes
+                · <span style={{color:'#22c55e'}}>{totalLogged} activos</span>
+            </div>
+        </div>
+    );
+}
+
+function AgentDetailModal({ agent, onClose, onEdit }) {
+    const sc = agent.in_call?'#ef4444':(agent.logged_in?'#22c55e':'#6b7280');
+    const lbl = agent.in_call?'En llamada':(agent.logged_in?'Disponible':'Offline');
+    const inits = (agent.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase();
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)',overflow:'hidden'}}>
+                {/* Header con gradient */}
+                <div style={{padding:'18px 22px',background:`linear-gradient(135deg, ${sc}22, transparent 70%)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:54,height:54,borderRadius:14,background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:18,boxShadow:`0 6px 18px ${sc}55`,position:'relative',flexShrink:0}}>
+                        {inits}
+                        {agent.logged_in && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:sc,border:'3px solid var(--surface)',boxShadow:`0 0 8px ${sc}`}}/>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                        <h2 style={{fontSize:18,fontWeight:900,letterSpacing:'-0.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{agent.name}</h2>
+                        <div style={{fontSize:11,color:'var(--muted)',display:'flex',alignItems:'center',gap:8,marginTop:2,fontFamily:'monospace'}}>
+                            <span>Agente #{agent.number}</span>
+                            <span style={{opacity:.4}}>·</span>
+                            <span>{agent.type || 'Agent'}</span>
+                            <span style={{opacity:.4}}>·</span>
+                            <span style={{color:sc,fontWeight:800}}>{lbl}</span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} style={{padding:8,borderRadius:10,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:20,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',gap:12}}>
+                    {/* Grid info en vivo */}
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+                        <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
+                            <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Extensión</div>
+                            <div style={{fontSize:14,fontWeight:800,fontFamily:'monospace'}}>{agent.extension || '—'}</div>
+                            {agent.ext_name && <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{agent.ext_name}</div>}
+                        </div>
+                        <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
+                            <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Estado SIP</div>
+                            <div style={{fontSize:14,fontWeight:800,color:sc,display:'flex',alignItems:'center',gap:6}}>
+                                <span style={{width:7,height:7,borderRadius:'50%',background:sc,boxShadow:`0 0 8px ${sc}`}}/>
+                                {lbl}
+                            </div>
+                        </div>
+                        <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
+                            <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>IP</div>
+                            <div style={{fontSize:13,fontFamily:'monospace'}}>{agent.ip || '—'}</div>
+                        </div>
+                        <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
+                            <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>Latencia</div>
+                            <div style={{fontSize:13,fontFamily:'monospace'}}>{agent.rtt || '—'}</div>
+                        </div>
+                    </div>
+
+                    {/* Colas asignadas */}
+                    <div className="glass" style={{padding:'12px 14px',borderRadius:12}}>
+                        <div style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:13,color:'#c4b5fd'}}>queue</span>
+                            Colas asignadas ({(agent.queues||[]).length})
+                        </div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                            {(agent.queues||[]).length===0 && <span style={{fontSize:11,color:'var(--muted)',fontStyle:'italic'}}>Sin colas activas</span>}
+                            {(agent.queues||[]).map((q,i)=>(
+                                <span key={i} style={{fontSize:10,padding:'4px 10px',borderRadius:6,background:'rgba(139,92,246,0.18)',border:'1px solid rgba(139,92,246,0.3)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>
+                                    Q{q.queue || q}
+                                </span>
                             ))}
                         </div>
                     </div>
                 </div>
-            )}
+
+                {/* Footer con acciones */}
+                <div style={{padding:'14px 22px',borderTop:'1px solid var(--border)',display:'flex',gap:8,justifyContent:'flex-end',background:'rgba(139,92,246,0.04)'}}>
+                    <button onClick={onClose} style={{padding:'9px 16px',borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer'}}>
+                        Cerrar
+                    </button>
+                    <button onClick={onEdit} style={{padding:'9px 18px',borderRadius:10,border:'none',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:'0 4px 14px rgba(139,92,246,0.4)'}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>edit</span>
+                        Editar agente
+                    </button>
+                </div>
+            </div>
         </div>
+        </TFModalPortal>
     );
 }
+
 
 // ─────────────────────────────────────────────
 // VISTA: VIVO
@@ -1835,7 +2495,7 @@ function ViewGrabaciones({ data }) {
                                     <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:r.disposition==='ANSWERED'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)',color:r.disposition==='ANSWERED'?'#4ade80':'#f87171',fontWeight:600}}>{r.disposition}</span>
                                 </div>
                             </div>
-                            {r.recordingfile && <audio controls src={`/monitor/${r.recordingfile}`} style={{width:'100%'}} />}
+                            {r.recordingfile && <audio controls src={`api/recording.php?file=${encodeURIComponent(r.recordingfile.split('/').pop())}`} style={{width:'100%'}} />}
                         </div>
                     ))
                 }
@@ -1853,6 +2513,240 @@ const DISP_CFG = {
     'BUSY':      {label:'Comunicando',color:'#fbbf24',bg:'rgba(245,158,11,0.12)',border:'rgba(245,158,11,0.25)',icon:'phone_in_talk'},
     'FAILED':    {label:'Fallida',color:'#f87171',bg:'rgba(239,68,68,0.12)',border:'rgba(239,68,68,0.25)',icon:'phone_disabled'},
 };
+
+// ─────────────────────────────────────────────
+// COMPONENTE: Audio Player profesional para CDR
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COMPONENTE: ExportButton (CSV / Excel / PDF profesional)
+// ─────────────────────────────────────────────
+function ExportButton({ rows, filename, title, stats }) {
+    const [open, setOpen] = useState(false);
+
+    const exportCSV = () => {
+        if (!rows?.length) return;
+        const cols = ['Fecha','CID','Origen','Destino','Dur. Total','Dur. Facturada','Estado','Grabación'];
+        const lines = [cols.join(';'), ...rows.map(r => 
+            [r.calldate, r.clid, r.src, r.dst, r.duration, r.billsec, r.disposition, r.recordingfile||''].join(';')
+        )];
+        const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = filename + '.csv'; a.click();
+        setOpen(false);
+    };
+
+    const exportXLSX = () => {
+        if (!rows?.length || !window.XLSX) return;
+        const data = rows.map(r => ({
+            Fecha: r.calldate, CID: r.clid, Origen: r.src, Destino: r.dst,
+            'Duración Total (s)': r.duration, 'Duración Facturada (s)': r.billsec,
+            Estado: r.disposition, Grabación: r.recordingfile||''
+        }));
+        const wb = window.XLSX.utils.book_new();
+        const ws = window.XLSX.utils.json_to_sheet(data);
+        // Ancho de columnas
+        ws['!cols'] = [{wch:20},{wch:25},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:50}];
+        window.XLSX.utils.book_append_sheet(wb, ws, 'CDR');
+        // Hoja de stats
+        if (stats) {
+            const sdata = [
+                ['Métrica','Valor'],
+                ['Llamadas Totales', stats.total||0],
+                ['Contestadas', stats.answered||0],
+                ['Sin Respuesta', stats.no_answer||0],
+                ['Ocupado', stats.busy||0],
+                ['Fallidas', stats.failed||0],
+                ['Duración Promedio (s)', Math.round(stats.avg_duration||0)],
+                ['Tiempo Total (s)', stats.total_seconds||0]
+            ];
+            const ws2 = window.XLSX.utils.aoa_to_sheet(sdata);
+            ws2['!cols'] = [{wch:25},{wch:15}];
+            window.XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+        }
+        window.XLSX.writeFile(wb, filename + '.xlsx');
+        setOpen(false);
+    };
+
+    const exportPDF = () => {
+        if (!rows?.length || !window.jspdf) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+        // Header
+        doc.setFillColor(139, 92, 246);
+        doc.rect(0, 0, 297, 22, 'F');
+        doc.setFontSize(16); doc.setTextColor(255,255,255);
+        doc.text('TeleFlow · ' + (title || 'Reporte CDR'), 14, 14);
+        doc.setFontSize(9); doc.setTextColor(255,255,255,0.85);
+        doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, 14, 19);
+        // Stats summary
+        if (stats) {
+            doc.setFontSize(9); doc.setTextColor(60,60,80);
+            const sline = `Total: ${stats.total||0}  ·  Contestadas: ${stats.answered||0}  ·  Sin resp: ${stats.no_answer||0}  ·  Ocupado: ${stats.busy||0}  ·  Promedio: ${Math.round(stats.avg_duration||0)}s`;
+            doc.text(sline, 14, 30);
+        }
+        // Table
+        doc.autoTable({
+            startY: stats ? 36 : 28,
+            head: [['Fecha','CID','Origen','Destino','Dur (s)','Estado']],
+            body: rows.slice(0,1000).map(r => [
+                (r.calldate||'').slice(0,16),
+                (r.clid||'').replace(/<[^>]+>/g,'').trim().slice(0,20),
+                r.src||'',
+                r.dst||'',
+                r.billsec||0,
+                r.disposition||''
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [99,102,241], textColor: 255, fontStyle: 'bold' },
+            bodyStyles: { fontSize: 8 },
+            alternateRowStyles: { fillColor: [248,250,252] },
+            columnStyles: { 0:{cellWidth:32}, 1:{cellWidth:50}, 2:{cellWidth:25}, 3:{cellWidth:25}, 4:{cellWidth:18}, 5:{cellWidth:30} }
+        });
+        // Footer pages
+        const pages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8); doc.setTextColor(150);
+            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad`, 14, 200);
+        }
+        doc.save(filename + '.pdf');
+        setOpen(false);
+    };
+
+    return (
+        <div style={{position:'relative',display:'inline-block'}} onMouseLeave={()=>setOpen(false)}>
+            <button onClick={()=>setOpen(!open)} style={{padding:'7px 14px',borderRadius:10,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.3)',color:'#4ade80',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                <span className="material-icons-round" style={{fontSize:16}}>download</span>
+                Exportar
+                <span className="material-icons-round" style={{fontSize:14}}>arrow_drop_down</span>
+            </button>
+            {open && (
+                <div style={{position:'absolute',right:0,top:'100%',marginTop:4,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:6,boxShadow:'0 8px 24px rgba(0,0,0,0.3)',zIndex:10,minWidth:160}}>
+                    <button onClick={exportCSV} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#22c55e'}}>description</span>CSV
+                    </button>
+                    <button onClick={exportXLSX} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#16a34a'}}>table_chart</span>Excel (.xlsx)
+                    </button>
+                    <button onClick={exportPDF} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',border:'none',background:'transparent',color:'var(--text)',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:6,textAlign:'left'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(139,92,246,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#ef4444'}}>picture_as_pdf</span>PDF profesional
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+function CDRAudioPlayer({ file, meta }) {
+    const audioRef = useRef(null);
+    const [playing, setPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [dur, setDur] = useState(0);
+    const [speed, setSpeed] = useState(1);
+    const [volume, setVolume] = useState(1);
+    const [loading, setLoading] = useState(true);
+
+    const filename = file?.split('/').pop() || '';
+    const src = `api/recording.php?file=${encodeURIComponent(filename)}`;
+
+    useEffect(() => {
+        const a = audioRef.current; if (!a) return;
+        const onLoaded = () => { setDur(a.duration); setLoading(false); };
+        const onTime = () => setCurrentTime(a.currentTime);
+        const onEnd = () => setPlaying(false);
+        a.addEventListener('loadedmetadata', onLoaded);
+        a.addEventListener('timeupdate', onTime);
+        a.addEventListener('ended', onEnd);
+        return () => {
+            a.removeEventListener('loadedmetadata', onLoaded);
+            a.removeEventListener('timeupdate', onTime);
+            a.removeEventListener('ended', onEnd);
+        };
+    }, []);
+
+    const togglePlay = () => {
+        const a = audioRef.current; if (!a) return;
+        if (playing) { a.pause(); setPlaying(false); } else { a.play(); setPlaying(true); }
+    };
+    const seek = (e) => {
+        const a = audioRef.current; if (!a || !dur) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        a.currentTime = pct * dur;
+    };
+    const setSpeedFn = (s) => {
+        const a = audioRef.current; if (!a) return;
+        a.playbackRate = s; setSpeed(s);
+    };
+    const setVol = (v) => {
+        const a = audioRef.current; if (!a) return;
+        a.volume = v; setVolume(v);
+    };
+    const fmt = (s) => {
+        if (!s || isNaN(s)) return '0:00';
+        const m = Math.floor(s/60), ss = Math.floor(s%60);
+        return `${m}:${String(ss).padStart(2,'0')}`;
+    };
+    const pct = dur > 0 ? (currentTime / dur) * 100 : 0;
+
+    return (
+        <div style={{display:'flex',alignItems:'center',gap:14,padding:12,background:'var(--surface2)',borderRadius:14,border:'1px solid rgba(139,92,246,0.15)'}}>
+            <audio ref={audioRef} src={src} preload="metadata" />
+            
+            {/* Big play button */}
+            <button onClick={togglePlay} disabled={loading} style={{
+                width:48,height:48,borderRadius:'50%',border:'none',cursor:loading?'wait':'pointer',
+                background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                color:'#fff',boxShadow:'0 4px 14px rgba(139,92,246,0.4)',
+                transition:'transform 0.15s', flexShrink:0
+            }} onMouseDown={e=>e.currentTarget.style.transform='scale(0.95)'} onMouseUp={e=>e.currentTarget.style.transform=''}>
+                <span className="material-icons-round" style={{fontSize:24}}>{loading?'hourglass_top':(playing?'pause':'play_arrow')}</span>
+            </button>
+
+            {/* Progress + times */}
+            <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginBottom:5,fontFamily:'monospace',fontWeight:700}}>
+                    <span>{fmt(currentTime)}</span>
+                    <span>{meta?.src} → {meta?.dst}</span>
+                    <span>{fmt(dur)}</span>
+                </div>
+                <div onClick={seek} style={{height:6,background:'rgba(255,255,255,0.06)',borderRadius:3,cursor:'pointer',position:'relative',overflow:'hidden'}}>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'linear-gradient(90deg,#8b5cf6,#a855f7)',borderRadius:3,transition:'width 0.1s'}} />
+                </div>
+            </div>
+
+            {/* Speed selector */}
+            <div style={{display:'flex',gap:2,padding:3,background:'var(--surface)',borderRadius:8,border:'1px solid var(--border)'}}>
+                {[0.5,1,1.5,2].map(s => (
+                    <button key={s} onClick={()=>setSpeedFn(s)} style={{
+                        padding:'4px 8px',borderRadius:5,border:'none',cursor:'pointer',
+                        background:speed===s?'rgba(139,92,246,0.2)':'transparent',
+                        color:speed===s?'#c4b5fd':'var(--muted)',
+                        fontSize:10,fontWeight:800
+                    }}>{s}x</button>
+                ))}
+            </div>
+
+            {/* Volume */}
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)'}}>{volume===0?'volume_off':(volume<0.5?'volume_down':'volume_up')}</span>
+                <input type="range" min="0" max="1" step="0.05" value={volume} onChange={e=>setVol(parseFloat(e.target.value))} style={{width:60,height:4}} />
+            </div>
+
+            {/* Download */}
+            <a href={src+'&download=1'} download={filename.replace(/\.\w+$/,'.wav')} style={{
+                width:36,height:36,borderRadius:8,border:'1px solid var(--border)',background:'var(--surface)',
+                display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text)',
+                cursor:'pointer',textDecoration:'none',transition:'all 0.15s',flexShrink:0
+            }} title="Descargar">
+                <span className="material-icons-round" style={{fontSize:16}}>download</span>
+            </a>
+        </div>
+    );
+}
+
 
 function ViewCDR() {
     const today = new Date().toISOString().slice(0,10);
@@ -1907,55 +2801,58 @@ function ViewCDR() {
 
     return(
         <div className="content-area view-enter">
-            {/* Stats */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:10,marginBottom:20}}>
-                {statCards.map(s=>(
-                    <div key={s.l} className="glass" style={{padding:'14px 16px',borderTop:`2px solid ${s.c}`}}>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-                            <div style={{fontSize:9,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.08em'}}>{s.l}</div>
-                            <div style={{width:26,height:26,borderRadius:7,background:s.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                <span className="material-icons-round" style={{fontSize:14,color:s.c}}>{s.ic}</span>
-                            </div>
-                        </div>
-                        <div style={{fontSize:22,fontWeight:800,color:s.c,lineHeight:1}}>{s.v}</div>
+            {/* Hero summary */}
+            <div className="anim-fadeup" style={{padding:'18px 22px',marginBottom:14,borderRadius:18,background:'linear-gradient(135deg,rgba(168,85,247,0.08),rgba(59,130,246,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:14}}>
+                <div style={{display:'flex',alignItems:'center',gap:14,flex:1,minWidth:280}}>
+                    <div style={{width:52,height:52,borderRadius:13,background:'linear-gradient(135deg,#a855f7,#6366f1)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 22px rgba(168,85,247,0.35)'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:24}}>history</span>
                     </div>
-                ))}
-            </div>
-
-            {/* Filtros */}
-            <div className="glass" style={{padding:16,marginBottom:16}}>
+                    <div>
+                        <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em'}}>Detalle de llamadas · {from} → {to}</div>
+                        <div style={{fontSize:21,fontWeight:900,letterSpacing:'-0.4px',marginTop:2,color:'var(--text)'}}>{(total||0).toLocaleString()} registros encontrados</div>
+                        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{stats.total>0?Math.round((stats.answered/stats.total)*100):0}% efectividad · {fmtSec(Math.round(stats.avg_duration||0))} duración promedio</div>
+                    </div>
+                </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:6,flex:'none'}}>
-                        <span className="material-icons-round" style={{fontSize:16,color:'#6b7280'}}>calendar_today</span>
-                        <span style={{fontSize:11,color:'#6b7280',fontWeight:600}}>Desde</span>
-                        <input className="input-tf py-1.5 px-3 rounded-lg text-xs" type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:135}} />
-                    </div>
-                    <div style={{display:'flex',alignItems:'center',gap:6,flex:'none'}}>
-                        <span style={{fontSize:11,color:'#6b7280',fontWeight:600}}>Hasta</span>
-                        <input className="input-tf py-1.5 px-3 rounded-lg text-xs" type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:135}} />
-                    </div>
-                    <div style={{position:'relative',flex:1,minWidth:120}}>
-                        <span className="material-icons-round" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'#6b7280'}}>search</span>
-                        <input className="input-tf py-1.5 pl-8 pr-3 rounded-lg text-xs" placeholder="Número origen/destino..." value={src} onChange={e=>setSrc(e.target.value)} />
-                    </div>
-                    <select className="input-tf py-1.5 px-3 rounded-lg text-xs" value={disp} onChange={e=>setDisp(e.target.value)} style={{width:150}}>
-                        <option value="">Todos los estados</option>
-                        <option value="ANSWERED">Contestadas</option>
-                        <option value="NO ANSWER">Sin Respuesta</option>
-                        <option value="BUSY">Comunicando</option>
-                        <option value="FAILED">Fallidas</option>
-                    </select>
-                    <button className="btn-primary" style={{padding:'7px 16px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={load}>
-                        <span className="material-icons-round" style={{fontSize:16}}>{loading?'hourglass_top':'search'}</span>
-                        {loading?'Buscando...':'Buscar'}
-                    </button>
-                    <button onClick={exportCSV} style={{padding:'7px 14px',borderRadius:10,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.3)',color:'#4ade80',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
-                        <span className="material-icons-round" style={{fontSize:16}}>download</span>
-                        Exportar CSV
-                    </button>
-                    <span style={{fontSize:11,color:'#6b7280',marginLeft:'auto',fontWeight:600}}>{total.toLocaleString()} registros</span>
+                    {[
+                        {l:'Total',v:(stats.total||0).toLocaleString(),c:'#a855f7',i:'list_alt'},
+                        {l:'OK',v:(stats.answered||0).toLocaleString(),c:'#22c55e',i:'check_circle'},
+                        {l:'NO',v:(stats.no_answer||0).toLocaleString(),c:'#f59e0b',i:'phone_missed'},
+                        {l:'BSY',v:(stats.busy||0).toLocaleString(),c:'#ef4444',i:'phone_in_talk'},
+                        {l:'AHT',v:fmtSec(Math.round(stats.avg_duration||0)),c:'#3b82f6',i:'timer'},
+                    ].map((k,i)=>(
+                        <div key={i} style={{padding:'8px 12px',borderRadius:10,background:`linear-gradient(135deg,${k.c}18,${k.c}05)`,border:`1px solid ${k.c}33`,minWidth:90}}>
+                            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>
+                                <span className="material-icons-round" style={{fontSize:11,color:k.c}}>{k.i}</span>{k.l}
+                            </div>
+                            <div style={{fontSize:16,fontWeight:900,color:k.c,marginTop:2}}>{k.v}</div>
+                        </div>
+                    ))}
                 </div>
             </div>
+
+            <PageActions>
+                <span style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Desde</span>
+                <input className="input-tf" type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{padding:'6px 8px',borderRadius:8,fontSize:11,width:130}} />
+                <span style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Hasta</span>
+                <input className="input-tf" type="date" value={to} onChange={e=>setTo(e.target.value)} style={{padding:'6px 8px',borderRadius:8,fontSize:11,width:130}} />
+                <div style={{position:'relative',width:160}}>
+                    <span className="material-icons-round" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'var(--muted)'}}>search</span>
+                    <input className="input-tf" placeholder="Número..." value={src} onChange={e=>setSrc(e.target.value)} style={{padding:'7px 10px 7px 28px',fontSize:11,width:'100%',borderRadius:8}}/>
+                </div>
+                <select className="input-tf" value={disp} onChange={e=>setDisp(e.target.value)} style={{padding:'7px 10px',borderRadius:8,fontSize:11,width:140}}>
+                    <option value="">Todos</option>
+                    <option value="ANSWERED">Contestadas</option>
+                    <option value="NO ANSWER">Sin Respuesta</option>
+                    <option value="BUSY">Comunicando</option>
+                    <option value="FAILED">Fallidas</option>
+                </select>
+                <button className="btn-primary" style={{padding:'7px 12px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={load}>
+                    <span className="material-icons-round" style={{fontSize:15}}>{loading?'hourglass_top':'search'}</span>
+                    {loading?'…':'Buscar'}
+                </button>
+                <ExportButton rows={rows} filename={`CDR_${from}_${to}`} title={`CDR ${from} a ${to}`} stats={stats} />
+            </PageActions>
 
             {/* Tabla */}
             <div className="glass" style={{overflow:'hidden'}}>
@@ -2021,12 +2918,8 @@ function ViewCDR() {
                                         </td>
                                     </tr>
                                     {isExp&&r.recordingfile&&(
-                                        <tr><td colSpan={6} style={{padding:'8px 16px 12px',background:'rgba(139,92,246,0.04)',borderTop:'none'}}>
-                                            <div style={{display:'flex',alignItems:'center',gap:10}}>
-                                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>mic</span>
-                                                <audio controls src={`/monitor/${r.recordingfile}`} style={{flex:1,height:32}} />
-                                                <span style={{fontSize:10,color:'#6b7280',fontFamily:'monospace'}}>{r.recordingfile}</span>
-                                            </div>
+                                        <tr><td colSpan={6} style={{padding:'14px 16px 16px',background:'linear-gradient(180deg,rgba(139,92,246,0.06),rgba(139,92,246,0.02))',borderTop:'none'}}>
+                                            <CDRAudioPlayer file={r.recordingfile} meta={{src:r.src, dst:r.dst, duration:r.billsec}} />
                                         </td></tr>
                                     )}
                                 </React.Fragment>
@@ -2044,17 +2937,496 @@ function ViewCDR() {
 }
 
 // ─────────────────────────────────────────────
-// VISTA: COLAS (con CRUD + numero + animación activa)
+// MODAL: Supervisor login/logout/move agents (profesional)
 // ─────────────────────────────────────────────
-const STRAT_OPTS = [
-    {v:'ringall',l:'Timbre simultáneo'},
-    {v:'rrmemory',l:'Round Robin memoria'},
-    {v:'leastrecent',l:'Menos reciente'},
-    {v:'fewestcalls',l:'Menos llamadas'},
-    {v:'random',l:'Aleatorio'},
-    {v:'linear',l:'Lineal'},
-];
+// ─────────────────────────────────────────────
+// COMPONENTE: HotdeskingWizard (proceso paso a paso)
+// ─────────────────────────────────────────────
+function HotdeskingWizard({ onClose }) {
+    const steps = [
+        { 
+            icon:'badge', color:'#8b5cf6',
+            title:'1. Agente (persona)',
+            text:'Cada agente es una persona del callcenter — no una extensión. Se identifica con un número (ej. 200) y un nombre (Brian Perez). Vive en la tabla call_center.agent de la PBX. Lo creás desde el botón "Nuevo Agente".'
+        },
+        {
+            icon:'login', color:'#22c55e',
+            title:'2. Login del agente',
+            text:'Cuando llega a su puesto, se loguea en una extensión física (ej. SIP/9006). Lo podés hacer vos como supervisor (botón Login → modal con extensión y colas) o el agente solo desde la app Mi Consola con su número y password.'
+        },
+        {
+            icon:'queue', color:'#3b82f6',
+            title:'3. Asignación dinámica a colas',
+            text:'Al loguearse, AMI ejecuta queue add member SIP/<ext> to <queue> para cada cola elegida. El agente queda como miembro DINÁMICO — al desloguearse sale automáticamente. Esto se ve en vivo en la columna Colas activas.'
+        },
+        {
+            icon:'phone_in_talk', color:'#f59e0b',
+            title:'4. Atención de llamadas',
+            text:'La cola distribuye llamadas según su estrategia (ringall, rrmemory, leastrecent, etc.). Cuando llega una llamada al teléfono del agente, su estado cambia a En Llamada y vos lo ves en tiempo real en Agentes y en la card de la cola.'
+        },
+        {
+            icon:'pause_circle', color:'#ec4899',
+            title:'5. Pausas tipificadas',
+            text:'Desde Mi Consola, el agente marca pausas (Almuerzo, Receso, Baño, Capacitación, Reunión, Personal). Cada pausa tiene tiempo máximo configurado y queda registrada para reportes (% de pausa por categoría).'
+        },
+        {
+            icon:'logout', color:'#ef4444',
+            title:'6. Cierre de sesión',
+            text:'Al fin de turno, el agente cierra sesión (botón Logout). AMI ejecuta queue remove member SIP/<ext> from <queue> y la sesión se cierra en agent_sessions con el total de llamadas, tiempo en llamada y tiempo en pausa.'
+        },
+        {
+            icon:'analytics', color:'#06b6d4',
+            title:'7. Reportes y métricas',
+            text:'Todo queda registrado: llamadas atendidas, AHT (tiempo medio de atención), tiempo total en llamada vs en pausa, breakdown por cola, eficiencia. Los reportes están en Reportes Analíticos.'
+        }
+    ];
 
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:680,maxWidth:'94%',maxHeight:'90vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.4)'}}>
+                <div style={{padding:'18px 24px',background:'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.08))',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>school</span>
+                    </div>
+                    <div style={{flex:1}}>
+                        <h2 style={{fontSize:17,fontWeight:900,color:'var(--text)'}}>Cómo funciona el Hotdesking</h2>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>El ciclo de vida completo de un agente del callcenter</div>
+                    </div>
+                    <button onClick={onClose} style={{padding:6,borderRadius:8,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:20,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+
+                <div style={{flex:1,overflow:'auto',padding:'18px 24px'}}>
+                    {steps.map((s, i) => (
+                        <div key={i} style={{display:'flex',gap:14,paddingBottom:18,marginBottom:18,borderBottom: i < steps.length-1 ? '1px solid var(--border)' : 'none'}}>
+                            <div style={{flexShrink:0,position:'relative'}}>
+                                <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${s.color},${s.color}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${s.color}44`}}>
+                                    <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>{s.icon}</span>
+                                </div>
+                                {i < steps.length-1 && <div style={{position:'absolute',top:42,left:19,bottom:-18,width:2,background:'linear-gradient(180deg,'+s.color+'66,transparent)'}} />}
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:14,fontWeight:800,color:'var(--text)',marginBottom:6}}>{s.title}</div>
+                                <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.55}}>{s.text}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--surface2)'}}>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>Tip: para alta/baja de agentes usá "Nuevo Agente". Para login manual, click en "Login" en cualquier fila.</div>
+                    <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Entendido</button>
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
+
+
+// ─────────────────────────────────────────────
+// MODAL: Logout supervisor (selector de agentes en cola)
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// MODAL: Ver agentes online en cola + moderar
+// ─────────────────────────────────────────────
+function QueueAgentsModal({ open, onClose, queue, queueName, toast, onDone}) {
+    const [members, setMembers] = useState([]);
+    const [agents, setAgents] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [busyId, setBusyId] = useState(null);
+
+    const load = async () => {
+        if (!queue) return;
+        setLoading(true);
+        try {
+            const r1 = await fetch('api/hotdesking.php?action=agent_queues',{credentials:'include'});
+            const j1 = await r1.json();
+            if (j1.status === 'ok') setMembers((j1.by_queue||{})[queue] || []);
+            
+            const r2 = await fetch('api/hotdesking.php?action=list',{credentials:'include'});
+            const j2 = await r2.json();
+            if (j2.status === 'ok') setAgents(j2.agents || []);
+        } catch(e) {}
+        setLoading(false);
+    };
+
+    useEffect(() => { if (open) { load(); const t=setInterval(load,5000); return ()=>clearInterval(t);} }, [open, queue]);
+
+    const enriched = members.map(m => {
+        const a = agents.find(ag => ag.number === m.agent_number);
+        return { ...m, name: a?.name || ('Agente '+m.agent_number), agent: a };
+    });
+
+    const doLogout = async (m) => {
+        setBusyId(m.agent_number);
+        const fd = new FormData(); fd.append('agent_number', m.agent_number); fd.append('extension', m.extension);
+        try {
+            const r = await fetch('api/hotdesking.php?action=logout_agent',{method:'POST',body:fd,credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') { toast?.(`${m.name} desconectado`,'success'); load(); }
+            else toast?.(j.message||'Error','error');
+        } catch(e) { toast?.('Error de red','error'); }
+        setBusyId(null);
+    };
+
+    const doPause = async (m, paused) => {
+        setBusyId(m.agent_number);
+        // AMI Action: QueuePause via call_action no existe, usamos un endpoint nuevo o queue_pause
+        const fd = new FormData(); fd.append('queue', queue); fd.append('interface', `${m.tech}/${m.extension}`); fd.append('paused', paused?'1':'0');
+        try {
+            const r = await fetch('api/hotdesking.php?action=pause_member',{method:'POST',body:fd,credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') { toast?.(`${m.name} ${paused?'pausado':'des-pausado'} en cola Q${queue}`,'success'); load(); }
+            else toast?.(j.message||'Error','error');
+        } catch(e) { toast?.('Error de red','error'); }
+        setBusyId(null);
+    };
+
+    if (!open) return null;
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:640,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.6)'}}>
+                <div style={{padding:'18px 24px',background:'linear-gradient(135deg,rgba(34,197,94,0.18),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>group</span>
+                    </div>
+                    <div style={{flex:1}}>
+                        <h2 style={{fontSize:17,fontWeight:900}}>Agentes online en Q{queue}</h2>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>{queueName} · {enriched.length} miembros activos</div>
+                    </div>
+                    <button onClick={load} title="Recargar" style={{padding:8,borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)',animation:loading?'spin 1s linear infinite':'none'}}>refresh</span>
+                    </button>
+                    <button onClick={onClose} style={{padding:8,borderRadius:10,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+
+                <div style={{flex:1,overflow:'auto',padding:'14px 24px'}}>
+                    {enriched.length === 0 ? (
+                        <div style={{textAlign:'center',padding:40,color:'var(--muted)'}}>
+                            <span className="material-icons-round" style={{fontSize:48,color:'var(--border)',display:'block',marginBottom:8}}>person_off</span>
+                            <div style={{fontSize:13,fontWeight:700}}>Ningún agente logueado en esta cola</div>
+                            <div style={{fontSize:11,marginTop:4}}>Usá el botón Login para añadir uno</div>
+                        </div>
+                    ) : (
+                        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                            {enriched.map((m,i) => {
+                                const busy = busyId === m.agent_number;
+                                const paused = m.paused;
+                                return (
+                                <div key={i} style={{padding:'12px 14px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
+                                    <div style={{width:38,height:38,borderRadius:'50%',background:`linear-gradient(135deg,${paused?'#f59e0b':'#22c55e'},${paused?'#d97706':'#16a34a'})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:900,flexShrink:0,position:'relative'}}>
+                                        {(m.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                                        <span style={{position:'absolute',bottom:-2,right:-2,width:11,height:11,borderRadius:'50%',background:paused?'#f59e0b':'#22c55e',border:'2px solid var(--surface)'}}/>
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>#{m.agent_number} · {m.tech}/{m.extension}</div>
+                                    </div>
+                                    {paused && <span style={{fontSize:9,padding:'3px 8px',borderRadius:5,background:'rgba(245,158,11,0.2)',color:'#f59e0b',fontWeight:800,letterSpacing:'.05em'}}>EN PAUSA</span>}
+                                    <div style={{display:'flex',gap:5}}>
+                                        {paused ? (
+                                            <button onClick={()=>doPause(m,false)} disabled={busy} title="Quitar pausa" style={{padding:'6px 10px',borderRadius:7,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:busy?'wait':'pointer',display:'flex',alignItems:'center',gap:4}}>
+                                                <span className="material-icons-round" style={{fontSize:13}}>play_arrow</span>Reanudar
+                                            </button>
+                                        ) : (
+                                            <button onClick={()=>doPause(m,true)} disabled={busy} title="Pausar" style={{padding:'6px 10px',borderRadius:7,border:'1px solid rgba(245,158,11,0.4)',background:'rgba(245,158,11,0.1)',color:'#f59e0b',fontWeight:800,fontSize:10,cursor:busy?'wait':'pointer',display:'flex',alignItems:'center',gap:4}}>
+                                                <span className="material-icons-round" style={{fontSize:13}}>pause</span>Pausar
+                                            </button>
+                                        )}
+                                        <button onClick={()=>doLogout(m)} disabled={busy} title="Desloguear de esta cola" style={{padding:'6px 10px',borderRadius:7,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:busy?'wait':'pointer',display:'flex',alignItems:'center',gap:4}}>
+                                            <span className="material-icons-round" style={{fontSize:13}}>logout</span>Logout
+                                        </button>
+                                    </div>
+                                </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'var(--surface2)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontSize:10,color:'var(--muted)',display:'flex',alignItems:'center',gap:5}}>
+                        <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 2s infinite'}}/>
+                        Auto-refresh cada 5s
+                    </div>
+                    <button onClick={onClose} className="btn-primary" style={{padding:'8px 18px',borderRadius:9,fontSize:12,fontWeight:800}}>Cerrar</button>
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
+
+function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
+    const [members, setMembers] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!open || !queue) return;
+        setLoading(true);
+        fetch('api/hotdesking.php?action=agent_queues',{credentials:'include'})
+            .then(r=>r.json()).then(j=>{
+                if (j.status==='ok') {
+                    const qm = (j.by_queue||{})[queue] || [];
+                    setMembers(qm);
+                }
+            }).finally(()=>setLoading(false));
+    }, [open, queue]);
+
+    const doLogout = async (m) => {
+        const fd = new FormData(); fd.append('agent_number', m.agent_number); fd.append('extension', m.extension);
+        const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST', body:fd, credentials:'include'});
+        const j = await r.json();
+        if (j.status==='ok') { toast?.(`Agente ${m.agent_number} desconectado de cola ${queue}`,'success'); if (typeof onDone === 'function') onDone(); else onClose(); }
+        else toast?.(j.message||'Error','error');
+    };
+
+    if (!open) return null;
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:520,maxWidth:'92%',maxHeight:'80vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'16px 22px',background:'linear-gradient(135deg,rgba(239,68,68,0.15),transparent)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>logout</span>
+                    </div>
+                    <div style={{flex:1}}>
+                        <h2 style={{fontSize:16,fontWeight:900}}>Logout — Cola Q{queue}</h2>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>Seleccioná el agente a desloguear de esta cola</div>
+                    </div>
+                    <button onClick={onClose} style={{padding:6,borderRadius:8,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+                <div style={{flex:1,overflow:'auto',padding:'14px 22px'}}>
+                    <div style={{padding:'10px 12px',marginBottom:12,background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:10,fontSize:11,color:'var(--muted)',display:'flex',gap:8,alignItems:'flex-start'}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#ef4444',flexShrink:0,marginTop:1}}>warning</span>
+                        <div>Al desloguear, AMI ejecuta <code>queue remove member</code> sacando al agente solo de la cola Q{queue}. Otras colas siguen activas.</div>
+                    </div>
+                    {loading ? (
+                        <div style={{textAlign:'center',padding:30,color:'var(--muted)'}}>Cargando miembros...</div>
+                    ) : members.length === 0 ? (
+                        <div style={{textAlign:'center',padding:30,color:'var(--muted)',fontSize:12}}>No hay agentes logueados en esta cola</div>
+                    ) : (
+                        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                            {members.map((m,i) => (
+                                <div key={i} style={{padding:'10px 14px',borderRadius:10,background:'var(--surface2)',border:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
+                                    <div style={{width:34,height:34,borderRadius:'50%',background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900}}>
+                                        {String(m.agent_number||'?').slice(0,3)}
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        <div style={{fontSize:13,fontWeight:800}}>Agente #{m.agent_number}</div>
+                                        <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>{m.tech}/{m.extension}</div>
+                                    </div>
+                                    <button onClick={()=>doLogout(m)} style={{padding:'6px 14px',borderRadius:8,border:'none',background:'linear-gradient(135deg,#ef4444,#dc2626)',color:'#fff',fontWeight:800,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                                        <span className="material-icons-round" style={{fontSize:14}}>logout</span>Desloguear
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
+
+
+function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselectAgent }) {
+    const [agents, setAgents] = useState([]);
+    const [search, setSearch] = useState('');
+    const [selAgent, setSelAgent] = useState(preselectAgent || null);
+    const [extension, setExtension] = useState('');
+    const [selectedQueues, setSelectedQueues] = useState(queueDefault ? [queueDefault] : []);
+    const [allQueues, setAllQueues] = useState([]);
+    const [mode, setMode] = useState('login');
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => { if (preselectAgent) setSelAgent(preselectAgent); }, [preselectAgent]);
+    useEffect(() => {
+        if (!open) return;
+        fetch('api/hotdesking.php?action=list', {credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if(j.status==='ok') setAgents(j.agents||[]); });
+        fetch('api/index.php?action=get_full_data', {credentials:'include'})
+            .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
+    }, [open]);
+    
+    useEffect(() => {
+        if (!selAgent?.number) { setSelectedQueues(queueDefault ? [queueDefault] : []); return; }
+        fetch('api/hotdesking.php?action=get_agent_prefs&agent_number=' + selAgent.number, {credentials:'include'})
+            .then(r=>r.json()).then(j=>{
+                if (j.status === 'ok' && j.queues?.length) setSelectedQueues(j.queues.map(q => String(q.queue)));
+                else if (queueDefault) setSelectedQueues([queueDefault]);
+            }).catch(()=>{});
+    }, [selAgent?.number]);
+
+    useEffect(() => { if (queueDefault) setSelectedQueues([queueDefault]); }, [queueDefault]);
+
+    const filteredAgents = agents.filter(a => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (a.number||'').includes(search) || (a.name||'').toLowerCase().includes(q);
+    });
+
+    const submit = async () => {
+        if (!selAgent) { toast?.('Seleccioná un agente','error'); return; }
+        if (mode==='login' && !extension) { toast?.('Ingresá la extensión','error'); return; }
+        if (mode==='login' && selectedQueues.length === 0) { toast?.('Marcá al menos una cola','error'); return; }
+        setBusy(true);
+        const fd = new FormData();
+        fd.append('agent_number', selAgent.number);
+        if (mode==='login') {
+            fd.append('extension', extension);
+            fd.append('queues', selectedQueues.join(','));
+        } else if (selAgent.extension) fd.append('extension', selAgent.extension);
+        const action = mode==='login' ? 'login_agent' : 'logout_agent';
+        try {
+            const r = await fetch('api/hotdesking.php?action='+action, {method:'POST', body:fd, credentials:'include'});
+            const j = await r.json();
+            if (j.status==='ok') {
+                toast?.(mode==='login' 
+                    ? `${selAgent.name} logueado en ext ${extension} (${j.queues_added?.length||selectedQueues.length} colas)`
+                    : `${selAgent.name} desconectado`, 'success');
+                onDone?.();
+                onClose();
+            } else toast?.(j.message||'Error', 'error');
+        } catch(e) { toast?.('Error de red','error'); }
+        setBusy(false);
+    };
+
+    if (!open) return null;
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width: mode==='logout' ? 560 : 880,maxWidth:'94%',maxHeight:'88vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.45)',transition:'width .25s ease'}}>
+                {/* Header compacto */}
+                <div style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,background:`linear-gradient(135deg, ${mode==='login'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'}, transparent 70%)`}}>
+                    <div style={{width:40,height:40,borderRadius:11,background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>{mode==='login'?'login':'logout'}</span>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                        <h2 style={{fontSize:16,fontWeight:900,letterSpacing:'-0.3px',margin:0}}>{mode==='login'?'Loguear agente':'Desloguear agente'}</h2>
+                        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
+                            {mode==='login'
+                                ? 'Asignás teléfono físico y colas → entra como miembro dinámico'
+                                : 'Quita al agente de TODAS sus colas activas (queda registro en histórico)'}
+                        </div>
+                    </div>
+                    <div style={{display:'flex',gap:4,padding:3,background:'var(--surface2)',borderRadius:9}}>
+                        <button onClick={()=>setMode('login')} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:mode==='login'?'rgba(34,197,94,0.2)':'transparent',color:mode==='login'?'#22c55e':'var(--muted)',fontWeight:800,fontSize:11}}>Login</button>
+                        <button onClick={()=>setMode('logout')} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:mode==='logout'?'rgba(239,68,68,0.2)':'transparent',color:mode==='logout'?'#ef4444':'var(--muted)',fontWeight:800,fontSize:11}}>Logout</button>
+                    </div>
+                    <button onClick={onClose} style={{padding:7,borderRadius:9,border:'none',background:'rgba(255,255,255,0.04)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+
+                {/* BODY: 2 columnas en login, 1 columna en logout */}
+                <div style={{flex:1,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
+                    {/* COLUMNA IZQUIERDA: Selector de agente */}
+                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                        <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>person</span>
+                            Agente
+                        </label>
+                        <div style={{position:'relative',marginBottom:10}}>
+                            <span className="material-icons-round" style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'var(--muted)'}}>search</span>
+                            <input className="input-tf" placeholder="Buscar nombre o número..." value={search} onChange={e=>setSearch(e.target.value)} style={{padding:'9px 10px 9px 34px',borderRadius:9,fontSize:12,width:'100%'}}/>
+                        </div>
+                        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderRadius:10,padding:5,background:'var(--surface2)'}}>
+                            {filteredAgents.length === 0 && <div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:11}}>Sin resultados</div>}
+                            {filteredAgents.map(a => (
+                                <div key={a.id} onClick={()=>{setSelAgent(a); if(mode==='logout' && a.extension) setExtension(a.extension);}} style={{padding:'8px 10px',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',gap:10,background:selAgent?.id===a.id?'rgba(139,92,246,0.2)':'transparent',marginBottom:2,transition:'all 0.15s',border:`1px solid ${selAgent?.id===a.id?'rgba(139,92,246,0.4)':'transparent'}`}}>
+                                    <div style={{width:32,height:32,borderRadius:'50%',background:a.logged_in?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#6b7280,#4b5563)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900}}>
+                                        {(a.name||'').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <div style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>#{a.number}{a.logged_in?` · ext ${a.extension}`:''}</div>
+                                    </div>
+                                    {a.logged_in && <span style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(34,197,94,0.2)',color:'#22c55e',fontWeight:800}}>ON</span>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* COLUMNA DERECHA: Datos de login (oculta en logout) */}
+                    {mode === 'login' && (
+                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                            <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                                <span className="material-icons-round" style={{fontSize:14,color:'#3b82f6'}}>dialpad</span>
+                                Extensión donde se sienta
+                            </label>
+                            <input className="input-tf" placeholder="Ej: 9006" value={extension} onChange={e=>setExtension(e.target.value)} style={{padding:'10px 14px',borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700,marginBottom:18}}/>
+
+                            <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                                <span className="material-icons-round" style={{fontSize:14,color:'#22c55e'}}>queue</span>
+                                Colas a las que entra
+                                <span style={{textTransform:'none',color:selectedQueues.length>0?'#22c55e':'var(--muted)',fontWeight:800,marginLeft:'auto',fontSize:11,fontFamily:'monospace'}}>{selectedQueues.length} seleccionada{selectedQueues.length!==1?'s':''} / {allQueues.length}</span>
+                            </label>
+                            <div style={{display:'flex',gap:5,marginBottom:8}}>
+                                <button onClick={()=>setSelectedQueues(allQueues.map(q=>String(q.id)))} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',fontSize:10,fontWeight:700,cursor:'pointer'}}>Todas</button>
+                                <button onClick={()=>setSelectedQueues([])} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',fontSize:10,fontWeight:700,cursor:'pointer'}}>Ninguna</button>
+                            </div>
+                            <div style={{flex:1,display:'flex',flexWrap:'wrap',gap:5,padding:8,border:'1px solid var(--border)',borderRadius:10,background:'var(--surface2)',overflow:'auto',alignContent:'flex-start'}}>
+                                {allQueues.length === 0 && <div style={{fontSize:11,color:'var(--muted)',padding:10}}>Cargando colas...</div>}
+                                {allQueues.map(q => {
+                                    const sel = selectedQueues.includes(String(q.id));
+                                    return (
+                                    <span key={q.id} onClick={()=>setSelectedQueues(sel?selectedQueues.filter(x=>x!==String(q.id)):[...selectedQueues,String(q.id)])} style={{padding:'5px 11px',borderRadius:6,fontSize:11,fontWeight:700,cursor:'pointer',background:sel?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.04)',color:sel?'#c4b5fd':'var(--muted)',border:`1px solid ${sel?'#8b5cf6':'var(--border)'}`,display:'flex',alignItems:'center',gap:5,transition:'all 0.15s'}}>
+                                        {sel && <span className="material-icons-round" style={{fontSize:12}}>check</span>}
+                                        <span style={{fontFamily:'monospace'}}>Q{q.id}</span>
+                                        <span>{(q.name||'').slice(0,18)}</span>
+                                    </span>
+                                );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Logout: confirmación inline al final del listado */}
+                    {mode === 'logout' && selAgent && (
+                        <div style={{padding:'14px 22px',borderTop:'1px solid var(--border)',background:'rgba(239,68,68,0.06)',display:'flex',alignItems:'center',gap:14}}>
+                            <div style={{width:44,height:44,borderRadius:'50%',background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,flexShrink:0}}>
+                                {(selAgent.name||'').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em'}}>Vas a desloguear a</div>
+                                <div style={{fontSize:14,fontWeight:800}}>{selAgent.name}</div>
+                                <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>#{selAgent.number}{selAgent.extension?` · ext ${selAgent.extension}`:''}</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+
+                {/* Footer */}
+                <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',background:'var(--surface2)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>
+                        {selAgent ? (
+                            <span>Agente: <strong style={{color:'var(--text)'}}>#{selAgent.number} {selAgent.name}</strong></span>
+                        ) : 'Seleccioná un agente'}
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                        <button onClick={onClose} style={{padding:'9px 16px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                        <button onClick={submit} disabled={!selAgent||busy} style={{padding:'9px 22px',borderRadius:9,border:'none',cursor:(!selAgent||busy)?'not-allowed':'pointer',background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',color:'#fff',fontWeight:800,fontSize:12,opacity:(!selAgent||busy)?0.5:1,display:'flex',alignItems:'center',gap:6,boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
+                            <span className="material-icons-round" style={{fontSize:16,animation:busy?'spin 1s linear infinite':'none'}}>{busy?'autorenew':(mode==='login'?'login':'logout')}</span>
+                            {busy?'Procesando...':(mode==='login'?'Loguear':'Desloguear')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
 function QueueDrawer({ queue, onClose, onSaved, toast }) {
     const isNew = !queue;
     const [form, setForm] = useState({
@@ -2153,30 +3525,106 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
 }
 
 function ViewColas({ toast, onReport, data }) {
-    const [queues,setQueues]=useState([]);
     const [drawer,setDrawer]=useState(null);
+    const [loginModalQ, setLoginModalQ] = useState(null);
+    const [logoutModalQ, setLogoutModalQ] = useState(null);
+    const [queueAgentsModalQ, setQueueAgentsModalQ] = useState(null);
+    const [viewMode, setViewMode] = useState(localStorage.getItem('tf_q_view') || 'table');
     const extensions = data?.pbx?.extensions || [];
-    
-    const load=async()=>{
-        try{const d=await(await fetch('api/index.php?action=get_queues')).json();if(d.success)setQueues(d.queues);}catch{}
-    };
-    useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[]);
+    const queues = data?.pbx?.queues || [];
+    const liveCalls = data?.pbx?.live_calls || [];
     
     const stratLabel={ringall:'Simultáneo',rrmemory:'Round Robin',leastrecent:'Menos reciente',fewestcalls:'Menos llamadas',random:'Aleatorio',linear:'Lineal'};
     
     return(
         <div className="content-area view-enter">
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-                <div style={{fontSize:11,color:'#6b7280'}}>{queues.length} colas configuradas</div>
-                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setDrawer('new')}>
-                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nueva Cola
+            <PageActions>
+                <div style={{display:'flex',gap:4,background:'var(--surface2)',borderRadius:10,padding:4,border:'1px solid var(--border)'}}>
+                    {['table','grid'].map(m=>(
+                        <button key={m} onClick={()=>{setViewMode(m);try{localStorage.setItem('tf_q_view',m);}catch(e){}}} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m?'#c4b5fd':'var(--muted)',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:5}}>
+                            <span className="material-icons-round" style={{fontSize:14}}>{m==='grid'?'grid_view':'table_rows'}</span>
+                            {m==='grid'?'Tarjetas':'Tabla'}
+                        </button>
+                    ))}
+                </div>
+                <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={()=>setDrawer('new')}>
+                    <span className="material-icons-round" style={{fontSize:16}}>add</span>Nueva Cola
                 </button>
-            </div>
+            </PageActions>
             {queues.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
                 <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>queue</span>
                 No hay colas configuradas
             </div>}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 anim-fadeup">
+
+            {viewMode==='table' && (
+                <div className="glass" style={{borderRadius:12,overflow:'hidden',marginBottom:14}}>
+                    <table className="tf-table">
+                        <thead>
+                            <tr>
+                                <th style={{width:100,padding:'10px 14px'}}>Estado</th>
+                                <th>Cola</th>
+                                <th>Nombre</th>
+                                <th>Estrategia</th>
+                                <th>Miembros</th>
+                                <th style={{width:90}}>En espera</th>
+                                <th style={{width:90}}>T. máx</th>
+                                <th style={{width:170}}>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {queues.map((q,i)=>{
+                                const w = q.calls_waiting||0;
+                                const sc = w > 0 ? (w > 3 ? '#ef4444' : (w > 1 ? '#f59e0b' : '#22c55e')) : '#6b7280';
+                                const lbl = w > 0 ? `${w} en espera` : 'Inactiva';
+                                return (
+                                <tr key={i}>
+                                    <td style={{padding:'8px 14px'}}>
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,fontWeight:700,color:sc}}>
+                                            <span style={{width:7,height:7,borderRadius:'50%',background:sc,animation:w>0?'pulse 1.5s infinite':'none'}}/>{lbl}
+                                        </span>
+                                    </td>
+                                    <td style={{fontFamily:'monospace',fontWeight:800,fontSize:13}}>#{q.id}</td>
+                                    <td style={{fontSize:13,fontWeight:700}}>{q.name}</td>
+                                    <td style={{fontSize:11,color:'var(--muted)'}}>{stratLabel[q.strategy]||q.strategy||'—'}</td>
+                                    <td>
+                                        <div style={{display:'flex',gap:-4,alignItems:'center'}}>
+                                            {(q.members||[]).slice(0,5).map((m,j)=>{
+                                                const mIface = (m.iface||'').match(/(?:SIP|PJSIP)\/(\d+)/);
+                                                const mExt = mIface ? mIface[1] : null;
+                                                const eInfo = mExt ? extensions.find(e=>e.ext===mExt) : null;
+                                                const stat = eInfo?.status || 'OFFLINE';
+                                                const dotC = stat==='BUSY'?'#ef4444':(stat==='ONLINE'?'#22c55e':'#6b7280');
+                                                const dn = m.name && m.name!==mExt ? m.name : (eInfo?.name || mExt || '?');
+                                                const ini = (dn||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase();
+                                                return (
+                                                <div key={j} title={`${dn} · ${stat}`} style={{width:24,height:24,borderRadius:'50%',background:`linear-gradient(135deg,${dotC},${dotC}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:8,fontWeight:900,border:'2px solid var(--surface)',marginLeft:j>0?-8:0,opacity:stat==='OFFLINE'?0.5:1}}>{ini}</div>
+                                                );
+                                            })}
+                                            {(q.members||[]).length > 5 && <span style={{fontSize:10,color:'var(--muted)',marginLeft:6,fontWeight:700}}>+{q.members.length-5}</span>}
+                                            {(q.members||[]).length === 0 && <span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>Sin miembros</span>}
+                                        </div>
+                                    </td>
+                                    <td style={{fontFamily:'monospace',fontWeight:800,color:sc}}>{w}</td>
+                                    <td style={{fontFamily:'monospace',fontSize:11}}>{q.max_wait > 0 ? fmtTime(q.max_wait) : '—'}</td>
+                                    <td>
+                                        <div style={{display:'flex',gap:4}}>
+                                            <button onClick={()=>setLoginModalQ(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer'}}>Login</button>
+                                            {onReport && <button onClick={()=>onReport(q.id)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer'}}>Reporte</button>}
+                                            <button onClick={()=>setDrawer(q)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}>
+                                                <span className="material-icons-round" style={{fontSize:13}}>settings</span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                );
+                            })}
+                            {queues.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:30,color:'var(--muted)'}}>No hay colas configuradas</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {viewMode==='grid' && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(max(220px, calc((100% - 56px) / 5)), 1fr))',gap:14}}>
                 {queues.map((q,i)=>{
                     const waiting = q.calls_waiting||0;
                     const isActive = waiting > 0;
@@ -2192,6 +3640,26 @@ function ViewColas({ toast, onReport, data }) {
                              background: isCritical ? 'rgba(239,68,68,0.05)' : 'var(--surface)',
                              boxShadow: isCritical ? '0 0 30px rgba(239,68,68,0.15)' : 'none'
                          }}>
+                        {/* Overlay hover full card — botones unificados, icon left + chevron right */}
+                        <div className="opacity-0 group-hover:opacity-100 tf-q-overlay" style={{position:'absolute',inset:0,zIndex:5,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(7,11,22,0.78)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',transition:'opacity 0.2s',borderRadius:24,gap:6,flexDirection:'column',padding:'18px 20px',pointerEvents:'auto'}}>
+                            <div style={{textAlign:'center',marginBottom:10}}>
+                                <div style={{fontSize:9,fontWeight:800,color:'#a1a8b8',textTransform:'uppercase',letterSpacing:'.12em'}}>Cola Q{q.id}</div>
+                                <div style={{fontSize:14,fontWeight:900,color:'#fff',marginTop:3,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.name}</div>
+                            </div>
+                            {[
+                                { icon:'person_add',     label:'Login agente',       color:'#22c55e', onClick:(e)=>{e.stopPropagation(); setLoginModalQ(q.id);} },
+                                { icon:'person_remove',  label:'Logout agente',      color:'#ef4444', onClick:(e)=>{e.stopPropagation(); setLogoutModalQ(q.id);} },
+                                { icon:'group',          label:'Ver agentes online', color:'#3b82f6', onClick:(e)=>{e.stopPropagation(); setQueueAgentsModalQ(q);} },
+                                ...(onReport?[{ icon:'analytics', label:'Reportes', color:'#8b5cf6', onClick:(e)=>{e.stopPropagation(); onReport(q.id);} }]:[]),
+                                { icon:'settings',       label:'Configurar cola',    color:'#a1a8b8', onClick:(e)=>{e.stopPropagation(); setDrawer(q);} },
+                            ].map((b,i)=>(
+                                <button key={i} type="button" onClick={b.onClick} className="tf-q-btn" style={{width:'100%',maxWidth:200,padding:'10px 14px',borderRadius:10,border:`1px solid ${b.color}55`,background:`linear-gradient(135deg,${b.color}26,${b.color}10)`,color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'all .15s ease',pointerEvents:'auto'}}>
+                                    <span className="material-icons-round" style={{fontSize:18,color:b.color,flexShrink:0}}>{b.icon}</span>
+                                    <span style={{flex:1,textAlign:'left'}}>{b.label}</span>
+                                    <span className="material-icons-round" style={{fontSize:14,opacity:.55}}>chevron_right</span>
+                                </button>
+                            ))}
+                        </div>
                         
                         {/* Heatmap intensity indicator */}
                         <div style={{
@@ -2203,13 +3671,24 @@ function ViewColas({ toast, onReport, data }) {
                         <div style={{position:'relative', zIndex:1}}>
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
                                 <div style={{display:'flex', alignItems:'center', gap:12}}>
-                                    <div style={{
-                                        width:48, height:48, borderRadius:16, 
-                                        background: isActive ? `${statusColor}22` : 'var(--surface2)',
-                                        display:'flex', alignItems:'center', justifyContent:'center',
-                                        boxShadow: isActive ? `0 0 20px ${statusColor}33` : 'none'
-                                    }}>
-                                        <span className="material-icons-round" style={{fontSize:24, color:statusColor, animation: isActive ? 'blink 1.5s infinite' : 'none'}}>hub</span>
+                                    <div style={{position:'relative', width:48, height:48}}>
+                                        {isActive && [0,1,2].map(idx => (
+                                            <div key={idx} style={{
+                                                position:'absolute', inset:0, borderRadius:16,
+                                                border:`2px solid ${statusColor}`,
+                                                opacity: 0,
+                                                animation: `ring-pulse 1.5s ease-out infinite ${idx*0.5}s`
+                                            }}/>
+                                        ))}
+                                        <div style={{
+                                            width:48, height:48, borderRadius:16, 
+                                            background: isActive ? `${statusColor}22` : 'var(--surface2)',
+                                            display:'flex', alignItems:'center', justifyContent:'center',
+                                            boxShadow: isActive ? `0 0 20px ${statusColor}55` : 'none',
+                                            position:'relative', zIndex:1
+                                        }}>
+                                            <span className="material-icons-round" style={{fontSize:24, color:statusColor, animation: isActive ? 'phone-shake 0.6s ease-in-out infinite' : 'none'}}>{isActive?'phone_in_talk':'hub'}</span>
+                                        </div>
                                     </div>
                                     <div>
                                         <div style={{display:'flex', alignItems:'center', gap:8}}>
@@ -2244,52 +3723,100 @@ function ViewColas({ toast, onReport, data }) {
                                 </div>
                             </div>
 
-                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
-                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800, textTransform:'uppercase'}}>Agentes de la Cola</div>
-                                <div style={{fontSize:10, color:'#4b5563', fontWeight:800}}>{q.members?.length || 0} Total</div>
+                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+                                <div style={{fontSize:10, color:'var(--muted)', fontWeight:800, textTransform:'uppercase'}}>Agentes en la Cola</div>
+                                <div style={{fontSize:10, color:'var(--muted)', fontWeight:800}}>{q.members?.length || 0} miembros</div>
                             </div>
 
-                            <div style={{display:'flex', flexWrap:'wrap', gap:6, minHeight:34}}>
-                                {q.members?.slice(0, 10).map((m,j)=>{
-                                    const extInfo = extensions.find(e => e.ext === m.ext);
-                                    const av = extInfo?.avatar || `https://ui-avatars.com/api/?name=${m.ext}&background=714B67&color=fff&size=40`;
+                            <div style={{display:'flex', flexDirection:'column', gap:4, minHeight:38}}>
+                                {(q.members || []).slice(0, 6).map((m,j)=>{
+                                    // m = {name, iface}. Parse ext desde iface.
+                                    const ifaceMatch = (m.iface||'').match(/(?:SIP|PJSIP)\/(\d+)/);
+                                    const ifaceExt = ifaceMatch ? ifaceMatch[1] : null;
+                                    const extInfo = ifaceExt ? extensions.find(e => e.ext === ifaceExt) : null;
+                                    // Status: si extInfo.status === BUSY → en llamada
+                                    const memberStatus = extInfo ? extInfo.status : 'OFFLINE';
+                                    const isOnline = memberStatus === 'ONLINE';
+                                    const isBusy = memberStatus === 'BUSY';
+                                    const dotColor = isBusy ? '#ef4444' : (isOnline ? '#22c55e' : '#6b7280');
+                                    const displayName = m.name && m.name !== ifaceExt ? m.name : (extInfo?.name || ifaceExt || 'Member');
+                                    const initialsTxt = (displayName||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase();
+                                    const av = ifaceExt && extInfo?.avatar && !extInfo.avatar.includes('ui-avatars') ? extInfo.avatar : null;
                                     return (
-                                        <div key={j} className="relative group/member">
-                                            <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/5 transition-transform hover:scale-110" 
-                                                 style={{boxShadow: m.status==='ONLINE'?'0 0 10px rgba(34,197,94,0.1)':(m.status==='BUSY'?'0 0 10px rgba(245,158,11,0.1)':'none')}}>
-                                                <img src={av} style={{width:'100%', height:'100%', objectFit:'cover', opacity: m.status==='OFFLINE'?0.5:1}} />
+                                        <div key={j} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 6px',borderRadius:7,background:'var(--surface2)',border:'1px solid var(--border)'}}>
+                                            <div style={{position:'relative',flexShrink:0}}>
+                                                <div style={{
+                                                    width:26, height:26, borderRadius:'50%', 
+                                                    background: av ? `url(${av}) center/cover` : `linear-gradient(135deg, ${dotColor}, ${dotColor}88)`,
+                                                    display:'flex', alignItems:'center', justifyContent:'center',
+                                                    color:'#fff', fontSize:9, fontWeight:900,
+                                                    opacity: memberStatus==='OFFLINE'?0.5:1
+                                                }}>
+                                                    {!av && initialsTxt}
+                                                </div>
+                                                <div style={{position:'absolute', bottom:-1, right:-1, width:8, height:8, borderRadius:'50%', background:dotColor, border:'2px solid var(--surface)', animation: isBusy ? 'pulse 1.5s infinite' : 'none'}} />
                                             </div>
-                                            <div style={{position:'absolute', bottom:-2, right:-2, width:10, height:10, borderRadius:'50%', background:m.status==='ONLINE'?'#22c55e':(m.status==='BUSY'?'#f59e0b':'#374151'), border:'2px solid var(--surface)'}} />
-                                            
-                                            {/* Member tooltip */}
-                                            <div className="absolute left-1/2 -top-1 px-2 py-1 bg-black/90 text-white text-[9px] font-bold rounded -translate-x-1/2 -translate-y-full opacity-0 group-hover/member:opacity-100 pointer-events-none transition-opacity z-10 whitespace-nowrap border border-white/10">
-                                                #{m.ext} · {extInfo?.name || m.ext}
+                                            <div style={{flex:1,minWidth:0}}>
+                                                <div style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{displayName}</div>
+                                                {ifaceExt && <div style={{fontSize:9,fontFamily:'monospace',color:'var(--muted)',fontWeight:600}}>ext {ifaceExt}</div>}
                                             </div>
                                         </div>
                                     );
                                 })}
-                                {q.members?.length > 10 && <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] text-gray-500">+{q.members.length-10}</div>}
+                                {(q.members?.length || 0) === 0 && <div style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',padding:'8px 0'}}>Sin agentes logueados — usá el botón "Login" arriba</div>}
+                                {q.members?.length > 10 && <div style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--muted)',fontWeight:800}}>+{q.members.length-10}</div>}
                             </div>
 
-                            {/* Floating Hover Actions */}
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[6px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-2 rounded-2xl pointer-events-none group-hover:pointer-events-auto">
-                                <div style={{display:'flex', gap:8}}>
-                                    <button className="btn-primary" style={{padding:'8px 16px', borderRadius:10, fontSize:11, fontWeight:800}} onClick={()=>toast('Función habilitada pronto','info')}>
-                                        LOGUEAR AGENTE
-                                    </button>
-                                    <button className="btn-secondary" style={{padding:'8px 16px', borderRadius:10, fontSize:11, fontWeight:800, background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid rgba(255,255,255,0.1)'}} onClick={()=>onReport(q.id)}>
-                                        REPORTE
-                                    </button>
-                                </div>
-                                <button className="text-[10px] font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-widest mt-1" onClick={()=>toast('Estrategia: '+q.strategy,'info')}>
-                                    Estrategia: {q.strategy}
-                                </button>
+                            {/* Llamadas activas EN ESTA cola */}
+                            {(() => {
+                                const queueCalls = liveCalls.filter(lc => 
+                                    String(lc.dest) === String(q.id) || 
+                                    String(lc.context) === 'ext-queues' && String(lc.dest) === String(q.id) ||
+                                    (lc.app === 'Queue' && (lc.data || '').startsWith(q.id+','))
+                                );
+                                if (queueCalls.length === 0) return null;
+                                return (
+                                    <div style={{marginTop:12, padding:'10px 12px', background:'rgba(34,197,94,0.06)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:10}}>
+                                        <div style={{fontSize:9, fontWeight:800, color:'#22c55e', textTransform:'uppercase', marginBottom:6, display:'flex', alignItems:'center', gap:5}}>
+                                            <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 1s infinite'}}/>
+                                            En llamada ahora ({queueCalls.length})
+                                        </div>
+                                        {queueCalls.slice(0,3).map((c,k)=>(
+                                            <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--text)',padding:'3px 0'}}>
+                                                <span className="material-icons-round" style={{fontSize:14,color:c.state==='Ringing'?'#f59e0b':'#22c55e',animation:c.state==='Ringing'?'pulse 0.8s infinite':'none'}}>
+                                                    {c.state==='Ringing'?'phone_in_talk':'call'}
+                                                </span>
+                                                <span style={{fontFamily:'monospace',fontWeight:700}}>{c.callerid || c.ext}</span>
+                                                <span style={{color:'var(--muted)'}}>· {c.state}</span>
+                                                <span style={{marginLeft:'auto',fontSize:10,fontFamily:'monospace',color:'var(--muted)'}}>{c.duration||'0:00'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Estrategia chip al pie */}
+                            <div style={{marginTop:12,paddingTop:10,borderTop:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                <span style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',fontWeight:700,letterSpacing:'.08em'}}>Estrategia: {stratLabel[q.strategy]||q.strategy}</span>
+                                {(q.calls_waiting||0) > 0 && (
+                                    <span style={{fontSize:10,padding:'3px 9px',borderRadius:5,background:'rgba(239,68,68,0.15)',color:'#ef4444',fontWeight:800,display:'flex',alignItems:'center',gap:4,animation:'pulse 1.5s infinite'}}>
+                                        <span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444'}}/>
+                                        {q.calls_waiting} en espera
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>);
                 })}
+            </div>}
+            {drawer&&<QueueDrawer queue={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);toast?.('Cola actualizada','success');}} toast={toast||((m,t)=>alert(m))} />}
+            <AgentLoginModal open={!!loginModalQ} onClose={()=>setLoginModalQ(null)} onDone={()=>{setLoginModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queueDefault={loginModalQ} toast={toast} />
+            <AgentLogoutModal open={!!logoutModalQ} onClose={()=>setLogoutModalQ(null)} onDone={()=>{setLogoutModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={logoutModalQ} toast={toast} />
+            <QueueAgentsModal open={!!queueAgentsModalQ} onClose={()=>setQueueAgentsModalQ(null)} onDone={()=>{setQueueAgentsModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={queueAgentsModalQ?.id} queueName={queueAgentsModalQ?.name} toast={toast} />
+            <div style={{textAlign:'center',marginTop:20,padding:'14px 0',fontSize:11,color:'var(--muted)',borderTop:'1px solid var(--border)',fontWeight:700}}>
+                <span className="material-icons-round" style={{fontSize:14,verticalAlign:'middle',marginRight:4}}>queue</span>
+                {queues.length} colas configuradas en la PBX
             </div>
-            {drawer&&<QueueDrawer queue={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);load();}} toast={toast||((m,t)=>alert(m))} />}
         </div>
     );
 }
@@ -2671,12 +4198,12 @@ function ViewGrupos({ toast }) {
 
     return (
         <div className="content-area view-enter">
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20}}>
-                <div style={{fontSize:11, color:'#6b7280'}}>{groups.length} grupos configurados</div>
-                <button className="btn-primary" style={{padding:'9px 16px',borderRadius:10,fontSize:13,display:'flex',alignItems:'center',gap:6}} onClick={()=>setEditing('new')}>
-                    <span className="material-icons-round" style={{fontSize:18}}>add</span>Nuevo Grupo
+            <PageActions>
+                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>{groups.length} grupos configurados</div>
+                <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={()=>setEditing('new')}>
+                    <span className="material-icons-round" style={{fontSize:16}}>add</span>Nuevo Grupo
                 </button>
-            </div>
+            </PageActions>
 
             {groups.length===0 && (
                 <div className="glass" style={{padding:40, textAlign:'center', color:'#6b7280'}}>
@@ -2951,244 +4478,189 @@ const radarEdgeTypes = {
 // VISTA: RADAR DE TRÁFICO (REACT FLOW)
 // ─────────────────────────────────────────────
 function ViewRadar({ data, toast }) {
-    const rf = window.ReactFlow;
-    const socketRef = useRef(null);
-    const { calls, upsertCall, removeCall, setInitialState, setOffline, isOffline } = useRadarStore();
+    const [tick, setTick] = useState(0);
+    const [search, setSearch] = useState('');
+    const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
+    const [stateFilter, setStateFilter] = useState('all');
+    
+    useEffect(() => { const t = setInterval(()=>setTick(k=>k+1), 1000); return ()=>clearInterval(t); }, []);
+    useEffect(() => { localStorage.setItem('tf_supervisor_ext', supervisorExt); }, [supervisorExt]);
 
-    if (!rf) return (
-        <div className="content-area flex flex-col items-center justify-center gap-4 text-gray-500">
-            <span className="material-icons-round text-6xl">running_with_errors</span>
-            <div className="text-xl font-bold">React Flow no cargado</div>
-        </div>
+    const liveCalls = data?.pbx?.live_calls || [];
+    const exts = data?.pbx?.extensions || [];
+    const queues = data?.pbx?.queues || [];
+    const extByNum = useMemo(() => { const m={}; exts.forEach(e=>{m[e.ext]=e;}); return m; }, [exts]);
+    const qByNum = useMemo(() => { const m={}; queues.forEach(q=>{m[q.id]=q;}); return m; }, [queues]);
+
+    const filteredLive = liveCalls.filter(c => {
+        if (stateFilter==='up') return c.state==='Up';
+        if (stateFilter==='ringing') return /Ring/.test(c.state||'');
+        return true;
+    });
+    const calls = filteredLive.map(c => {
+        const fromExt = c.ext || c.callerid;
+        const toExt = c.peer_ext || (c.dest && /^\d+$/.test(c.dest) ? c.dest : null);
+        const fromInfo = fromExt ? extByNum[fromExt] : null;
+        const toInfo = toExt ? extByNum[toExt] : null;
+        const toQueue = c.dest && qByNum[c.dest] ? qByNum[c.dest] : null;
+        const fromTipo = (window._tfExtMeta || {})[fromExt]?.tipo || '';
+        return {
+            ...c, from_ext: fromExt, from_name: fromInfo?.name || fromExt, from_ip: fromInfo?.ip,
+            to_ext: toExt, to_name: toInfo?.name || (toQueue?'Cola '+toQueue.name:null) || (typeof fmtDest === 'function'?fmtDest(c):c.dest),
+            to_ip: toInfo?.ip, to_queue: toQueue, from_tipo: fromTipo,
+            destLabel: typeof fmtDest === 'function' ? fmtDest(c) : (c.dest || '—')
+        };
+    });
+
+    const filtered = calls.filter(c => {
+        if (stateFilter==='up' && c.state !== 'Up') return false;
+        if (stateFilter==='ringing' && !/Ring/.test(c.state||'')) return false;
+        if (stateFilter==='other' && (c.state==='Up' || /Ring/.test(c.state||''))) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (c.from_ext||'').includes(search) || (c.to_ext||'').includes(search) || 
+               (c.from_name||'').toLowerCase().includes(q) || (c.to_name||'').toLowerCase().includes(q) ||
+               (c.callerid||'').includes(search);
+    });
+
+    const upCount = calls.filter(c => c.state === 'Up').length;
+    const ringCount = calls.filter(c => /Ring/.test(c.state||'')).length;
+    const otherCount = calls.length - upCount - ringCount;
+
+    const parseDur = (s) => { if (!s) return 0; const p=String(s).split(':').map(x=>parseInt(x)||0); if(p.length===3) return p[0]*3600+p[1]*60+p[2]; if(p.length===2) return p[0]*60+p[1]; return p[0]||0; };
+    const fmtDur = (s) => { const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sc=s%60; return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`; };
+
+    const handleHangup = async (channel) => {
+        if (!confirm('Colgar la llamada?')) return;
+        const fd = new FormData(); fd.append('type','hangup'); fd.append('channel',channel);
+        const r = await fetch('api/index.php?action=call_action',{method:'POST',body:fd,credentials:'include'});
+        const j = await r.json();
+        toast?.(j.success?'Colgada':'Error', j.success?'success':'error');
+    };
+    const handleSpy = async (channel, mode) => {
+        if (!supervisorExt) { toast?.('Configurá tu ext arriba','error'); return; }
+        const fd = new FormData(); fd.append('type',mode); fd.append('channel',channel); fd.append('supervisor',supervisorExt);
+        const r = await fetch('api/index.php?action=call_action',{method:'POST',body:fd,credentials:'include'});
+        const j = await r.json();
+        toast?.(j.success?`${mode} en ${supervisorExt}`:'Error', j.success?'success':'error');
+    };
+    const handleAssign = (c) => window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c}));
+
+    const StatChip = ({label, count, value, color, icon}) => (
+        <button onClick={()=>setStateFilter(value)} style={{padding:'8px 14px',borderRadius:10,border:`1px solid ${stateFilter===value?color:'var(--border)'}`,background:stateFilter===value?`${color}22`:'transparent',color:stateFilter===value?color:'var(--muted)',fontWeight:800,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'all 0.2s'}}>
+            <span className="material-icons-round" style={{fontSize:14,color}}>{icon}</span>
+            {label} <span style={{fontFamily:'monospace',fontWeight:900,padding:'1px 7px',borderRadius:5,background:stateFilter===value?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.04)',marginLeft:3}}>{count}</span>
+        </button>
     );
 
-    const ReactFlow = rf.ReactFlow || rf.default || rf;
-    const Background = rf.Background || (rf.default && rf.default.Background) || ReactFlow.Background;
-    const Controls = rf.Controls || (rf.default && rf.default.Controls) || ReactFlow.Controls;
-    const Handle = rf.Handle || (rf.default && rf.default.Handle) || ReactFlow.Handle;
-    const Position = rf.Position || (rf.default && rf.default.Position) || ReactFlow.Position || { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' };
-    
-    const [nodes, setNodes] = useState([]);
-    const [edges, setEdges] = useState([]);
-
-    // 🔌 SOCKET.IO CONNECTION
-    useEffect(() => {
-        // Connect via standard port (443/80) using a path that Nginx can proxy
-        const socket = io('/', { 
-            path: '/teleflow-socket', 
-            transports: ['websocket'],
-            upgrade: true
-        });
-        socketRef.current = socket;
-
-        socket.on('connect', () => { setOffline(false); toast('Conectado al Hub Realtime', 'success'); });
-        socket.on('disconnect', () => { setOffline(true); toast('Desconectado del Hub', 'error'); });
-        socket.on('initial_state', (initialCalls) => setInitialState(initialCalls));
-        socket.on('call_update', (update) => {
-            if (update.type === 'hangup') removeCall(update.id);
-            else upsertCall(update.call || { id: update.id, ...update });
-        });
-
-        return () => socket.disconnect();
-    }, []);
-
-    // 🏗️ BUILD RADAR MAP (3 ZONES)
-    useEffect(() => {
-        const POS_KEY = 'tf_radar_pos_v2';
-        const savedPositions = JSON.parse(localStorage.getItem(POS_KEY) || '{}');
-        const newNodes = [];
-        const newEdges = [];
-        const nodeGlobals = { Handle, Position };
-
-        // DATA SOURCES
-        const trunks = data?.pbx?.trunks || [];
-        const ivrs = data?.pbx?.ivrs || [];
-        const queues = data?.pbx?.queues || [];
-        const ringgroups = data?.pbx?.ringgroups || [];
-        // Show ALL extensions as requested, even offline ones, to reflect "possible numbers"
-        const agents = data?.pbx?.extensions || [];
-        const realtimeCalls = Object.values(calls);
-
-        // -- ZONE 1: INBOUND (TRUNKS) --
-        trunks.forEach((t, i) => {
-            const id = `trunk-${t.id}`;
-            newNodes.push({
-                id, type: 'trunk',
-                data: { ...nodeGlobals, ...t },
-                position: savedPositions[id] || { x: 50, y: 150 * i }
-            });
-        });
-
-        // -- ZONE 2: PROCESSING (IVR / QUEUES / GROUPS) --
-        const procNodes = [
-            ...ivrs.map(v => ({...v, type:'ivr'})), 
-            ...queues.map(q => ({...q, type:'queue'})),
-            ...ringgroups.map(g => ({...g, type:'group'}))
-        ];
-        procNodes.forEach((p, i) => {
-            const id = `proc-${p.type}-${p.id}`;
-            newNodes.push({
-                id, type: p.type,
-                data: { ...nodeGlobals, ...p },
-                position: savedPositions[id] || { x: 450, y: 180 * i }
-            });
-
-            // Auto-connect from trunks to processing for aesthetic
-            trunks.forEach(t => {
-                newEdges.push({
-                    id: `e-t-${t.id}-p-${p.type}-${p.id}`, 
-                    source: `trunk-${t.id}`, 
-                    target: id,
-                    sourceHandle: 'r',
-                    targetHandle: 'l',
-                    type: 'animatedData',
-                    animated: realtimeCalls.some(c => c.dest === p.id),
-                    style: { stroke: 'rgba(59,130,246,0.3)', strokeWidth: 1.5 }
-                });
-            });
-        });
-
-        // -- ZONE 3: DESTINATION (AGENTS) --
-        agents.forEach((a, i) => {
-            const id = `agent-${a.ext}`;
-            const activeCall = realtimeCalls.find(c => c.ext === String(a.ext) || c.dest === String(a.ext));
-            newNodes.push({
-                id, type: 'agent',
-                data: { ...nodeGlobals, agent: a, activeCall },
-                position: savedPositions[id] || { x: 900, y: 140 * i }
-            });
-
-            // Connect from IVR/Queue if the agent is member or has call
-            procNodes.forEach(p => {
-                const members = p.members || [];
-                const isMember = members.some(m => {
-                    const mStr = String(typeof m === 'object' ? m.ext : m);
-                    // Match ONLY digits to avoid "PJSIP/1001" vs "1001" issues
-                    const cleanM = mStr.replace(/\D/g, '');
-                    const cleanA = String(a.ext).replace(/\D/g, '');
-                    return cleanM === cleanA && cleanA !== '' && cleanM.length >= 3;
-                });
-                
-                if (isMember || (activeCall && (activeCall.dest === p.id || activeCall.from === p.id))) {
-                    newEdges.push({
-                        id: `sys-p-${p.type}-${p.id}-a-${a.ext}`, 
-                        source: `proc-${p.type}-${p.id}`, 
-                        target: id,
-                        sourceHandle: 'r',
-                        targetHandle: 'l',
-                        type: 'animatedData',
-                        animated: !!activeCall && (activeCall.from === a.ext || activeCall.dest === a.ext),
-                        data: { duration: activeCall?.duration },
-                        style: { 
-                            stroke: activeCall ? '#22c55e' : (isMember ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'), 
-                            strokeWidth: activeCall ? 2 : 1.5 
-                        }
-                    });
-                }
-            });
-        });
-
-        setNodes(newNodes);
-        setEdges(newEdges);
-    }, [data, calls, Handle, Position]);
-
-    const onNodesChange = useCallback((changes) => {
-        setNodes((nds) => {
-            const n = rf.applyNodeChanges(changes, nds);
-            const pos = {};
-            n.forEach(node => { if(node.position) pos[node.id] = node.position; });
-            localStorage.setItem('tf_radar_pos_v2', JSON.stringify(pos));
-            return n;
-        });
-    }, [rf]);
-    const onEdgesChange = useCallback((changes) => {
-        setEdges((eds) => rf.applyEdgeChanges(changes, eds));
-    }, [rf]);
-
-    const onConnect = useCallback((params) => {
-        setEdges((eds) => rf.addEdge({ ...params, type: 'animatedData', animated: true }, eds));
-    }, [rf]);
-
     return (
-        <div className="content-area view-enter" style={{ height: 'calc(100vh - 80px)', position: 'relative', overflow: 'hidden', padding: 0 }}>
-            <style>{`
-                .react-flow__background { background: var(--bg); }
-                .react-flow__edge-path { transition: all 0.5s; }
-                
-                @keyframes pulse-border-red {
-                    0% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-                    70% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-                    100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-                }
-                @keyframes pulse-border-amber {
-                    0% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-                    70% { border-color: rgba(245, 158, 11, 1); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-                    100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-                }
-                .anim-pulse-border-red { animation: pulse-border-red 2s infinite; }
-                .anim-pulse-border-amber { animation: pulse-border-amber 2s infinite; }
+        <div className="content-area view-enter">
+            <PageActions>
+                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>{calls.length} llamadas activas</div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)'}}>admin_panel_settings</span>
+                    <div>
+                        <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>Mi ext</div>
+                        <input type="text" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} placeholder="1001" className="input-tf" style={{padding:'5px 10px',borderRadius:8,fontSize:12,fontFamily:'monospace',width:80,textAlign:'center'}}/>
+                    </div>
+                </div>
+            </PageActions>
 
-                @keyframes vibrate {
-                    0% { transform: rotate(0deg) translate(0, 0); }
-                    25% { transform: rotate(5deg) translate(1px, -1px); }
-                    50% { transform: rotate(-5deg) translate(-1px, 1px); }
-                    75% { transform: rotate(5deg) translate(1px, 1px); }
-                    100% { transform: rotate(0deg) translate(0, 0); }
-                }
-                .anim-vibrate { animation: vibrate 0.15s infinite linear; }
-
-                @keyframes phone-ring {
-                    0% { transform: scale(1); filter: brightness(1); }
-                    50% { transform: scale(1.1); filter: brightness(1.5); }
-                    100% { transform: scale(1); filter: brightness(1); }
-                }
-                .anim-phone-ring { animation: phone-ring 0.5s infinite ease-in-out; }
-                @keyframes pulse-border-green {
-                    0% { border-color: rgba(34, 197, 94, 0.4); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-                    70% { border-color: rgba(34, 197, 94, 1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-                    100% { border-color: rgba(34, 197, 94, 0.4); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-                }
-                .anim-pulse-border-green { animation: pulse-border-green 2s infinite; }
-            `}</style>
-            
-            <div style={{ position: 'absolute', top: 20, left: 24, zIndex: 10, display:'flex', alignItems:'center', gap:10 }}>
-                <span className="material-icons-round" style={{ color: 'var(--accent)', fontSize: 24 }}>radar</span>
-                <div>
-                    <h2 style={{ fontSize:15, fontWeight:900, color:'var(--text)', margin:0, textTransform:'uppercase', letterSpacing:1 }}>Mapa de Tráfico PBX</h2>
-                    <div style={{ fontSize:10, color:'var(--muted)', fontWeight:700 }}>Flujo jerárquico y estados en tiempo real</div>
+            {/* Toolbar: filtros + búsqueda */}
+            <div className="glass" style={{padding:'10px 14px',borderRadius:12,marginBottom:12,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                <StatChip label="Todas" value="all" count={calls.length} color="#8b5cf6" icon="filter_list"/>
+                <StatChip label="En conversación" value="up" count={upCount} color="#22c55e" icon="phone_in_talk"/>
+                <StatChip label="Sonando" value="ringing" count={ringCount} color="#f59e0b" icon="ring_volume"/>
+                <StatChip label="Otras" value="other" count={otherCount} color="#6b7280" icon="more_horiz"/>
+                <div style={{flex:1}}/>
+                <div style={{position:'relative',width:240}}>
+                    <span className="material-icons-round" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'var(--muted)'}}>search</span>
+                    <input className="input-tf" placeholder="Buscar número o nombre..." value={search} onChange={e=>setSearch(e.target.value)} style={{padding:'7px 10px 7px 30px',borderRadius:8,fontSize:11,width:'100%'}}/>
                 </div>
             </div>
 
-            <ReactFlow 
-                nodes={nodes} 
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                nodeTypes={radarNodeTypes}
-                edgeTypes={radarEdgeTypes}
-                fitView
-                snapToGrid={true}
-                snapGrid={[15, 15]}
-                zoomOnScroll={true}
-                panOnDrag={true}
-                minZoom={0.1}
-                maxZoom={2}
-            >
-                {Background && <Background variant="dots" gap={20} size={1} color="rgba(255,255,255,0.05)" />}
-                {Controls && <Controls showInteractive={false} className="glass !border-white/10 !bg-black/20" />}
-            </ReactFlow>
+            {/* Cards de llamadas */}
+            {filtered.length === 0 ? (
+                <div className="glass" style={{padding:60,textAlign:'center',borderRadius:18,border:'2px dashed var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:54,color:'var(--muted)',display:'block',marginBottom:12}}>phone_disabled</span>
+                    <div style={{fontSize:14,fontWeight:700}}>{calls.length===0?'No hay llamadas activas':'Sin resultados con esos filtros'}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>Aparecerán acá en tiempo real</div>
+                </div>
+            ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(440px,1fr))',gap:12}}>
+                    {filtered.map((c,i) => {
+                        const isUp = c.state === 'Up';
+                        const isRing = /Ring/.test(c.state||'');
+                        const sc = isUp ? '#22c55e' : (isRing ? '#f59e0b' : '#6b7280');
+                        const dur = parseDur(c.duration) + (isUp ? tick : 0);
+                        const fromTipoColor = c.from_tipo === 'cliente' ? '#3b82f6' : (c.from_tipo === 'horizon' ? '#8b5cf6' : null);
+                        return (
+                        <div key={c.channel||i} className="glass" style={{padding:0,borderRadius:14,border:`1px solid ${sc}33`,overflow:'hidden',position:'relative',boxShadow:isUp?`0 4px 18px ${sc}22`:(isRing?`0 4px 18px ${sc}33`:'none')}}>
+                            {/* Top status bar */}
+                            <div style={{padding:'7px 12px',background:`linear-gradient(90deg,${sc}22,${sc}05)`,borderBottom:`1px solid ${sc}22`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
+                                <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:10,fontWeight:900,color:sc,textTransform:'uppercase',letterSpacing:'.06em'}}>
+                                    <span style={{width:7,height:7,borderRadius:'50%',background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}cc`}}/>
+                                    {isUp?'En conversación':(isRing?'Sonando':c.state||'—')}
+                                </span>
+                                {fromTipoColor && <span style={{fontSize:9,padding:'2px 8px',borderRadius:5,background:`${fromTipoColor}22`,color:fromTipoColor,fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',border:`1px solid ${fromTipoColor}66`}}>{c.from_tipo}</span>}
+                                <span style={{fontFamily:'monospace',fontSize:14,fontWeight:900,color:'var(--text)',marginLeft:'auto'}}>{fmtDur(dur)}</span>
+                            </div>
+
+                            {/* From → To */}
+                            <div style={{padding:'12px',display:'flex',alignItems:'center',gap:8}}>
+                                <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:9}}>
+                                    <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                        {(c.from_name||c.from_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                                    </div>
+                                    <div style={{minWidth:0,flex:1}}>
+                                        <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.from_name}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>#{c.from_ext}{c.from_ip&&c.from_ip!=='—'?' · '+c.from_ip:''}</div>
+                                    </div>
+                                </div>
+                                <span className="material-icons-round" style={{fontSize:20,color:sc,animation:isRing?'pulse 1s infinite':'none',flexShrink:0}}>arrow_forward</span>
+                                <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:9,justifyContent:'flex-end'}}>
+                                    <div style={{minWidth:0,flex:1,textAlign:'right'}}>
+                                        <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.to_name||c.destLabel}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>{c.to_ext?'#'+c.to_ext:c.context||''}{c.to_ip&&c.to_ip!=='—'?' · '+c.to_ip:''}</div>
+                                    </div>
+                                    <div style={{width:38,height:38,borderRadius:'50%',background:c.to_queue?'linear-gradient(135deg,#f59e0b,#d97706)':'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                        {c.to_queue ? <span className="material-icons-round" style={{fontSize:18}}>queue</span> : (c.to_ext ? (c.to_name||c.to_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase() : <span className="material-icons-round" style={{fontSize:16}}>more_horiz</span>)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Channel info */}
+                            <div style={{padding:'5px 12px',fontSize:9,color:'var(--muted)',fontFamily:'monospace',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'space-between',gap:6,alignItems:'center'}}>
+                                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{c.channel}</span>
+                                <span style={{whiteSpace:'nowrap'}}>{c.app||'-'}</span>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div style={{padding:'8px 12px',background:'var(--surface2)',display:'flex',gap:5,borderTop:'1px solid var(--border)'}}>
+                                <button onClick={()=>handleSpy(c.channel,'spy')} title="Escuchar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(59,130,246,0.3)',background:'rgba(59,130,246,0.08)',color:'#60a5fa',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>headphones</span>Espiar
+                                </button>
+                                <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>record_voice_over</span>Susurro
+                                </button>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>group</span>Barge
+                                </button>
+                                <button onClick={()=>handleAssign(c)} title="Asignar" style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>swap_horiz</span>Asignar
+                                </button>
+                                <button onClick={()=>handleHangup(c.channel)} title="Colgar" style={{padding:'5px 10px',borderRadius:6,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:700,fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>call_end</span>
+                                </button>
+                            </div>
+                        </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
-
-
-// ─────────────────────────────────────────────
-// COMPONENTE: LIVE CALL CARD
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// COMPONENTE: LIVE CALL CARD (PREMIUM DESIGN)
-// ─────────────────────────────────────────────
 function LiveCallCard({ call, data, supervisorExt, toast }) {
     const [actionLoading, setActionLoading] = React.useState(null);
     
@@ -3347,115 +4819,423 @@ function LiveCallCard({ call, data, supervisorExt, toast }) {
         </div>
     );
 }
-
-function ViewVivo2({ data, toast }) {
-    const [calls, setCalls] = useState([]);
-    const [prev, setPrev] = useState([]);
+// ─────────────────────────────────────────────
+// VISTA: LLAMADAS EN VIVO 2.0 — Control supervisor profesional
+// ─────────────────────────────────────────────
+function ViewVivo2({ data, toast, initialFilter }) {
     const [supervisorExt, setSupervisorExt] = useState(() => localStorage.getItem('tf_supervisor_ext') || '');
+    const [tick, setTick] = useState(0);
 
-    useEffect(() => {
-        localStorage.setItem('tf_supervisor_ext', supervisorExt);
-    }, [supervisorExt]);
+    useEffect(() => { localStorage.setItem('tf_supervisor_ext', supervisorExt); }, [supervisorExt]);
+    useEffect(() => { const t = setInterval(() => setTick(k => k+1), 1000); return () => clearInterval(t); }, []);
 
-    const load = async () => {
-        try {
-            const r = await fetch('api/index.php?action=get_active_calls');
-            const d = await r.json();
-            if (d.success) {
-                // Notificación si hay nuevas llamadas
-                const newC = d.calls.filter(c => !prev.find(p => p.channel === c.channel));
-                newC.forEach(c => {
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({ type: 'NOTIFY', title: '📞 Llamada Entrante', body: `${c.ext} → ${c.dest}`, tag: 'call-' + c.channel });
-                    }
-                });
-                setPrev(d.calls);
-                setCalls(d.calls);
-            }
-        } catch (e) { }
+    const liveCalls = data?.pbx?.live_calls || [];
+    const extensions = data?.pbx?.extensions || [];
+    const extByNum = useMemo(() => { const m = {}; extensions.forEach(e => { m[e.ext] = e; }); return m; }, [extensions]);
+
+    const calls = liveCalls.map(c => {
+        const fromExt = c.ext || c.callerid;
+        const toExt = c.peer_ext || (c.dest && /^\d+$/.test(c.dest) ? c.dest : null);
+        const fromInfo = fromExt ? extByNum[fromExt] : null;
+        const toInfo = toExt ? extByNum[toExt] : null;
+        return {
+            ...c,
+            from_ext: fromExt, from_name: fromInfo?.name || fromExt,
+            to_ext: toExt, to_name: toInfo?.name || toExt,
+            destLabel: typeof fmtDest === 'function' ? fmtDest(c) : (c.dest || '—')
+        };
+    });
+
+    const handleHangup = async (channel) => {
+        if (!confirm('Colgar la llamada?')) return;
+        const fd = new FormData(); fd.append('type', 'hangup'); fd.append('channel', channel);
+        try { const r = await fetch('api/index.php?action=call_action', {method:'POST',body:fd,credentials:'include'}); const j = await r.json(); toast?.(j.success?'Colgada':'Error', j.success?'success':'error'); } catch(e) { toast?.('Error de red','error'); }
     };
+    const handleSpy = async (channel, mode) => {
+        if (!supervisorExt) { toast?.('Configurá tu extensión arriba','error'); return; }
+        const fd = new FormData(); fd.append('type', mode); fd.append('channel', channel); fd.append('supervisor', supervisorExt);
+        try { const r = await fetch('api/index.php?action=call_action', {method:'POST',body:fd,credentials:'include'}); const j = await r.json(); toast?.(j.success?`${mode} en ${supervisorExt}`:(j.error||'Error'), j.success?'success':'error'); } catch(e) { toast?.('Error de red','error'); }
+    };
+    const handleAssign = (c) => window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c}));
 
-    useEffect(() => {
-        load();
-        const t = setInterval(load, 2500); // More frequent updates for real-time feel
-        return () => clearInterval(t);
-    }, []);
+    const upCount = calls.filter(c => c.state === 'Up').length;
+    const ringingCount = calls.filter(c => /Ring/.test(c.state||'')).length;
+
+    const parseDur = (s) => { if (!s) return 0; const p = String(s).split(':').map(x => parseInt(x)||0); if (p.length===3) return p[0]*3600+p[1]*60+p[2]; if (p.length===2) return p[0]*60+p[1]; return p[0]||0; };
+    const fmtDur = (s) => { const h = Math.floor(s/3600), mn = Math.floor((s%3600)/60), sc = s%60; return h>0 ? `${h}:${String(mn).padStart(2,'0')}:${String(sc).padStart(2,'0')}` : `${mn}:${String(sc).padStart(2,'0')}`; };
 
     return (
-        <div className="content-area view-enter bg-brand-bg min-h-screen p-6">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div className="w-3 h-3 rounded-full bg-brand-danger" style={{ boxShadow: '0 0 12px rgba(239,68,68,0.6)', animation: 'pulse-ring 1.5s infinite' }}></div>
+        <div className="content-area view-enter" style={{padding:'8px 4px'}}>
+            <PageActions>
+                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>{calls.length} canales · {upCount} hablando · {ringingCount} sonando</div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span className="material-icons-round" style={{fontSize:16,color:'var(--muted)'}}>admin_panel_settings</span>
                     <div>
-                        <h1 className="text-xl font-black text-white tracking-tight uppercase">Control en Vivo</h1>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{calls.length} CANALES ACTIVOS</p>
+                        <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>Mi extensión</div>
+                        <input type="text" value={supervisorExt} onChange={e=>setSupervisorExt(e.target.value)} placeholder="Ej: 1001" className="input-tf" style={{padding:'5px 10px',borderRadius:8,fontSize:12,fontFamily:'monospace',fontWeight:700,width:90,textAlign:'center'}}/>
                     </div>
                 </div>
+            </PageActions>
 
-                <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1.5">MI EXTENSIÓN (SUPERVISOR)</span>
-                        <div className="relative">
-                            <input 
-                                type="text" 
-                                placeholder="Ej: 1001"
-                                value={supervisorExt}
-                                onChange={e => setSupervisorExt(e.target.value)}
-                                className="bg-brand-surface border border-white/5 rounded-lg px-4 py-2 text-sm font-bold text-brand-accent focus:outline-none focus:border-brand-accent/50 transition-all w-32 text-center"
-                            />
-                            <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">admin_panel_settings</span>
+            {calls.length === 0 ? (
+                <div className="glass" style={{padding:60,textAlign:'center',borderRadius:18,border:'2px dashed var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:54,color:'var(--muted)',display:'block',marginBottom:12}}>phone_disabled</span>
+                    <div style={{fontSize:14,fontWeight:700,color:'var(--text)',marginBottom:4}}>No hay llamadas activas</div>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>Las llamadas aparecerán acá en tiempo real cuando entren</div>
+                </div>
+            ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(440px,1fr))',gap:18}}>
+                    {calls.map((c,i) => {
+                        const isUp = c.state === 'Up';
+                        const isRing = /Ring/.test(c.state||'');
+                        const sc = isUp ? '#22c55e' : (isRing ? '#f59e0b' : '#6b7280');
+                        const dur = parseDur(c.duration) + (isUp ? tick : 0);
+                        return (
+                        <div key={c.channel||i} className="glass" style={{padding:0,borderRadius:16,border:`1px solid ${sc}33`,overflow:'hidden',position:'relative',marginBottom:0,boxShadow:isUp?'0 6px 22px rgba(34,197,94,0.15)':(isRing?'0 4px 18px rgba(245,158,11,0.18)':'none')}}>
+                            <div style={{padding:'8px 14px',background:`linear-gradient(135deg,${sc}22,${sc}05)`,borderBottom:`1px solid ${sc}22`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,fontWeight:800,color:sc,textTransform:'uppercase',letterSpacing:'.05em'}}>
+                                    <span style={{width:7,height:7,borderRadius:'50%',background:sc,animation:isRing?'pulse 1s infinite':'none'}}/>
+                                    {isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state||'—')}
+                                </span>
+                                <span style={{fontFamily:'monospace',fontSize:11,fontWeight:800,color:'var(--text)'}}>{fmtDur(dur)}</span>
+                            </div>
+                            <div style={{padding:'14px 14px 12px',display:'flex',alignItems:'center',gap:10}}>
+                                <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:9}}>
+                                    <div style={{width:42,height:42,borderRadius:'50%',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                        {(c.from_name||c.from_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                                    </div>
+                                    <div style={{minWidth:0,flex:1}}>
+                                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.from_name}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>#{c.from_ext}</div>
+                                    </div>
+                                </div>
+                                <span className="material-icons-round" style={{fontSize:22,color:sc,flexShrink:0,animation:isRing?'pulse 1s infinite':'none'}}>{isRing?'phone_in_talk':'arrow_forward'}</span>
+                                <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:9,justifyContent:'flex-end'}}>
+                                    <div style={{minWidth:0,flex:1,textAlign:'right'}}>
+                                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.to_name||c.destLabel}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>{c.to_ext?'#'+c.to_ext:''}</div>
+                                    </div>
+                                    <div style={{width:42,height:42,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,flexShrink:0}}>
+                                        {c.to_ext ? (c.to_name||c.to_ext||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase() : <span className="material-icons-round" style={{fontSize:18}}>queue</span>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{padding:'6px 14px',fontSize:10,color:'var(--muted)',fontFamily:'monospace',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:240}}>{c.channel}</span>
+                                <span>{c.context||''}</span>
+                            </div>
+                            <div style={{padding:'10px 14px',background:'var(--surface2)',display:'flex',gap:6,borderTop:'1px solid var(--border)'}}>
+                                <button onClick={()=>handleSpy(c.channel,'spy')} title="Escuchar en silencio" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(59,130,246,0.3)',background:'rgba(59,130,246,0.08)',color:'#60a5fa',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>headphones</span>Espiar
+                                </button>
+                                <button onClick={()=>handleSpy(c.channel,'whisper')} title="Susurrar al agente" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(245,158,11,0.3)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>record_voice_over</span>Susurrar
+                                </button>
+                                <button onClick={()=>handleSpy(c.channel,'barge')} title="Intervenir 3 vías" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(139,92,246,0.3)',background:'rgba(139,92,246,0.08)',color:'#c4b5fd',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>group</span>Intervenir
+                                </button>
+                                <button onClick={()=>handleAssign(c)} title="Asignar a otra ext/cola" style={{flex:1,padding:'7px',borderRadius:8,border:'1px solid rgba(34,197,94,0.3)',background:'rgba(34,197,94,0.08)',color:'#22c55e',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>swap_horiz</span>Asignar
+                                </button>
+                                <button onClick={()=>handleHangup(c.channel)} title="Cortar llamada" style={{padding:'7px 12px',borderRadius:8,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:700,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>call_end</span>
+                                </button>
+                            </div>
                         </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+
+function AgentReportPanel({ agentNumber, onClose, embedded }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7*86400000).toISOString().split('T')[0];
+    const [from, setFrom] = useState(weekAgo);
+    const [to, setTo]     = useState(today);
+
+    const load = async () => {
+        if (!agentNumber) return;
+        setLoading(true);
+        try {
+            const r = await fetch(`api/agent_report.php?agent=${agentNumber}&from=${from}&to=${to}`, {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') setData(j);
+        } catch(e) {}
+        setLoading(false);
+    };
+    useEffect(() => { load(); }, [agentNumber, from, to]);
+
+    const exportXLSX = () => {
+        if (!data || !window.XLSX) return;
+        const wb = window.XLSX.utils.book_new();
+        const styleH = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'8B5CF6'}} };
+        // Hoja Resumen
+        const s = data.summary || {};
+        const ag = data.agent || {};
+        const summary = [
+            ['REPORTE DE AGENTE','Horizon Seguridad'],
+            ['Agente', `#${ag.number} ${ag.name||''}`],
+            ['Período', `${data.period.from} a ${data.period.to}`],
+            ['Generado', new Date().toLocaleString('es-UY')],
+            ['',''],
+            ['MÉTRICA','VALOR'],
+            ['Tiempo total logueado (s)', s.total_logged_seconds||0],
+            ['Tiempo total en pausa (s)', s.total_paused_seconds||0],
+            ['Cantidad de pausas', s.total_pauses||0],
+            ['Llamadas totales', s.total_calls||0],
+            ['Llamadas atendidas', s.answered_calls||0],
+            ['Tiempo total de habla (s)', s.total_talk_seconds||0],
+            ['AHT (Average Handle Time, s)', s.aht_seconds||0],
+            ['Tiempo disponible (s)', s.available_seconds||0],
+            ['Occupancy (%)', s.occupancy_pct||0],
+            ['Extensiones usadas', (s.extensions_used||[]).join(', ')],
+        ];
+        const ws1 = window.XLSX.utils.aoa_to_sheet(summary);
+        ws1['!cols'] = [{wch:34},{wch:30}];
+        ['A1','B1'].forEach(c=>{if(ws1[c])ws1[c].s=styleH;});
+        ['A6','B6'].forEach(c=>{if(ws1[c])ws1[c].s=styleH;});
+        window.XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+
+        // Pausas por motivo
+        const pr = s.pauses_by_reason || {};
+        const prRows = [['Motivo','Cantidad','Tiempo total (s)']];
+        Object.entries(pr).forEach(([k,v]) => prRows.push([v.label||k, v.count, v.seconds]));
+        const ws2 = window.XLSX.utils.aoa_to_sheet(prRows);
+        ws2['!cols'] = [{wch:20},{wch:12},{wch:18}];
+        ['A1','B1','C1'].forEach(c=>{if(ws2[c])ws2[c].s=styleH;});
+        window.XLSX.utils.book_append_sheet(wb, ws2, 'Pausas por motivo');
+
+        // Sesiones
+        const sessRows = [['Fecha','Login','Logout','Extensión','Duración (s)','Estado']];
+        (data.sessions||[]).forEach(s => sessRows.push([s.shift_date, s.login_time, s.logout_time||'', s.agent_ext, s.duration_seconds, s.status]));
+        const ws3 = window.XLSX.utils.aoa_to_sheet(sessRows);
+        ws3['!cols'] = [{wch:12},{wch:20},{wch:20},{wch:10},{wch:12},{wch:10}];
+        ['A1','B1','C1','D1','E1','F1'].forEach(c=>{if(ws3[c])ws3[c].s=styleH;});
+        window.XLSX.utils.book_append_sheet(wb, ws3, 'Sesiones');
+
+        // Pausas detalladas
+        const pRows = [['Fecha inicio','Fecha fin','Motivo','Duración (s)','Extensión']];
+        (data.pauses||[]).forEach(p => pRows.push([p.pause_start, p.pause_end||'', p.type_label||p.pause_type_code, p.dur, p.agent_ext]));
+        const ws4 = window.XLSX.utils.aoa_to_sheet(pRows);
+        ws4['!cols'] = [{wch:20},{wch:20},{wch:18},{wch:14},{wch:10}];
+        ['A1','B1','C1','D1','E1'].forEach(c=>{if(ws4[c])ws4[c].s=styleH;});
+        window.XLSX.utils.book_append_sheet(wb, ws4, 'Pausas detalle');
+
+        // Llamadas
+        const cRows = [['Fecha','Origen','Destino','Duración total (s)','Billsec (s)','Estado','Grabación']];
+        (data.calls||[]).forEach(c => cRows.push([c.calldate, c.src, c.dst, c.duration, c.billsec, c.disposition, c.recordingfile||'']));
+        const ws5 = window.XLSX.utils.aoa_to_sheet(cRows);
+        ws5['!cols'] = [{wch:20},{wch:14},{wch:14},{wch:16},{wch:12},{wch:14},{wch:50}];
+        ['A1','B1','C1','D1','E1','F1','G1'].forEach(c=>{if(ws5[c])ws5[c].s=styleH;});
+        window.XLSX.utils.book_append_sheet(wb, ws5, 'Llamadas');
+
+        const fname = `Reporte_Agente_${ag.number}_${data.period.from}_${data.period.to}.xlsx`;
+        window.XLSX.writeFile(wb, fname);
+    };
+
+    const exportPDF = () => {
+        if (!data || !window.jspdf) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+        const W=210, H=297;
+        const ag = data.agent||{}; const s = data.summary||{};
+        // Banner
+        doc.setFillColor(139,92,246); doc.rect(0,0,W,32,'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont(undefined,'bold');
+        doc.text('Reporte de Agente', 14, 14);
+        doc.setFontSize(11); doc.setFont(undefined,'normal');
+        doc.text(`#${ag.number} ${ag.name||''}`, 14, 22);
+        doc.setFontSize(8);
+        doc.text(`Período: ${data.period.from}  →  ${data.period.to}`, 14, 28);
+        doc.setTextColor(255,255,255,0.85);
+        doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, W-14, 28, {align:'right'});
+
+        // KPI cards
+        const cards = [
+            { l:'Logueado', v:tfFmtSecs(s.total_logged_seconds), c:[59,130,246] },
+            { l:'Pausa total', v:tfFmtSecs(s.total_paused_seconds), c:[245,158,11] },
+            { l:'Llamadas', v:String(s.total_calls||0), c:[34,197,94] },
+            { l:'AHT', v:tfFmtSecs(s.aht_seconds), c:[236,72,153] },
+            { l:'Occupancy', v:(s.occupancy_pct||0)+'%', c:[139,92,246] },
+        ];
+        const cw = (W-28-(cards.length-1)*5)/cards.length;
+        let cx=14, cy=40;
+        cards.forEach(k => {
+            doc.setFillColor(k.c[0],k.c[1],k.c[2]);
+            doc.roundedRect(cx,cy,cw,22,3,3,'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
+            doc.text(k.l.toUpperCase(), cx+3, cy+5);
+            doc.setFontSize(11); doc.text(k.v, cx+3, cy+15);
+            cx += cw+5;
+        });
+        let nextY = cy + 32;
+
+        // Pausas por motivo
+        const pr = s.pauses_by_reason||{};
+        const prBody = Object.entries(pr).map(([k,v]) => [v.label||k, v.count, tfFmtSecs(v.seconds)]);
+        if (prBody.length) {
+            doc.setFontSize(11); doc.setTextColor(40,40,55); doc.setFont(undefined,'bold');
+            doc.text('Pausas por motivo', 14, nextY);
+            doc.autoTable({ startY: nextY+3, head:[['Motivo','Cantidad','Duración']], body: prBody,
+                theme:'grid', headStyles:{fillColor:[139,92,246],textColor:255,fontStyle:'bold',fontSize:9},
+                bodyStyles:{fontSize:9}, margin:{left:14,right:14}});
+            nextY = doc.lastAutoTable.finalY + 6;
+        }
+
+        // Llamadas — top 30
+        const calls = (data.calls||[]).slice(0,30);
+        if (calls.length) {
+            doc.setFontSize(11); doc.setFont(undefined,'bold');
+            doc.text(`Llamadas (top 30 de ${data.calls.length})`, 14, nextY);
+            doc.autoTable({ startY: nextY+3,
+                head:[['Fecha','Origen','Destino','Dur','Estado']],
+                body: calls.map(c => [String(c.calldate).slice(0,16), c.src||'', c.dst||'', tfFmtSecs(c.billsec), c.disposition||'']),
+                theme:'striped', headStyles:{fillColor:[59,130,246],textColor:255,fontStyle:'bold',fontSize:9},
+                bodyStyles:{fontSize:8}, margin:{left:14,right:14}});
+            nextY = doc.lastAutoTable.finalY + 6;
+        }
+
+        // Footer
+        const pages = doc.internal.getNumberOfPages();
+        for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(140);
+            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad`, W/2, H-8, {align:'center'});}
+        doc.save(`Reporte_Agente_${ag.number}_${data.period.from}_${data.period.to}.pdf`);
+    };
+
+    if (!agentNumber) return null;
+    if (loading && !data) return <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}><span className="material-icons-round" style={{fontSize:36,animation:'spin-slow 2s linear infinite'}}>refresh</span><div style={{marginTop:8}}>Cargando reporte...</div></div>;
+    if (!data) return <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Sin datos</div>;
+
+    const s = data.summary || {};
+    const ag = data.agent || {};
+    const pr = s.pauses_by_reason || {};
+
+    const KPI = ({label, value, color, icon}) => (
+        <div className="glass" style={{padding:'14px 16px',borderRadius:14,border:`1px solid ${color}33`,background:`linear-gradient(135deg, ${color}15, transparent)`,flex:1,minWidth:140}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span className="material-icons-round" style={{fontSize:16,color}}>{icon}</span>
+                <span style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{label}</span>
+            </div>
+            <div style={{fontSize:20,fontWeight:900,color}}>{value}</div>
+        </div>
+    );
+
+    return (
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {/* Header con filtros */}
+            <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',padding:'10px 14px',background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:200}}>
+                    <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:14}}>{(ag.name||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}</div>
+                    <div>
+                        <div style={{fontSize:14,fontWeight:900}}>{ag.name}</div>
+                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>Agente #{ag.number} · {ag.type}</div>
                     </div>
                 </div>
+                <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="input-tf" style={{padding:'6px 10px',borderRadius:8,fontSize:12}}/>
+                <span style={{color:'var(--muted)',fontSize:11,fontWeight:700}}>HASTA</span>
+                <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="input-tf" style={{padding:'6px 10px',borderRadius:8,fontSize:12}}/>
+                <button onClick={load} className="btn-primary" style={{padding:'7px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:5}}>
+                    <span className="material-icons-round" style={{fontSize:15}}>{loading?'hourglass_top':'sync'}</span>Actualizar
+                </button>
+                <button onClick={exportXLSX} style={{padding:'7px 12px',borderRadius:9,fontSize:11,background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.35)',color:'#22c55e',fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>table_chart</span>Excel
+                </button>
+                <button onClick={exportPDF} style={{padding:'7px 12px',borderRadius:9,fontSize:11,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.35)',color:'#ef4444',fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                    <span className="material-icons-round" style={{fontSize:14}}>picture_as_pdf</span>PDF
+                </button>
             </div>
 
-            <div className="max-w-6xl mx-auto">
-                {calls.length === 0 ? (
-                    <div className="glass-effect rounded-2xl py-32 text-center flex flex-col items-center justify-center opacity-60" style={{background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)'}}>
-                        <div className="w-20 h-20 rounded-full bg-gray-500/10 flex items-center justify-center mb-6">
-                            <span className="material-icons-round text-4xl text-gray-600">phone_disabled</span>
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-400">Silencio en la red</h3>
-                        <p className="text-gray-500 mt-2 text-sm">No hay llamadas activas en este momento.</p>
+            {/* KPI cards */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>
+                <KPI label="Logueado" value={tfFmtSecs(s.total_logged_seconds)} color="#3b82f6" icon="schedule"/>
+                <KPI label="En pausa" value={tfFmtSecs(s.total_paused_seconds)} color="#f59e0b" icon="pause_circle"/>
+                <KPI label="Disponible" value={tfFmtSecs(s.available_seconds)} color="#10b981" icon="check_circle"/>
+                <KPI label="Llamadas" value={s.total_calls||0} color="#22c55e" icon="phone_in_talk"/>
+                <KPI label="Atendidas" value={s.answered_calls||0} color="#22c55e" icon="call_received"/>
+                <KPI label="AHT" value={tfFmtSecs(s.aht_seconds)} color="#ec4899" icon="timer"/>
+                <KPI label="Occupancy" value={(s.occupancy_pct||0)+'%'} color="#8b5cf6" icon="trending_up"/>
+            </div>
+
+            {/* Pausas por motivo */}
+            {Object.keys(pr).length > 0 && (
+                <div className="glass" style={{padding:14,borderRadius:12}}>
+                    <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',gap:6}}>
+                        <span className="material-icons-round" style={{fontSize:16,color:'#f59e0b'}}>pause_circle</span>Pausas por motivo
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                        {calls.map((c, i) => (
-                            <LiveCallCard 
-                                key={c.channel || i} 
-                                call={c} 
-                                data={data} 
-                                supervisorExt={supervisorExt}
-                                toast={toast} 
-                            />
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8}}>
+                        {Object.entries(pr).map(([code,v]) => (
+                            <div key={code} style={{padding:'10px 12px',background:'var(--surface2)',borderRadius:10,border:'1px solid var(--border)'}}>
+                                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>{v.label||code}</div>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:4}}>
+                                    <div style={{fontSize:18,fontWeight:900,color:'#f59e0b'}}>{v.count}</div>
+                                    <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>{tfFmtSecs(v.seconds)}</div>
+                                </div>
+                            </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Sesiones */}
+            <div className="glass" style={{padding:14,borderRadius:12}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',gap:6}}>
+                    <span className="material-icons-round" style={{fontSize:16,color:'#3b82f6'}}>schedule</span>Sesiones ({(data.sessions||[]).length})
+                </div>
+                {(data.sessions||[]).length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin sesiones en el período</div> : (
+                    <div style={{maxHeight:200,overflowY:'auto'}}>
+                        <table style={{width:'100%',fontSize:11}}>
+                            <thead><tr style={{background:'var(--surface2)'}}><th style={{textAlign:'left',padding:'6px 8px'}}>Fecha</th><th style={{textAlign:'left',padding:'6px 8px'}}>Login</th><th style={{textAlign:'left',padding:'6px 8px'}}>Logout</th><th style={{textAlign:'left',padding:'6px 8px'}}>Ext</th><th style={{textAlign:'right',padding:'6px 8px'}}>Duración</th></tr></thead>
+                            <tbody>
+                                {(data.sessions||[]).map((s,i)=>(<tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
+                                    <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{s.shift_date}</td>
+                                    <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{(s.login_time||'').slice(11,16)}</td>
+                                    <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{(s.logout_time||'—').slice(11,16)}</td>
+                                    <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{s.agent_ext}</td>
+                                    <td style={{padding:'6px 8px',textAlign:'right',fontFamily:'monospace',color:'#22c55e',fontWeight:700}}>{tfFmtSecs(s.duration_seconds)}</td>
+                                </tr>))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
 
-            <div className="mt-12 pt-6 border-t border-white/5 flex items-center justify-between opacity-40">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-brand-success"></span>
-                        <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Excelente Calidad</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-brand-warning"></span>
-                        <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Latencia Detectada</span>
-                    </div>
+            {/* Llamadas */}
+            <div className="glass" style={{padding:14,borderRadius:12}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--text)',marginBottom:10,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',gap:6}}>
+                    <span className="material-icons-round" style={{fontSize:16,color:'#22c55e'}}>phone_in_talk</span>Llamadas ({(data.calls||[]).length})
                 </div>
-                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    PJSIP REAL-TIME STREAM · AUTO-REFRESH 2.5S
-                </div>
+                {(data.calls||[]).length === 0 ? <div style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin llamadas en el período</div> : (
+                    <div style={{maxHeight:280,overflowY:'auto'}}>
+                        <table style={{width:'100%',fontSize:11}}>
+                            <thead><tr style={{background:'var(--surface2)'}}><th style={{textAlign:'left',padding:'6px 8px'}}>Fecha</th><th style={{textAlign:'left',padding:'6px 8px'}}>Origen</th><th style={{textAlign:'left',padding:'6px 8px'}}>Destino</th><th style={{textAlign:'right',padding:'6px 8px'}}>Duración</th><th style={{textAlign:'left',padding:'6px 8px'}}>Estado</th></tr></thead>
+                            <tbody>
+                                {(data.calls||[]).slice(0,100).map((c,i)=>{
+                                    const isAns = c.disposition==='ANSWERED';
+                                    return (<tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
+                                        <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{(c.calldate||'').slice(0,16)}</td>
+                                        <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{c.src}</td>
+                                        <td style={{padding:'6px 8px',fontFamily:'monospace'}}>{c.dst}</td>
+                                        <td style={{padding:'6px 8px',textAlign:'right',fontFamily:'monospace'}}>{tfFmtSecs(c.billsec)}</td>
+                                        <td style={{padding:'6px 8px'}}><span style={{padding:'1px 7px',borderRadius:5,fontSize:9,fontWeight:800,background:isAns?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)',color:isAns?'#22c55e':'#ef4444'}}>{c.disposition}</span></td>
+                                    </tr>);
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-// ─────────────────────────────────────────────
-// VISTA: REPORTES AVANZADOS
-// ─────────────────────────────────────────────
-function ViewReportes({ toast, queue, onClearQueue }) {
+function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent }) {
     const d=new Date(); d.setDate(d.getDate()-7);
     const [start, setStart] = useState(() => d.toISOString().split('T')[0]);
     const [end, setEnd] = useState(() => new Date().toISOString().split('T')[0]);
@@ -3463,6 +5243,8 @@ function ViewReportes({ toast, queue, onClearQueue }) {
     const [loading, setLoading] = useState(true);
     const chartRef = useRef(null);
     const chartInst = useRef(null);
+    const donutRef = useRef(null);
+    const donutInst = useRef(null);
 
     const load = async () => {
         setLoading(true);
@@ -3509,7 +5291,223 @@ function ViewReportes({ toast, queue, onClearQueue }) {
                 }
             }
         });
+
+        // Donut chart de distribución por estado
+        if (donutRef.current) {
+            if (donutInst.current) donutInst.current.destroy();
+            const dd = stats.stats || {};
+            donutInst.current = new window.Chart(donutRef.current, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Contestadas','Sin resp.','Ocupado','Falladas'],
+                    datasets: [{
+                        data: [dd.answered||0, dd.no_answer||0, dd.busy||0, dd.failed||0],
+                        backgroundColor: ['#22c55e','#f59e0b','#ef4444','#6b7280'],
+                        borderColor: 'rgba(0,0,0,0)',
+                        borderWidth: 3,
+                        hoverOffset: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { backgroundColor:'rgba(15,15,26,0.9)', titleColor:'#fff', bodyColor:'#cbd5e1', padding:10 }
+                    }
+                }
+            });
+        }
     }, [stats]);
+
+
+    const exportXLSX = () => {
+        if (!stats || !window.XLSX) { toast?.('Sin datos para exportar','error'); return; }
+        const wb = window.XLSX.utils.book_new();
+        const period = `${start} a ${end}`;
+        const total = stats.stats.total||0;
+        const ans = stats.stats.answered||0;
+        const eff = total>0 ? Math.round((ans/total)*100) : 0;
+
+        // Hoja Resumen ejecutivo
+        const summary = [
+            ['TELEFLOW — REPORTE ANALÍTICO', ''],
+            ['Horizon Seguridad', ''],
+            ['Período', period],
+            ['Generado', new Date().toLocaleString('es-UY')],
+            queue ? ['Cola filtrada', '#'+queue] : ['Alcance', 'Todas las colas'],
+            ['', ''],
+            ['INDICADOR', 'VALOR'],
+            ['Llamadas totales', total],
+            ['Contestadas', ans],
+            ['Sin respuesta',(stats.stats.no_answer||0)],
+            ['Ocupado', (stats.stats.busy||0)],
+            ['Falladas', (stats.stats.failed||0)],
+            ['Efectividad %', eff],
+            ['Espera promedio (s)', Math.round(stats.stats.avg_wait||0)],
+            ['Duración promedio (s)', Math.round(stats.stats.avg_duration||0)],
+        ];
+        const ws1 = window.XLSX.utils.aoa_to_sheet(summary);
+        ws1['!cols'] = [{wch:34},{wch:24}];
+        // Estilos: títulos en negrita / fondos color
+        const styleHead = { font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'8B5CF6'}}, alignment:{vertical:'center'} };
+        const styleSub  = { font:{bold:true,color:{rgb:'1F2937'}}, fill:{fgColor:{rgb:'EDE9FE'}} };
+        const styleNum  = { font:{bold:true,color:{rgb:'059669'}} };
+        ['A1','B1'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleHead; });
+        ['A7','B7'].forEach(c=>{ if(ws1[c]) ws1[c].s = styleSub;  });
+        for (let r=8; r<=15; r++) { const c='B'+r; if(ws1[c]) ws1[c].s = styleNum; }
+        ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:1}},{s:{r:1,c:0},e:{r:1,c:1}}];
+        window.XLSX.utils.book_append_sheet(wb, ws1, 'Resumen');
+
+        // Hoja Tendencia diaria
+        const trend = stats.trend || {};
+        const trendRows = [['Fecha','Contestadas','Sin respuesta','Ocupado','Fallidas','Total día']];
+        Object.keys(trend).forEach(d => {
+            const t = trend[d];
+            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
+            trendRows.push([d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot]);
+        });
+        const ws2 = window.XLSX.utils.aoa_to_sheet(trendRows);
+        ws2['!cols'] = [{wch:14},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12}];
+        ['A1','B1','C1','D1','E1','F1'].forEach(c=>{ if(ws2[c]) ws2[c].s = styleHead; });
+        window.XLSX.utils.book_append_sheet(wb, ws2, 'Tendencia diaria');
+
+        // Hoja Top orígenes
+        if (stats.origins?.length) {
+            const oRows = [['#','Origen','Llamadas']];
+            stats.origins.forEach((o,i)=>oRows.push([i+1,o.src,o.count]));
+            const ws3 = window.XLSX.utils.aoa_to_sheet(oRows);
+            ws3['!cols'] = [{wch:5},{wch:24},{wch:12}];
+            ['A1','B1','C1'].forEach(c=>{ if(ws3[c]) ws3[c].s = styleHead; });
+            window.XLSX.utils.book_append_sheet(wb, ws3, 'Top orígenes');
+        }
+        // Hoja Top destinos
+        if (stats.dests?.length) {
+            const dRows = [['#','Destino','Llamadas']];
+            stats.dests.forEach((o,i)=>dRows.push([i+1,o.dst,o.count]));
+            const ws4 = window.XLSX.utils.aoa_to_sheet(dRows);
+            ws4['!cols'] = [{wch:5},{wch:24},{wch:12}];
+            ['A1','B1','C1'].forEach(c=>{ if(ws4[c]) ws4[c].s = styleHead; });
+            window.XLSX.utils.book_append_sheet(wb, ws4, 'Top destinos');
+        }
+
+        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.xlsx`;
+        window.XLSX.writeFile(wb, fname);
+        toast?.('Exportado a Excel','success');
+    };
+
+    const exportPDF = () => {
+        if (!stats || !window.jspdf) { toast?.('Sin datos para exportar','error'); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+        const W = 210, H = 297;
+        const total = stats.stats.total||0;
+        const ans   = stats.stats.answered||0;
+        const eff   = total>0 ? Math.round((ans/total)*100) : 0;
+
+        // Banner
+        doc.setFillColor(139,92,246); doc.rect(0,0,W,30,'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont(undefined,'bold');
+        doc.text('TeleFlow', 14, 14);
+        doc.setFontSize(10); doc.setFont(undefined,'normal');
+        doc.text('Reporte Analítico de Callcenter · Horizon Seguridad', 14, 21);
+        doc.setFontSize(8);
+        doc.text(`Período: ${start}  →  ${end}${queue?'  ·  Cola #'+queue:''}`, 14, 26);
+        doc.setTextColor(255,255,255,0.85);
+        doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, W-14, 26, {align:'right'});
+
+        // KPI cards
+        const cards = [
+            { l:'Total', v:total.toLocaleString(), c:[139,92,246] },
+            { l:'Contestadas', v:ans.toLocaleString(), c:[34,197,94] },
+            { l:'Efectividad', v:eff+'%', c:[59,130,246] },
+            { l:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), c:[245,158,11] },
+            { l:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), c:[236,72,153] },
+        ];
+        const cw = (W - 28 - (cards.length-1)*5) / cards.length;
+        let cx = 14, cy = 38;
+        cards.forEach(k => {
+            doc.setFillColor(k.c[0],k.c[1],k.c[2]); doc.setDrawColor(k.c[0],k.c[1],k.c[2]);
+            doc.roundedRect(cx, cy, cw, 22, 3, 3, 'FD');
+            doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
+            doc.text(k.l.toUpperCase(), cx+3, cy+5);
+            doc.setFontSize(13); doc.text(String(k.v), cx+3, cy+15);
+            cx += cw + 5;
+        });
+
+        // Chart como imagen
+        let nextY = cy + 32;
+        try {
+            const canv = chartRef.current;
+            if (canv) {
+                const img = canv.toDataURL('image/png', 1.0);
+                doc.setTextColor(40,40,55); doc.setFont(undefined,'bold'); doc.setFontSize(11);
+                doc.text('Tendencia diaria', 14, nextY);
+                doc.addImage(img, 'PNG', 14, nextY+3, W-28, 60);
+                nextY += 70;
+            }
+        } catch(e) {}
+
+        // Tabla tendencia
+        const trend = stats.trend || {};
+        const tBody = Object.keys(trend).map(d => {
+            const t = trend[d];
+            const ttot = (t.ANSWERED||0)+(t['NO ANSWER']||0)+(t.BUSY||0)+(t.FAILED||0);
+            return [d, t.ANSWERED||0, t['NO ANSWER']||0, t.BUSY||0, t.FAILED||0, ttot];
+        });
+        if (tBody.length) {
+            doc.autoTable({
+                startY: nextY,
+                head: [['Fecha','Contestadas','Sin resp.','Ocupado','Fallidas','Total']],
+                body: tBody,
+                theme: 'grid',
+                headStyles: { fillColor: [99,102,241], textColor: 255, fontStyle:'bold', fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                alternateRowStyles: { fillColor: [248,250,252] },
+                margin: { left: 14, right: 14 }
+            });
+            nextY = doc.lastAutoTable.finalY + 6;
+        }
+
+        // Top orígenes + destinos en 2 columnas
+        const colW = (W-28-6)/2;
+        if (stats.origins?.length) {
+            doc.autoTable({
+                startY: nextY,
+                head: [['#','Origen','Calls']],
+                body: stats.origins.map((o,i)=>[i+1,o.src,o.count]),
+                theme: 'striped',
+                headStyles: { fillColor: [139,92,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                margin: { left: 14, right: 14 + colW + 6 },
+                tableWidth: colW
+            });
+        }
+        if (stats.dests?.length) {
+            doc.autoTable({
+                startY: nextY,
+                head: [['#','Destino','Calls']],
+                body: stats.dests.map((d,i)=>[i+1,d.dst,d.count]),
+                theme: 'striped',
+                headStyles: { fillColor: [59,130,246], textColor: 255, fontStyle:'bold', fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                margin: { left: 14 + colW + 6, right: 14 },
+                tableWidth: colW
+            });
+        }
+
+        // Footer
+        const pages = doc.internal.getNumberOfPages();
+        for (let i=1;i<=pages;i++) {
+            doc.setPage(i);
+            doc.setFontSize(7); doc.setTextColor(140);
+            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad  ·  ${new Date().toLocaleDateString('es-UY')}`, W/2, H-8, {align:'center'});
+        }
+        const fname = `Reporte_TeleFlow_${start}_${end}${queue?'_q'+queue:''}.pdf`;
+        doc.save(fname);
+        toast?.('Exportado a PDF','success');
+    };
 
     const Card = ({ title, value, sub, icon, color, bg }) => (
         <div className="glass" style={{padding:20,display:'flex',alignItems:'center',gap:16}}>
@@ -3524,91 +5522,175 @@ function ViewReportes({ toast, queue, onClearQueue }) {
         </div>
     );
 
+    if (agentReport && agentReport.number) {
+        return (
+            <div className="content-area view-enter">
+                <PageActions>
+                    <button onClick={onClearAgent} style={{padding:'7px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                        <span className="material-icons-round" style={{fontSize:15}}>arrow_back</span>Volver a Reportes Generales
+                    </button>
+                </PageActions>
+                <AgentReportPanel agentNumber={agentReport.number} embedded={true}/>
+            </div>
+        );
+    }
+
     return(
         <div className="content-area view-enter">
-            {/* Header + Filtros */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,flexWrap:'wrap',gap:16}}>
-                <div style={{display:'flex', alignItems:'center', gap:15}}>
+            {/* Filtros (queue back-button) */}
+            <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
+                <div style={{display:'flex', alignItems:'center', gap:10}}>
                     {queue && (
-                        <button onClick={onClearQueue} style={{width:40, height:40, borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted)'}}>
+                        <button onClick={onClearQueue} style={{width:36, height:36, borderRadius:10, background:'var(--surface)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--muted)'}}>
                             <span className="material-icons-round">arrow_back</span>
                         </button>
                     )}
-                    <div>
-                        <h2 style={{fontSize:22,fontWeight:900,color:'var(--text)'}}>
-                            {queue ? `Reporte de Cola #${queue}` : 'Reportes Analíticos'}
-                        </h2>
-                        <p style={{fontSize:12,color:'#6b7280',marginTop:2}}>
-                            {queue ? 'Métricas específicas de esta cola' : 'Métricas y gráficas de la actividad de llamadas'}
-                        </p>
+                    {queue && <div style={{fontSize:13,fontWeight:800,color:'#c4b5fd'}}>Cola #{queue}</div>}
+                </div>
+                <PageActions>
+                    <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 6px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:10}}>
+                        <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6',marginLeft:4}}>date_range</span>
+                        <input type="date" value={start} onChange={e=>setStart(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
+                        <span style={{color:'var(--muted)',fontSize:10,fontWeight:800,letterSpacing:'.06em'}}>→</span>
+                        <input type="date" value={end} onChange={e=>setEnd(e.target.value)} style={{width:140,padding:'6px 8px',borderRadius:7,fontSize:12,background:'transparent',border:'none',color:'var(--text)',outline:'none',colorScheme:'dark'}} />
                     </div>
-                </div>
-                <div className="glass" style={{display:'flex',alignItems:'center',gap:10,padding:'8px 16px',borderRadius:14}}>
-                    <input type="date" value={start} onChange={e=>setStart(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
-                    <span style={{color:'#6b7280',fontSize:12,fontWeight:800}}>HASTA</span>
-                    <input type="date" value={end} onChange={e=>setEnd(e.target.value)} className="input-tf py-1.5 px-3 rounded-lg text-sm" style={{background:'var(--surface)'}} />
-                    <button className="btn-primary" style={{padding:'7px 16px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={load} disabled={loading}>
-                        <span className="material-icons-round" style={{fontSize:16}}>{loading?'hourglass_top':'sync'}</span> Actualizar
+                    <button className="btn-primary" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:5,boxShadow:'0 4px 14px rgba(139,92,246,0.3)'}} onClick={load} disabled={loading}>
+                        <span className="material-icons-round" style={{fontSize:15,animation:loading?'spin 1s linear infinite':'none'}}>{loading?'autorenew':'refresh'}</span>{loading?'Cargando':'Actualizar'}
                     </button>
-                </div>
+                    <button onClick={exportXLSX} disabled={!stats} title="Exportar a Excel" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(34,197,94,0.18),rgba(34,197,94,0.06))',border:'1px solid rgba(34,197,94,0.4)',color:'#22c55e',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
+                        <span className="material-icons-round" style={{fontSize:15}}>table_chart</span>Excel
+                    </button>
+                    <button onClick={exportPDF} disabled={!stats} title="Exportar a PDF" style={{padding:'8px 14px',borderRadius:9,fontSize:12,display:'flex',alignItems:'center',gap:6,background:'linear-gradient(135deg,rgba(239,68,68,0.18),rgba(239,68,68,0.06))',border:'1px solid rgba(239,68,68,0.4)',color:'#ef4444',fontWeight:800,cursor:stats?'pointer':'not-allowed',opacity:stats?1:.4,transition:'all .15s'}}>
+                        <span className="material-icons-round" style={{fontSize:15}}>picture_as_pdf</span>PDF
+                    </button>
+                </PageActions>
             </div>
 
             {loading && !stats && <div style={{textAlign:'center',padding:40,color:'#6b7280'}}><span className="material-icons-round" style={{fontSize:40,animation:'spin-slow 2s linear infinite'}}>refresh</span><div style={{marginTop:10}}>Generando reporte...</div></div>}
 
             {stats && (
                 <>
-                    {/* KPIs */}
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginBottom:24}} className="anim-fadeup">
-                        <Card title="Total Procesadas" value={stats.stats.total?.toLocaleString()||0} sub="Todas las disposiciones" icon="functions" color="#c4b5fd" bg="rgba(139,92,246,0.15)" />
-                        <Card title="Contestadas" value={stats.stats.answered?.toLocaleString()||0} sub={`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% de efectividad`} icon="check_circle" color="#4ade80" bg="rgba(34,197,94,0.15)" />
-                        <Card title="Espera Promedio" value={fmtTime(Math.round(stats.stats.avg_wait||0))} sub="Tiempo antes de atender" icon="hourglass_top" color="#3b82f6" bg="rgba(59,130,246,0.15)" />
-                        <Card title="Duración Promedio" value={fmtTime(Math.round(stats.stats.avg_duration||0))} sub="Tiempo de habla (billsec)" icon="timer" color="#f59e0b" bg="rgba(245,158,11,0.15)" />
+                    {/* Hero: período + 5 KPI cards */}
+                    <div className="anim-fadeup" style={{padding:'18px 22px',marginBottom:18,borderRadius:18,background:'linear-gradient(135deg,rgba(139,92,246,0.08),rgba(59,130,246,0.04) 50%,transparent),var(--surface)',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',alignItems:'center',gap:14,boxShadow:'0 8px 32px rgba(139,92,246,0.06)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:14}}>
+                            <div style={{width:54,height:54,borderRadius:14,background:'linear-gradient(135deg,#8b5cf6,#3b82f6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(139,92,246,0.35)'}}>
+                                <span className="material-icons-round" style={{color:'#fff',fontSize:26}}>analytics</span>
+                            </div>
+                            <div>
+                                <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em'}}>Reporte analítico · {start} → {end}</div>
+                                <div style={{fontSize:22,fontWeight:900,letterSpacing:'-0.5px',marginTop:2,color:'var(--text)'}}>{(stats.stats.total||0).toLocaleString()} llamadas procesadas</div>
+                                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{Object.keys(stats.trend||{}).length} días · {stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad global</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:20}} className="anim-fadeup">
+                        {[
+                            {t:'Total', v:(stats.stats.total||0).toLocaleString(), s:'Procesadas', i:'functions', c:'#8b5cf6'},
+                            {t:'Contestadas', v:(stats.stats.answered||0).toLocaleString(), s:`${stats.stats.total>0?Math.round((stats.stats.answered/stats.stats.total)*100):0}% efectividad`, i:'check_circle', c:'#22c55e'},
+                            {t:'Sin respuesta', v:(stats.stats.no_answer||0).toLocaleString(), s:'No atendidas', i:'phone_missed', c:'#f59e0b'},
+                            {t:'Espera prom.', v:fmtTime(Math.round(stats.stats.avg_wait||0)), s:'Hasta atender', i:'hourglass_top', c:'#3b82f6'},
+                            {t:'Duración prom.', v:fmtTime(Math.round(stats.stats.avg_duration||0)), s:'Tiempo habla', i:'timer', c:'#ec4899'},
+                        ].map((k,i)=>(
+                            <div key={i} className="glass" style={{padding:'14px 16px',borderRadius:14,position:'relative',overflow:'hidden',border:`1px solid ${k.c}33`,background:`linear-gradient(135deg,${k.c}10,transparent 70%),var(--surface)`}}>
+                                <div style={{position:'absolute',top:-12,right:-12,width:70,height:70,borderRadius:'50%',background:`radial-gradient(circle,${k.c}33,transparent 70%)`,pointerEvents:'none'}}/>
+                                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,position:'relative'}}>
+                                    <div style={{width:30,height:30,borderRadius:9,background:`linear-gradient(135deg,${k.c},${k.c}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 12px ${k.c}55`}}>
+                                        <span className="material-icons-round" style={{color:'#fff',fontSize:16}}>{k.i}</span>
+                                    </div>
+                                    <span style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.08em'}}>{k.t}</span>
+                                </div>
+                                <div style={{fontSize:24,fontWeight:900,color:k.c,lineHeight:1,letterSpacing:'-0.5px'}}>{k.v}</div>
+                                <div style={{fontSize:10,color:'var(--muted)',marginTop:4,fontWeight:600}}>{k.s}</div>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Gráfica principal */}
-                    <div className="glass anim-fadeup-2" style={{padding:24,marginBottom:24,height:340,display:'flex',flexDirection:'column'}}>
-                        <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em'}}>Tendencia de Llamadas por Día</div>
-                        <div style={{flex:1,position:'relative',minHeight:0}}>
-                            <canvas ref={chartRef} />
+                    {/* Layout principal: 2/3 chart + 1/3 donut */}
+                    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:18}} className="anim-fadeup-2">
+                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column'}}>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+                                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                    <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>trending_up</span>
+                                    <span style={{fontSize:13,fontWeight:800,color:'var(--text)',textTransform:'uppercase',letterSpacing:'.08em'}}>Tendencia diaria</span>
+                                </div>
+                                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>{Object.keys(stats.trend||{}).length} días · linea suavizada</div>
+                            </div>
+                            <div style={{flex:1,position:'relative',minHeight:0}}>
+                                <canvas ref={chartRef} />
+                            </div>
+                        </div>
+                        <div className="glass" style={{padding:'20px 24px',borderRadius:16,height:380,display:'flex',flexDirection:'column',alignItems:'center'}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',alignSelf:'flex-start',display:'flex',alignItems:'center',gap:8}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'#22c55e'}}>donut_large</span>Distribución
+                            </div>
+                            <div style={{flex:1,position:'relative',minHeight:0,width:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <canvas ref={donutRef} style={{maxHeight:240}} />
+                            </div>
+                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,width:'100%',marginTop:10,fontSize:11}}>
+                                {[
+                                    {l:'Contestadas',v:stats.stats.answered||0,c:'#22c55e'},
+                                    {l:'Sin resp.',v:stats.stats.no_answer||0,c:'#f59e0b'},
+                                    {l:'Ocupado',v:stats.stats.busy||0,c:'#ef4444'},
+                                    {l:'Falladas',v:stats.stats.failed||0,c:'#6b7280'},
+                                ].map((d,i)=>(
+                                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',borderRadius:7,background:'var(--surface2)'}}>
+                                        <span style={{width:8,height:8,borderRadius:'50%',background:d.c,flexShrink:0}}/>
+                                        <span style={{flex:1,color:'var(--muted)',fontWeight:700}}>{d.l}</span>
+                                        <span style={{fontWeight:800,color:d.c,fontFamily:'monospace'}}>{d.v.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
                     {/* Tops */}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}} className="anim-fadeup-3">
-                        <div className="glass" style={{padding:24}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span> Top Orígenes Activos
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}} className="anim-fadeup-3">
+                        {(() => {
+                            const maxOrig = Math.max(1, ...(stats.origins||[]).map(o=>o.count));
+                            const maxDest = Math.max(1, ...(stats.dests||[]).map(d=>d.count));
+                            const TopRow = ({label, count, max, color, idx, total}) => {
+                                const pct = Math.round((count/max)*100);
+                                return (
+                                    <div style={{padding:'10px 14px',borderRadius:12,background:'var(--surface2)',border:'1px solid var(--border)',position:'relative',overflow:'hidden'}}>
+                                        <div style={{position:'absolute',top:0,bottom:0,left:0,width:`${pct}%`,background:`linear-gradient(90deg,${color}15,${color}05)`,zIndex:0}}/>
+                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,position:'relative'}}>
+                                            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
+                                                <div style={{width:26,height:26,borderRadius:7,background:`linear-gradient(135deg,${color}33,${color}11)`,color:color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,flexShrink:0}}>{idx+1}</div>
+                                                <span style={{fontSize:13,fontWeight:700,fontFamily:'monospace',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
+                                            </div>
+                                            <div style={{display:'flex',alignItems:'baseline',gap:5,flexShrink:0}}>
+                                                <span style={{fontSize:14,fontWeight:900,color:color}}>{count}</span>
+                                                <span style={{fontSize:9,color:'var(--muted)',fontFamily:'monospace'}}>{total>0?Math.round((count/total)*100):0}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            };
+                            const totalOrig = (stats.origins||[]).reduce((s,o)=>s+o.count,0);
+                            const totalDest = (stats.dests||[]).reduce((s,d)=>s+d.count,0);
+                            return (<>
+                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#8b5cf6'}}>call_made</span>Top orígenes</div>
+                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.origins||[]).length} únicos</span>
                             </div>
                             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {stats.origins?.map((o,i)=>(
-                                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
-                                        <div style={{display:'flex',alignItems:'center',gap:10}}>
-                                            <div style={{width:24,height:24,borderRadius:6,background:'rgba(139,92,246,0.1)',color:'#c4b5fd',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800}}>{i+1}</div>
-                                            <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{o.src}</span>
-                                        </div>
-                                        <div style={{fontSize:12,fontWeight:800,color:'#4ade80'}}>{o.count} calls</div>
-                                    </div>
-                                ))}
-                                {!stats.origins?.length && <div style={{color:'#6b7280',fontSize:12,textAlign:'center'}}>Sin datos</div>}
+                                {(stats.origins||[]).map((o,i)=>(<TopRow key={i} label={o.src} count={o.count} max={maxOrig} color="#8b5cf6" idx={i} total={totalOrig}/>))}
+                                {!(stats.origins||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin orígenes registrados</div>}
                             </div>
                         </div>
-                        <div className="glass" style={{padding:24}}>
-                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:16,textTransform:'uppercase',letterSpacing:'.1em',display:'flex',alignItems:'center',gap:8}}>
-                                <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>call_received</span> Top Destinos Alcanzados
+                        <div className="glass" style={{padding:'18px 22px',borderRadius:16}}>
+                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)',marginBottom:14,textTransform:'uppercase',letterSpacing:'.08em',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                <div style={{display:'flex',alignItems:'center',gap:8}}><span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>call_received</span>Top destinos</div>
+                                <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,fontFamily:'monospace'}}>{(stats.dests||[]).length} únicos</span>
                             </div>
                             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                                {stats.dests?.map((d,i)=>(
-                                    <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
-                                        <div style={{display:'flex',alignItems:'center',gap:10}}>
-                                            <div style={{width:24,height:24,borderRadius:6,background:'rgba(59,130,246,0.1)',color:'#60a5fa',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800}}>{i+1}</div>
-                                            <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{d.dst}</span>
-                                        </div>
-                                        <div style={{fontSize:12,fontWeight:800,color:'#f59e0b'}}>{d.count} calls</div>
-                                    </div>
-                                ))}
-                                {!stats.dests?.length && <div style={{color:'#6b7280',fontSize:12,textAlign:'center'}}>Sin datos</div>}
+                                {(stats.dests||[]).map((d,i)=>(<TopRow key={i} label={d.dst} count={d.count} max={maxDest} color="#3b82f6" idx={i} total={totalDest}/>))}
+                                {!(stats.dests||[]).length && <div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:11}}>Sin destinos registrados</div>}
                             </div>
                         </div>
+                            </>);
+                        })()}
                     </div>
                 </>
             )}
@@ -4111,7 +6193,7 @@ function IVRDesignerApp({ toast }) {
 
             {/* Diagram */}
             <div style={{flex: 1, position:'relative', order: 1}} ref={reactFlowWrapper}>
-                <ReactFlowComp
+                {ReactFlowComp ? <ReactFlowComp
                     nodes={nodes}
                     edges={edges}
                     onNodesChange={onNodesChange}
@@ -4130,7 +6212,7 @@ function IVRDesignerApp({ toast }) {
                     {Background && <Background color="rgba(255,255,255,0.05)" gap={20} size={1.5} />}
                     {Controls && <Controls style={{background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}} />}
                     {MiniMap && <MiniMap maskColor="rgba(0,0,0,0.5)" style={{ background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)' }} />}
-                </ReactFlowComp>
+                </ReactFlowComp> : <div style={{padding:40,textAlign:'center',color:'var(--muted)'}}>Editor IVR cargando...</div>}
 
                 <div style={{position:'absolute', top:20, left:20, zIndex:10, background:'var(--surface)', padding:'10px 20px', borderRadius:12, border:'1px solid var(--border)', display:'flex', gap:12, boxShadow:'0 4px 20px rgba(0,0,0,0.1)'}}>
                     <button onClick={()=>{ 
@@ -4399,6 +6481,9 @@ function ViewConfiguracion() {
                 <button onClick={()=>setActiveTab('debug_sip')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='debug_sip'?'var(--surface)':'transparent', color:activeTab==='debug_sip'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
                     <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>terminal</span>Debug SIP
                 </button>
+                <button onClick={()=>setActiveTab('pbx')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='pbx'?'var(--surface)':'transparent', color:activeTab==='pbx'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
+                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>dns</span>PBX
+                </button>
             </div>
 
             {activeTab === 'notificaciones' && (
@@ -4592,14 +6677,1523 @@ function ViewConfiguracion() {
                     </div>
                 </div>
             )}
+
+            {activeTab === 'pbx' && (
+                <ViewConfigPBX />
+            )}
+        </div>
+    );
+}
+
+function ViewConfigPBX() {
+    const [groups, setGroups] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [activeGroup, setActiveGroup] = useState('pbx');
+    const [edits, setEdits] = useState({});
+    const [testResult, setTestResult] = useState(null);
+    const [testing, setTesting] = useState(false);
+
+    const groupLabels = {
+        pbx: 'PBX',
+        database: 'MySQL',
+        ami: 'AMI Asterisk',
+        webrtc: 'WebRTC / WSS',
+    };
+    const groupIcons = {
+        pbx: 'dns',
+        database: 'storage',
+        ami: 'bolt',
+        webrtc: 'language',
+    };
+
+    const load = async () => {
+        setLoading(true);
+        try {
+            const r = await fetch('api/pbx_config.php?action=list', {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') { setGroups(j.groups); setEdits({}); }
+        } catch(e) { console.error(e); }
+        setLoading(false);
+    };
+    useEffect(()=>{ load(); }, []);
+
+    const setVal = (key, val) => setEdits(e => ({...e, [key]: val}));
+    const valOf = (s) => edits[s.config_key] !== undefined ? edits[s.config_key] : s.config_value;
+
+    const save = async () => {
+        const settings = Object.entries(edits).map(([key, value]) => ({key, value}));
+        if (settings.length === 0) return;
+        const r = await fetch('api/pbx_config.php?action=save', {
+            method:'POST', credentials:'include',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({settings}),
+        });
+        const j = await r.json();
+        if (j.status === 'ok') { load(); }
+    };
+
+    const testConn = async () => {
+        setTesting(true);
+        setTestResult(null);
+        try {
+            const r = await fetch('api/pbx_config.php?action=test', {credentials:'include'});
+            setTestResult(await r.json());
+        } catch(e) { setTestResult({status:'error', message:e.message}); }
+        setTesting(false);
+    };
+
+    if (loading) return <div className="anim-fadeup" style={{padding:40,textAlign:'center',color:'var(--muted)'}}><span className="material-icons-round" style={{fontSize:32,animation:'spin 1s linear infinite'}}>autorenew</span><div style={{marginTop:12,fontSize:13}}>Cargando configuración...</div></div>;
+
+    const items = groups[activeGroup] || [];
+    const dirty = Object.keys(edits).length;
+
+    return (
+        <div className="anim-fadeup">
+            <div style={{display:'flex',gap:6,marginBottom:18,flexWrap:'wrap',background:'var(--surface2)',padding:4,borderRadius:14,width:'fit-content'}}>
+                {Object.keys(groupLabels).map(g => (
+                    <button key={g} onClick={()=>setActiveGroup(g)} style={{padding:'8px 16px',borderRadius:10,border:'none',background:activeGroup===g?'var(--surface)':'transparent',color:activeGroup===g?'var(--accent)':'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer',transition:'all .25s',display:'flex',alignItems:'center',gap:6}}>
+                        <span className="material-icons-round" style={{fontSize:16}}>{groupIcons[g]}</span>
+                        {groupLabels[g]}
+                    </button>
+                ))}
+            </div>
+
+            <div className="glass" style={{padding:24,borderRadius:18,marginBottom:14}}>
+                {items.map(s => (
+                    <div key={s.config_key} style={{marginBottom:18}}>
+                        <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:12,fontWeight:700,color:'var(--text)'}}>
+                            <span style={{fontFamily:'monospace'}}>{s.config_key}</span>
+                            {s.is_secret==1 && <span style={{padding:'2px 7px',borderRadius:6,fontSize:10,fontWeight:700,background:'rgba(245,158,11,0.15)',color:'#fbbf24'}}>SECRET</span>}
+                        </label>
+                        <input
+                            className="input-tf"
+                            style={{padding:'10px 14px',borderRadius:10,fontSize:13}}
+                            type={s.is_secret==1 ? 'password' : 'text'}
+                            value={valOf(s)}
+                            onChange={e=>setVal(s.config_key, e.target.value)}
+                            placeholder={s.description || ''}
+                        />
+                        <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>{s.description}</div>
+                    </div>
+                ))}
+            </div>
+
+            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14}}>
+                <button onClick={testConn} disabled={testing} style={{padding:'10px 18px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',cursor:testing?'wait':'pointer',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+                    <span className="material-icons-round" style={{fontSize:18,animation:testing?'spin 1s linear infinite':''}}>{testing?'autorenew':'cable'}</span>
+                    {testing ? 'Probando...' : 'Probar Conexión'}
+                </button>
+                <button onClick={save} disabled={!dirty} style={{padding:'10px 22px',borderRadius:10,border:'none',background: dirty ? 'linear-gradient(135deg,#8b5cf6,#6d28d9)' : 'var(--surface2)', color:dirty?'white':'var(--muted)',cursor:dirty?'pointer':'not-allowed',fontWeight:700,opacity:dirty?1:0.6}}>
+                    <span className="material-icons-round" style={{fontSize:16,marginRight:6,verticalAlign:'middle'}}>save</span>
+                    Guardar {dirty>0 && `(${dirty})`}
+                </button>
+            </div>
+
+            {testResult && testResult.tests && (
+                <div className="glass anim-fadeup" style={{padding:16,borderRadius:14}}>
+                    {Object.entries(testResult.tests).map(([name, t]) => (
+                        <div key={name} style={{padding:'10px 12px',borderRadius:10,marginBottom:6,background: t.ok ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',border: t.ok ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.25)',display:'flex',alignItems:'center',gap:10}}>
+                            <span className="material-icons-round" style={{color: t.ok ? '#4ade80' : '#f87171', fontSize:20}}>{t.ok ? 'check_circle' : 'error'}</span>
+                            <div>
+                                <div style={{fontWeight:700,fontSize:13,color: t.ok ? '#4ade80' : '#f87171'}}>{name.toUpperCase()}</div>
+                                <div style={{fontSize:12,color:'var(--muted)'}}>{t.detail}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
 
 // ─────────────────────────────────────────────
-// APP PRINCIPAL
+// CALL CENTER — Consola del Agente (Horizon)
 // ─────────────────────────────────────────────
+function ViewCallCenter({ user, onLogout, data }) {
+    const [status, setStatus] = useState(null);
+    const [pauseTypes, setPauseTypes] = useState([]);
+    const [showPauseModal, setShowPauseModal] = useState(false);
+    const [callHistory, setCallHistory] = useState([]);
+    const [tick, setTick] = useState(0);
+    const isAgent = user?.role === 'agent';
+
+    // Onboarding para admin
+    if (!isAgent) {
+        return (
+            <div className="content-area view-enter">
+                <div className="glass" style={{padding:32,borderRadius:18,textAlign:'center',maxWidth:680,margin:'40px auto'}}>
+                    <div style={{width:84,height:84,borderRadius:'50%',background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',margin:'0 auto 20px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{fontSize:42,color:'#fff'}}>headset_mic</span>
+                    </div>
+                    <h2 style={{fontSize:22,fontWeight:900,marginBottom:10}}>Mi Consola</h2>
+                    <p style={{fontSize:13,color:'var(--muted)',marginBottom:18,lineHeight:1.5}}>
+                        Esta es la <strong>consola del agente</strong>. Para usarla, salí (logout) y volvé a entrar seleccionando "Agente" con tu número y password.
+                    </p>
+                    <p style={{fontSize:11,color:'var(--muted)'}}>Estás logueado como <strong>{user?.name||'admin'}</strong> ({user?.role||'admin'}). La administración está en <strong>Hotdesking</strong>.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const loadStatus = async () => {
+        try {
+            const r = await fetch('api/agent.php?action=status', {credentials:'include'});
+            setStatus(await r.json());
+        } catch(e) {}
+    };
+    const loadPauseTypes = async () => {
+        try {
+            const r = await fetch('api/agent.php?action=pause_types', {credentials:'include'});
+            const j = await r.json();
+            setPauseTypes(j.types || []);
+        } catch(e) {}
+    };
+    const loadHistory = async () => {
+        try {
+            const ext = user?.agent?.callback?.replace(/^\w+\//,'') || '';
+            if (!ext) return;
+            const today = new Date().toISOString().slice(0,10);
+            const r = await fetch(`api/index.php?action=get_cdr&from=${today}&to=${today}&src=${ext}&limit=20`, {credentials:'include'});
+            const j = await r.json();
+            if (j.success) setCallHistory(j.rows || []);
+        } catch(e) {}
+    };
+
+    useEffect(() => { loadStatus(); loadPauseTypes(); loadHistory(); }, []);
+    useEffect(() => { const t = setInterval(loadStatus, 3000); return () => clearInterval(t); }, []);
+    useEffect(() => { const t = setInterval(() => setTick(k=>k+1), 1000); return () => clearInterval(t); }, []);
+    useEffect(() => { const t = setInterval(loadHistory, 30000); return () => clearInterval(t); }, []);
+
+    const doPause = async (code) => {
+        const fd = new FormData(); fd.append('pause_type_code', code);
+        await fetch('api/agent.php?action=pause', {method:'POST', body:fd, credentials:'include'});
+        setShowPauseModal(false);
+        loadStatus();
+    };
+    const doUnpause = async () => {
+        await fetch('api/agent.php?action=unpause', {method:'POST', credentials:'include'});
+        loadStatus();
+    };
+    const doLogout = async () => {
+        if (!confirm('¿Cerrar sesión y salir de las colas?')) return;
+        await fetch('api/agent.php?action=logout', {method:'POST', credentials:'include'});
+        onLogout?.();
+    };
+
+    // Llamada actual
+    const liveCalls = data?.pbx?.live_calls || [];
+    const myExt = (user?.agent?.callback || '').replace(/^\w+\//, '');
+    const myCall = myExt ? liveCalls.find(c => String(c.ext) === String(myExt) || String(c.dest) === String(myExt)) : null;
+
+    const fmtTime = (s) => { if (!s) return '00:00'; const m = Math.floor(s/60), sc = s%60; const h = Math.floor(m/60); return h>0 ? `${h}:${String(m%60).padStart(2,'0')}:${String(sc).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`; };
+
+    const sessionSec = status?.session?.login_time ? Math.floor((Date.now() - new Date(status.session.login_time).getTime())/1000) : 0;
+    const pauseSec = status?.pause?.started_at ? Math.floor((Date.now() - new Date(status.pause.started_at).getTime())/1000) : 0;
+
+    const isPaused = !!status?.pause;
+    const isInCall = !!myCall;
+    const stateLabel = isInCall ? 'EN LLAMADA' : (isPaused ? 'EN PAUSA' : 'DISPONIBLE');
+    const stateColor = isInCall ? '#ef4444' : (isPaused ? '#f59e0b' : '#22c55e');
+
+    return (
+        <div className="content-area view-enter">
+            {/* HERO: avatar + nombre + estado grande */}
+            <div className="glass" style={{padding:0,borderRadius:18,marginBottom:14,overflow:'hidden',position:'relative'}}>
+                <div style={{height:64,background:`linear-gradient(135deg,${stateColor}55,${stateColor}11)`}}/>
+                <div style={{padding:'0 22px 18px',display:'flex',alignItems:'flex-end',gap:14,marginTop:-32}}>
+                    <div style={{width:70,height:70,borderRadius:'50%',background:`linear-gradient(135deg,${stateColor},${stateColor}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:24,fontWeight:900,border:'4px solid var(--surface)',boxShadow:`0 4px 14px ${stateColor}66`,flexShrink:0,position:'relative'}}>
+                        {(user?.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                        {isInCall && <span style={{position:'absolute',bottom:-2,right:-2,width:18,height:18,borderRadius:'50%',background:'#ef4444',border:'3px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
+                    </div>
+                    <div style={{flex:1,paddingTop:30}}>
+                        <h1 style={{fontSize:22,fontWeight:900,letterSpacing:'-0.5px'}}>{user?.name}</h1>
+                        <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace',fontWeight:700,marginTop:2}}>
+                            Agente #{user?.agent?.number} · {user?.agent?.callback} · Sesión {fmtTime(sessionSec)}
+                        </div>
+                    </div>
+                    <div style={{padding:'10px 18px',borderRadius:12,background:`${stateColor}22`,border:`2px solid ${stateColor}66`,display:'flex',alignItems:'center',gap:10}}>
+                        <span style={{width:10,height:10,borderRadius:'50%',background:stateColor,boxShadow:`0 0 12px ${stateColor}`,animation:isInCall?'pulse 1s infinite':'none'}}/>
+                        <span style={{fontSize:13,fontWeight:900,color:stateColor,letterSpacing:'.05em'}}>{stateLabel}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Llamada actual prominente */}
+            {isInCall && (
+                <div className="glass" style={{padding:18,borderRadius:14,marginBottom:14,border:'2px solid #ef4444',boxShadow:'0 0 24px rgba(239,68,68,0.25)',background:'linear-gradient(135deg,rgba(239,68,68,0.08),transparent 60%)'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:14}}>
+                        <div style={{width:54,height:54,borderRadius:'50%',background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',animation:'phone-shake 0.6s ease-in-out infinite'}}>
+                            <span className="material-icons-round" style={{fontSize:28}}>phone_in_talk</span>
+                        </div>
+                        <div style={{flex:1}}>
+                            <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em'}}>Llamada en curso</div>
+                            <div style={{fontSize:18,fontWeight:900,color:'var(--text)',marginTop:2}}>{myCall.callerid || myCall.from_ext || myCall.ext}</div>
+                            <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>{myCall.channel}</div>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                            <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>Duración</div>
+                            <div style={{fontSize:24,fontWeight:900,fontFamily:'monospace',color:'#22c55e'}}>{myCall.duration||'00:00'}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Acciones grandes: Pausa o Despausar */}
+            {!isInCall && (
+                isPaused ? (
+                    <div className="glass" style={{padding:24,borderRadius:14,marginBottom:14,background:`linear-gradient(135deg,${status.pause.color||'#f59e0b'}15,transparent 60%)`,border:`1px solid ${status.pause.color||'#f59e0b'}44`}}>
+                        <div style={{display:'flex',alignItems:'center',gap:18,flexWrap:'wrap'}}>
+                            <div style={{width:54,height:54,borderRadius:14,background:`linear-gradient(135deg,${status.pause.color||'#f59e0b'},${status.pause.color||'#f59e0b'}aa)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:28,color:'#fff'}}>pause_circle</span>
+                            </div>
+                            <div style={{flex:1,minWidth:200}}>
+                                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,textTransform:'uppercase'}}>En Pausa</div>
+                                <h3 style={{fontSize:22,fontWeight:900,color:status.pause.color||'#f59e0b'}}>{status.pause.label||'Pausa'}</h3>
+                                <div style={{fontSize:36,fontWeight:900,fontFamily:'monospace',color:'var(--text)',marginTop:6}}>{fmtTime(pauseSec)}</div>
+                            </div>
+                            <button onClick={doUnpause} style={{padding:'14px 22px',borderRadius:12,border:'none',background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',fontWeight:900,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',gap:8,boxShadow:'0 8px 24px rgba(34,197,94,0.3)'}}>
+                                <span className="material-icons-round">play_arrow</span>Volver a atender
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+                        <button onClick={()=>setShowPauseModal(true)} style={{flex:1,minWidth:200,padding:'18px',borderRadius:14,border:'1px solid rgba(245,158,11,0.4)',background:'rgba(245,158,11,0.08)',color:'#f59e0b',fontWeight:900,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
+                            <span className="material-icons-round" style={{fontSize:24}}>pause_circle</span>
+                            Iniciar pausa
+                        </button>
+                        <button onClick={doLogout} style={{flex:1,minWidth:200,padding:'18px',borderRadius:14,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontWeight:900,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
+                            <span className="material-icons-round" style={{fontSize:24}}>logout</span>
+                            Cerrar sesión
+                        </button>
+                    </div>
+                )
+            )}
+
+            {/* Stats sesión */}
+            <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="glass" style={{padding:14,borderRadius:12,textAlign:'center'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>Llamadas</div>
+                    <div style={{fontSize:24,fontWeight:900,color:'var(--text)'}}>{status?.session?.total_calls||0}</div>
+                </div>
+                <div className="glass" style={{padding:14,borderRadius:12,textAlign:'center'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>T. en llamada</div>
+                    <div style={{fontSize:18,fontWeight:900,fontFamily:'monospace',color:'#22c55e'}}>{fmtTime(status?.session?.total_talk_time||0)}</div>
+                </div>
+                <div className="glass" style={{padding:14,borderRadius:12,textAlign:'center'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>T. en pausa</div>
+                    <div style={{fontSize:18,fontWeight:900,fontFamily:'monospace',color:'#f59e0b'}}>{fmtTime(status?.session?.total_pause_time||0)}</div>
+                </div>
+                <div className="glass" style={{padding:14,borderRadius:12,textAlign:'center'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'var(--muted)',textTransform:'uppercase'}}>AHT promedio</div>
+                    <div style={{fontSize:18,fontWeight:900,fontFamily:'monospace',color:'#3b82f6'}}>
+                        {status?.session?.total_calls>0 ? fmtTime(Math.round((status.session.total_talk_time||0)/status.session.total_calls)) : '—'}
+                    </div>
+                </div>
+            </div>
+
+            {/* Histórico de llamadas */}
+            <div className="glass" style={{padding:0,borderRadius:14,overflow:'hidden'}}>
+                <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
+                    <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>history</span>
+                    <h3 style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>Mis llamadas hoy</h3>
+                    <span style={{fontSize:11,color:'var(--muted)',marginLeft:'auto'}}>{callHistory.length} registros</span>
+                </div>
+                <table className="tf-table">
+                    <thead><tr><th>Hora</th><th>Origen</th><th>Destino</th><th>Duración</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        {callHistory.slice(0,15).map((r,i) => (
+                            <tr key={i}>
+                                <td style={{fontSize:11,fontFamily:'monospace'}}>{(r.calldate||'').slice(11,16)}</td>
+                                <td style={{fontSize:12}}>{r.src}</td>
+                                <td style={{fontSize:12}}>{r.dst}</td>
+                                <td style={{fontFamily:'monospace',fontSize:11}}>{r.billsec ? fmtTime(r.billsec) : '—'}</td>
+                                <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:r.disposition==='ANSWERED'?'rgba(34,197,94,0.15)':'rgba(107,114,128,0.15)',color:r.disposition==='ANSWERED'?'#22c55e':'var(--muted)',fontWeight:700}}>{r.disposition}</span></td>
+                            </tr>
+                        ))}
+                        {callHistory.length===0 && <tr><td colSpan={5} style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:11}}>Sin llamadas todavía hoy</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Modal selector de pausa */}
+            {showPauseModal && (
+                <div onClick={()=>setShowPauseModal(false)} className="tf-modal-overlay">
+                    <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:24,borderRadius:18,width:540,maxWidth:'92%',border:'1px solid var(--border)'}}>
+                        <h2 style={{fontSize:18,fontWeight:900,marginBottom:6}}>Iniciar pausa</h2>
+                        <p style={{fontSize:11,color:'var(--muted)',marginBottom:16}}>Seleccioná el motivo de la pausa. Quedás fuera de las colas hasta que vuelvas.</p>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                            {pauseTypes.map(pt => (
+                                <button key={pt.code} onClick={()=>doPause(pt.code)} style={{padding:'14px',borderRadius:12,border:`1px solid ${pt.color||'#f59e0b'}55`,background:`${pt.color||'#f59e0b'}11`,cursor:'pointer',textAlign:'left',transition:'all 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background=`${pt.color||'#f59e0b'}22`} onMouseLeave={e=>e.currentTarget.style.background=`${pt.color||'#f59e0b'}11`}>
+                                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                        <div style={{width:34,height:34,borderRadius:10,background:pt.color||'#f59e0b',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                            <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{pt.code==='LUNCH'?'restaurant':(pt.code==='BREAK'?'free_breakfast':(pt.code==='BATHROOM'?'wc':(pt.code==='TRAINING'?'school':(pt.code==='MEETING'?'groups':'person'))))}</span>
+                                        </div>
+                                        <div style={{flex:1,minWidth:0}}>
+                                            <div style={{fontSize:13,fontWeight:800,color:'var(--text)'}}>{pt.label}</div>
+                                            <div style={{fontSize:10,color:'var(--muted)'}}>Máx {pt.max_duration_min} min · {pt.is_paid?'Pagada':'No pagada'}</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <div style={{textAlign:'center',marginTop:16}}>
+                            <button onClick={()=>setShowPauseModal(false)} style={{padding:'8px 18px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+function ViewHotdesking({ data, toast }) {
+    const [agents, setAgents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('');
+    const [editing, setEditing] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('all'); // all|logged|available|busy|offline
+    const [viewMode, setViewMode] = useState((localStorage.getItem('tf_hd_view') === 'grid' ? 'wallboard' : (localStorage.getItem('tf_hd_view') || 'wallboard')));
+    const [showWizard, setShowWizard] = useState(false);
+    const [agentQueues, setAgentQueues] = useState({});
+    const [loginAgentTarget, setLoginAgentTarget] = useState(null);
+    const [tick, setTick] = useState(0);
+
+    const liveCalls = data?.pbx?.live_calls || [];
+    const exts = data?.pbx?.extensions || [];
+
+    const load = async () => {
+        try {
+            const r = await fetch('api/hotdesking.php?action=list', {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') setAgents(j.agents || []);
+        } catch(e) {}
+        setLoading(false);
+    };
+    const loadQueues = async () => {
+        try {
+            const r = await fetch('api/hotdesking.php?action=agent_queues', {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') setAgentQueues(j.by_agent || {});
+        } catch(e) {}
+    };
+    useEffect(()=>{
+        load(); loadQueues();
+        const t = setInterval(()=>{ load(); loadQueues(); }, 2500);
+        return () => clearInterval(t);
+    }, []);
+    useEffect(()=>{
+        const openLogin = (e) => setLoginAgentTarget(e.detail);
+        window.addEventListener('tf-open-login', openLogin);
+        return () => window.removeEventListener('tf-open-login', openLogin);
+    }, []);
+    useEffect(()=>{
+        const h = () => { console.log('[HD] tf-queues-refresh → reload'); load(); loadQueues(); };
+        window.addEventListener('tf-queues-refresh', h);
+        // Forzar refresh ALSO al recibir agent_login/agent_logout vía socket directo
+        const sock = window._tfSocket;
+        const onLogin  = (ev) => { console.log('[HD] socket agent_login', ev); load(); loadQueues(); };
+        const onLogout = (ev) => { console.log('[HD] socket agent_logout', ev); load(); loadQueues(); };
+        if (sock) {
+            sock.on('agent_login', onLogin);
+            sock.on('agent_logout', onLogout);
+            sock.on('tf-realtime-refresh', h);
+        }
+        return () => {
+            window.removeEventListener('tf-queues-refresh', h);
+            if (sock) {
+                sock.off('agent_login', onLogin);
+                sock.off('agent_logout', onLogout);
+                sock.off('tf-realtime-refresh', h);
+            }
+        };
+    }, []);
+    useEffect(()=>{ const t=setInterval(()=>setTick(k=>k+1), 1000); return ()=>clearInterval(t); }, []);
+
+    const enriched = agents.map(a => {
+        const inCall = a.extension && liveCalls.some(c => String(c.ext) === String(a.extension) || String(c.dest) === String(a.extension));
+        const extInfo = a.extension ? exts.find(x => x.ext === a.extension) : null;
+        return { ...a, in_call: !!inCall, ip: extInfo?.ip, rtt: extInfo?.rtt, ext_name: extInfo?.name, queues: agentQueues[a.number] || a.queues || [] };
+    });
+
+    const totalLogged = enriched.filter(a => a.logged_in).length;
+    const totalAvail  = enriched.filter(a => a.logged_in && !a.in_call).length;
+    const totalBusy   = enriched.filter(a => a.in_call).length;
+    const totalOff    = enriched.filter(a => !a.logged_in).length;
+
+    const filtered = enriched.filter(a => {
+        if (statusFilter==='logged' && !a.logged_in) return false;
+        if (statusFilter==='available' && (!a.logged_in || a.in_call)) return false;
+        if (statusFilter==='busy' && !a.in_call) return false;
+        if (statusFilter==='offline' && a.logged_in) return false;
+        if (!filter) return true;
+        const q = filter.toLowerCase();
+        return (a.number||'').includes(filter) || (a.name||'').toLowerCase().includes(q) || (a.extension||'').includes(filter);
+    });
+
+    const remove = async (a) => {
+        if (!confirm(`Eliminar agente #${a.number} ${a.name}?`)) return;
+        const fd = new FormData(); fd.append('id', a.id);
+        const r = await fetch('api/hotdesking.php?action=delete', {method:'POST',body:fd,credentials:'include'});
+        const j = await r.json();
+        if (j.status==='ok') { toast('Agente eliminado','success'); load(); } else toast(j.message||'Error','error');
+    };
+    const logoutAgent = async (a) => {
+        const fd = new FormData(); fd.append('agent_number', a.number); if (a.extension) fd.append('extension', a.extension);
+        const r = await fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'});
+        const j = await r.json();
+        if (j.status==='ok') { toast(`${a.name} desconectado`,'success'); load(); loadQueues(); } else toast(j.message||'Error','error');
+    };
+    const save = async (form) => {
+        const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v));
+        const isNew = !form.id;
+        const r = await fetch('api/hotdesking.php?action='+(isNew?'create':'update'), {method:'POST',body:fd,credentials:'include'});
+        const j = await r.json();
+        if (j.status==='ok') { toast(isNew?'Agente creado':'Actualizado','success'); setEditing(null); load(); } else toast(j.message||'Error','error');
+    };
+
+    const StatCard = ({label, value, color, icon, sub, gradient}) => (
+        <div className="glass" style={{padding:'14px 16px',borderRadius:14,position:'relative',overflow:'hidden',border:`1px solid ${color}33`,background:`linear-gradient(135deg,${color}0a,transparent 70%),var(--surface)`,minWidth:160,flex:1}}>
+            <div style={{position:'absolute',top:-8,right:-8,width:60,height:60,borderRadius:'50%',background:`radial-gradient(circle, ${color}33, transparent 70%)`}}/>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6,position:'relative'}}>
+                <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${color},${color}aa)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${color}66`}}>
+                    <span className="material-icons-round" style={{color:'#fff',fontSize:18}}>{icon}</span>
+                </div>
+                <div style={{fontSize:10,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em'}}>{label}</div>
+            </div>
+            <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                <div style={{fontSize:30,fontWeight:900,color,lineHeight:1,letterSpacing:'-1px'}}>{value}</div>
+                {sub && <div style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>{sub}</div>}
+            </div>
+        </div>
+    );
+
+    const FilterChip = ({value, label, count, color}) => (
+        <button onClick={()=>setStatusFilter(value)} style={{padding:'7px 14px',borderRadius:10,border:`1px solid ${statusFilter===value?color:'var(--border)'}`,background:statusFilter===value?`${color}22`:'transparent',color:statusFilter===value?color:'var(--muted)',fontWeight:800,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'all 0.2s'}}>
+            <span style={{width:7,height:7,borderRadius:'50%',background:color,boxShadow:statusFilter===value?`0 0 8px ${color}`:'none'}}/>
+            {label} <span style={{fontFamily:'monospace',fontWeight:900,marginLeft:4,padding:'1px 7px',borderRadius:6,background:statusFilter===value?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.04)'}}>{count}</span>
+        </button>
+    );
+
+    if (loading) {
+        return (
+            <div className="content-area view-enter">
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14}}>
+                    {Array.from({length:8}).map((_,i)=>(
+                        <div key={i} className="glass animate-pulse" style={{padding:18,borderRadius:14,height:120,opacity:0.5}}>
+                            <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.08)',marginBottom:10}}/>
+                            <div style={{width:'70%',height:10,background:'rgba(255,255,255,0.08)',borderRadius:4}}/>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="content-area view-enter">
+            <PageActions>
+                <FilterChip value="all" label="Todos" count={agents.length} color="#8b5cf6"/>
+                <FilterChip value="available" label="Disponibles" count={totalAvail} color="#22c55e"/>
+                <FilterChip value="busy" label="En Llamada" count={totalBusy} color="#ef4444"/>
+                <FilterChip value="logged" label="Logueados" count={totalLogged} color="#3b82f6"/>
+                <FilterChip value="offline" label="Offline" count={totalOff} color="#6b7280"/>
+                <div style={{position:'relative',width:220}}>
+                    <span className="material-icons-round" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'var(--muted)'}}>search</span>
+                    <input className="input-tf" placeholder="Buscar nombre, número o ext..." value={filter} onChange={e=>setFilter(e.target.value)} style={{padding:'8px 10px 8px 32px',borderRadius:9,fontSize:12,width:'100%'}}/>
+                </div>
+                <div style={{display:'flex',gap:4,padding:3,background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)'}}>
+                    {[
+                        {v:'wallboard',i:'dashboard',t:'Wallboard'},
+                        {v:'table',i:'table_rows',t:'Tabla'}
+                    ].map(m=>(
+                        <button key={m.v} title={m.t} onClick={()=>{setViewMode(m.v);try{localStorage.setItem('tf_hd_view',m.v);}catch(e){}}} style={{padding:'5px 10px',borderRadius:7,border:'none',cursor:'pointer',background:viewMode===m.v?'rgba(139,92,246,0.25)':'transparent',color:viewMode===m.v?'#c4b5fd':'var(--muted)'}}>
+                            <span className="material-icons-round" style={{fontSize:15}}>{m.i}</span>
+                        </button>
+                    ))}
+                </div>
+
+                <button onClick={()=>setEditing('new')} className="btn-primary" style={{padding:'8px 14px',borderRadius:9,fontSize:12,fontWeight:800,display:'flex',alignItems:'center',gap:5}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>person_add</span>Nuevo Agente
+                </button>
+            </PageActions>
+
+            {/* WALLBOARD VIEW (default) */}
+            {viewMode==='wallboard' && (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:10}}>
+                    {filtered.map(a => {
+                        const sc = a.in_call ? '#ef4444' : (a.logged_in ? '#22c55e' : '#6b7280');
+                        const lbl = a.in_call ? 'EN LLAMADA' : (a.logged_in ? 'DISPONIBLE' : 'OFFLINE');
+                        const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
+                        return (
+                        <div key={a.id} className="glass" style={{padding:0,borderRadius:14,overflow:'hidden',border:`1px solid ${sc}33`,boxShadow:a.in_call?`0 0 24px ${sc}33`:(a.logged_in?`0 4px 14px ${sc}22`:'none'),transition:'all 0.3s',cursor:'pointer'}} onClick={()=>setEditing(a)}>
+                            {/* Top neon bar */}
+                            <div style={{height:3,background:`linear-gradient(90deg, ${sc}, ${sc}66)`,boxShadow:`0 0 10px ${sc}88`}}/>
+                            <div style={{padding:'12px 12px 10px',position:'relative'}}>
+                                {/* Background glow if active */}
+                                {a.logged_in && <div style={{position:'absolute',top:-30,right:-30,width:100,height:100,borderRadius:'50%',background:`radial-gradient(circle, ${sc}22, transparent 70%)`,pointerEvents:'none'}}/>}
+                                
+                                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
+                                    <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative',boxShadow:`0 4px 12px ${sc}66`}}>
+                                        {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                                        {a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
+                                        {a.logged_in && !a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'2px solid var(--surface)'}}/>}
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
+                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace',fontWeight:700}}>#{a.number}{a.extension?` · ${a.extension}`:''}</div>
+                                    </div>
+                                </div>
+
+                                <div style={{fontSize:9,fontWeight:900,padding:'4px 8px',borderRadius:5,background:`${sc}22`,color:sc,textAlign:'center',marginBottom:8,letterSpacing:'.1em'}}>
+                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}
+                                </div>
+
+                                {a.queues.length > 0 && (
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
+                                        {a.queues.slice(0,4).map((q,i)=>(<span key={i} style={{fontSize:8,padding:'2px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{q.queue||q}</span>))}
+                                        {a.queues.length>4 && <span style={{fontSize:8,color:'var(--muted)'}}>+{a.queues.length-4}</span>}
+                                    </div>
+                                )}
+
+                                <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
+                                    {a.logged_in 
+                                        ? <button onClick={()=>logoutAgent(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:'pointer'}}>Logout</button>
+                                        : <button onClick={()=>setLoginAgentTarget(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:'pointer'}}>Login</button>}
+                                    <button onClick={()=>setEditing(a)} style={{padding:'5px 9px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:13}}>edit</span></button>
+                                </div>
+                            </div>
+                        </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* TABLE VIEW */}
+            {viewMode==='table' && (
+                <div className="glass" style={{borderRadius:14,overflow:'hidden'}}>
+                    <table className="tf-table">
+                        <thead><tr>
+                            <th style={{width:130}}>Estado</th><th style={{width:50}}></th>
+                            <th>Agente #</th><th>Nombre</th><th>Tipo</th><th>Extensión</th>
+                            <th>Colas activas</th><th style={{width:160}}>Acciones</th>
+                        </tr></thead>
+                        <tbody>
+                            {filtered.map(a => {
+                                const sc = a.in_call?'#ef4444':(a.logged_in?'#22c55e':'#6b7280');
+                                const lbl = a.in_call?'En llamada':(a.logged_in?'Disponible':'Offline');
+                                return (
+                                <tr key={a.id}>
+                                    <td style={{padding:'10px 14px'}}><span style={{display:'inline-flex',alignItems:'center',gap:7,fontSize:11,fontWeight:800,color:sc,padding:'4px 10px',borderRadius:6,background:`${sc}1a`,border:`1px solid ${sc}44`}}>
+                                        <span style={{width:7,height:7,borderRadius:'50%',background:sc,boxShadow:`0 0 8px ${sc}99`,animation:a.in_call?'pulse 1s infinite':'none'}}/>{lbl}
+                                    </span></td>
+                                    <td><div style={{width:32,height:32,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}88)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900,boxShadow:`0 2px 8px ${sc}44`}}>
+                                        {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                                    </div></td>
+                                    <td style={{fontFamily:'monospace',fontWeight:800,fontSize:13}}>#{a.number}</td>
+                                    <td style={{fontSize:13,fontWeight:700}}>{a.name}</td>
+                                    <td><span style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontWeight:700}}>{a.type||'Agent'}</span></td>
+                                    <td style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:a.extension?'var(--text)':'var(--muted)'}}>{a.extension||'—'}</td>
+                                    <td><div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                                        {(a.queues||[]).slice(0,5).map((qm,i)=>(<span key={i} style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{qm.queue||qm}</span>))}
+                                        {(a.queues||[]).length===0 && <span style={{fontSize:10,color:'var(--muted)',fontStyle:'italic'}}>—</span>}
+                                    </div></td>
+                                    <td><div style={{display:'flex',gap:4}}>
+                                        {a.logged_in 
+                                            ? <button onClick={()=>logoutAgent(a)} style={{padding:'4px 10px',borderRadius:6,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:'pointer'}}>Logout</button>
+                                            : <button onClick={()=>setLoginAgentTarget(a)} style={{padding:'4px 10px',borderRadius:6,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:'pointer'}}>Login</button>}
+                                        <button onClick={()=>setEditing(a)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:13}}>edit</span></button>
+                                        <button onClick={()=>remove(a)} style={{padding:'4px 8px',borderRadius:6,border:'1px solid rgba(239,68,68,0.2)',background:'rgba(239,68,68,0.05)',color:'#ef4444',fontSize:10,cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:13}}>delete</span></button>
+                                    </div></td>
+                                </tr>);
+                            })}
+                            {filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:30,color:'var(--muted)'}}>Sin resultados</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* GRID/CARDS view (compact) */}
+            {viewMode==='grid' && (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12}}>
+                    {filtered.map(a => {
+                        const sc = a.in_call?'#ef4444':(a.logged_in?'#22c55e':'#6b7280');
+                        return (
+                        <div key={a.id} className="glass" style={{padding:14,borderRadius:12,border:`1px solid ${a.logged_in?sc+'44':'var(--border)'}`,cursor:'pointer'}} onClick={()=>setEditing(a)}>
+                            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                                <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13}}>{(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}</div>
+                                <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:13,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
+                                    <div style={{fontSize:10,color:'var(--muted)'}}>#{a.number}</div>
+                                </div>
+                            </div>
+                            <div style={{display:'flex',gap:5}} onClick={e=>e.stopPropagation()}>
+                                {a.logged_in?<button onClick={()=>logoutAgent(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:'pointer'}}>Logout</button>:<button onClick={()=>setLoginAgentTarget(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:'pointer'}}>Login</button>}
+                            </div>
+                        </div>);
+                    })}
+                </div>
+            )}
+
+            {filtered.length===0 && viewMode!=='table' && (
+                <div className="glass" style={{padding:60,textAlign:'center',borderRadius:18,border:'2px dashed var(--border)',marginTop:14}}>
+                    <span className="material-icons-round" style={{fontSize:54,color:'var(--muted)',display:'block',marginBottom:10}}>person_search</span>
+                    <div style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>Sin agentes</div>
+                </div>
+            )}
+
+            {loginAgentTarget && <AgentLoginModal open={true} onClose={()=>setLoginAgentTarget(null)} onDone={()=>{setLoginAgentTarget(null);load();loadQueues();}} toast={toast} preselectAgent={loginAgentTarget} />}
+            {showWizard && <HotdeskingWizard onClose={()=>setShowWizard(false)} />}
+            {editing && <HotdeskingEditModal agent={editing==='new'?null:editing} onClose={()=>setEditing(null)} onSave={save} queues={data?.pbx?.queues||[]} />}
+        </div>
+    );
+}
+
+
+function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
+    const isNew = !agent;
+    const [form, setForm] = useState({
+        id: agent?.id || '',
+        type: agent?.type || 'Agent',
+        number: agent?.number || '',
+        name: agent?.name || '',
+        password: '',
+        eccp_password: '',
+        estatus: agent?.estatus || 'A'
+    });
+    const [errors, setErrors] = useState({});
+    const [showPass, setShowPass] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const set = (k,v) => { setForm(f => ({...f, [k]: v})); setErrors(e => ({...e, [k]: undefined})); };
+
+    const validate = () => {
+        const e = {};
+        if (!form.number || !/^\d+$/.test(form.number)) e.number = 'Solo números (ej: 250)';
+        if (!form.name || form.name.trim().length < 2) e.name = 'Mínimo 2 caracteres';
+        if (isNew && !form.password) e.password = 'Password requerida (mín 4)';
+        if (form.password && form.password.length < 4) e.password = 'Mínimo 4 caracteres';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    const handleSubmit = async () => {
+        if (!validate()) return;
+        setSubmitting(true);
+        const data = {...form};
+        if (!data.password) { delete data.password; delete data.eccp_password; }
+        else if (!data.eccp_password) data.eccp_password = data.password;
+        if (!data.id) delete data.id;
+        await onSave(data);
+        setSubmitting(false);
+    };
+
+    const typeOptions = [
+        { v:'Agent', l:'Agent', i:'badge', d:'Asterisk Agent (recomendado)' },
+        { v:'SIP', l:'SIP', i:'phone', d:'Interface SIP directa' },
+        { v:'IAX2', l:'IAX2', i:'router', d:'Inter-Asterisk Exchange' }
+    ];
+
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'94%',maxHeight:'92vh',overflow:'hidden',border:'1px solid var(--border)',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.55)'}}>
+                {/* Header con gradient */}
+                <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'rgba(139,92,246,0.18)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
+                    <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'#8b5cf6,#6d28d9'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'rgba(139,92,246,0.4)'}`}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:24}}>{isNew?'person_add':'edit'}</span>
+                    </div>
+                    <div style={{flex:1}}>
+                        <h2 style={{fontSize:18,fontWeight:900,letterSpacing:'-0.3px'}}>{isNew ? 'Nuevo agente' : `Editar #${agent.number}`}</h2>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>{isNew?'Persona del callcenter — quedará en call_center.agent':`${agent.name}`}</div>
+                    </div>
+                    <button onClick={onClose} style={{padding:8,borderRadius:10,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                        <span className="material-icons-round" style={{fontSize:20,color:'var(--muted)'}}>close</span>
+                    </button>
+                </div>
+
+                {/* Body scrollable */}
+                <div style={{flex:1,overflow:'auto',padding:'18px 24px'}}>
+                    {/* Avatar uploader si ya hay número */}
+                    {form.number && (
+                        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16,padding:14,background:'var(--surface2)',borderRadius:12,border:'1px solid var(--border)'}}>
+                            <AvatarUploader ext={form.number} name={form.name} size={64}/>
+                            <div style={{flex:1}}>
+                                <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Foto del agente</div>
+                                <div style={{fontSize:11,color:'var(--muted)'}}>Aparece en wallboard, llamadas en vivo y reportes.</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Número agente */}
+                    <Field label="Número de agente" icon="badge" required error={errors.number} hint="Único en el callcenter (ej: 250)">
+                        <input
+                            className="input-tf"
+                            style={{padding:'11px 14px',paddingLeft:42,borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700,width:'100%',border:errors.number?'1px solid #ef4444':undefined}}
+                            value={form.number}
+                            onChange={e=>set('number',e.target.value.replace(/\D/g,''))}
+                            disabled={!isNew}
+                            placeholder="200"
+                            maxLength="6"
+                        />
+                    </Field>
+
+                    {/* Nombre */}
+                    <Field label="Nombre completo" icon="person" required error={errors.name} hint="Aparece en cards, llamadas y reportes">
+                        <input
+                            className="input-tf"
+                            style={{padding:'11px 14px',paddingLeft:42,borderRadius:10,fontSize:13,width:'100%',border:errors.name?'1px solid #ef4444':undefined}}
+                            value={form.name}
+                            onChange={e=>set('name',e.target.value)}
+                            placeholder="Ej: Brian Pérez"
+                        />
+                    </Field>
+
+                    {/* Password */}
+                    <Field label={isNew?"Password":"Password (vacío = no cambia)"} icon="lock" required={isNew} error={errors.password} hint={isNew?"Min 4 chars · El agente la usa para login":"Solo si querés actualizarla"}>
+                        <input
+                            className="input-tf"
+                            style={{padding:'11px 14px 11px 42px',borderRadius:10,fontSize:13,width:'100%',fontFamily:'monospace',border:errors.password?'1px solid #ef4444':undefined}}
+                            type={showPass?'text':'password'}
+                            value={form.password}
+                            onChange={e=>set('password',e.target.value)}
+                            placeholder={isNew?'mín 4 caracteres':'(sin cambios)'}
+                        />
+                        <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--muted)',padding:0}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>{showPass?'visibility_off':'visibility'}</span>
+                        </button>
+                    </Field>
+
+                    {/* Tipo */}
+                    <div style={{marginBottom:14}}>
+                        <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>devices</span>
+                            Tipo de interface
+                        </label>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                            {typeOptions.map(o => (
+                                <div key={o.v} onClick={()=>set('type',o.v)} title={o.d} style={{padding:'10px 8px',borderRadius:10,border:`2px solid ${form.type===o.v?'#8b5cf6cc':'var(--border)'}`,background:form.type===o.v?'rgba(139,92,246,0.1)':'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.15s'}}>
+                                    <span className="material-icons-round" style={{fontSize:18,color:form.type===o.v?'#c4b5fd':'var(--muted)',display:'block',marginBottom:3}}>{o.i}</span>
+                                    <div style={{fontSize:11,fontWeight:800,color:form.type===o.v?'#c4b5fd':'var(--text)'}}>{o.l}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Estado */}
+                    <div style={{marginBottom:8}}>
+                        <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#22c55e'}}>toggle_on</span>
+                            Estado del agente
+                        </label>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                            <div onClick={()=>set('estatus','A')} style={{padding:'12px',borderRadius:10,border:`2px solid ${form.estatus==='A'?'#22c55ecc':'var(--border)'}`,background:form.estatus==='A'?'rgba(34,197,94,0.1)':'var(--surface2)',cursor:'pointer',textAlign:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:20,color:form.estatus==='A'?'#22c55e':'var(--muted)',display:'block',marginBottom:3}}>check_circle</span>
+                                <div style={{fontSize:12,fontWeight:800,color:form.estatus==='A'?'#22c55e':'var(--text)'}}>Activo</div>
+                                <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>Puede loguearse</div>
+                            </div>
+                            <div onClick={()=>set('estatus','I')} style={{padding:'12px',borderRadius:10,border:`2px solid ${form.estatus==='I'?'#ef4444cc':'var(--border)'}`,background:form.estatus==='I'?'rgba(239,68,68,0.08)':'var(--surface2)',cursor:'pointer',textAlign:'center'}}>
+                                <span className="material-icons-round" style={{fontSize:20,color:form.estatus==='I'?'#ef4444':'var(--muted)',display:'block',marginBottom:3}}>block</span>
+                                <div style={{fontSize:12,fontWeight:800,color:form.estatus==='I'?'#ef4444':'var(--text)'}}>Inactivo</div>
+                                <div style={{fontSize:9,color:'var(--muted)',marginTop:2}}>Bloqueado</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Validación errors summary */}
+                    {Object.keys(errors).length > 0 && (
+                        <div style={{padding:'10px 12px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,marginTop:12,display:'flex',gap:8,alignItems:'flex-start'}}>
+                            <span className="material-icons-round" style={{fontSize:16,color:'#ef4444',flexShrink:0,marginTop:1}}>error_outline</span>
+                            <div style={{fontSize:11,color:'#fca5a5'}}>
+                                <strong style={{color:'#ef4444'}}>Falta completar:</strong> {Object.entries(errors).filter(([_,v])=>v).map(([k,v])=>v).join(' · ')}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Acciones de sesión telefónica (Login/Logout inline) + Reporte */}
+                {!isNew && (
+                    <div style={{padding:'12px 24px',borderTop:'1px solid var(--border)',background:'rgba(139,92,246,0.04)',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                        <div style={{flex:1,minWidth:0,fontSize:11,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>headset_mic</span>
+                            Sesión telefónica
+                        </div>
+                        <button type="button" onClick={()=>{
+                            window.dispatchEvent(new CustomEvent('tf-open-report', {detail: agent}));
+                            onClose();
+                        }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(139,92,246,0.4)',background:'rgba(139,92,246,0.12)',color:'#c4b5fd',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:16}}>analytics</span>Reporte
+                        </button>
+                        {agent?.logged_in ? (
+                            <button type="button" onClick={()=>{
+                                const fd = new FormData(); fd.append('agent_number', agent.number); if (agent.extension) fd.append('extension', agent.extension);
+                                fetch('api/hotdesking.php?action=logout_agent', {method:'POST',body:fd,credentials:'include'})
+                                    .then(r=>r.json()).then(j=>{
+                                        if (j.status==='ok') { window.dispatchEvent(new CustomEvent('tf-queues-refresh')); onClose(); }
+                                    });
+                            }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.12)',color:'#ef4444',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                                <span className="material-icons-round" style={{fontSize:16}}>logout</span>Desloguear
+                            </button>
+                        ) : (
+                            <button type="button" onClick={()=>{
+                                window.dispatchEvent(new CustomEvent('tf-open-login', {detail: agent}));
+                                onClose();
+                            }} style={{padding:'8px 16px',borderRadius:9,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.12)',color:'#22c55e',fontWeight:800,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                                <span className="material-icons-round" style={{fontSize:16}}>login</span>Loguear en cola
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Footer */}
+                <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',background:'var(--surface2)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontSize:10,color:'var(--muted)',display:'flex',alignItems:'center',gap:5}}>
+                        <span className="material-icons-round" style={{fontSize:13}}>info</span>
+                        {isNew?'El agente quedará disponible para login inmediato':'Cambios se aplican al confirmar'}
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                        <button onClick={onClose} style={{padding:'9px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                        <button onClick={handleSubmit} disabled={submitting} className="btn-primary" style={{padding:'9px 22px',borderRadius:10,fontSize:12,fontWeight:800,cursor:submitting?'wait':'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:`0 4px 14px ${isNew?'rgba(34,197,94,0.35)':'rgba(139,92,246,0.35)'}`,background:isNew?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#8b5cf6,#6d28d9)',border:'none',color:'#fff'}}>
+                            <span className="material-icons-round" style={{fontSize:16,animation:submitting?'spin 1s linear infinite':'none'}}>{submitting?'autorenew':(isNew?'person_add':'save')}</span>
+                            {submitting?'Guardando...':(isNew?'Crear agente':'Guardar cambios')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
+
+// Helper: campo con label + icon + error
+function Field({ label, icon, required, error, hint, children }) {
+    return (
+        <div style={{marginBottom:14,position:'relative'}}>
+            <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                <span className="material-icons-round" style={{fontSize:14,color:'#8b5cf6'}}>{icon}</span>
+                {label}{required && <span style={{color:'#ef4444',marginLeft:2}}>*</span>}
+                {hint && <span style={{textTransform:'none',color:'var(--muted)',fontWeight:500,marginLeft:'auto',fontSize:9}}>{hint}</span>}
+            </label>
+            <div style={{position:'relative'}}>
+                <span className="material-icons-round" style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',fontSize:18,color:error?'#ef4444':'var(--muted)',pointerEvents:'none',zIndex:1}}>{icon}</span>
+                {children}
+            </div>
+            {error && <div style={{fontSize:10,color:'#ef4444',marginTop:4,display:'flex',alignItems:'center',gap:4}}><span className="material-icons-round" style={{fontSize:12}}>error_outline</span>{error}</div>}
+        </div>
+    );
+}
+const SileoContext = React.createContext(null);
+
+// HORIZON: Portal para modales — escapa cualquier stacking context del parent
+function TFModalPortal({ children }) {
+    if (typeof document === 'undefined') return null;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(children, root);
+}
+
+function SileoProvider({ children }) {
+    const [notifs, setNotifs] = useState([]);
+    const idRef = useRef(0);
+
+    const push = (n) => {
+        const id = ++idRef.current;
+        const item = { id, ts: Date.now(), ...n };
+        setNotifs(prev => [...prev.slice(-4), item]);
+        if (n.autoDismiss !== false) {
+            setTimeout(() => dismiss(id), n.duration || 8000);
+        }
+        return id;
+    };
+    const dismiss = (id) => {
+        setNotifs(prev => prev.map(n => n.id === id ? {...n, _dismiss:true} : n));
+        setTimeout(() => setNotifs(prev => prev.filter(n => n.id !== id)), 320);
+    };
+
+    // Expose globally for non-React contexts
+    useEffect(() => { window.sileo = { push, dismiss }; }, []);
+
+    return (
+        <SileoContext.Provider value={{ push, dismiss }}>
+            {children}
+            <div className="sileo-stack">
+                {notifs.map(n => (
+                    <div key={n.id} className={`sileo-notif ${n.kind||''} ${n._dismiss?'dismissing':''}`}>
+                        <div className="sileo-icon">
+                            <span className="material-icons-round" style={{fontSize:20}}>{n.icon || (n.kind==='call'?'phone_in_talk':(n.kind==='warning'?'warning':(n.kind==='error'?'error':'info')))}</span>
+                        </div>
+                        <div className="sileo-body">
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
+                                <div className="sileo-title">{n.title}</div>
+                                <span className="sileo-time">ahora</span>
+                            </div>
+                            <div className="sileo-msg">{n.msg}</div>
+                            {n.actions && n.actions.length > 0 && (
+                                <div className="sileo-actions">
+                                    {n.actions.map((a,i)=>(
+                                        <button key={i} className={`sileo-btn ${a.primary?'primary':'secondary'}`} onClick={()=>{a.onClick && a.onClick(); dismiss(n.id);}}>{a.label}</button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <button className="sileo-close" onClick={()=>dismiss(n.id)}>
+                            <span className="material-icons-round" style={{fontSize:14}}>close</span>
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </SileoContext.Provider>
+    );
+}
+
+function useSileo() { return useContext(SileoContext); }
+
+// ─────────────────────────────────────────────
+// MODAL: Asignar llamada en vivo (Redirect AMI)
+// ─────────────────────────────────────────────
+function AssignCallModal({ open, call, onClose, queues, extensions, toast }) {
+    const [target, setTarget] = useState('');
+    const [type, setType] = useState('extension'); // 'extension' | 'queue'
+    const [busy, setBusy] = useState(false);
+    if (!open || !call) return null;
+
+    const submit = async () => {
+        if (!target) { toast?.('Ingresá un destino','error'); return; }
+        setBusy(true);
+        const fd = new FormData();
+        fd.append('channel', call.channel);
+        fd.append('exten', target);
+        fd.append('context', type==='queue'?'ext-queues':'from-internal');
+        try {
+            const r = await fetch('api/index.php?action=redirect_call',{method:'POST',body:fd,credentials:'include'});
+            const j = await r.json();
+            if (j.success) { toast?.(`Llamada redirigida a ${target}`,'success'); onClose(); }
+            else toast?.(j.error||'Error redirigiendo','error');
+        } catch(e) { toast?.('Error de red','error'); }
+        setBusy(false);
+    };
+
+    return (
+        <TFModalPortal>
+        <div onClick={onClose} className="tf-modal-overlay">
+            <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:24,borderRadius:16,width:480,maxWidth:'90%',border:'1px solid var(--border)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+                    <div style={{width:46,height:46,borderRadius:'50%',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>swap_horiz</span>
+                    </div>
+                    <div style={{flex:1}}>
+                        <h2 style={{fontSize:16,fontWeight:900}}>Asignar llamada en vivo</h2>
+                        <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>{call.callerid || call.ext} · {call.state}</div>
+                    </div>
+                </div>
+                <div style={{marginBottom:14}}>
+                    <div style={{display:'flex',gap:6,padding:4,background:'var(--surface2)',borderRadius:10,marginBottom:10}}>
+                        <button onClick={()=>setType('extension')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='extension'?'rgba(139,92,246,0.2)':'transparent',color:type==='extension'?'#c4b5fd':'var(--muted)',fontWeight:800,fontSize:11}}>A extensión</button>
+                        <button onClick={()=>setType('queue')} style={{flex:1,padding:'7px',borderRadius:7,border:'none',cursor:'pointer',background:type==='queue'?'rgba(139,92,246,0.2)':'transparent',color:type==='queue'?'#c4b5fd':'var(--muted)',fontWeight:800,fontSize:11}}>A cola</button>
+                    </div>
+                    <input className="input-tf py-2 px-3 rounded-lg text-sm w-full" placeholder={type==='extension'?'Ej: 9006':'Ej: 8000'} value={target} onChange={e=>setTarget(e.target.value)} />
+                    <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>{type==='extension'?'Llamada se transfiere directo a esa ext':'Llamada vuelve a entrar en esa cola'}</div>
+                </div>
+                <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                    <button onClick={onClose} style={{padding:'8px 14px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
+                    <button onClick={submit} disabled={!target||busy} style={{padding:'8px 18px',borderRadius:9,border:'none',cursor:!target||busy?'not-allowed':'pointer',background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',fontWeight:800,fontSize:12,opacity:!target||busy?0.5:1}}>{busy?'Redirigiendo...':'Redirigir'}</button>
+                </div>
+            </div>
+        </div>
+        </TFModalPortal>
+    );
+}
+
+
+// ─────────────────────────────────────────────
+// COMPONENTE: CallCenterTopBar (stats globales sticky)
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// COMPONENTE: Tip (tooltip animado con Tippy)
+// ─────────────────────────────────────────────
+function Tip({ content, children, placement = 'top' }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        if (!ref.current || !window.tippy) return;
+        const inst = window.tippy(ref.current, {
+            content,
+            placement,
+            animation: 'shift-toward',
+            arrow: true,
+            theme: document.body.classList.contains('light') ? 'light' : '',
+            allowHTML: true,
+            interactive: false,
+            delay: [200, 0],
+            duration: [200, 150],
+            maxWidth: 280
+        });
+        return () => inst.destroy();
+    }, [content, placement]);
+    return React.cloneElement(children, { ref, ...(children.props || {}) });
+}
+
+
+
+
+const PageActionsCtx = React.createContext({ set: () => {} });
+function PageHeader({ view }) {
+    const [actions, setActions] = useState(null);
+    useEffect(() => { setActions(null); window.__tfSetPageActions = setActions; return () => { window.__tfSetPageActions = null; }; }, [view]);
+    if (!actions) return null;
+    return (
+        <div className="tf-page-header">
+            <div className="tf-page-actions">{actions}</div>
+        </div>
+    );
+}
+function PageActions({ children }) {
+    useEffect(() => {
+        if (window.__tfSetPageActions) window.__tfSetPageActions(children);
+        return () => { if (window.__tfSetPageActions) window.__tfSetPageActions(null); };
+    }, [children]);
+    return null;
+}
+
+function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data, activeCalls, setVivoFilter }) {
+    const [openMenu, setOpenMenu] = useState(null);
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showSysModal, setShowSysModal] = useState(false);
+    const [pbxBrand, setPbxBrand] = useState(null);
+    const [agentsLogged, setAgentsLogged] = useState(0);
+    const [mobileOpen, setMobileOpen] = useState(false);
+
+    const liveCalls = data?.pbx?.live_calls || [];
+    const queues = data?.pbx?.queues || [];
+    const exts = data?.pbx?.extensions || [];
+    const totalWaiting = queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
+    const upCount = liveCalls.filter(c => c.state === 'Up').length;
+    const ringCount = liveCalls.filter(c => /Ring/.test(c.state||'')).length;
+    const onlineExts = exts.filter(e => e.status === 'ONLINE').length;
+    const groupsRinging = liveCalls.filter(c => (c.context||'').includes('macro-dial-one') || /grp/i.test(c.dest||'')).length;
+
+    // close on outside click
+    useEffect(() => {
+        const h = (e) => {
+            if (!e.target.closest('.tfbar-item') && !e.target.closest('.tfbar-dropdown')) setOpenMenu(null);
+            if (!e.target.closest('.tfbar-avatar') && !e.target.closest('.tfbar-user-pop')) setShowUserMenu(false);
+        };
+        document.addEventListener('click', h);
+        return () => document.removeEventListener('click', h);
+    }, []);
+    useEffect(() => {
+        const close = () => { setOpenMenu(null); setMenuAnchor(null); };
+        window.addEventListener('resize', close);
+        window.addEventListener('scroll', close, true);
+        return () => { window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true); };
+    }, []);
+
+
+    useEffect(() => {
+        fetch('api/hotdesking.php?action=list',{credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if (j.status==='ok') setAgentsLogged((j.agents||[]).filter(a=>a.logged_in).length); })
+            .catch(()=>{});
+        const t = setInterval(()=> fetch('api/hotdesking.php?action=list',{credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if (j.status==='ok') setAgentsLogged((j.agents||[]).filter(a=>a.logged_in).length); })
+            .catch(()=>{}), 10000);
+        return () => clearInterval(t);
+    }, []);
+    useEffect(() => {
+        fetch('api/index.php?action=detect_pbx',{credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if(j.success) setPbxBrand(j); }).catch(()=>{});
+    }, []);
+
+    const groups = [
+        { id:'inicio', label:'Inicio', icon:'home', single:'dashboard', items:[
+            { id:'dashboard', icon:'grid_view', label:'Dashboard', sub:'Resumen general' },
+        ]},
+        { id:'op', label:'Operación', icon:'support_agent', items:[
+            { id:'hotdesking', icon:'phonelink_setup', label:'Hotdesking', sub:'Asignación dinámica de agentes', badge: agentsLogged },
+            { id:'vivo', icon:'sensors', label:'Llamadas en Vivo', sub:'En curso ahora', badge: activeCalls },
+            { id:'radar', icon:'radar', label:'Tráfico', sub:'Mapa visual de canales activos' },
+            { id:'colas', icon:'queue', label:'Colas', sub:'Distribución y espera', badge: totalWaiting },
+            { id:'grupos', icon:'ring_volume', label:'Grupos', sub:'Ring groups', badge: groupsRinging },
+        ]},
+        { id:'tel', label:'Telefonía', icon:'dialpad', items:[
+            { id:'extensiones', icon:'group', label:'Extensiones', sub:'Internos SIP/PJSIP', badge: onlineExts },
+            { id:'agentes', icon:'support_agent', label:'Agentes', sub:'Personas y métricas' },
+            { id:'ivr', icon:'account_tree', label:'IVR', sub:'Menús de voz' },
+        ]},
+        { id:'rep', label:'Reportes', icon:'analytics', items:[
+            { id:'cdr', icon:'history', label:'CDR', sub:'Detalle de llamadas' },
+            { id:'reportes', icon:'assessment', label:'Reportes Avanzados', sub:'KPIs callcenter' },
+        ]},
+        { id:'cfg', label:'Configuración', icon:'settings', single:'configuracion', items:[
+            { id:'configuracion', icon:'tune', label:'Ajustes', sub:'PBX, AMI, integraciones' },
+        ]},
+    ];
+
+    const goItem = (id, extra) => {
+        if (extra?.vivoFilter) { try{localStorage.setItem('tf_vivo_filter', extra.vivoFilter)}catch(e){} setVivoFilter?.(extra.vivoFilter); }
+        if (extra?.extFilter) { try{localStorage.setItem('tf_ext_filter', extra.extFilter)}catch(e){} }
+        setView(id);
+        setOpenMenu(null);
+        setMobileOpen(false);
+    };
+
+    const isInGroup = (g) => g.items.some(it => it.id === view);
+
+    const userName = (typeof user === 'string') ? user : (user?.name || user?.agent_name || 'Usuario');
+    const isAgent = (typeof user === 'object' && user?.role === 'agent');
+    const inits = (s) => (s||'?').split(/[\s.@_-]+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+
+    return (
+        <>
+        <div className="tfbar">
+            <div className="tfbar-logo" onClick={()=>setView('dashboard')}>
+                <div className="tfbar-logo-mark"><span className="material-icons-round" style={{fontSize:16,color:'#fff'}}>sensors</span></div>
+                <div>
+                    <div className="tfbar-logo-text">TeleFlow</div>
+                    <div className="tfbar-logo-sub">PBX Control</div>
+                </div>
+            </div>
+
+            {!isAgent && <div className="tfbar-mobile-toggle" onClick={()=>setMobileOpen(v=>!v)}>
+                <span className="material-icons-round">{mobileOpen?'close':'menu'}</span>
+            </div>}
+
+            <div className="tfbar-spacer" />
+
+            {isAgent ? (
+                <div className="tfbar-menu">
+                    <div className={`tfbar-item ${view==='callcenter'?'active':''}`} onClick={()=>setView('callcenter')}>
+                        <span className="material-icons-round">headset_mic</span>
+                        <span>Mi Panel</span>
+                    </div>
+                </div>
+            ) : (
+            <div className="tfbar-menu">
+                {groups.map(g => {
+                    const active = isInGroup(g);
+                    if (g.single && g.items.length === 1) {
+                        const it = g.items[0];
+                        return (
+                            <div key={g.id} className={`tfbar-item ${view===it.id?'active':''}`} onClick={()=>goItem(it.id)}>
+                                <span className="material-icons-round">{g.icon}</span>
+                                <span>{g.label}</span>
+                            </div>
+                        );
+                    }
+                    const isOpen = openMenu === g.id;
+                    return (
+                        <div key={g.id} className={`tfbar-item ${active?'active':''} ${isOpen?'open':''}`}
+                             onClick={(e)=>{
+                                e.stopPropagation();
+                                if (isOpen) { setOpenMenu(null); return; }
+                                const r = e.currentTarget.getBoundingClientRect();
+                                setMenuAnchor({ id: g.id, left: Math.max(8, Math.min(window.innerWidth - 280, r.left)), top: r.bottom + 6 });
+                                setOpenMenu(g.id);
+                             }}>
+                            <span className="material-icons-round">{g.icon}</span>
+                            <span>{g.label}</span>
+                            <span className="material-icons-round chev">expand_more</span>
+                        </div>
+                    );
+                })}
+            </div>
+            )}
+
+            <div className="tfbar-spacer" />
+
+                        <button className="tfbar-pill" onClick={()=>setShowSysModal(true)} title="Estado de la PBX">
+                <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 6px rgba(34,197,94,.6)'}}/>
+                <div style={{textAlign:'left'}}>
+                    <div style={{fontSize:8,fontWeight:800,letterSpacing:'.05em',textTransform:'uppercase',lineHeight:1,color:'var(--muted)'}}>PBX</div>
+                    <div style={{fontSize:10,fontWeight:800,lineHeight:1.1,marginTop:1}}>Online · CPU {data?.system?.cpu||0}%</div>
+                </div>
+            </button>
+
+            {toggleableTheme(darkMode, setDarkMode)}
+
+            <div style={{position:'relative'}}>
+                <div className="tfbar-avatar" onClick={(e)=>{ e.stopPropagation(); setShowUserMenu(v=>!v); }}>{inits(userName)}</div>
+                {showUserMenu && (
+                    <div className="tfbar-dropdown tfbar-user-pop" style={{right:0,left:'auto',minWidth:220}} onClick={e=>e.stopPropagation()}>
+                        <div style={{padding:'8px 10px 6px',borderBottom:'1px solid var(--border)',marginBottom:4}}>
+                            <div style={{fontSize:12,fontWeight:800}}>{userName}</div>
+                            <div style={{fontSize:10,color:'var(--muted)',display:'flex',alignItems:'center',gap:5,marginTop:2}}>
+                                <span style={{width:5,height:5,borderRadius:'50%',background:'#22c55e'}}/>
+                                {isAgent ? 'Agente' : 'Administrador'}
+                            </div>
+                        </div>
+                        <div className="tfbar-drop-item" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
+                            <span className="material-icons-round">tune</span>
+                            <div className="tfbar-drop-text"><div>Configuración</div></div>
+                        </div>
+                        <div className="tfbar-drop-item" onClick={()=>{ setDarkMode(!darkMode); }}>
+                            <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
+                            <div className="tfbar-drop-text"><div>Modo {darkMode?'Claro':'Oscuro'}</div></div>
+                        </div>
+                        <div className="tfbar-drop-item" style={{color:'#ef4444'}} onClick={onLogout}>
+                            <span className="material-icons-round" style={{color:'#ef4444'}}>logout</span>
+                            <div className="tfbar-drop-text"><div>Cerrar sesión</div></div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {openMenu && menuAnchor && menuAnchor.id === openMenu && (() => {
+            const grp = groups.find(g => g.id === openMenu);
+            if (!grp) return null;
+            return (
+                <div className="tfbar-dropdown" style={{ left: menuAnchor.left, top: menuAnchor.top }} onClick={e=>e.stopPropagation()}>
+                    {grp.items.map(it => (
+                        <div key={it.id} className={`tfbar-drop-item ${view===it.id?'active':''}`} onClick={()=>goItem(it.id)}>
+                            <span className="material-icons-round">{it.icon}</span>
+                            <div className="tfbar-drop-text">
+                                <div>{it.label}</div>
+                                {it.sub && <div className="tfbar-drop-sub">{it.sub}</div>}
+                            </div>
+                            {it.badge > 0 && <span className="tfbar-badge">{it.badge}</span>}
+                        </div>
+                    ))}
+                </div>
+            );
+        })()}
+
+        {mobileOpen && (
+            <div className="tfbar-mobile-panel" onClick={e=>e.stopPropagation()}>
+                {groups.map(g => (
+                    <div key={g.id}>
+                        <div className="tfbar-mobile-section">{g.label}</div>
+                        {g.items.map(it => (
+                            <div key={it.id} className={`tfbar-drop-item ${view===it.id?'active':''}`} onClick={()=>goItem(it.id)}>
+                                <span className="material-icons-round">{it.icon}</span>
+                                <div className="tfbar-drop-text">
+                                    <div>{it.label}</div>
+                                    {it.sub && <div className="tfbar-drop-sub">{it.sub}</div>}
+                                </div>
+                                {it.badge > 0 && <span className="tfbar-badge">{it.badge}</span>}
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {showSysModal && (
+            <div onClick={()=>setShowSysModal(false)} className="tf-modal-overlay">
+                <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'92%',border:'1px solid var(--border)',overflow:'hidden'}}>
+                    <div style={{padding:'18px 22px',borderBottom:'1px solid var(--border)',background:'linear-gradient(135deg,rgba(34,197,94,0.15),transparent)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12}}>
+                            <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>dns</span>
+                            </div>
+                            <div style={{flex:1}}>
+                                <h2 style={{fontSize:17,fontWeight:900}}>Estado de la PBX</h2>
+                                <div style={{fontSize:11,color:'var(--muted)'}}>Información del sistema en tiempo real</div>
+                            </div>
+                            <button onClick={()=>setShowSysModal(false)} style={{padding:6,borderRadius:8,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{padding:'18px 22px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                            {[
+                                {l:'Estado', v:'Online', c:'#22c55e', i:'check_circle'},
+                                {l:'Uptime', v:data?.system?.uptime||'—', c:'#3b82f6', i:'schedule'},
+                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'#8b5cf6', i:'memory'},
+                                {l:'RAM', v:`${data?.system?.ram||0}%`, c:'#ec4899', i:'sd_storage'},
+                                {l:'Disco', v:`${data?.system?.disk||0}%`, c:'#f59e0b', i:'storage'},
+                                {l:'Conexiones TCP', v:data?.system?.connections||0, c:'#06b6d4', i:'lan'},
+                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+(pbxBrand.variant||'')):'detectando...', c:'#a855f7', i:'router'},
+                                {l:'Asterisk', v:pbxBrand?.asterisk_version||'—', c:'#10b981', i:'tag'},
+                            ].map((s,i)=>(
+                                <div key={i} className="glass" style={{padding:14,borderRadius:12}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                                        <span className="material-icons-round" style={{fontSize:16,color:s.c}}>{s.i}</span>
+                                        <span style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em'}}>{s.l}</span>
+                                    </div>
+                                    <div style={{fontSize:14,fontWeight:800,color:s.c}}>{s.v}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
+    );
+}
+function toggleableTheme(darkMode, setDarkMode) {
+    return (
+        <div className="theme-toggle" onClick={()=>{ document.body.classList.add('theme-transition'); setDarkMode(!darkMode); setTimeout(()=>document.body.classList.remove('theme-transition'),500); }} title={darkMode?'Cambiar a modo claro':'Cambiar a modo oscuro'} style={{marginRight:0}}>
+            <div className="stars"></div>
+            <div className="clouds"></div>
+            <div className="knob">
+                <span className="material-icons-round moon">dark_mode</span>
+                <span className="material-icons-round sun">light_mode</span>
+            </div>
+        </div>
+    );
+}
+
+function CallCenterTopBar({ data, setView, setVivoFilter, darkMode, toggleTheme }) {
+    const [agentsLogged, setAgentsLogged] = useState(0);
+    const [pbxBrand, setPbxBrand] = useState(null);
+    const [showSysModal, setShowSysModal] = useState(false);
+    const liveCalls = data?.pbx?.live_calls || [];
+    const queues = data?.pbx?.queues || [];
+    const exts = data?.pbx?.extensions || [];
+
+    useEffect(() => {
+        const fetchAgents = () => {
+            fetch('api/hotdesking.php?action=list',{credentials:'include'})
+                .then(r=>r.json()).then(j=>{ if (j.status==='ok') setAgentsLogged((j.agents||[]).filter(a=>a.logged_in).length); })
+                .catch(()=>{});
+        };
+        fetchAgents();
+        const t = setInterval(fetchAgents, 10000);
+        return () => clearInterval(t);
+    }, []);
+    useEffect(() => {
+        fetch('api/index.php?action=detect_pbx',{credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if(j.success) setPbxBrand(j); }).catch(()=>{});
+    }, []);
+
+    const totalWaiting = queues.reduce((s,q) => s + (q.calls_waiting||0), 0);
+    const upCount = liveCalls.filter(c => c.state === 'Up').length;
+    const ringCount = liveCalls.filter(c => /Ring/.test(c.state||'')).length;
+    const onlineExts = exts.filter(e => e.status === 'ONLINE').length;
+    const busyExts = exts.filter(e => e.status === 'BUSY').length;
+
+    const ClickStat = ({icon, label, value, color, sub, onClick, badge}) => (
+        <button onClick={onClick} disabled={!onClick} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderRight:'1px solid var(--border)',background:'transparent',border:'none',cursor:onClick?'pointer':'default',transition:'background 0.15s',position:'relative'}} onMouseEnter={e=>{if(onClick) e.currentTarget.style.background='rgba(139,92,246,0.06)'}} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <div style={{width:32,height:32,borderRadius:8,background:`${color}22`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+                <span className="material-icons-round" style={{fontSize:17,color}}>{icon}</span>
+                {badge && <span style={{position:'absolute',top:-3,right:-3,width:10,height:10,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse 1s infinite'}}/>}
+            </div>
+            <div style={{textAlign:'left'}}>
+                <div style={{fontSize:9,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</div>
+                <div style={{fontSize:14,fontWeight:900,color:'var(--text)',lineHeight:1}}>{value}{sub && <span style={{fontSize:10,color:'var(--muted)',fontWeight:600,marginLeft:4}}>{sub}</span>}</div>
+            </div>
+        </button>
+    );
+
+    const goVivo = (filter) => { try{localStorage.setItem('tf_vivo_filter', filter)}catch(e){} setVivoFilter?.(filter); setView?.('vivo'); };
+    const goExtensiones = (filter) => { try{localStorage.setItem('tf_ext_filter', filter)}catch(e){} setView?.('extensiones'); };
+
+    return (
+        <>
+        <div style={{position:'sticky',top:0,zIndex:50,background:'var(--surface)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',padding:'0 6px',marginBottom:14,boxShadow:'0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04)',overflow:'auto'}}>
+            <ClickStat icon="phone_in_talk" label="En Llamada" value={upCount} color="#22c55e" badge={upCount>0} onClick={()=>goVivo('up')} />
+            <ClickStat icon="ring_volume" label="Sonando" value={ringCount} color="#f59e0b" badge={ringCount>0} onClick={()=>goVivo('ringing')} />
+            <ClickStat icon="hourglass_empty" label="En Espera" value={totalWaiting} color={totalWaiting>0?'#ef4444':'#6b7280'} badge={totalWaiting>0} onClick={()=>setView?.('colas')} />
+            <ClickStat icon="support_agent" label="Agentes" value={agentsLogged} sub={'logueados'} color="#3b82f6" onClick={()=>setView?.('hotdesking')} />
+            <ClickStat icon="dialpad" label="Internos" value={onlineExts} sub={`/ ${exts.length}`} color="#8b5cf6" onClick={()=>goExtensiones('ONLINE')} />
+            <ClickStat icon="bar_chart" label="Activos PBX" value={busyExts + upCount} color="#ec4899" onClick={()=>goVivo('all')} />
+            <div style={{flex:1}}/>
+
+            {/* PBX Status pill clickeable */}
+            <button onClick={()=>setShowSysModal(true)} style={{padding:'6px 10px',marginRight:6,borderRadius:8,background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.25)',cursor:'pointer',display:'flex',alignItems:'center',gap:7,color:'inherit'}}>
+                <span style={{width:7,height:7,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 8px rgba(34,197,94,0.6)',animation:'pulse 2s infinite',flexShrink:0}}/>
+                <div style={{textAlign:'left'}}>
+                    <div style={{fontSize:8,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',lineHeight:1}}>PBX</div>
+                    <div style={{fontSize:10,color:'#22c55e',fontWeight:800,lineHeight:1.1,marginTop:1}}>Online · {data?.system?.uptime?.split(' ')[0]||'—'}d</div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:1,marginLeft:4}}>
+                    <div style={{fontSize:8,color:'var(--muted)',fontFamily:'monospace',fontWeight:700,lineHeight:1}}>CPU {data?.system?.cpu||0}%</div>
+                    <div style={{fontSize:8,color:'var(--muted)',fontFamily:'monospace',fontWeight:700,lineHeight:1}}>RAM {data?.system?.ram||0}%</div>
+                </div>
+            </button>
+
+            {/* PBX brand badge */}
+            {pbxBrand && (() => {
+                const brandColors = { grandstream:'#3b82f6', asterisk:'#6b7280' };
+                const brandLabels = { grandstream:'Grandstream UCM', asterisk: pbxBrand.variant==='issabel'?'Issabel':(pbxBrand.variant==='freepbx'?'FreePBX':'Asterisk') };
+                const c = brandColors[pbxBrand.brand] || '#8b5cf6';
+                return (
+                    <div title={`${brandLabels[pbxBrand.brand]} · Asterisk ${pbxBrand.asterisk_version} · parser ${pbxBrand.recommended_parser}`} style={{padding:'5px 10px',marginRight:6,borderRadius:7,background:`${c}15`,border:`1px solid ${c}55`,fontSize:10,color:c,fontWeight:800,display:'flex',alignItems:'center',gap:5}}>
+                        <span className="material-icons-round" style={{fontSize:12}}>memory</span>
+                        v{pbxBrand.asterisk_version}
+                    </div>
+                );
+            })()}
+
+            {/* Theme toggle */}
+            {toggleTheme && (
+                <div className="theme-toggle" onClick={toggleTheme} title={darkMode?'Cambiar a modo claro':'Cambiar a modo oscuro'} style={{marginRight:6}}>
+                    <div className="stars"></div>
+                    <div className="clouds"></div>
+                    <div className="knob">
+                        <span className="material-icons-round moon">dark_mode</span>
+                        <span className="material-icons-round sun">light_mode</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Realtime indicator */}
+            <div style={{padding:'6px 10px',fontSize:9,color:'var(--muted)',display:'flex',alignItems:'center',gap:5,fontFamily:'monospace',marginRight:6}}>
+                <span style={{width:5,height:5,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 6px rgba(34,197,94,0.6)',animation:'pulse 2s infinite'}}/>
+                Realtime
+            </div>
+        </div>
+
+        {/* Modal info de sistema PBX */}
+        {showSysModal && (
+            <div onClick={()=>setShowSysModal(false)} className="tf-modal-overlay">
+                <div onClick={e=>e.stopPropagation()} style={{background:'var(--surface)',padding:0,borderRadius:18,width:560,maxWidth:'92%',border:'1px solid var(--border)',overflow:'hidden'}}>
+                    <div style={{padding:'18px 22px',borderBottom:'1px solid var(--border)',background:'linear-gradient(135deg,rgba(34,197,94,0.15),transparent)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12}}>
+                            <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                <span className="material-icons-round" style={{color:'#fff',fontSize:22}}>dns</span>
+                            </div>
+                            <div style={{flex:1}}>
+                                <h2 style={{fontSize:17,fontWeight:900}}>Estado de la PBX</h2>
+                                <div style={{fontSize:11,color:'var(--muted)'}}>Información del sistema en tiempo real</div>
+                            </div>
+                            <button onClick={()=>setShowSysModal(false)} style={{padding:6,borderRadius:8,border:'none',background:'rgba(255,255,255,0.05)',cursor:'pointer'}}>
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{padding:'18px 22px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                            {[
+                                {l:'Estado', v:'Online', c:'#22c55e', i:'check_circle'},
+                                {l:'Uptime', v:data?.system?.uptime||'—', c:'#3b82f6', i:'schedule'},
+                                {l:'CPU Load', v:`${data?.system?.cpu||0}%`, c:'#8b5cf6', i:'memory'},
+                                {l:'RAM', v:`${data?.system?.ram||0}%`, c:'#ec4899', i:'sd_storage'},
+                                {l:'Disco', v:`${data?.system?.disk||0}%`, c:'#f59e0b', i:'storage'},
+                                {l:'Conexiones TCP', v:data?.system?.connections||0, c:'#06b6d4', i:'lan'},
+                                {l:'Brand', v:pbxBrand?(pbxBrand.brand+' '+pbxBrand.variant):'detectando...', c:'#a855f7', i:'router'},
+                                {l:'Asterisk', v:pbxBrand?.asterisk_version||'—', c:'#10b981', i:'tag'},
+                            ].map((s,i)=>(
+                                <div key={i} className="glass" style={{padding:14,borderRadius:12}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                                        <span className="material-icons-round" style={{fontSize:16,color:s.c}}>{s.i}</span>
+                                        <span style={{fontSize:9,color:'var(--muted)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em'}}>{s.l}</span>
+                                    </div>
+                                    <div style={{fontSize:14,fontWeight:800,color:s.c}}>{s.v}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{marginTop:14,padding:'10px 12px',background:'rgba(139,92,246,0.06)',border:'1px solid rgba(139,92,246,0.2)',borderRadius:10,fontSize:10,color:'var(--muted)',display:'flex',gap:8,alignItems:'center'}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#c4b5fd'}}>info</span>
+                            Datos via AMI a {pbxBrand?.brand||'asterisk'} en {data?.system?.connections||0} conexiones TCP activas
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
+    );
+}
 function App() {
+    const [vivoFilter, setVivoFilter] = useState(localStorage.getItem('tf_vivo_filter')||'all');
+    const toggleTheme = () => setDarkMode(d=>!d);
+    const [assignCall, setAssignCall] = useState(null);
+    useEffect(() => { const h = (e) => setAssignCall(e.detail); window.addEventListener('tf-assign-call', h); return () => window.removeEventListener('tf-assign-call', h); }, []);
+    const [reportAgent, setReportAgent] = useState(null);
+    useEffect(() => {
+        const h = (e) => { setReportAgent(e.detail); setView('reportes'); };
+        window.addEventListener('tf-open-report', h);
+        return () => window.removeEventListener('tf-open-report', h);
+    }, []);
     const [user, setUser] = useState(() => {
         const u = localStorage.getItem('tf_user');
         return (u && u !== 'null') ? u : null;
@@ -4631,12 +8225,37 @@ function App() {
     const load = useCallback(async () => {
         try {
             const res = await fetch('api/index.php?action=get_full_data', { credentials: 'include' });
+            // HORIZON: handle 403/503 graciously
+            if (res.status === 403) { setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(e){}; return; }
+            if (res.status === 503) { /* retry siguiente tick */ return; }
             const d = await res.json();
             if (d.status === 'error' && d.message === 'No autorizado') {
                 setUser(null);
             } else {
+                // HORIZON: agregar count de agentes logueados (lookup paralelo)
+                fetch('api/hotdesking.php?action=list', { credentials:'include' })
+                    .then(r=>r.json()).then(j=>{
+                        if (j.status==='ok') {
+                            d._agentsLogged = (j.agents||[]).filter(a=>a.logged_in).length;
+                            setData({...d});
+                        }
+                    }).catch(()=>{});
                 setData(d);
-                if (d.user) setUser(d.user);
+                // HORIZON: cargar ext_meta una vez
+                if (!window._tfExtMeta) {
+                    fetch('api/index.php?action=get_ext_meta',{credentials:'include'})
+                        .then(r=>r.json()).then(j=>{ if(j.success) window._tfExtMeta = j.meta; }).catch(()=>{});
+                }
+                if (d.user) {
+                    // HORIZON: garantizar shape válido + persistir local
+                    let u = d.user;
+                    if (typeof u === 'string') u = { name: u, role: 'admin' };
+                    else if (typeof u === 'object' && u && !u.name && !u.agent_name) {
+                        u = { name: u.tf_user || u.username || 'admin', role: u.role || 'admin' };
+                    }
+                    setUser(u);
+                    try { localStorage.setItem('tf_user_cache', JSON.stringify(u)); } catch(e) {}
+                }
             }
         } catch(e) {}
     }, []);
@@ -4644,9 +8263,121 @@ function App() {
     // Check session on mount
     useEffect(()=>{
         load();
-        const t = setInterval(load, 5000);
+        const t = setInterval(load, 8000); // 8s polling — socket realtime hace el resto
         return () => clearInterval(t);
     }, [load]);
+
+    // HORIZON: Realtime via Socket.io — actualiza data.pbx.extensions y live_calls sin esperar polling
+    useEffect(() => {
+        if (!user || typeof io === 'undefined') return;
+        const socketUrl = window.location.protocol + '//' + window.location.hostname + ':3001';
+        const socket = io(socketUrl, { path: '/teleflow-socket', transports: ['polling','websocket'], upgrade: true, reconnection: true });
+        window._tfSocket = socket;
+        socket.on('connect', () => console.log('[realtime] connected'));
+        socket.on('disconnect', () => console.log('[realtime] disconnected'));
+
+        socket.on('peer_update', (ev) => {
+            setData(d => {
+                if (!d?.pbx?.extensions) return d;
+                const exts = d.pbx.extensions.map(e =>
+                    e.ext === ev.ext ? { ...e, status: ev.status, ip: ev.ip || e.ip } : e
+                );
+                return { ...d, pbx: { ...d.pbx, extensions: exts } };
+            });
+        });
+
+        socket.on('call_update', (ev) => {
+            // HORIZON: Sileo notif (dedup por linkedid + acciones Asignar/Escuchar)
+            if (ev.type === 'new' && ev.call && window.sileo && user?.role !== 'agent') {
+                const c = ev.call;
+                // Skip si ya hay notif para este linkedid/bridge
+                const dedupKey = c.linkedId || c.bridge || c.id || c.channel;
+                window._tfSeenCalls = window._tfSeenCalls || new Set();
+                if (window._tfSeenCalls.has(dedupKey)) return;
+                window._tfSeenCalls.add(dedupKey);
+                setTimeout(() => window._tfSeenCalls.delete(dedupKey), 30000);
+
+                const callerLabel = c.name || c.ext || 'Caller';
+                const destLabel = fmtDest(c);
+                // HORIZON: discriminar tipo de origen (cliente / horizon / sin asignar)
+                const fromTipo = (window._tfExtMeta || {})[c.ext]?.tipo || '';
+                const tipoLabel = fromTipo === 'cliente' ? '👤 Cliente' : (fromTipo === 'horizon' ? '🏢 Horizon' : '');
+                window.sileo.push({
+                    kind: 'call',
+                    icon: 'phone_in_talk',
+                    title: tipoLabel ? `Llamada · ${tipoLabel}` : 'Llamada entrante',
+                    msg: `${callerLabel} → ${destLabel}`,
+                    actions: [
+                        { label: 'Asignar', primary: true, onClick: () => { window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c})); } },
+                        { label: 'Escuchar', onClick: () => { window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: c})); } },
+                        { label: 'Ignorar' }
+                    ],
+                    duration: 12000
+                });
+            }
+            setData(d => {
+                if (!d?.pbx) return d;
+                let live = d.pbx.live_calls || [];
+                if (ev.type === 'hangup') {
+                    live = live.filter(c => c.channel !== ev.channel && c.id !== ev.id);
+                } else if (ev.type === 'new' && ev.call) {
+                    if (!live.find(c => c.channel === ev.call.channel || c.id === ev.call.id)) {
+                        live = [...live, {
+                            channel: ev.call.channel,
+                            ext: ev.call.ext,
+                            state: ev.call.state,
+                            callerid: ev.call.name || ev.call.ext,
+                            dest: ev.call.exten,
+                            duration: '0:00',
+                            id: ev.call.id
+                        }];
+                    }
+                } else if (ev.type === 'state' || ev.type === 'bridge' || ev.type === 'unbridge') {
+                    live = live.map(c => (c.id === ev.id || c.channel === ev.channel) 
+                        ? { ...c, state: ev.state || c.state, isBridged: ev.type === 'bridge' } 
+                        : c);
+                }
+                return { ...d, pbx: { ...d.pbx, live_calls: live } };
+            });
+        });
+
+
+        // HORIZON: realtime push from AGI / TeleFlow notify endpoint
+        socket.on('agent_login', (ev) => {
+            console.log('[realtime] agent_login', ev);
+            window.dispatchEvent(new CustomEvent('tf-queues-refresh'));
+            if (window.sileo && user?.role !== 'agent') {
+                window.sileo.push({ kind:'info', icon:'login', title:'Agente logueado', msg: `#${ev.agent} en ext ${ev.ext} (${(ev.queues||'').split(',').length} colas)`, duration: 4000 });
+            }
+        });
+        socket.on('agent_logout', (ev) => {
+            console.log('[realtime] agent_logout', ev);
+            window.dispatchEvent(new CustomEvent('tf-queues-refresh'));
+            if (window.sileo && user?.role !== 'agent') {
+                window.sileo.push({ kind:'info', icon:'logout', title:'Agente desconectado', msg: `Ext ${ev.ext} salió de ${(ev.queues||'').split(',').length} colas`, duration: 4000 });
+            }
+        });
+        socket.on('tf-realtime-refresh', (ev) => {
+            console.log('[realtime] catch-all refresh', ev?.source);
+            // Refresh general state
+            load();
+        });
+
+                socket.on('queue_update', (ev) => {
+            setData(d => {
+                if (!d?.pbx?.queues) return d;
+                const queues = d.pbx.queues.map(q => {
+                    if (q.id !== ev.queue) return q;
+                    if (ev.type === 'join') return { ...q, calls_waiting: (q.calls_waiting||0) + 1 };
+                    if (ev.type === 'abandon' || ev.type === 'connect') return { ...q, calls_waiting: Math.max(0, (q.calls_waiting||0) - 1) };
+                    return q;
+                });
+                return { ...d, pbx: { ...d.pbx, queues } };
+            });
+        });
+
+        return () => socket.disconnect();
+    }, [user]);
 
     // Register SW
     /* El Service Worker ahora es manejado por la PWA en /softphone/
@@ -4657,53 +8388,46 @@ function App() {
     },[]);
     */
 
-    if (user === null) return <Login onLogin={u => { setUser(u); load(); }} />;
+    if (user === null) return (<><Login onLogin={u => { setUser(u); if (u.role === 'agent') setView('callcenter'); load(); }} /></>);
 
     const renderView = () => {
         switch(view) {
             case 'dashboard':   return <ViewDashboard data={data} />;
             case 'extensiones': return <ViewExtensiones data={data} toast={showToast} />;
-            case 'agentes':     return <ViewAgentes toast={showToast} />;
-            case 'vivo':        return <ViewVivo2 data={data} toast={showToast} />;
+            case 'agentes':     return <ViewAgentes toast={showToast} data={data} />;
+            case 'vivo':        return <ViewVivo2 data={data} toast={showToast} initialFilter={vivoFilter} />;
             case 'radar':       return <ViewRadar data={data} toast={showToast} />;
             case 'cdr':         return <ViewCDR toast={showToast} />;
-            case 'reportes':    return <ViewReportes toast={showToast} queue={reportQueue} onClearQueue={()=>setReportQueue(null)} />;
+            case 'reportes':    return <ViewReportes toast={showToast} queue={reportQueue} onClearQueue={()=>setReportQueue(null)} agentReport={reportAgent} onClearAgent={()=>setReportAgent(null)} />;
             case 'colas':       return <ViewColas toast={showToast} data={data} onReport={(qid)=>{setReportQueue(qid);setView('reportes');}} />;
             case 'grupos':      return <ViewGrupos toast={showToast} />;
             case 'ivr':         return <ViewIVR toast={showToast} />;
 // El Softphone ahora es una PWA independiente en /softphone/
 
+            case 'callcenter':  return <ViewCallCenter user={user} data={data} onLogout={() => { setUser(null); }} />;
+            case 'hotdesking':   return <ViewHotdesking data={data} toast={showToast} />;
             case 'configuracion': return <ViewConfiguracion />;
             default:            return <div className="content-area">Vista no implementada</div>;
         }
     };
 
     return (
-        <div id="app">
-            <div className={`sidebar-overlay ${!collapsed && window.innerWidth < 768 ? 'active' : ''}`} onClick={() => setCollapsed(true)} />
-            <Sidebar 
-                view={view} setView={setView} user={user} 
-                onLogout={async () => { await fetch('api/index.php?action=logout', { credentials: 'include' }); setUser(null); }} 
-                collapsed={collapsed} setCollapsed={setCollapsed}
+        <div id="app" className="tfshell">
+            <TopBarMenu
+                view={view} setView={setView} user={user}
+                onLogout={async () => { await fetch('api/index.php?action=logout', { credentials: 'include' }); setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(e){} }}
                 darkMode={darkMode} setDarkMode={setDarkMode}
                 data={data}
                 activeCalls={data?.pbx?.live_calls?.length || 0}
+                setVivoFilter={setVivoFilter}
             />
-            <main className="main-content" style={{padding: 0}}>
-                <div style={{flex:1, overflowY:'auto', height:'100%'}}>
+            <main className="main-content">
+                <div className="main-scroll">
+                    <PageHeader view={view} />
                     {renderView()}
                 </div>
+                <AssignCallModal open={!!assignCall} call={assignCall} onClose={()=>setAssignCall(null)} queues={data?.pbx?.queues||[]} extensions={data?.pbx?.extensions||[]} toast={showToast} />
             </main>
-
-            {/* Reemplazo de boton menu para moviles */}
-            {window.innerWidth < 768 && collapsed && (
-                <button 
-                  onClick={() => setCollapsed(false)}
-                  style={{position:'fixed', bottom:20, right:20, zIndex:990, width:48, height:48, borderRadius:'50%', background:'var(--accent)', color:'white', border:'none', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}
-                >
-                    <span className="material-icons-round">menu</span>
-                </button>
-            )}
 
             {toast && (
                 <div className="toast-container">
@@ -4717,8 +8441,9 @@ function App() {
     );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<SileoProvider><App /></SileoProvider>);
 </script>
+
 </body>
 </html>
 
