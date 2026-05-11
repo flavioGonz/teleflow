@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 header('Content-Type: application/json');
@@ -16,7 +17,7 @@ if ($action === 'login') {
     $user = $_POST['username'] ?? '';
     $pass = $_POST['password'] ?? '';
     try {
-        $db   = new SQLite3('/var/www/db/acl.db');
+        $db   = new SQLite3(isset($ACL_DB_PATH) ? $ACL_DB_PATH : '/var/www/db/acl.db');
         $stmt = $db->prepare('SELECT name,md5_password FROM acl_user WHERE name=:u');
         $stmt->bindValue(':u', $user);
         $row = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
@@ -29,7 +30,7 @@ if ($action === 'login') {
         }
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'Error de base de datos']);
+        echo json_encode(['status' => 'error', 'message' => 'Error de base de datos: ' . $e->getMessage()]);
     }
     exit;
 }
@@ -40,69 +41,119 @@ if ($action === 'logout') {
     exit;
 }
 
-if (!isset($_SESSION['tf_user']) && !in_array($action, ['get_agents_data', 'upload_avatar'])) {
+if (!isset($_SESSION['tf_user']) && !isset($_SESSION['agent_user']) && !in_array($action, ['get_agents_data', 'upload_avatar'])) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
     exit;
 }
+// HORIZON: liberar lock de sesion para evitar serializacion en requests concurrentes
+@session_write_close();
 
 if ($action === 'set_sip_debug') {
-    $level = $_POST['level'] ?? 'off'; 
-    $ext   = $_POST['ext'] ?? ''; // Opcional: filtrar por interno en el logger
-    
+    $level = $_POST['level'] ?? 'off';
+    $ext   = $_POST['ext'] ?? '';
     if ($level === 'on') {
-        shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger on'");
-        if ($ext) shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger host $ext'");
-        shell_exec("/usr/sbin/asterisk -rx 'core set verbose 6'");
-        shell_exec("/usr/sbin/asterisk -rx 'core set debug 5'");
-        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Activado (Verbose 6 + Debug 5)']);
+        ami_cmd('pjsip set logger on');
+        ami_cmd('sip set debug on');
+        if ($ext) ami_cmd("pjsip set logger host $ext");
+        ami_cmd('core set verbose 6');
+        ami_cmd('core set debug 5');
+        echo json_encode(['success' => true, 'msg' => 'SIP+PJSIP Logger Activado (Verbose 6 + Debug 5)']);
     } else {
-        shell_exec("/usr/sbin/asterisk -rx 'pjsip set logger off'");
-        shell_exec("/usr/sbin/asterisk -rx 'core set verbose 3'");
-        shell_exec("/usr/sbin/asterisk -rx 'core set debug 0'");
-        echo json_encode(['success' => true, 'msg' => 'PJSIP Logger Desactivado (Verbose 3)']);
+        ami_cmd('pjsip set logger off');
+        ami_cmd('sip set debug off');
+        ami_cmd('core set verbose 3');
+        ami_cmd('core set debug 0');
+        echo json_encode(['success' => true, 'msg' => 'SIP+PJSIP Logger Desactivado (Verbose 3)']);
     }
     exit;
 }
 
 if ($action === 'get_sip_debug') {
-    $log_path = '/var/log/asterisk/full';
-    if (!file_exists($log_path)) {
-        echo json_encode(['success' => true, 'log' => "Archivo de log no encontrado en $log_path"]);
+    // HORIZON: en VM remota no hay /var/log/asterisk/full. Usar AMI para info de SIP en vivo.
+    // Cache 15s para evitar saturar AMI con 4 commands seriales por cada poll
+    @set_time_limit(30);
+    $sd_cache = '/tmp/teleflow_sip_debug.json';
+    if (file_exists($sd_cache) && (time() - filemtime($sd_cache)) < 15) {
+        header('Content-Type: application/json');
+        readfile($sd_cache);
         exit;
     }
-    
-    // Verificamos si el logger está activo (opcional, pero útil para el frontend)
-    $status_out = shell_exec("/usr/sbin/asterisk -rx 'pjsip show history' 2>&1");
-    $is_active = (strpos($status_out, 'enabled') !== false || strpos($status_out, 'History') !== false);
-
-    $tail = file_exists('/usr/bin/tail') ? '/usr/bin/tail' : 'tail';
-    $grep = file_exists('/usr/bin/grep') ? '/usr/bin/grep' : 'grep';
-    
-    // Ampliamos el filtro para ver TODO lo relacionado con la negociación media y errores
-    $patterns = 'pjsip|sip|reg|auth|fail|error|rtp|ice|stun|turn|sdp|re-invite|ack|bye|cancel';
-    $cmd = "$tail -n 1200 $log_path | $grep -iaE '$patterns' | $tail -n 160";
-    $output = shell_exec($cmd);
-    
-    $output = preg_replace('/\x1B\[[0-9;]*[mK]/', '', $output);
-    
-    echo json_encode([
-        'success' => true, 
+    $verbose_out = ami_cmd('core show settings');
+    $hist        = ami_cmd('pjsip show history');
+    $sip_chans   = ami_cmd('sip show channels');
+    $pjsip_chans = ami_cmd('pjsip show channels');
+    $is_active = (strpos($verbose_out, 'verbose:') !== false && preg_match('/verbose:\s*(\d+)/i', $verbose_out, $vm) && (int)$vm[1] >= 6);
+    $log_lines = [];
+    $log_lines[] = '=== PJSIP HISTORY ===';
+    $log_lines[] = trim($hist) ?: '(sin historia — activá el logger)';
+    $log_lines[] = '';
+    $log_lines[] = '=== SIP CHANNELS ===';
+    $log_lines[] = trim($sip_chans) ?: '(sin canales activos)';
+    $log_lines[] = '';
+    $log_lines[] = '=== PJSIP CHANNELS ===';
+    $log_lines[] = trim($pjsip_chans) ?: '(sin canales pjsip)';
+    $sd_payload = json_encode([
+        'success' => true,
         'is_debug_active' => $is_active,
-        'log' => $output ?: "Esperando eventos... (Asegúrese de activar el PJSIP Logger)"
+        'log' => implode("\n", $log_lines)
     ]);
+    @file_put_contents($sd_cache, $sd_payload, LOCK_EX);
+    @chmod($sd_cache, 0666);
+    header('Content-Type: application/json');
+    echo $sd_payload;
     exit;
 }
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 function mysql_pbx($db = 'asterisk') {
-    global $DB_PASS;
-    return new PDO("mysql:host=localhost;dbname=$db;charset=utf8", 'root', $DB_PASS,
+    global $DB_PASS, $DB_HOST, $DB_USER;
+    $h = $DB_HOST ?? '127.0.0.1';
+    $u = $DB_USER ?? 'root';
+    return new PDO("mysql:host=$h;dbname=$db;charset=utf8", $u, $DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 }
 
 function ami_cmd($cmd) {
-    return shell_exec("COLUMNS=200 /usr/sbin/asterisk -rx " . escapeshellarg($cmd) . " 2>/dev/null");
+    // HORIZON: AMI socket TCP en lugar de shell_exec local
+    // Permite que TeleFlow corra fuera del server de Asterisk (LXC, VM, etc.)
+    global $AMI_HOST, $AMI_PORT, $AMI_USER, $AMI_PASS;
+    static $sock = null;
+    static $loggedIn = false;
+    if ($sock === null || !$loggedIn) {
+        $sock = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $errno, $errstr, 3);
+        if (!$sock) return '';
+        stream_set_timeout($sock, 4);
+        fgets($sock); // greeting Asterisk Call Manager/...
+        fwrite($sock, "Action: Login\r\nUsername: " . ($AMI_USER ?: 'admin') . "\r\nSecret: " . ($AMI_PASS ?: '') . "\r\nEvents: off\r\n\r\n");
+        $r = ''; $start = microtime(true);
+        while (microtime(true) - $start < 2) {
+            $line = fgets($sock); if ($line === false) break;
+            $r .= $line;
+            if (strpos($r, 'Authentication accepted') !== false) { $loggedIn = true; break; }
+            if (strpos($r, 'Authentication failed') !== false) { fclose($sock); $sock = null; return ''; }
+        }
+        if (!$loggedIn) { @fclose($sock); $sock = null; return ''; }
+    }
+    // Ejecutar el comando con un ActionID único
+    $aid = 'tf-' . uniqid();
+    fwrite($sock, "Action: Command\r\nCommand: $cmd\r\nActionID: $aid\r\n\r\n");
+    $out = ''; $started = false; $start = microtime(true);
+    while (microtime(true) - $start < 5) {
+        $line = fgets($sock);
+        if ($line === false) break;
+        if (strpos($line, '--END COMMAND--') !== false) break;
+        // AMI Command response prefija cada línea con "Output: "
+        if (stripos($line, 'Output:') === 0) {
+            $out .= substr($line, strlen('Output:') + (substr($line, 7, 1) === ' ' ? 1 : 0));
+            $started = true;
+            continue;
+        }
+        // Headers del response (Response:, Privilege:, ActionID:, Message:) → saltear hasta el primer Output:
+        if (!$started && preg_match('/^(Response|Privilege|ActionID|Message):/i', $line)) continue;
+        if ($started) $out .= $line;
+    }
+    return $out;
 }
 
 function get_all_endpoint_statuses() {
@@ -248,6 +299,8 @@ if ($action === 'get_agents_data') {
         }
     }
     // MySQL Fallback
+
+
     try {
         $db2 = mysql_pbx();
         $db_devs = $db2->query("SELECT d.id as ext, d.description as name FROM devices d WHERE d.tech IN ('pjsip','sip') ORDER BY CAST(d.id AS UNSIGNED)")->fetchAll(PDO::FETCH_ASSOC);
@@ -269,6 +322,80 @@ if ($action === 'get_agents_data') {
 
 // ─── GET FULL DATA (dashboard + extensiones + grabaciones) ──────────────────
 if ($action === 'get_full_data') {
+    // HORIZON CACHE 2026-05-07 v6: cache simple con lock NO-bloqueante
+    @set_time_limit(45);
+    @ini_set('memory_limit', '256M');
+    $tf_cache_file = '/tmp/teleflow_full_data.json';
+    $tf_lock_file  = '/tmp/teleflow_full_data.lock';
+    $tf_ttl = 4;
+    $tf_max_age = 30; // sirve cache hasta 30s antes de bloquear esperando regen
+    $tf_has_cache = file_exists($tf_cache_file);
+    $tf_age = $tf_has_cache ? (time() - filemtime($tf_cache_file)) : 999999;
+    $tf_fresh = $tf_age < $tf_ttl;
+
+    // 1) Cache fresh: HIT instantaneo
+    if ($tf_has_cache && $tf_fresh) {
+        header("Content-Type: application/json");
+        header("X-TF-Cache: HIT age=" . $tf_age . "s");
+        readfile($tf_cache_file);
+        exit;
+    }
+
+    $tf_response_sent = false;
+
+    // 2) Cache stale: intentar tomar lock NO-bloqueante para regenerar
+    $tf_lock = @fopen($tf_lock_file, "c");
+    if (!$tf_lock) { http_response_code(503); echo "{}"; exit; }
+    $got_lock = flock($tf_lock, LOCK_EX | LOCK_NB);
+
+    // Si NO obtuvimos el lock (otro proceso regenera) Y tenemos cache, devolverlo (aunque stale)
+    if (!$got_lock && $tf_has_cache && $tf_age < $tf_max_age) {
+        header("Content-Type: application/json");
+        header("X-TF-Cache: STALE-CONCURRENT age=" . $tf_age . "s");
+        readfile($tf_cache_file);
+        fclose($tf_lock);
+        exit;
+    }
+
+    // Si no obtuvimos lock pero NO hay cache, esperar bloqueante con timeout corto
+    if (!$got_lock) {
+        $start = microtime(true);
+        while (!flock($tf_lock, LOCK_EX | LOCK_NB)) {
+            if (microtime(true) - $start > 6) {
+                fclose($tf_lock);
+                http_response_code(503); echo "{}";
+                exit;
+            }
+            usleep(100000);
+        }
+        clearstatcache();
+        if (file_exists($tf_cache_file)) {
+            header("Content-Type: application/json");
+            header("X-TF-Cache: HIT-AFTER-WAIT");
+            readfile($tf_cache_file);
+            flock($tf_lock, LOCK_UN); fclose($tf_lock);
+            exit;
+        }
+    }
+
+    // Llegamos aqui: tenemos el lock.
+    // Si hay cache stale, servirlo YA al cliente y luego regenerar en background
+    if ($tf_has_cache && $tf_age < $tf_max_age) {
+        @ignore_user_abort(true);
+        $tf_cached_payload = file_get_contents($tf_cache_file);
+        header("Content-Type: application/json");
+        header("Content-Length: " . strlen($tf_cached_payload));
+        header("Connection: close");
+        header("X-TF-Cache: STALE-WHILE-REVALIDATE age=" . $tf_age . "s");
+        echo $tf_cached_payload;
+        @ob_end_flush();
+        @flush();
+        $tf_response_sent = true;
+        // Falls through to regenerate; client already has data
+    }
+    // Regenerar inline (si tf_response_sent=true, esto corre tras flush al cliente)
+    // /HORIZON CACHE v6
+
     $load   = sys_getloadavg();
     $pjsip_e = ami_cmd('pjsip show endpoints');
     $pjsip_c = ami_cmd('pjsip show contacts');
@@ -304,6 +431,35 @@ if ($action === 'get_full_data') {
             }
         }
     }
+
+    // HORIZON: detectar brand para skip chan_sip si UCM (solo PJSIP)
+    $brand_cache = '/tmp/teleflow_pbx_brand.json';
+    $skip_chan_sip = false;
+    if (file_exists($brand_cache)) {
+        $bd = @json_decode(file_get_contents($brand_cache), true);
+        if (!empty($bd['features']) && empty($bd['features']['chan_sip'])) $skip_chan_sip = true;
+    }
+    // HORIZON FIX 2026-05-07: parsear chan_sip (Issabel usa SIP, no PJSIP)
+    $sip_peers_raw = $skip_chan_sip ? '' : ami_cmd('sip show peers');
+    foreach (explode("\n", $sip_peers_raw) as $line) {
+        if (preg_match('/^\s*(\d+)(?:\/\S+)?\s+(\S+)\s+\S+\s+\S+\s+\S+\s+\S+\s+\d+\s+(OK|UNKNOWN|UNREACHABLE|LAGGED)(?:\s*\((\d+)\s*ms\))?/', $line, $m)) {
+            $ext_v = $m[1]; $host = $m[2]; $st_word = strtoupper($m[3]); $rtt_ms = isset($m[4]) ? (int)$m[4] : null;
+            if (!isset($exts[$ext_v])) {
+                $name = $ext_v;
+                $av = "https://ui-avatars.com/api/?name=" . urlencode($name) . "&background=714B67&color=fff&size=80";
+                if (file_exists($avatar_dir . $ext_v . ".jpg")) $av = "uploads/avatars/$ext_v.jpg?" . time();
+                $exts[$ext_v] = ["ext"=>$ext_v, "name"=>$name, "status"=>"OFFLINE", "ip"=>"\xe2\x80\x94", "rtt"=>"\xe2\x80\x94", "rtt_ms"=>999, "mac"=>"\xe2\x80\x94", "avatar"=>$av, "recording"=>"dontcare", "device_type"=>"phone"];
+            }
+            if ($st_word === "OK") {
+                if ($exts[$ext_v]["status"] !== "BUSY") $exts[$ext_v]["status"] = "ONLINE";
+                if ($host && $host !== "(Unspecified)") $exts[$ext_v]["ip"] = $host;
+                if ($rtt_ms !== null) { $exts[$ext_v]["rtt"] = $rtt_ms . "ms"; $exts[$ext_v]["rtt_ms"] = $rtt_ms; }
+            } elseif ($st_word === "UNREACHABLE" || $st_word === "LAGGED") {
+                if ($exts[$ext_v]["status"] !== "BUSY") $exts[$ext_v]["status"] = "OFFLINE";
+            }
+        }
+    }
+    // /HORIZON FIX
 
     try {
         $db2 = mysql_pbx();
@@ -351,23 +507,69 @@ if ($action === 'get_full_data') {
     $ram = round((float)$ram_raw);
     $disk_raw = shell_exec("df -h / | awk 'NR==2{print $5}'") ?: '0%';
     $disk = (int)str_replace('%', '', trim($disk_raw));
-    $conn_raw = shell_exec("netstat -an | grep ESTABLISHED | wc -l");
+    $conn_raw = shell_exec("(ss -tan 2>/dev/null || netstat -an 2>/dev/null) | grep ESTAB | wc -l");
     $conn = (int)trim($conn_raw);
 
+    // HORIZON 2026-05-07: usar 'core show channels concise' para dedup vía BridgeID
+    $ch_concise = ami_cmd('core show channels concise');
+    $by_bridge = []; // bridgeId => call
+    $live_calls_raw = [];
+    foreach (explode("\n", $ch_concise) as $line) {
+        $line = trim($line);
+        if (!$line || strpos($line, '!') === false) continue;
+        $f = explode('!', $line);
+        if (count($f) < 13) continue;
+        $chan = $f[0];
+        // Skip Local channels (dialplan helpers, no humanos)
+        if (stripos($chan, 'Local/') === 0) continue;
+        $context = $f[1] ?? '';
+        $exten   = $f[2] ?? '';
+        $state   = $f[4] ?? '';
+        $app     = $f[5] ?? '';
+        $data    = $f[6] ?? '';
+        $cid     = $f[7] ?? '';
+        $dur_sec = (int)($f[10] ?? $f[11] ?? 0);
+        $bridge  = $f[count($f)-2] ?? ''; // penúltimo
+        $uniqid  = $f[count($f)-1] ?? ''; // último
+        // Extract ext from channel
+        $ext_num = '';
+        if (preg_match('/^(?:PJSIP|SIP|IAX2)\/(\d+)/', $chan, $em)) $ext_num = $em[1];
+        // Compose duration HH:MM:SS
+        $h = (int)floor($dur_sec/3600); $mn = (int)floor(($dur_sec%3600)/60); $sc = $dur_sec%60;
+        $dur_str = sprintf('%d:%02d:%02d', $h, $mn, $sc);
+
+        $entry = [
+            'channel'  => $chan,
+            'ext'      => $ext_num,
+            'context'  => $context,
+            'state'    => $state,
+            'app'      => $app,
+            'dest'     => $exten,
+            'callerid' => $cid,
+            'duration' => $dur_str,
+            'bridge'   => $bridge,
+            'uniqid'   => $uniqid
+        ];
+        $live_calls_raw[] = $entry;
+    }
+    // Dedup: agrupar por bridge, tomar 1 (preferir Up sobre Ringing)
     $live_calls = [];
-    $lines = explode("\n", $ch_raw);
-    foreach($lines as $line) {
-        if (preg_match('/^((?:PJSIP|SIP)\/(\d+)-\w+)\s+\S+\s+(\S+)\s+(\S+)\s+(.*?)\s+(\S+)\s+(\d+:\d{2}:\d{2}|\d+:\d{2})/', $line, $m)) {
-             $live_calls[] = [
-                 'channel' => $m[1],
-                 'ext' => $m[2], 
-                 'state' => $m[3], 
-                 'app' => $m[4],
-                 'dest' => $m[5],
-                 'duration' => $m[7],
-                 'callerid' => $m[6]
-             ];
+    $bridges_seen = [];
+    // Sort: Up primero
+    usort($live_calls_raw, function($a, $b){
+        $rank = ['Up'=>0,'Ringing'=>1,'Ring'=>2,'Dialing'=>3];
+        return ($rank[$a['state']] ?? 9) - ($rank[$b['state']] ?? 9);
+    });
+    foreach ($live_calls_raw as $c) {
+        $k = !empty($c['bridge']) ? $c['bridge'] : ('nobr_' . $c['uniqid']);
+        if (isset($bridges_seen[$k])) {
+            // Add as 'peer' info into existing
+            $i = $bridges_seen[$k];
+            if (empty($live_calls[$i]['peer_ext'])) $live_calls[$i]['peer_ext'] = $c['ext'];
+            continue;
         }
+        $bridges_seen[$k] = count($live_calls);
+        $live_calls[] = $c;
     }
 
     $queues = [];
@@ -376,11 +578,20 @@ if ($action === 'get_full_data') {
     try {
         $db2 = mysql_pbx();
         $queues = $db2->query("SELECT extension as id, descr as name FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
+        // HORIZON: una sola llamada queue show + parse global
+        $queue_show_all = ami_cmd('queue show');
+        $members_by_q = []; $waiting_by_q = []; $cur_q = null;
+        foreach (explode("
+", $queue_show_all) as $line) {
+            if (preg_match('/^\s*(\d+)\s+has\s+(\d+)\s+calls.*?strategy/', $line, $mm)) {
+                $cur_q = $mm[1]; $waiting_by_q[$cur_q] = (int)$mm[2]; $members_by_q[$cur_q] = [];
+            } elseif ($cur_q && preg_match('/^\s+(.+?)\s+\(((?:SIP|PJSIP|Local|Agent)\/[^)]+)\)/', $line, $mm)) {
+                $members_by_q[$cur_q][] = ['name'=>trim($mm[1]), 'iface'=>$mm[2]];
+            }
+        }
         foreach ($queues as &$q) {
-            $q['members'] = $db2->query("SELECT queue_pos, membername FROM queues_details WHERE id='{$q['id']}'")->fetchAll(PDO::FETCH_COLUMN, 1);
-            $q_status = ami_cmd("queue show {$q['id']}");
-            preg_match('/strategy\s+\w+\s+has\s+(\d+)\s+calls/i', $q_status, $mq);
-            $q['calls_waiting'] = (int)($mq[1] ?? 0);
+            $q['members'] = $members_by_q[$q['id']] ?? [];
+            $q['calls_waiting'] = $waiting_by_q[$q['id']] ?? 0;
         }
         $ringgroups = $db2->query("SELECT grpnum as id, description as name, grplist as members FROM ringgroups")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($ringgroups as &$rg) {
@@ -388,10 +599,20 @@ if ($action === 'get_full_data') {
             $rg['members'] = preg_split('/[-,\n\r]+/', $rg['members'], -1, PREG_SPLIT_NO_EMPTY);
         }
         $ivrs = $db2->query("SELECT id, name FROM ivr_details")->fetchAll(PDO::FETCH_ASSOC);
-        $trunks = $db2->query("SELECT trunkid as id, name FROM trunks WHERE disabled='off'")->fetchAll(PDO::FETCH_ASSOC);
+        $trunks = [];
+        try { $trunks = $db2->query("SELECT trunkid as id, name FROM trunks WHERE disabled='off'")->fetchAll(PDO::FETCH_ASSOC); } catch (Exception $_e) { $trunks = []; }
     } catch(Exception $e) {}
 
-    echo json_encode([
+    // HORIZON: incluir user para session restore en cliente
+    $session_user = null;
+    if (!empty($_SESSION['tf_user'])) {
+        $session_user = ['name' => $_SESSION['tf_user'], 'role' => 'admin'];
+    } elseif (!empty($_SESSION['agent_user'])) {
+        $au = $_SESSION['agent_user'];
+        $session_user = ['name' => $au['agent_name']??'Agent', 'role' => 'agent', 'agent' => $au];
+    }
+    $tf_payload = json_encode([
+        'user'   => $session_user,
         'system' => ['cpu' => round($load[0] * 25), 'uptime' => $uptime, 'ram' => $ram, 'disk' => $disk, 'connections' => $conn],
         'pbx'    => [
             'extensions' => array_values($exts), 
@@ -403,6 +624,15 @@ if ($action === 'get_full_data') {
             'trunks' => $trunks
         ],
     ]);
+    // HORIZON CACHE v7: escribir cache + liberar lock; responder solo si no respondimos antes
+    @file_put_contents($tf_cache_file, $tf_payload, LOCK_EX);
+    @chmod($tf_cache_file, 0666);
+    if (!empty($tf_lock)) { flock($tf_lock, LOCK_UN); fclose($tf_lock); }
+    if (empty($tf_response_sent)) {
+        header("Content-Type: application/json");
+        header("X-TF-Cache: MISS");
+        echo $tf_payload;
+    }
     exit;
 }
 
@@ -539,6 +769,89 @@ if ($action === 'set_recording') {
     exit;
 }
 
+
+// ─── EXT META (tipo: cliente / horizon / vacío) ───────────────────────────────
+if ($action === 'get_ext_meta') {
+    try {
+        $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
+        $rows = $tf->query("SELECT ext, tipo, notes FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
+        $map = []; foreach ($rows as $r) $map[$r['ext']] = $r;
+        echo json_encode(['success'=>true, 'meta'=>$map]);
+    } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
+    exit;
+}
+if ($action === 'set_ext_meta') {
+    $ext  = preg_replace('/\D/', '', $_POST['ext'] ?? '');
+    $tipo = $_POST['tipo'] ?? '';
+    $notes = $_POST['notes'] ?? '';
+    if (!in_array($tipo, ['cliente','horizon',''])) { echo json_encode(['success'=>false,'error'=>'tipo inválido']); exit; }
+    try {
+        $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
+        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes)");
+        $stmt->execute([$ext, $tipo, $notes]);
+        echo json_encode(['success'=>true]);
+    } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
+    exit;
+}
+
+
+// ─── DETECT PBX BRAND (Asterisk vanilla / Issabel / FreePBX / Grandstream UCM) ────
+if ($action === 'detect_pbx') {
+    $cache_file = '/tmp/teleflow_pbx_brand.json';
+    if (file_exists($cache_file) && (time() - filemtime($cache_file)) < 300) {
+        readfile($cache_file);
+        exit;
+    }
+    $version_out = ami_cmd('core show version');
+    $settings_out = ami_cmd('core show settings');
+    $modules_out = ami_cmd('module show');
+    
+    $brand = 'asterisk';
+    $variant = 'vanilla';
+    $features = ['chan_sip' => false, 'pjsip' => false, 'queue_log_realtime' => false];
+    
+    // Detección
+    if (stripos($version_out, 'grandstream') !== false || stripos($settings_out, 'grandstream') !== false || stripos($modules_out, 'res_ucm') !== false) {
+        $brand = 'grandstream';
+        $variant = 'ucm';
+        $features['pjsip'] = true;
+        $features['chan_sip'] = false;
+    } elseif (stripos($version_out, 'issabel') !== false || file_exists('/etc/issabel.conf') || stripos($modules_out, 'issabel') !== false) {
+        $brand = 'asterisk';
+        $variant = 'issabel';
+        $features['chan_sip'] = (stripos($modules_out, 'chan_sip') !== false);
+        $features['pjsip'] = (stripos($modules_out, 'res_pjsip') !== false || stripos($modules_out, 'chan_pjsip') !== false);
+    } elseif (stripos($version_out, 'freepbx') !== false) {
+        $brand = 'asterisk';
+        $variant = 'freepbx';
+        $features['chan_sip'] = (stripos($modules_out, 'chan_sip') !== false);
+        $features['pjsip'] = (stripos($modules_out, 'res_pjsip') !== false);
+    } else {
+        // Asterisk vanilla — detectar pjsip vs chan_sip
+        $features['chan_sip'] = (stripos($modules_out, 'chan_sip.so') !== false);
+        $features['pjsip'] = (stripos($modules_out, 'res_pjsip.so') !== false || stripos($modules_out, 'chan_pjsip.so') !== false);
+    }
+    
+    preg_match('/Asterisk\s+([\d.]+)/i', $version_out, $vm);
+    $asterisk_version = $vm[1] ?? 'unknown';
+    
+    $payload = json_encode([
+        'success' => true,
+        'brand' => $brand,
+        'variant' => $variant,
+        'asterisk_version' => $asterisk_version,
+        'features' => $features,
+        'detected_at' => date('Y-m-d H:i:s'),
+        'recommended_parser' => ($brand === 'grandstream' || (!$features['chan_sip'] && $features['pjsip'])) ? 'pjsip' : 'sip'
+    ]);
+    @file_put_contents($cache_file, $payload, LOCK_EX);
+    @chmod($cache_file, 0666);
+    header('Content-Type: application/json');
+    echo $payload;
+    exit;
+}
+
+
 // ─── AVATAR UPLOAD ────────────────────────────────────────────────────────────
 if ($action === 'upload_avatar') {
     $ext = preg_replace('/\D/', '', $_POST['ext'] ?? '');
@@ -648,6 +961,14 @@ if ($action === 'get_queues') {
 
 // ─── ACTIVE CALLS (VIVO) ─────────────────────────────────────────────────────
 if ($action === 'get_active_calls') {
+    // HORIZON: cache 2s para no saturar AMI con polling cada 2.5s
+    @set_time_limit(30);
+    $ac_cache = '/tmp/teleflow_active_calls.json';
+    if (file_exists($ac_cache) && (time() - filemtime($ac_cache)) < 2) {
+        header('Content-Type: application/json');
+        readfile($ac_cache);
+        exit;
+    }
     // 1. Get channel info from core show channels verbose
     $raw_ch = ami_cmd('core show channels verbose');
     $ch_stats = ami_cmd('pjsip show channelstats');
@@ -717,7 +1038,10 @@ if ($action === 'get_active_calls') {
         }
     }
 
-    echo json_encode(['success' => true, 'calls' => $unique_calls, 'count' => count($unique_calls)]);
+    $ac_payload = json_encode(['success' => true, 'calls' => $unique_calls, 'count' => count($unique_calls)]);
+    @file_put_contents($ac_cache, $ac_payload, LOCK_EX); @chmod($ac_cache, 0666);
+    header('Content-Type: application/json');
+    echo $ac_payload;
     exit;
 }
 
@@ -740,10 +1064,12 @@ if ($action === 'call_action') {
         case 'barge':
             if (!$supervisor) { echo json_encode(['success'=>false, 'error'=>'Debes especificar tu extensión de supervisor']); exit; }
             $opt = ($sub_action === 'whisper') ? 'w' : (($sub_action === 'barge') ? 'B' : '');
-            // Originate a call to the supervisor and connect it to ChanSpy
-            // ChanSpy(PJSIP/agent, options) -> we need the agent extension
+            // ChanSpy: detectar tech del canal a espiar y del supervisor
             $target_ext = preg_replace('/^(?:PJSIP|SIP)\/(\d+)-.*$/', '$1', $channel);
-            $cmd = "channel originate PJSIP/$supervisor application ChanSpy PJSIP/$target_ext,q$opt";
+            $tech = (strpos($channel, 'PJSIP/') === 0) ? 'PJSIP' : 'SIP';
+            // El supervisor probablemente sea chan_sip (Issabel default)
+            $sup_tech = 'SIP';
+            $cmd = "channel originate $sup_tech/$supervisor application ChanSpy $tech/$target_ext,q$opt";
             ami_cmd($cmd);
             echo json_encode(['success'=>true, 'message'=>'Llamada de intervención iniciada a tu extensión (' . $supervisor . ')']);
             break;

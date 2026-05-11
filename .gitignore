@@ -1,3 +1,6 @@
 node_modules/
 test_sip.js
 config.php
+realtime/.env
+*.bak
+*.bak.*

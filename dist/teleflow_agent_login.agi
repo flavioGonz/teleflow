@@ -1,0 +1,137 @@
+#!/usr/bin/php -q
+<?php
+// TeleFlow — AGI: login dinámico de agente
+// Modos:
+//   validate → solo valida credenciales y devuelve LOGIN_OK + AGENT_NUM/PASS
+//   commit   → ejecuta el QueueAdd (corre en h-extension, post-hangup)
+// Argumentos: <agent_number> <password> <callerid_extension> <mode>
+
+ob_implicit_flush(true);
+$stdin = fopen('php://stdin','r');
+$stdlog = fopen('/var/log/asterisk/teleflow_agi.log','a');
+
+function agi_log($m){global $stdlog;fwrite($stdlog,'['.date('Y-m-d H:i:s').'] '.$m."\n");fflush($stdlog);}
+function agi_set($n,$v){fwrite(STDOUT,"SET VARIABLE $n \"$v\"\n");fgets(STDIN);}
+function agi_verbose($m,$lvl=2){$m=str_replace('"','\\"',$m);fwrite(STDOUT,"VERBOSE \"$m\" $lvl\n");fgets(STDIN);}
+
+while(!feof($stdin)){if(trim(fgets($stdin))==='')break;}
+$args = array_slice($argv, 1);
+$agent_number = $args[0] ?? '';
+$pass         = $args[1] ?? '';
+$callback_ext = $args[2] ?? '';
+$mode         = $args[3] ?? 'validate';
+
+agi_log("[$mode] agent=$agent_number ext=$callback_ext");
+
+if (!preg_match('/^\d+$/', $agent_number) || !preg_match('/^\d+$/', $callback_ext)) {
+    agi_set('LOGIN_OK','0'); agi_set('LOGIN_ERROR','invalid_input'); exit(0);
+}
+
+
+// Cargar config desde /etc/asterisk/teleflow_agi.conf
+$_TF_CFG = @parse_ini_file("/etc/asterisk/teleflow_agi.conf");
+if (!$_TF_CFG) { fwrite(STDERR, "teleflow_agi.conf missing or unreadable
+"); exit(0); }
+foreach (["DB_HOST","DB_USER","DB_PASS","AMI_HOST","AMI_PORT","AMI_USER","AMI_PASS"] as $_k) {
+    if (!isset($_TF_CFG[$_k])) { fwrite(STDERR, "teleflow_agi.conf falta $_k
+"); exit(0); }
+}
+$DB_HOST = $_TF_CFG["DB_HOST"]; $DB_USER = $_TF_CFG["DB_USER"]; $DB_PASS = $_TF_CFG["DB_PASS"];
+try {
+    $cc = new PDO("mysql:host=$DB_HOST;dbname=call_center;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+} catch (Exception $e) {
+    agi_log("DB fail: ".$e->getMessage()); agi_set('LOGIN_OK','0'); agi_set('LOGIN_ERROR','db_fail'); exit(0);
+}
+
+// VALIDATE — siempre valida primero
+$st = $cc->prepare("SELECT id, type, number, name, password FROM agent WHERE number = ? AND estatus = 'A'");
+$st->execute([$agent_number]);
+$ag = $st->fetch(PDO::FETCH_ASSOC);
+if (!$ag) { agi_log("not_found"); agi_set('LOGIN_OK','0'); agi_set('LOGIN_ERROR','not_found'); exit(0); }
+if ($ag['password'] !== $pass) { agi_log("wrong_pass"); agi_set('LOGIN_OK','0'); agi_set('LOGIN_ERROR','wrong_pass'); exit(0); }
+
+// Modo 'validate' termina acá retornando LOGIN_OK=1
+if ($mode === 'validate') {
+    agi_set('LOGIN_OK','1');
+    agi_set('LOGIN_AGENT_NAME', preg_replace('/[^a-zA-Z0-9 _-]/','',$ag['name']));
+    agi_log("validate OK");
+    exit(0);
+}
+
+// COMMIT — hacer QueueAdd. Corre en h-extension, post-hangup, canal libre.
+$queues = [];
+try {
+    $st = $tf->prepare("SELECT queue, penalty FROM agent_queue_pref WHERE agent_number = ?");
+    $st->execute([$agent_number]);
+    $queues = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {}
+if (empty($queues)) {
+    try {
+        $rows = $cc->query("SELECT DISTINCT queue FROM queue_call_entry WHERE estatus='A'")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($rows as $q) $queues[] = ['queue'=>$q,'penalty'=>0];
+    } catch (Exception $e) {}
+}
+if (empty($queues)) { agi_log("no_queues"); agi_set('LOGIN_OK','0'); exit(0); }
+
+// AMI socket
+$AMI = $_TF_CFG["AMI_HOST"]; $AP = (int)$_TF_CFG["AMI_PORT"]; $AU = $_TF_CFG["AMI_USER"]; $APASS = $_TF_CFG["AMI_PASS"];
+$ami=@fsockopen($AMI,$AP,$en,$es,3);
+if (!$ami) { agi_log("ami_fail"); exit(0); }
+stream_set_timeout($ami,3);
+fgets($ami);
+fwrite($ami, "Action: Login\r\nUsername: $AU\r\nSecret: $APASS\r\nEvents: off\r\n\r\n");
+$st=microtime(true); $r=''; while(microtime(true)-$st<2){$l=fgets($ami);if(!$l)break;$r.=$l;if(strpos($r,'Authentication accepted')!==false)break;}
+
+// Sweep
+fwrite($ami, "Action: Command\r\nCommand: queue show\r\n\r\n");
+$qshow=''; $st=microtime(true);
+while(microtime(true)-$st<3){$l=fgets($ami);if($l===false)break;if(strpos($l,'--END COMMAND--')!==false)break;if(stripos($l,'Output:')===0)$qshow.=substr($l,strpos($l,':')+2);}
+$cur_q=null; $previous=[];
+foreach (preg_split('/\n/', $qshow) as $line) {
+    if (preg_match('/^\s*(\d+)\s+has\s+/', $line, $m)) $cur_q = $m[1];
+    elseif ($cur_q && (
+        strpos($line, "Agent/$agent_number ") !== false ||
+        strpos($line, "SIP/$callback_ext ") !== false ||
+        preg_match('/Agent\/' . preg_quote($agent_number,'/') . '\s+\(/', $line)
+    )) $previous[] = $cur_q;
+}
+foreach (array_unique($previous) as $pq) {
+    fwrite($ami, "Action: QueueRemove\r\nQueue: $pq\r\nInterface: SIP/$callback_ext\r\n\r\n"); usleep(80000);
+    fwrite($ami, "Action: QueueRemove\r\nQueue: $pq\r\nInterface: Agent/$agent_number\r\n\r\n"); usleep(80000);
+}
+
+// QueueAdd con MemberName Agent/N
+$added=[];
+foreach ($queues as $q) {
+    $qid=$q['queue']; $pen=(int)$q['penalty'];
+    $msg  = "Action: QueueAdd\r\n";
+    $msg .= "Queue: $qid\r\n";
+    $msg .= "Interface: SIP/$callback_ext\r\n";
+    $msg .= "MemberName: Agent/$agent_number\r\n";
+    $msg .= "StateInterface: SIP/$callback_ext\r\n";
+    $msg .= "Penalty: $pen\r\n\r\n";
+    fwrite($ami, $msg);
+    $st=microtime(true); $resp='';
+    while(microtime(true)-$st<1){$l=fgets($ami);if($l===false)break;$resp.=$l;if(trim($l)==='')break;}
+    if (strpos($resp,'Response: Success')!==false || strpos($resp,'Added')!==false) $added[]=$qid;
+}
+
+// Persistir session
+try {
+    $sid = uniqid('s_',true); $today = date('Y-m-d');
+    $tf->prepare("INSERT INTO agent_sessions (session_id, agent_ext, login_time, shift_date, status) VALUES (?, ?, NOW(), ?, 'ACTIVE')")
+       ->execute([$sid, $callback_ext, $today]);
+} catch (Exception $e) {}
+
+// Invalidar cache TeleFlow
+@unlink('/tmp/teleflow_queue_show.txt');
+
+// Notificar a TeleFlow para refresh inmediato del supervisor
+@file_get_contents('http://10.1.1.192/api/notify.php?event=agent_login&agent='.urlencode($agent_number).'&ext='.urlencode($callback_ext).'&queues='.urlencode(implode(',',$added)));
+
+fwrite($ami, "Action: Logoff\r\n\r\n");
+fclose($ami);
+
+agi_log("commit OK: $agent_number → ext $callback_ext, ".count($added)." colas: ".implode(',',$added));
+exit(0);

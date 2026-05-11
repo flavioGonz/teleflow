@@ -1,0 +1,9 @@
+; TeleFlow — config para AGIs en el PBX
+; Copiar a /etc/asterisk/teleflow_agi.conf con permisos 600 asterisk:asterisk
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASS=CHANGEME
+AMI_HOST=127.0.0.1
+AMI_PORT=5038
+AMI_USER=admin
+AMI_PASS=CHANGEME

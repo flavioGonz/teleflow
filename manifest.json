@@ -1,16 +1,21 @@
 {
-  "name": "Teleflow Pro",
-  "short_name": "Teleflow",
-  "start_url": "/teleflow/",
+  "name": "TeleFlow Pro · Horizon",
+  "short_name": "TeleFlow",
+  "description": "Plataforma de control y operación de PBX/Callcenter",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#030406",
+  "orientation": "any",
+  "background_color": "#0a0a0f",
   "theme_color": "#8B5CF6",
+  "categories": ["business", "productivity"],
   "icons": [
-    {
-      "src": "icon-192.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Llamadas en Vivo", "url": "/?view=vivo",       "icons": [{ "src": "icon-192.svg", "sizes": "192x192" }] },
+    { "name": "Hotdesking",       "url": "/?view=hotdesking", "icons": [{ "src": "icon-192.svg", "sizes": "192x192" }] },
+    { "name": "Reportes",         "url": "/?view=reportes",   "icons": [{ "src": "icon-192.svg", "sizes": "192x192" }] }
   ]
 }
