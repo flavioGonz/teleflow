@@ -190,23 +190,9 @@ ami.on('managerevent', async (evt) => {
             const paused = (evt.paused === '1' || evt.paused === 1 || evt.paused === true);
             m.paused = paused;
             io.emit('queue_update', { type: 'pause', queue, member, paused });
-            // Persistir a teleflow.agent_pauses
-            const agentExt = extFromChannel(member);
-            if (agentExt) {
-                if (paused) {
-                    const reason = evt.pausereason || evt.reason || 'OTHER';
-                    await dbExec(
-                        "INSERT INTO agent_pauses (agent_ext, pause_type_code, pause_start) VALUES (?, ?, NOW())",
-                        [agentExt, String(reason).toUpperCase().substring(0,20)]
-                    );
-                } else {
-                    // Cerrar pausa activa
-                    await dbExec(
-                        "UPDATE agent_pauses SET pause_end = NOW(), duration_seconds = TIMESTAMPDIFF(SECOND, pause_start, NOW()) WHERE agent_ext = ? AND pause_end IS NULL ORDER BY pause_start DESC LIMIT 1",
-                        [agentExt]
-                    );
-                }
-            }
+            // HORIZON: la persistencia en agent_pauses la hace agent_pause_commit.php / agent_unpause_commit.php
+            // (porque la action QueuePause con Reason no propaga el motivo al event QueueMemberPause).
+            // El hub queda como broadcaster, sin doble-INSERT.
             break;
         }
         case 'queuememberstatus':
