@@ -1231,8 +1231,9 @@ function ViewDashboard({ data }) {
                     if (j.status==='ok') {
                         const ags = j.agents||[];
                         setAgentsLogged(ags.filter(a=>a.logged_in).length);
-                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call).length);
+                        setAgentsAvail(ags.filter(a=>a.logged_in && !a.in_call && !a.paused).length);
                         setAgentsBusy(ags.filter(a=>a.in_call).length);
+                        // setAgentsPaused podría agregarse si hay estado para ello
                     }
                 }).catch(()=>{});
         };
@@ -7127,14 +7128,16 @@ function ViewHotdesking({ data, toast }) {
     });
 
     const totalLogged = enriched.filter(a => a.logged_in).length;
-    const totalAvail  = enriched.filter(a => a.logged_in && !a.in_call).length;
+    const totalAvail  = enriched.filter(a => a.logged_in && !a.in_call && !a.paused).length;
     const totalBusy   = enriched.filter(a => a.in_call).length;
+    const totalPaused = enriched.filter(a => a.paused).length;
     const totalOff    = enriched.filter(a => !a.logged_in).length;
 
     const filtered = enriched.filter(a => {
         if (statusFilter==='logged' && !a.logged_in) return false;
-        if (statusFilter==='available' && (!a.logged_in || a.in_call)) return false;
+        if (statusFilter==='available' && (!a.logged_in || a.in_call || a.paused)) return false;
         if (statusFilter==='busy' && !a.in_call) return false;
+        if (statusFilter==='paused' && !a.paused) return false;
         if (statusFilter==='offline' && a.logged_in) return false;
         if (!filter) return true;
         const q = filter.toLowerCase();
@@ -7206,6 +7209,7 @@ function ViewHotdesking({ data, toast }) {
                 <FilterChip value="all" label="Todos" count={agents.length} color="#8b5cf6"/>
                 <FilterChip value="available" label="Disponibles" count={totalAvail} color="#22c55e"/>
                 <FilterChip value="busy" label="En Llamada" count={totalBusy} color="#ef4444"/>
+                <FilterChip value="paused" label="En Pausa" count={totalPaused} color="#f59e0b"/>
                 <FilterChip value="logged" label="Logueados" count={totalLogged} color="#3b82f6"/>
                 <FilterChip value="offline" label="Offline" count={totalOff} color="#6b7280"/>
                 <div style={{position:'relative',width:220}}>
@@ -7232,11 +7236,13 @@ function ViewHotdesking({ data, toast }) {
             {viewMode==='wallboard' && (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:10}}>
                     {filtered.map(a => {
-                        const sc = a.in_call ? '#ef4444' : (a.logged_in ? '#22c55e' : '#6b7280');
-                        const lbl = a.in_call ? 'EN LLAMADA' : (a.logged_in ? 'DISPONIBLE' : 'OFFLINE');
+                        // HORIZON: prioridad de estado — in_call > paused > logged_in > offline
+                        const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : (a.logged_in ? '#22c55e' : '#6b7280'));
+                        const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : (a.logged_in ? 'DISPONIBLE' : 'OFFLINE'));
                         const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
+                        const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
                         return (
-                        <div key={a.id} className="glass" style={{padding:0,borderRadius:14,overflow:'hidden',border:`1px solid ${sc}33`,boxShadow:a.in_call?`0 0 24px ${sc}33`:(a.logged_in?`0 4px 14px ${sc}22`:'none'),transition:'all 0.3s',cursor:'pointer'}} onClick={()=>setEditing(a)}>
+                        <div key={a.id} className="glass" style={{padding:0,borderRadius:14,overflow:'hidden',border:`1px solid ${sc}33`,boxShadow:a.in_call||a.paused?`0 0 24px ${sc}33`:(a.logged_in?`0 4px 14px ${sc}22`:'none'),transition:'all 0.3s',cursor:'pointer'}} onClick={()=>setEditing(a)}>
                             {/* Top neon bar */}
                             <div style={{height:3,background:`linear-gradient(90deg, ${sc}, ${sc}66)`,boxShadow:`0 0 10px ${sc}88`}}/>
                             <div style={{padding:'12px 12px 10px',position:'relative'}}>
@@ -7247,7 +7253,8 @@ function ViewHotdesking({ data, toast }) {
                                     <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative',boxShadow:`0 4px 12px ${sc}66`}}>
                                         {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
                                         {a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
-                                        {a.logged_in && !a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'2px solid var(--surface)'}}/>}
+                                        {a.paused && !a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:13,height:13,borderRadius:'50%',background:a.pause_color||'#f59e0b',border:'2px solid var(--surface)',display:'flex',alignItems:'center',justifyContent:'center'}}><span className="material-icons-round" style={{fontSize:8,color:'#fff'}}>pause</span></span>}
+                                        {a.logged_in && !a.in_call && !a.paused && <span style={{position:'absolute',bottom:-2,right:-2,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'2px solid var(--surface)'}}/>}
                                     </div>
                                     <div style={{flex:1,minWidth:0}}>
                                         <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
@@ -7256,7 +7263,7 @@ function ViewHotdesking({ data, toast }) {
                                 </div>
 
                                 <div style={{fontSize:9,fontWeight:900,padding:'4px 8px',borderRadius:5,background:`${sc}22`,color:sc,textAlign:'center',marginBottom:8,letterSpacing:'.1em'}}>
-                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}
+                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}
                                 </div>
 
                                 {a.queues.length > 0 && (

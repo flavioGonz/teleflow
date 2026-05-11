@@ -226,11 +226,45 @@ try {
                 if ($ext && !$by_agent_ext[$agent_num]['extension']) $by_agent_ext[$agent_num]['extension'] = $ext;
                 if (!in_array($queue, $by_agent_ext[$agent_num]['queues'])) $by_agent_ext[$agent_num]['queues'][] = $queue;
             }
+            // HORIZON: cargar pausas activas (con motivo y duracion) desde agent_pauses + pause_types
+            $active_pauses = [];
+            try {
+                $st = $tf->query("
+                    SELECT ap.agent_ext, ap.agent_number, ap.pause_type_code, ap.pause_start,
+                           pt.label AS pause_label, pt.color AS pause_color,
+                           TIMESTAMPDIFF(SECOND, ap.pause_start, NOW()) AS pause_seconds
+                    FROM agent_pauses ap
+                    LEFT JOIN pause_types pt ON pt.code = ap.pause_type_code
+                    WHERE ap.pause_end IS NULL
+                    ORDER BY ap.pause_start DESC
+                ");
+                foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $p) {
+                    // Indexar por agent_number Y agent_ext (la pausa puede tener cualquiera)
+                    $key = $p['agent_number'] ?: $p['agent_ext'];
+                    if ($key && !isset($active_pauses[$key])) $active_pauses[$key] = $p;
+                    if ($p['agent_ext'] && !isset($active_pauses[$p['agent_ext']])) $active_pauses[$p['agent_ext']] = $p;
+                }
+            } catch (Exception $e) {}
+
             foreach ($rows as &$r) {
                 $info = $by_agent_ext[$r['number']] ?? null;
                 $r['logged_in'] = !empty($info);
                 $r['extension'] = $info['extension'] ?? null;
                 $r['queues']    = $info['queues'] ?? [];
+
+                // HORIZON: estado pausa — buscar por number, luego por extension
+                $p = $active_pauses[$r['number']] ?? null;
+                if (!$p && $r['extension']) $p = $active_pauses[$r['extension']] ?? null;
+                if ($p) {
+                    $r['paused']           = true;
+                    $r['pause_type_code']  = $p['pause_type_code'];
+                    $r['pause_label']      = $p['pause_label'] ?: $p['pause_type_code'];
+                    $r['pause_color']      = $p['pause_color'] ?: '#f59e0b';
+                    $r['pause_start']      = $p['pause_start'];
+                    $r['pause_seconds']    = (int)$p['pause_seconds'];
+                } else {
+                    $r['paused'] = false;
+                }
             }
             echo json_encode(['status'=>'ok','agents'=>$rows]);
             break;
