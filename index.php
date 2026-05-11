@@ -298,15 +298,20 @@ header('Expires: 0');
         .hzn-login-root {
             position: fixed; inset: 0;
             display: grid;
-            grid-template-columns: 1fr 480px;
-            background: var(--horizon-black);
+            grid-template-columns: 1fr 520px;   /* form izquierda (1fr) · imagen derecha (520px) */
+            background: #fff;
             color: var(--horizon-black);
             font-family: 'Inter', sans-serif;
             overflow: hidden;
         }
+        /* Flip: imagen a la DERECHA, form a la IZQUIERDA */
+        .hzn-login-form-wrap { order: 1; grid-column: 1; }
+        .hzn-login-hero      { order: 2; grid-column: 2; }
+
         @media (max-width: 900px) {
             .hzn-login-root { grid-template-columns: 1fr; }
             .hzn-login-hero { display: none; }
+            .hzn-login-form-wrap { grid-column: 1; }
         }
 
         /* ── HERO (left) ── */
@@ -335,7 +340,7 @@ header('Expires: 0');
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 50px 60px;
+            padding: 40px 36px;
             color: #fff;
         }
         .hzn-logo {
@@ -349,7 +354,7 @@ header('Expires: 0');
             box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 0 4px rgba(17,179,40,0.18);
         }
         .hzn-logo-text {
-            font-size: 26px; font-weight: 900;
+            font-size: 22px; font-weight: 900;
             letter-spacing: 0.08em;
             color: #fff;
             line-height: 1;
@@ -363,14 +368,14 @@ header('Expires: 0');
         }
         .hzn-login-tagline { max-width: 520px; }
         .hzn-login-tagline h1 {
-            font-size: 42px; font-weight: 800;
+            font-size: 30px; font-weight: 800;
             letter-spacing: -0.02em;
             line-height: 1.1;
             margin: 0 0 14px;
             color: #fff;
         }
         .hzn-login-tagline p {
-            font-size: 15px; font-weight: 500;
+            font-size: 13.5px; font-weight: 500;
             line-height: 1.6;
             color: rgba(255,255,255,0.78);
             margin: 0;
@@ -396,7 +401,7 @@ header('Expires: 0');
         }
         .hzn-login-form-inner {
             width: 100%;
-            max-width: 380px;
+            max-width: 420px;
         }
         .hzn-login-mobile-logo {
             display: none;
@@ -1714,7 +1719,7 @@ function Login({ onLogin }) {
 
     return (
         <div className="hzn-login-root">
-            {/* ───────── LEFT: imagen + overlay verde ───────── */}
+            {/* ───────── RIGHT: imagen Horizon ───────── */}
             <div className="hzn-login-hero">
                 <div className="hzn-login-hero-image" style={{backgroundImage:"url('assets/login-bg.jpg')"}}/>
                 <div className="hzn-login-hero-overlay"/>
@@ -1738,7 +1743,7 @@ function Login({ onLogin }) {
                 </div>
             </div>
 
-            {/* ───────── RIGHT: form ───────── */}
+            {/* ───────── LEFT: form (área dominante) ───────── */}
             <div className="hzn-login-form-wrap">
                 <div className="hzn-login-form-inner">
                     {/* Logo mobile (visible solo en mobile) */}
