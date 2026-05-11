@@ -911,17 +911,18 @@ header('Expires: 0');
         /* Selects same as inputs */
         select.input-tf option { background: var(--surface); color: var(--text); }
         .btn-primary {
-            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-            color: white;
-            font-weight: 700;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            font-weight: 600;
             border: none;
             cursor: pointer;
-            transition: all .3s;
+            transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
             position: relative;
-            overflow: hidden;
+            border-radius: var(--radius);
         }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 40px rgba(139,92,246,0.45); }
-        .btn-primary::after { content:''; position:absolute; inset:0; background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent); }
+        .btn-primary:hover { background: color-mix(in srgb, var(--primary) 90%, transparent); box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent); }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ── LAYOUT ── */
         #app { display:flex; height:100vh; }
@@ -1725,9 +1726,28 @@ function RtspPreviewCard({ preview, onClose }) {
     const videoRef = useRef(null);
     const [error, setError] = useState(null);
     const [muted, setMuted] = useState(true);
+    const [resolvedUrl, setResolvedUrl] = useState(null);
+    const [resolving, setResolving] = useState(false);
 
-    // Detectar tipo de stream
-    const url = preview.url || '';
+    // Si la URL original es rtsp://, pedir al backend proxy que la convierta a HLS
+    useEffect(() => {
+        const u = preview.url || '';
+        const isRtspNative = /^rtsps?:\/\//i.test(u);
+        if (isRtspNative && preview.ext) {
+            setResolving(true);
+            fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(preview.ext)}`, { credentials: 'include' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'ok' && d.hls_url) setResolvedUrl(d.hls_url);
+                    else setError(d.message || 'Proxy RTSP no disponible');
+                })
+                .catch(() => setError('Error al contactar proxy RTSP'))
+                .finally(() => setResolving(false));
+        }
+    }, [preview.url, preview.ext]);
+
+    // Detectar tipo de stream — usar resolvedUrl si existe (RTSP convertido a HLS), sino la original
+    const url = resolvedUrl || preview.url || '';
     const isHls = /\.m3u8(\?|$)/i.test(url);
     const isMp4 = /\.(mp4|webm|ogv)(\?|$)/i.test(url);
     const isMjpeg = /\.(mjpg|mjpeg|cgi)(\?|$)/i.test(url) || /\/snap|\/mjpg|action=stream/i.test(url);
@@ -1825,14 +1845,20 @@ function RtspPreviewCard({ preview, onClose }) {
                         onError={()=>setError('Stream MJPEG no disponible')}
                         style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                 )}
-                {!error && isRtsp && (
+                {!error && isRtsp && !resolving && (
                     <div style={{textAlign:'center', color:'#fcd34d', padding:20, fontSize:11}}>
                         <span className="material-icons-round" style={{fontSize:32, display:'block', marginBottom:6, color:'#f59e0b'}}>warning</span>
-                        <div style={{fontWeight:800, marginBottom:4}}>RTSP requiere proxy</div>
+                        <div style={{fontWeight:800, marginBottom:4}}>Stream RTSP no disponible</div>
                         <div style={{color:'rgba(252,211,77,0.7)', fontSize:10, lineHeight:1.4}}>
-                            Los browsers no reproducen RTSP nativamente.<br/>
-                            Configurá un transcoder (FFmpeg/MediaMTX) a HLS.
+                            El proxy MediaMTX no pudo conectarse a la cámara.<br/>
+                            Verificá que rtsp_url sea accesible.
                         </div>
+                    </div>
+                )}
+                {resolving && (
+                    <div style={{textAlign:'center', color:'rgba(255,255,255,0.7)', padding:20, fontSize:11}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:28, display:'block', marginBottom:6, color:'var(--horizon-green)'}}>autorenew</span>
+                        Conectando al stream…
                     </div>
                 )}
                 {!error && !isHls && !isMp4 && !isMjpeg && !isRtsp && isHttp && (
