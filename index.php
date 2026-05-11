@@ -298,7 +298,7 @@ header('Expires: 0');
         .hzn-login-root {
             position: fixed; inset: 0;
             display: grid;
-            grid-template-columns: 1fr 2fr;   /* form 1/3 (izquierda) · imagen 2/3 (derecha) */
+            grid-template-columns: 2fr 4fr;   /* form 2/6 (izquierda) · imagen 4/6 (derecha) */
             background: #fff;
             color: var(--horizon-black);
             font-family: 'Inter', sans-serif;
