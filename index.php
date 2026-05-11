@@ -6476,6 +6476,7 @@ function ViewColas({ toast, onReport, data }) {
     const [logoutModalQ, setLogoutModalQ] = useState(null);
     const [queueAgentsModalQ, setQueueAgentsModalQ] = useState(null);
     const [viewMode, setViewMode] = useState(localStorage.getItem('tf_q_view') || 'table');
+    const [kioskoOpen, setKioskoOpen] = useState(false);
     const extensions = data?.pbx?.extensions || [];
     const queues = data?.pbx?.queues || [];
     const liveCalls = data?.pbx?.live_calls || [];
@@ -6496,6 +6497,8 @@ function ViewColas({ toast, onReport, data }) {
                 <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}} onClick={()=>setDrawer('new')}>
                     <span className="material-icons-round" style={{fontSize:16}}>add</span>Nueva Cola
                 </button>
+                <ActionIconButton icon="fullscreen" label="Modo Kiosko — pantalla completa" tone="primary" size={38}
+                    onClick={()=>setKioskoOpen(true)}/>
             </PageActions>
             {queues.length===0&&<div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
                 <span className="material-icons-round" style={{fontSize:48,display:'block',marginBottom:12,color:'#374151'}}>queue</span>
