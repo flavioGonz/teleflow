@@ -524,6 +524,8 @@ if ($action === 'get_full_data') {
         if (stripos($chan, 'Local/') === 0) continue;
         $context = $f[1] ?? '';
         $exten   = $f[2] ?? '';
+        // HORIZON: Skip feature codes (*7700 login, *7702 pausa, *XXXX) — no son llamadas reales del agente
+        if (substr($exten, 0, 1) === '*') continue;
         $state   = $f[4] ?? '';
         $app     = $f[5] ?? '';
         $data    = $f[6] ?? '';
