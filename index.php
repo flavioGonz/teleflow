@@ -164,6 +164,27 @@ header('Expires: 0');
     @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
     .animate-slide-in { animation: slide-in-right 0.25s ease-out; }
     .animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+    /* HORIZON: vibrate ringing — cards de agente/extension con llamada entrante */
+    @keyframes hzn-vibrate {
+        0%, 100% { transform: translate(0, 0); }
+        10% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+        20% { transform: translate(2px, 1px) rotate(0.5deg); }
+        30% { transform: translate(-2px, 1px) rotate(-0.3deg); }
+        40% { transform: translate(2px, -1px) rotate(0.3deg); }
+        50% { transform: translate(-1px, 0) rotate(-0.2deg); }
+        60% { transform: translate(1px, 0) rotate(0.2deg); }
+        70% { transform: translate(-1px, 1px); }
+        80% { transform: translate(1px, -1px); }
+    }
+    @keyframes hzn-ring-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55), 0 0 0 0 rgba(239,68,68,0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(239,68,68,0.0), 0 0 24px 4px rgba(239,68,68,0.55); }
+    }
+    .hzn-ringing {
+        animation: hzn-vibrate 0.5s ease-in-out infinite, hzn-ring-glow 1.5s ease-in-out infinite;
+        border-color: #ef4444 !important;
+    }
     /* Body: heredar background/foreground del token */
     body { background-color: var(--background); color: var(--foreground); }
     
@@ -8489,62 +8510,165 @@ function ViewHotdesking({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* WALLBOARD VIEW (default) */}
-            {viewMode==='wallboard' && (
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:10}}>
-                    {filtered.map(a => {
-                        // HORIZON: prioridad de estado — in_call > paused > logged_in > offline
-                        const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : (a.logged_in ? '#22c55e' : '#6b7280'));
-                        const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : (a.logged_in ? 'DISPONIBLE' : 'OFFLINE'));
-                        const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
-                        const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
-                        return (
+            {/* WALLBOARD VIEW (default) — split logueados arriba / offline abajo */}
+            {viewMode==='wallboard' && (() => {
+                const loggedAgents  = filtered.filter(a => a.logged_in);
+                const offlineAgents = filtered.filter(a => !a.logged_in);
+
+                // detect ringing per agent (cualquier llamada en estado Ringing dirigida a su ext o a alguna de sus colas)
+                const isAgentRinging = (a) => {
+                    if (!liveCalls?.length) return false;
+                    const myQueues = (a.queues || []).map(q => String(q.queue || q));
+                    return liveCalls.some(c => {
+                        const ringing = /Ring/i.test(c.state || '');
+                        if (!ringing) return false;
+                        return String(c.ext) === String(a.extension) ||
+                               String(c.dest) === String(a.extension) ||
+                               myQueues.includes(String(c.dest));
+                    });
+                };
+
+                // avatar helper
+                const avatarFor = (a) => {
+                    const ext = exts.find(e => e.ext === a.extension);
+                    if (ext?.avatar && !ext.avatar.includes('ui-avatars')) return ext.avatar;
+                    const name = encodeURIComponent(a.name || a.number || 'A');
+                    return `https://ui-avatars.com/api/?name=${name}&background=11B328&color=fff&size=80&bold=true&format=svg`;
+                };
+
+                const renderLogged = (a) => {
+                    const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : '#11B328');
+                    const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : 'DISPONIBLE');
+                    const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
+                    const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
+                    const ringing = !a.in_call && !a.paused && isAgentRinging(a);
+                    return (
                         <div
                             key={a.id}
                             onClick={()=>setEditing(a)}
-                            className="rounded-lg border border-border bg-card text-card-foreground overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
-                            style={{borderColor:'var(--border)'}}
+                            className={cn(
+                                "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
+                                ringing && "hzn-ringing"
+                            )}
+                            style={{borderColor:'var(--border)', width:200}}
                         >
-                            {/* Top accent stripe (subtle, status-coloured) */}
-                            <div style={{height:2,background:sc,opacity:a.logged_in?1:0.35}}/>
-                            <div style={{padding:'14px 14px 12px',position:'relative'}}>
-                                
-                                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,position:'relative'}}>
-                                    <div style={{width:42,height:42,borderRadius:'50%',background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,position:'relative',boxShadow:`0 4px 12px ${sc}66`}}>
+                            <div style={{height:3, background:sc}}/>
+                            <div style={{padding:'14px 14px 12px', textAlign:'center'}}>
+                                {/* Avatar centrado y grande */}
+                                <div style={{position:'relative', width:64, height:64, margin:'0 auto 10px'}}>
+                                    <img
+                                        src={avatarFor(a)}
+                                        alt={a.name}
+                                        onError={(e)=>{e.target.style.display='none'; const next=e.target.nextSibling; if(next) next.style.display='flex';}}
+                                        style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 14px ${sc}55`}}
+                                    />
+                                    <div style={{display:'none', width:64, height:64, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:18, fontWeight:900, border:`2px solid ${sc}`}}>
                                         {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
-                                        {a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#ef4444',border:'2px solid var(--surface)',animation:'pulse-ring 1.5s infinite'}}/>}
-                                        {a.paused && !a.in_call && <span style={{position:'absolute',bottom:-2,right:-2,width:13,height:13,borderRadius:'50%',background:a.pause_color||'#f59e0b',border:'2px solid var(--surface)',display:'flex',alignItems:'center',justifyContent:'center'}}><span className="material-icons-round" style={{fontSize:8,color:'#fff'}}>pause</span></span>}
-                                        {a.logged_in && !a.in_call && !a.paused && <span style={{position:'absolute',bottom:-2,right:-2,width:12,height:12,borderRadius:'50%',background:'#22c55e',border:'2px solid var(--surface)'}}/>}
                                     </div>
-                                    <div style={{flex:1,minWidth:0}}>
-                                        <div style={{fontSize:12,fontWeight:800,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
-                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace',fontWeight:700}}>#{a.number}{a.extension?` · ${a.extension}`:''}</div>
-                                    </div>
+                                    {/* Indicador estado abajo a la derecha */}
+                                    <span style={{position:'absolute', bottom:0, right:6, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:a.in_call?'pulse-ring 1.5s infinite':''}}/>
                                 </div>
 
-                                <div style={{fontSize:9,fontWeight:900,padding:'4px 8px',borderRadius:5,background:`${sc}22`,color:sc,textAlign:'center',marginBottom:8,letterSpacing:'.1em'}}>
-                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}
+                                {/* Nombre destacado */}
+                                <div style={{fontSize:14, fontWeight:800, color:'var(--text)', lineHeight:1.15, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
+
+                                {/* Número de agente — bien grande y destacado */}
+                                <div style={{fontSize:22, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.5px', marginBottom:6}}>#{a.number}</div>
+
+                                {/* Extensión */}
+                                {a.extension && <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace', fontWeight:700, marginBottom:8}}>EXT {a.extension}</div>}
+
+                                {/* Estado badge */}
+                                <div style={{fontSize:9, fontWeight:900, padding:'4px 10px', borderRadius:6, background:`${sc}22`, color:sc, marginBottom:8, letterSpacing:'.1em', display:'inline-block'}}>
+                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}{ringing ? ' · LLAMADA ENTRANTE' : ''}
                                 </div>
 
+                                {/* Colas asignadas — destacadas */}
                                 {a.queues.length > 0 && (
-                                    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
-                                        {a.queues.slice(0,4).map((q,i)=>(<span key={i} style={{fontSize:8,padding:'2px 6px',borderRadius:4,background:'rgba(139,92,246,0.15)',color:'#c4b5fd',fontFamily:'monospace',fontWeight:800}}>Q{q.queue||q}</span>))}
-                                        {a.queues.length>4 && <span style={{fontSize:8,color:'var(--muted)'}}>+{a.queues.length-4}</span>}
+                                    <div style={{display:'flex', flexWrap:'wrap', gap:4, justifyContent:'center', marginBottom:10}}>
+                                        {a.queues.slice(0,4).map((q,i) => (
+                                            <span key={i} style={{
+                                                fontSize:11, padding:'3px 9px', borderRadius:6,
+                                                background:'rgba(17,179,40,0.15)',
+                                                color:'var(--horizon-green)',
+                                                fontFamily:'monospace', fontWeight:900,
+                                                border:'1px solid rgba(17,179,40,0.3)'
+                                            }}>Q{q.queue||q}</span>
+                                        ))}
+                                        {a.queues.length>4 && <span style={{fontSize:10, color:'var(--muted)', alignSelf:'center'}}>+{a.queues.length-4}</span>}
                                     </div>
                                 )}
 
-                                <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                                    {a.logged_in 
-                                        ? <button onClick={()=>logoutAgent(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(239,68,68,0.4)',background:'rgba(239,68,68,0.1)',color:'#ef4444',fontWeight:800,fontSize:10,cursor:'pointer'}}>Logout</button>
-                                        : <button onClick={()=>setLoginAgentTarget(a)} style={{flex:1,padding:'5px',borderRadius:6,border:'1px solid rgba(34,197,94,0.4)',background:'rgba(34,197,94,0.1)',color:'#22c55e',fontWeight:800,fontSize:10,cursor:'pointer'}}>Login</button>}
-                                    <button onClick={()=>setEditing(a)} style={{padding:'5px 9px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:10,cursor:'pointer'}}><span className="material-icons-round" style={{fontSize:13}}>edit</span></button>
+                                {/* Action buttons */}
+                                <div style={{display:'flex', gap:4}} onClick={e=>e.stopPropagation()}>
+                                    <button onClick={()=>logoutAgent(a)} className="flex-1 rounded-md border border-destructive/40 bg-destructive/10 text-destructive font-bold py-1 text-[10px] cursor-pointer hover:bg-destructive/20 transition-colors">Logout</button>
+                                    <button onClick={()=>setEditing(a)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2 py-1 text-[10px] cursor-pointer hover:bg-accent transition-colors">
+                                        <span className="material-icons-round" style={{fontSize:13}}>edit</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        );
-                    })}
-                </div>
-            )}
+                    );
+                };
+
+                const renderOffline = (a) => (
+                    <div
+                        key={a.id}
+                        onClick={()=>setEditing(a)}
+                        className="rounded-lg border border-border bg-card text-card-foreground overflow-hidden cursor-pointer transition-colors hover:bg-muted/40"
+                        style={{opacity:0.7}}
+                    >
+                        <div style={{padding:'10px 12px', display:'flex', alignItems:'center', gap:10}}>
+                            <div style={{width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg, #6b7280, #4b5563)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:11, fontWeight:900, flexShrink:0}}>
+                                {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                            </div>
+                            <div style={{flex:1, minWidth:0}}>
+                                <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
+                                <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{a.number}</div>
+                            </div>
+                            <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}} className="rounded-md border border-success/40 bg-success/10 text-success-foreground px-3 py-1 text-[10px] font-bold cursor-pointer hover:bg-success/20" style={{color:'var(--horizon-green)', borderColor:'rgba(17,179,40,0.4)', background:'rgba(17,179,40,0.1)'}}>Login</button>
+                        </div>
+                    </div>
+                );
+
+                return (
+                    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+                        {/* SECTION: Agentes logueados — destacados en su propia sección, centrados */}
+                        {loggedAgents.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, justifyContent:'center'}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{loggedAgents.length} agente{loggedAgents.length!==1?'s':''} logueado{loggedAgents.length!==1?'s':''}</span>
+                                </div>
+                                <div style={{display:'flex', flexWrap:'wrap', gap:14, justifyContent:'center'}}>
+                                    {loggedAgents.map(renderLogged)}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* SECTION: Agentes offline — compactos en grilla normal */}
+                        {offlineAgents.length > 0 && (
+                            <div>
+                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                    <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                    <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} offline</span>
+                                </div>
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:8}}>
+                                    {offlineAgents.map(renderOffline)}
+                                </div>
+                            </div>
+                        )}
+
+                        {loggedAgents.length === 0 && offlineAgents.length === 0 && (
+                            <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
+                                <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
+                                <div className="text-sm font-bold">Sin agentes para mostrar</div>
+                                <div className="text-xs mt-1">Ajustá los filtros</div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* TABLE VIEW */}
             {viewMode==='table' && (
