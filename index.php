@@ -1706,6 +1706,13 @@ function Toaster() {
 function WaveformPlayer({ src, filename, meta, compact = false }) {
     const containerRef = useRef(null);
     const wsRef = useRef(null);
+    const fallbackAudioRef = useRef(null);
+    // Forzar mp3 — más liviano y compatible con wavesurfer que el WAV 8kHz GSM de Asterisk
+    const playSrc = useMemo(() => {
+        if (!src) return '';
+        const sep = src.includes('?') ? '&' : '?';
+        return /format=/.test(src) ? src : `${src}${sep}format=mp3`;
+    }, [src]);
     const [ready, setReady] = useState(false);
     const [playing, setPlaying] = useState(false);
     const [cur, setCur] = useState(0);
@@ -1713,14 +1720,14 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
     const [speed, setSpeed] = useState(1);
     const [volume, setVolume] = useState(1);
     const [error, setError] = useState(null);
+    const [fallback, setFallback] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
-        setReady(false); setError(null); setCur(0); setDur(0); setPlaying(false);
+        setReady(false); setError(null); setCur(0); setDur(0); setPlaying(false); setFallback(false);
 
         const setup = () => {
             if (cancelled || !window.WaveSurfer || !containerRef.current) return;
-            // Destruir player previo
             if (wsRef.current) { try { wsRef.current.destroy(); } catch(e) {} wsRef.current = null; }
             const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#7c3aed';
             const muted   = getComputedStyle(document.documentElement).getPropertyValue('--muted-foreground').trim() || '#71717a';
@@ -1738,7 +1745,7 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
                 interact: true,
             });
             wsRef.current = ws;
-            ws.load(src);
+            ws.load(playSrc);
             ws.on('ready', () => {
                 if (cancelled) return;
                 setDur(ws.getDuration());
@@ -1751,7 +1758,14 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
             ws.on('play', () => { if (!cancelled) setPlaying(true); });
             ws.on('pause', () => { if (!cancelled) setPlaying(false); });
             ws.on('finish', () => { if (!cancelled) { setPlaying(false); setCur(ws.getDuration()); } });
-            ws.on('error', (e) => { if (!cancelled) setError(typeof e === 'string' ? e : 'Error de reproducción'); });
+            ws.on('error', (e) => {
+                if (cancelled) return;
+                console.warn('[WaveformPlayer] wavesurfer error, falling back to native audio:', e);
+                // Fallback a <audio> nativo si wavesurfer falla
+                setFallback(true);
+                try { ws.destroy(); } catch(_) {}
+                wsRef.current = null;
+            });
         };
 
         if (window.WaveSurfer) { setup(); }
@@ -1760,7 +1774,7 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
             s.src = 'https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.min.js';
             s.async = true;
             s.onload = setup;
-            s.onerror = () => { if (!cancelled) setError('No se pudo cargar wavesurfer.js'); };
+            s.onerror = () => { if (!cancelled) { setFallback(true); } };
             document.head.appendChild(s);
         }
 
@@ -1768,18 +1782,49 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
             cancelled = true;
             if (wsRef.current) { try { wsRef.current.destroy(); } catch(e) {} wsRef.current = null; }
         };
-    }, [src, compact]);
+    }, [playSrc, compact]);
+
+    // Fallback: configurar listeners del audio nativo
+    useEffect(() => {
+        if (!fallback) return;
+        const a = fallbackAudioRef.current; if (!a) return;
+        const onMeta = () => { setDur(a.duration || 0); setReady(true); };
+        const onTime = () => setCur(a.currentTime);
+        const onPlay = () => setPlaying(true);
+        const onPause = () => setPlaying(false);
+        const onErr = () => setError('No se pudo reproducir el audio');
+        a.addEventListener('loadedmetadata', onMeta);
+        a.addEventListener('timeupdate', onTime);
+        a.addEventListener('play', onPlay);
+        a.addEventListener('pause', onPause);
+        a.addEventListener('error', onErr);
+        a.volume = volume; a.playbackRate = speed;
+        return () => {
+            a.removeEventListener('loadedmetadata', onMeta);
+            a.removeEventListener('timeupdate', onTime);
+            a.removeEventListener('play', onPlay);
+            a.removeEventListener('pause', onPause);
+            a.removeEventListener('error', onErr);
+        };
+    }, [fallback]);
 
     const toggle = () => {
+        if (fallback) {
+            const a = fallbackAudioRef.current; if (!a) return;
+            if (a.paused) a.play(); else a.pause();
+            return;
+        }
         const ws = wsRef.current; if (!ws) return;
         if (playing) ws.pause(); else ws.play();
     };
     const setSpeedFn = (s) => {
         setSpeed(s);
+        if (fallback && fallbackAudioRef.current) fallbackAudioRef.current.playbackRate = s;
         const ws = wsRef.current; if (ws) ws.setPlaybackRate(s);
     };
     const setVol = (v) => {
         setVolume(v);
+        if (fallback && fallbackAudioRef.current) fallbackAudioRef.current.volume = v;
         const ws = wsRef.current; if (ws) ws.setVolume(v);
     };
     const fmt = (s) => {
@@ -1807,29 +1852,41 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
             )}
 
             <div className="flex items-center gap-3">
-                {/* Play button */}
-                <button onClick={toggle} disabled={!ready || !!error}
-                        className="rounded-full flex items-center justify-center transition-all shrink-0"
-                        style={{
-                            width: compact ? 38 : 46, height: compact ? 38 : 46,
-                            background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000))',
-                            color:'var(--primary-foreground)',
-                            boxShadow:'0 3px 10px color-mix(in srgb, var(--primary) 40%, transparent)',
-                            cursor: (ready && !error) ? 'pointer' : 'not-allowed',
-                            opacity: (ready && !error) ? 1 : 0.6
-                        }}>
-                    <span className="material-icons-round" style={{fontSize: compact ? 22 : 26}}>
-                        {error ? 'error_outline' : (!ready ? 'hourglass_top' : (playing ? 'pause' : 'play_arrow'))}
-                    </span>
-                </button>
+                {/* Play button — solo cuando NO está en modo fallback (audio nativo trae su propio control) */}
+                {!fallback && (
+                    <button onClick={toggle} disabled={!ready || !!error}
+                            className="rounded-full flex items-center justify-center transition-all shrink-0"
+                            style={{
+                                width: compact ? 38 : 46, height: compact ? 38 : 46,
+                                background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000))',
+                                color:'var(--primary-foreground)',
+                                boxShadow:'0 3px 10px color-mix(in srgb, var(--primary) 40%, transparent)',
+                                cursor: (ready && !error) ? 'pointer' : 'not-allowed',
+                                opacity: (ready && !error) ? 1 : 0.6
+                            }}>
+                        <span className="material-icons-round" style={{fontSize: compact ? 22 : 26}}>
+                            {error ? 'error_outline' : (!ready ? 'hourglass_top' : (playing ? 'pause' : 'play_arrow'))}
+                        </span>
+                    </button>
+                )}
 
-                {/* Waveform container */}
+                {/* Waveform o fallback audio nativo */}
                 <div className="flex-1 min-w-0">
                     {error ? (
                         <div className="text-xs flex items-center gap-2" style={{color:'#ef4444'}}>
                             <span className="material-icons-round" style={{fontSize:16}}>error</span>
                             {error}
                         </div>
+                    ) : fallback ? (
+                        <>
+                            <audio ref={fallbackAudioRef} src={playSrc} preload="metadata" className="w-full"
+                                   style={{height: compact ? 30 : 40}}/>
+                            <div className="flex items-center justify-between mt-1 font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                <span>{fmt(cur)}</span>
+                                <span className="text-[9px] opacity-70">audio nativo</span>
+                                <span>{fmt(dur)}</span>
+                            </div>
+                        </>
                     ) : (
                         <>
                             <div ref={containerRef} className="w-full"/>
@@ -3415,6 +3472,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [callHistory, setCallHistory] = useState(null);
     const [agentHistory, setAgentHistory] = useState(null);
     const [historyLoading, setHistoryLoading] = useState(false);
+    // HORIZON v5: snapshots para matchear con cada llamada del historial
+    const [historySnaps, setHistorySnaps] = useState(null);
 
     useEffect(() => {
         if (isNew || !ext?.ext) return;
@@ -3423,9 +3482,15 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
             const today = new Date(); const past = new Date(); past.setDate(past.getDate()-30);
             const from = past.toISOString().split('T')[0];
             const to = today.toISOString().split('T')[0];
-            fetch(`api/reports.php?action=calls&ext=${ext.ext}&from=${from}&to=${to}&limit=300`, {credentials:'include'})
-                .then(r=>r.json()).then(d=>{ setCallHistory(d.calls || []); setHistoryLoading(false); })
-                .catch(()=>setHistoryLoading(false));
+            // Fetch llamadas + snapshots en paralelo
+            Promise.all([
+                fetch(`api/reports.php?action=calls&ext=${ext.ext}&from=${from}&to=${to}&limit=300`, {credentials:'include'}).then(r=>r.json()).catch(()=>({calls:[]})),
+                fetch(`api/rtsp_snapshot.php?action=list&ext=${ext.ext}`, {credentials:'include'}).then(r=>r.json()).catch(()=>({snapshots:[]}))
+            ]).then(([c, s]) => {
+                setCallHistory(c.calls || []);
+                setHistorySnaps(s.snapshots || []);
+                setHistoryLoading(false);
+            });
         }
         if (activeTab === 'agentes' && !agentHistory) {
             setHistoryLoading(true);
@@ -3616,6 +3681,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                                     <tr>
+                                        <th className="text-center px-2 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)',width:54}}>Foto</th>
                                         <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha/Hora</th>
                                         <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Origen</th>
                                         <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Destino</th>
@@ -3629,8 +3695,32 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                     {callHistory.map((c,i) => {
                                         const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
                                         const isInbound = String(c.dst) === String(ext.ext);
+                                        // Buscar snapshot dentro de ±5 min de la llamada
+                                        const callTs = c.calldate ? new Date(c.calldate.replace(' ', 'T')).getTime() : 0;
+                                        const closeSnap = callTs && historySnaps ? historySnaps.find(s => {
+                                            if (!s.timestamp) return false;
+                                            const st = new Date(s.timestamp.replace(' ', 'T')).getTime();
+                                            return Math.abs(st - callTs) <= 5 * 60 * 1000;
+                                        }) : null;
                                         return (
                                             <tr key={c.uniqueid || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                                <td className="px-2 py-1.5 text-center">
+                                                    {closeSnap ? (
+                                                        <button type="button" onClick={()=>setLightboxShot(closeSnap)}
+                                                                className="inline-block rounded-md overflow-hidden border transition-transform hover:scale-110 cursor-pointer"
+                                                                style={{width:40, height:40, borderColor:'var(--border)', padding:0}}
+                                                                title={`Captura del ${closeSnap.timestamp}`}>
+                                                            <img src={closeSnap.url} alt={closeSnap.timestamp}
+                                                                 className="w-full h-full object-cover" loading="lazy"
+                                                                 onError={ev=>ev.target.style.display='none'}/>
+                                                        </button>
+                                                    ) : (
+                                                        <span title="Sin captura cercana" className="inline-flex items-center justify-center rounded-md border"
+                                                              style={{width:40, height:40, borderColor:'var(--border)', borderStyle:'dashed', background:'color-mix(in srgb, var(--muted) 20%, transparent)'}}>
+                                                            <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)', opacity:0.4}}>image</span>
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-3 py-2 font-mono text-xs">{c.calldate}</td>
                                                 <td className="px-3 py-2 font-mono">
                                                     {isInbound ? <span style={{color:'var(--muted-foreground)'}}>{c.src}</span> : <strong style={{color:'var(--primary)'}}>{c.src}</strong>}
