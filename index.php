@@ -5521,7 +5521,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
         fetch('api/index.php?action=get_full_data', {credentials:'include'})
             .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
     }, [open]);
-    
+
     useEffect(() => {
         if (!selAgent?.number) { setSelectedQueues(queueDefault ? [queueDefault] : []); return; }
         fetch('api/hotdesking.php?action=get_agent_prefs&agent_number=' + selAgent.number, {credentials:'include'})
@@ -5555,7 +5555,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
             const r = await fetch('api/hotdesking.php?action='+action, {method:'POST', body:fd, credentials:'include'});
             const j = await r.json();
             if (j.status==='ok') {
-                toast?.(mode==='login' 
+                toast?.(mode==='login'
                     ? `${selAgent.name} logueado en ext ${extension} (${j.queues_added?.length||selectedQueues.length} colas)`
                     : `${selAgent.name} desconectado`, 'success');
                 onDone?.();
@@ -5566,128 +5566,220 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
     };
 
     if (!open) return null;
-    return (
-        <LegacyDialogShell onClose={onClose} maxWidth={mode==='logout' ? 560 : 880}>
-                {/* Header compacto */}
-                <div style={{padding:'14px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,background:`linear-gradient(135deg, ${mode==='login'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'}, transparent 70%)`}}>
-                    <div style={{width:40,height:40,borderRadius:11,background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
-                        <span className="material-icons-round" style={{color:'#fff',fontSize:20}}>{mode==='login'?'login':'logout'}</span>
+
+    // ─── Custom backdrop dialog ancho para 2 columnas (Dialog estándar es max-w-lg) ───
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9999}}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
+            <div className="relative grid w-full gap-0 border bg-card text-card-foreground rounded-lg animate-fade-in overflow-hidden"
+                 style={{
+                     maxWidth: mode==='logout' ? 560 : 880,
+                     maxHeight: '90vh',
+                     borderColor:'var(--border)',
+                     boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6)'
+                 }}
+                 onClick={e=>e.stopPropagation()}>
+
+                {/* ─── Header ─── */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b" style={{borderColor:'var(--border)'}}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                         style={{
+                             background: mode==='login'
+                                 ? 'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 70%, #000))'
+                                 : 'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 70%, #000))',
+                             boxShadow: mode==='login'
+                                 ? '0 4px 14px color-mix(in srgb, var(--horizon-green) 35%, transparent)'
+                                 : '0 4px 14px color-mix(in srgb, var(--destructive) 35%, transparent)'
+                         }}>
+                        <span className="material-icons-round text-white" style={{fontSize:20}}>{mode==='login'?'login':'logout'}</span>
                     </div>
-                    <div style={{flex:1,minWidth:0}}>
-                        <h2 style={{fontSize:16,fontWeight:900,letterSpacing:'-0.3px',margin:0}}>{mode==='login'?'Loguear agente':'Desloguear agente'}</h2>
-                        <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-bold tracking-tight" style={{color:'var(--foreground)'}}>
+                            {mode==='login'?'Loguear agente':'Desloguear agente'}
+                        </h2>
+                        <p className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
                             {mode==='login'
                                 ? 'Asignás teléfono físico y colas → entra como miembro dinámico'
                                 : 'Quita al agente de TODAS sus colas activas (queda registro en histórico)'}
-                        </div>
+                        </p>
                     </div>
-                    <div style={{display:'flex',gap:4,padding:3,background:'var(--surface2)',borderRadius:9}}>
-                        <button onClick={()=>setMode('login')} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:mode==='login'?'rgba(34,197,94,0.2)':'transparent',color:mode==='login'?'#22c55e':'var(--muted)',fontWeight:800,fontSize:11}}>Login</button>
-                        <button onClick={()=>setMode('logout')} style={{padding:'6px 12px',borderRadius:7,border:'none',cursor:'pointer',background:mode==='logout'?'rgba(239,68,68,0.2)':'transparent',color:mode==='logout'?'#ef4444':'var(--muted)',fontWeight:800,fontSize:11}}>Logout</button>
+                    {/* Mode switcher shadcn-like (TabsList style) */}
+                    <div className="inline-flex items-center h-9 p-1 rounded-lg shrink-0" style={{background:'var(--secondary)'}}>
+                        <button onClick={()=>setMode('login')}
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-md h-7 px-3 text-xs font-medium transition-all"
+                                style={{
+                                    background: mode==='login' ? 'var(--background)' : 'transparent',
+                                    color: mode==='login' ? 'var(--horizon-green)' : 'var(--muted-foreground)',
+                                    boxShadow: mode==='login' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                }}>
+                            Login
+                        </button>
+                        <button onClick={()=>setMode('logout')}
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-md h-7 px-3 text-xs font-medium transition-all"
+                                style={{
+                                    background: mode==='logout' ? 'var(--background)' : 'transparent',
+                                    color: mode==='logout' ? 'var(--destructive)' : 'var(--muted-foreground)',
+                                    boxShadow: mode==='logout' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
+                                }}>
+                            Logout
+                        </button>
                     </div>
-                    <button onClick={onClose} style={{padding:7,borderRadius:9,border:'none',background:'rgba(255,255,255,0.04)',cursor:'pointer'}}>
-                        <span className="material-icons-round" style={{fontSize:18,color:'var(--muted)'}}>close</span>
+                    <button onClick={onClose} className="rounded-md opacity-70 hover:opacity-100 transition-opacity shrink-0 p-1">
+                        <span className="material-icons-round" style={{fontSize:18}}>close</span>
                     </button>
                 </div>
 
-                {/* BODY: 2 columnas en login, 1 columna en logout */}
-                <div style={{flex:1,minHeight:0,overflow:'hidden',display:'grid',gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',gap:0}}>
-                    {/* COLUMNA IZQUIERDA: Selector de agente */}
-                    <div style={{padding:'18px 22px',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
-                        <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                            <span className="material-icons-round" style={{fontSize:14,color:'var(--primary)'}}>person</span>
+                {/* ─── Body (grid 2 cols en login, 1 col en logout) ─── */}
+                <div className="grid overflow-hidden" style={{
+                    gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',
+                    minHeight: 0,
+                    flex: 1
+                }}>
+                    {/* ─── Columna izq: Selector de agente ─── */}
+                    <div className="flex flex-col overflow-hidden p-5" style={{borderRight: mode==='logout' ? 'none' : '1px solid var(--border)', minHeight:0}}>
+                        <Label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:13, color:'var(--primary)'}}>person</span>
                             Agente
-                        </label>
-                        <div style={{position:'relative',marginBottom:10}}>
-                            <span className="material-icons-round" style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'var(--muted)'}}>search</span>
-                            <input className="input-tf" placeholder="Buscar nombre o número..." value={search} onChange={e=>setSearch(e.target.value)} style={{padding:'9px 10px 9px 34px',borderRadius:9,fontSize:12,width:'100%'}}/>
+                        </Label>
+                        <div className="relative mb-2.5">
+                            <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16, color:'var(--muted-foreground)'}}>search</span>
+                            <Input placeholder="Buscar nombre o número…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-9"/>
                         </div>
-                        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderRadius:10,padding:5,background:'var(--surface2)'}}>
-                            {filteredAgents.length === 0 && <div style={{textAlign:'center',padding:24,color:'var(--muted)',fontSize:11}}>Sin resultados</div>}
+                        <div className="flex-1 overflow-auto rounded-md border p-1 space-y-1" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                            {filteredAgents.length === 0 && (
+                                <div className="text-center py-6 text-xs" style={{color:'var(--muted-foreground)'}}>Sin resultados</div>
+                            )}
                             {filteredAgents.map(a => (
-                                <div key={a.id} onClick={()=>{setSelAgent(a); if(mode==='logout' && a.extension) setExtension(a.extension);}} style={{padding:'8px 10px',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',gap:10,background:selAgent?.id===a.id?'rgba(139,92,246,0.2)':'transparent',marginBottom:2,transition:'all 0.15s',border:`1px solid ${selAgent?.id===a.id?'rgba(139,92,246,0.4)':'transparent'}`}}>
-                                    <div style={{width:32,height:32,borderRadius:'50%',background:a.logged_in?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#6b7280,#4b5563)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:900}}>
+                                <button key={a.id} type="button"
+                                        onClick={()=>{setSelAgent(a); if(mode==='logout' && a.extension) setExtension(a.extension);}}
+                                        className="w-full px-2.5 py-2 rounded-md text-left flex items-center gap-2.5 transition-all"
+                                        style={{
+                                            background: selAgent?.id===a.id ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent',
+                                            border: '1px solid ' + (selAgent?.id===a.id ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent')
+                                        }}>
+                                    <div className="rounded-full flex items-center justify-center text-white font-black shrink-0"
+                                         style={{
+                                             width:30, height:30, fontSize:10,
+                                             background: a.logged_in
+                                                 ? 'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 70%, #000))'
+                                                 : 'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 60%, #000), color-mix(in srgb, var(--muted-foreground) 85%, #000))'
+                                         }}>
                                         {(a.name||'').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
                                     </div>
-                                    <div style={{flex:1,minWidth:0}}>
-                                        <div style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</div>
-                                        <div style={{fontSize:10,color:'var(--muted)',fontFamily:'monospace'}}>#{a.number}{a.logged_in?` · ext ${a.extension}`:''}</div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-semibold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
+                                        <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>#{a.number}{a.logged_in?` · ext ${a.extension}`:''}</div>
                                     </div>
-                                    {a.logged_in && <span style={{fontSize:9,padding:'2px 7px',borderRadius:4,background:'rgba(34,197,94,0.2)',color:'#22c55e',fontWeight:800}}>ON</span>}
-                                </div>
+                                    {a.logged_in && <Badge variant="success" className="text-[9px]">ON</Badge>}
+                                </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* COLUMNA DERECHA: Datos de login (oculta en logout) */}
+                    {/* ─── Columna der: Datos de login ─── */}
                     {mode === 'login' && (
-                        <div style={{padding:'18px 22px',display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
-                            <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                                <span className="material-icons-round" style={{fontSize:14,color:'#3b82f6'}}>dialpad</span>
+                        <div className="flex flex-col overflow-hidden p-5" style={{minHeight:0}}>
+                            <Label htmlFor="agent-ext" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round" style={{fontSize:13, color:'#3b82f6'}}>dialpad</span>
                                 Extensión donde se sienta
-                            </label>
-                            <input className="input-tf" placeholder="Ej: 9006" value={extension} onChange={e=>setExtension(e.target.value)} style={{padding:'10px 14px',borderRadius:10,fontSize:14,fontFamily:'monospace',fontWeight:700,marginBottom:18}}/>
+                            </Label>
+                            <Input id="agent-ext" placeholder="Ej: 9006" value={extension} onChange={e=>setExtension(e.target.value)}
+                                   className="font-mono font-bold mb-4"/>
 
-                            <label style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:'var(--muted)',letterSpacing:'.05em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                                <span className="material-icons-round" style={{fontSize:14,color:'#22c55e'}}>queue</span>
+                            <Label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>queue</span>
                                 Colas a las que entra
-                                <span style={{textTransform:'none',color:selectedQueues.length>0?'#22c55e':'var(--muted)',fontWeight:800,marginLeft:'auto',fontSize:11,fontFamily:'monospace'}}>{selectedQueues.length} seleccionada{selectedQueues.length!==1?'s':''} / {allQueues.length}</span>
-                            </label>
-                            <div style={{display:'flex',gap:5,marginBottom:8}}>
-                                <button onClick={()=>setSelectedQueues(allQueues.map(q=>String(q.id)))} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',fontSize:10,fontWeight:700,cursor:'pointer'}}>Todas</button>
-                                <button onClick={()=>setSelectedQueues([])} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--muted)',fontSize:10,fontWeight:700,cursor:'pointer'}}>Ninguna</button>
+                                <span className="ml-auto font-mono text-[10px]" style={{
+                                    color: selectedQueues.length>0 ? 'var(--horizon-green)' : 'var(--muted-foreground)',
+                                    textTransform:'none'
+                                }}>
+                                    {selectedQueues.length} seleccionada{selectedQueues.length!==1?'s':''} / {allQueues.length}
+                                </span>
+                            </Label>
+                            <div className="flex gap-1.5 mb-2">
+                                <Button variant="outline" size="sm" className="h-7 px-2.5 text-[10px]" onClick={()=>setSelectedQueues(allQueues.map(q=>String(q.id)))}>
+                                    Todas
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-7 px-2.5 text-[10px]" onClick={()=>setSelectedQueues([])}>
+                                    Ninguna
+                                </Button>
                             </div>
-                            <div style={{flex:1,display:'flex',flexWrap:'wrap',gap:5,padding:8,border:'1px solid var(--border)',borderRadius:10,background:'var(--surface2)',overflow:'auto',alignContent:'flex-start'}}>
-                                {allQueues.length === 0 && <div style={{fontSize:11,color:'var(--muted)',padding:10}}>Cargando colas...</div>}
+                            <div className="flex-1 flex flex-wrap gap-1.5 p-2 rounded-md border overflow-auto items-start content-start"
+                                 style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                                {allQueues.length === 0 && (
+                                    <div className="text-xs p-2.5" style={{color:'var(--muted-foreground)'}}>Cargando colas…</div>
+                                )}
                                 {allQueues.map(q => {
                                     const sel = selectedQueues.includes(String(q.id));
                                     return (
-                                    <span key={q.id} onClick={()=>setSelectedQueues(sel?selectedQueues.filter(x=>x!==String(q.id)):[...selectedQueues,String(q.id)])} style={{padding:'5px 11px',borderRadius:6,fontSize:11,fontWeight:700,cursor:'pointer',background:sel?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.04)',color:sel?'#c4b5fd':'var(--muted)',border:`1px solid ${sel?'#8b5cf6':'var(--border)'}`,display:'flex',alignItems:'center',gap:5,transition:'all 0.15s'}}>
-                                        {sel && <span className="material-icons-round" style={{fontSize:12}}>check</span>}
-                                        <span style={{fontFamily:'monospace'}}>Q{q.id}</span>
-                                        <span>{(q.name||'').slice(0,18)}</span>
-                                    </span>
-                                );
+                                        <button key={q.id} type="button"
+                                                onClick={()=>setSelectedQueues(sel ? selectedQueues.filter(x=>x!==String(q.id)) : [...selectedQueues, String(q.id)])}
+                                                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all"
+                                                style={{
+                                                    background: sel ? 'color-mix(in srgb, var(--primary) 22%, transparent)' : 'var(--card)',
+                                                    color: sel ? 'var(--primary)' : 'var(--muted-foreground)',
+                                                    border: '1px solid ' + (sel ? 'var(--primary)' : 'var(--border)')
+                                                }}>
+                                            {sel && <span className="material-icons-round" style={{fontSize:12}}>check</span>}
+                                            <span className="font-mono">Q{q.id}</span>
+                                            <span className="truncate" style={{maxWidth:140}}>{(q.name||'')}</span>
+                                        </button>
+                                    );
                                 })}
                             </div>
                         </div>
                     )}
 
-                    {/* Logout: confirmación inline al final del listado */}
+                    {/* ─── Logout: confirmación inline ─── */}
                     {mode === 'logout' && selAgent && (
-                        <div style={{padding:'14px 22px',borderTop:'1px solid var(--border)',background:'rgba(239,68,68,0.06)',display:'flex',alignItems:'center',gap:14}}>
-                            <div style={{width:44,height:44,borderRadius:'50%',background:'linear-gradient(135deg,#ef4444,#dc2626)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,flexShrink:0}}>
+                        <div className="flex items-center gap-3.5 px-5 py-4 border-t"
+                             style={{
+                                 borderColor:'color-mix(in srgb, var(--destructive) 25%, var(--border))',
+                                 background:'color-mix(in srgb, var(--destructive) 6%, transparent)'
+                             }}>
+                            <div className="rounded-full flex items-center justify-center text-white font-black shrink-0"
+                                 style={{
+                                     width:42, height:42, fontSize:13,
+                                     background:'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 70%, #000))'
+                                 }}>
                                 {(selAgent.name||'').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
                             </div>
-                            <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em'}}>Vas a desloguear a</div>
-                                <div style={{fontSize:14,fontWeight:800}}>{selAgent.name}</div>
-                                <div style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>#{selAgent.number}{selAgent.extension?` · ext ${selAgent.extension}`:''}</div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Vas a desloguear a</div>
+                                <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>{selAgent.name}</div>
+                                <div className="text-xs font-mono" style={{color:'var(--muted-foreground)'}}>
+                                    #{selAgent.number}{selAgent.extension?` · ext ${selAgent.extension}`:''}
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-
-                {/* Footer */}
-                <div style={{padding:'14px 24px',borderTop:'1px solid var(--border)',background:'var(--surface2)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div style={{fontSize:11,color:'var(--muted)'}}>
+                {/* ─── Footer ─── */}
+                <div className="flex items-center justify-between gap-3 px-5 py-3 border-t"
+                     style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 35%, var(--card))'}}>
+                    <div className="text-xs" style={{color:'var(--muted-foreground)'}}>
                         {selAgent ? (
-                            <span>Agente: <strong style={{color:'var(--text)'}}>#{selAgent.number} {selAgent.name}</strong></span>
+                            <span>Agente: <strong className="font-semibold" style={{color:'var(--foreground)'}}>#{selAgent.number} {selAgent.name}</strong></span>
                         ) : 'Seleccioná un agente'}
                     </div>
-                    <div style={{display:'flex',gap:8}}>
-                        <button onClick={onClose} style={{padding:'9px 16px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>Cancelar</button>
-                        <button onClick={submit} disabled={!selAgent||busy} style={{padding:'9px 22px',borderRadius:9,border:'none',cursor:(!selAgent||busy)?'not-allowed':'pointer',background:mode==='login'?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#ef4444,#dc2626)',color:'#fff',fontWeight:800,fontSize:12,opacity:(!selAgent||busy)?0.5:1,display:'flex',alignItems:'center',gap:6,boxShadow:mode==='login'?'0 4px 14px rgba(34,197,94,0.35)':'0 4px 14px rgba(239,68,68,0.35)'}}>
-                            <span className="material-icons-round" style={{fontSize:16,animation:busy?'spin 1s linear infinite':'none'}}>{busy?'autorenew':(mode==='login'?'login':'logout')}</span>
-                            {busy?'Procesando...':(mode==='login'?'Loguear':'Desloguear')}
-                        </button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+                        <Button size="sm" onClick={submit} disabled={!selAgent || busy}
+                                variant={mode==='login' ? 'success' : 'destructive'}>
+                            <span className="material-icons-round mr-1.5" style={{fontSize:15, animation: busy?'spin 1s linear infinite':'none'}}>
+                                {busy ? 'autorenew' : (mode==='login' ? 'login' : 'logout')}
+                            </span>
+                            {busy ? 'Procesando…' : (mode==='login' ? 'Loguear' : 'Desloguear')}
+                        </Button>
                     </div>
                 </div>
-            
-        </LegacyDialogShell>
+            </div>
+        </div>,
+        document.getElementById('tf-modal-root') || document.body
     );
 }
+
 function QueueDrawer({ queue, onClose, onSaved, toast }) {
     const isNew = !queue;
     const [form, setForm] = useState({
