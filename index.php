@@ -6302,53 +6302,91 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
     };
 
     return (
-        <div className="content-area p-4 md:p-6 space-y-4">
-            {/* Header card con date controls y export */}
-            <Card>
-                <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="material-icons-round text-primary text-2xl">analytics</span>
-                        <div>
-                            <CardTitle className="text-base">Reportes</CardTitle>
-                            <CardDescription className="text-xs">Análisis detallado del callcenter</CardDescription>
-                        </div>
+        <div className="p-4 md:p-6 space-y-4">
+            {/* Page heading */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                        <span className="material-icons-round" style={{fontSize:22}}>analytics</span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                        {presets.map(p => (
-                            <Button key={p.label} variant="outline" size="sm" onClick={() => { setFrom(p.from()); setTo(p.to()); }}>{p.label}</Button>
-                        ))}
-                        <Separator orientation="vertical" className="h-6 mx-1"/>
-                        <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 w-[140px] text-xs"/>
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 w-[140px] text-xs"/>
-                        <Separator orientation="vertical" className="h-6 mx-1"/>
-                        <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
-                            <span className="material-icons-round text-sm">picture_as_pdf</span>PDF
-                        </Button>
-                        <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
-                            <span className="material-icons-round text-sm">table_chart</span>Excel
-                        </Button>
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight" style={{color:'var(--foreground)'}}>Reportes</h2>
+                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>Análisis detallado del callcenter</p>
                     </div>
-                </CardHeader>
-            </Card>
+                </div>
+                {/* Export buttons */}
+                <div className="flex items-center gap-2">
+                    <Button asLink href={exportUrl('pdf')} target="_blank" variant="destructive" size="sm">
+                        <span className="material-icons-round" style={{fontSize:14}}>picture_as_pdf</span>PDF
+                    </Button>
+                    <Button asLink href={exportUrl('xlsx')} target="_blank" variant="success" size="sm">
+                        <span className="material-icons-round" style={{fontSize:14}}>table_chart</span>Excel
+                    </Button>
+                </div>
+            </div>
+
+            {/* Toolbar: date range + presets */}
+            <div className="rounded-lg border bg-card text-card-foreground p-3 flex items-center gap-3 flex-wrap" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-1.5">
+                    <span className="material-icons-round text-muted-foreground" style={{fontSize:16, color:'var(--muted-foreground)'}}>calendar_today</span>
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Período</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    {presets.map(p => {
+                        const isActive = p.from() === from && p.to() === to;
+                        return (
+                            <button
+                                key={p.label}
+                                onClick={() => { setFrom(p.from()); setTo(p.to()); }}
+                                className={cn(
+                                    "h-8 px-3 rounded-md text-xs font-medium transition-colors",
+                                    "border",
+                                    isActive
+                                        ? "bg-primary text-primary-foreground border-primary"
+                                        : "bg-transparent hover:bg-accent hover:text-accent-foreground"
+                                )}
+                                style={{borderColor: isActive ? 'var(--primary)' : 'var(--border)'}}
+                            >{p.label}</button>
+                        );
+                    })}
+                </div>
+                <div className="h-6 w-px" style={{background:'var(--border)'}}/>
+                <div className="flex items-center gap-2">
+                    <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                        className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                    <span className="text-xs" style={{color:'var(--muted-foreground)'}}>→</span>
+                    <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                        className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
+                        style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)'}}/>
+                </div>
+            </div>
 
             {/* Tabs */}
             <Tabs value={tab} onChange={setTab}>
-                <TabsList>
-                    <TabsTrigger value="summary"><span className="material-icons-round text-sm mr-1">dashboard</span>Resumen</TabsTrigger>
-                    <TabsTrigger value="by_agent"><span className="material-icons-round text-sm mr-1">support_agent</span>Por agente</TabsTrigger>
-                    <TabsTrigger value="by_queue"><span className="material-icons-round text-sm mr-1">queue</span>Por cola</TabsTrigger>
-                    <TabsTrigger value="calls"><span className="material-icons-round text-sm mr-1">phone</span>Llamadas</TabsTrigger>
-                    <TabsTrigger value="pauses"><span className="material-icons-round text-sm mr-1">pause_circle</span>Pausas</TabsTrigger>
+                <TabsList className="h-10 p-1" style={{background:'var(--secondary)'}}>
+                    <TabsTrigger value="summary" className="h-8 px-4 gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:15}}>dashboard</span>Resumen
+                    </TabsTrigger>
+                    <TabsTrigger value="by_agent" className="h-8 px-4 gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:15}}>support_agent</span>Por agente
+                    </TabsTrigger>
+                    <TabsTrigger value="by_queue" className="h-8 px-4 gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:15}}>queue</span>Por cola
+                    </TabsTrigger>
+                    <TabsTrigger value="calls" className="h-8 px-4 gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:15}}>phone</span>Llamadas
+                    </TabsTrigger>
+                    <TabsTrigger value="pauses" className="h-8 px-4 gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:15}}>pause_circle</span>Pausas
+                    </TabsTrigger>
                 </TabsList>
 
                 {loading && (
-                    <Card className="mt-4 p-12 flex items-center justify-center">
-                        <div className="text-center text-muted-foreground">
-                            <span className="material-icons-round text-4xl animate-spin">autorenew</span>
-                            <div className="mt-2 text-sm">Cargando…</div>
-                        </div>
-                    </Card>
+                    <div className="mt-4 rounded-lg border bg-card text-card-foreground p-16 flex flex-col items-center justify-center" style={{borderColor:'var(--border)'}}>
+                        <span className="material-icons-round animate-spin text-primary" style={{fontSize:36}}>autorenew</span>
+                        <div className="mt-3 text-sm font-medium" style={{color:'var(--muted-foreground)'}}>Cargando reporte…</div>
+                    </div>
                 )}
 
                 {!loading && data && tab === 'summary' && <TabsContent value="summary"><ReportTabSummary data={data}/></TabsContent>}
@@ -6548,21 +6586,32 @@ function ReportTabCalls({ data, filters, setFilters }) {
     const calls = data.calls || [];
     return (
         <Card>
-            <CardHeader className="p-4 pb-3 flex-row items-center gap-2 flex-wrap space-y-0">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Filtros</span>
-                <Select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})} className="h-8 w-auto text-xs">
+            <div className="p-3 border-b flex items-center gap-2 flex-wrap" style={{borderColor:'var(--border)'}}>
+                <div className="flex items-center gap-1.5 mr-1">
+                    <span className="material-icons-round" style={{fontSize:14, color:'var(--muted-foreground)'}}>filter_list</span>
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Filtros</span>
+                </div>
+                <select value={filters.disposition} onChange={e => setFilters({...filters, disposition: e.target.value})}
+                    className="h-8 px-2 rounded-md text-xs border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', minWidth:140}}>
                     <option value="">Todos los estados</option>
                     <option value="ANSWERED">ANSWERED</option>
                     <option value="NO ANSWER">NO ANSWER</option>
                     <option value="BUSY">BUSY</option>
                     <option value="FAILED">FAILED</option>
-                </Select>
-                <Input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})} className="h-8 w-[110px] text-xs"/>
-                <Input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})} className="h-8 w-[110px] text-xs"/>
-                <Input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})} className="h-8 w-[100px] text-xs"/>
+                </select>
+                <input placeholder="Origen" value={filters.src} onChange={e => setFilters({...filters, src: e.target.value})}
+                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
+                <input placeholder="Destino" value={filters.dst} onChange={e => setFilters({...filters, dst: e.target.value})}
+                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
+                <input placeholder="Min dur (s)" type="number" value={filters.min_dur || ''} onChange={e => setFilters({...filters, min_dur: parseInt(e.target.value) || 0})}
+                    className="h-8 px-3 rounded-md text-xs border focus:outline-none focus:ring-2"
+                    style={{borderColor:'var(--input)', background:'var(--background)', color:'var(--foreground)', width:110}}/>
                 <div className="flex-1"/>
-                <span className="text-xs text-muted-foreground">{calls.length} resultados</span>
-            </CardHeader>
+                <span className="text-xs font-medium" style={{color:'var(--muted-foreground)'}}>{calls.length.toLocaleString()} resultados</span>
+            </div>
             <CardContent className="p-0">
                 <div className="overflow-auto max-h-[70vh]">
                     <ShTable>
