@@ -404,6 +404,37 @@ try {
             break;
         }
 
+        case 'hangup_call': {
+            // POST {ext} — colgar la llamada actual de una extensión
+            $ext = preg_replace('/\D/', '', $_POST['ext'] ?? $_GET['ext'] ?? '');
+            if (!$ext) { http_response_code(400); echo json_encode(['status'=>'error','message'=>'falta ext']); exit; }
+            // Buscar canal activo de la extension
+            $ch_raw = ami_action(['Action'=>'CoreShowChannels'], 3.0);
+            $channels = [];
+            // Hacer queries hasta obtener match
+            $s = @fsockopen($AMI_HOST ?: '127.0.0.1', (int)($AMI_PORT ?: 5038), $en, $es, 3);
+            if (!$s) { echo json_encode(['status'=>'error','message'=>'AMI no disponible']); exit; }
+            stream_set_timeout($s, 3); fgets($s);
+            fwrite($s, "Action: Login\r\nUsername: $AMI_USER\r\nSecret: $AMI_PASS\r\nEvents: off\r\n\r\n");
+            $st=microtime(true); while(microtime(true)-$st<2){$l=fgets($s);if(!$l)break;if(strpos($l,'Authentication accepted')!==false)break;}
+            // core show channels concise
+            fwrite($s, "Action: Command\r\nCommand: core show channels concise\r\n\r\n");
+            $resp=''; $st=microtime(true);
+            while(microtime(true)-$st<3){$l=fgets($s);if($l===false)break;$resp.=$l;if(strpos($l,'--END COMMAND--')!==false)break;}
+            $hung = [];
+            foreach (explode("\n", $resp) as $line) {
+                if (preg_match('#^(SIP|PJSIP)/'.preg_quote($ext,'#').'[-!]#', $line)) {
+                    $chan = explode('!', $line)[0];
+                    fwrite($s, "Action: Hangup\r\nChannel: $chan\r\n\r\n");
+                    $hung[] = $chan;
+                    usleep(50000);
+                }
+            }
+            fwrite($s, "Action: Logoff\r\n\r\n"); fclose($s);
+            echo json_encode(['status'=>'ok','hung'=>$hung,'count'=>count($hung)]);
+            break;
+        }
+
         case 'logout_agent': {
             $agent = preg_replace('/\D/', '', $_POST['agent_number'] ?? '');
             $ext_explicit = preg_replace('/\D/', '', $_POST['extension'] ?? '');

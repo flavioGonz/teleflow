@@ -1723,6 +1723,58 @@ function LegacyDialogShell({ open = true, onClose, maxWidth = 560, maxHeight = '
     return ReactDOM.createPortal(content, root);
 }
 
+// HORIZON: ConfirmDialog reusable — confirmaciones estilizadas via shadcn Dialog pattern
+function ConfirmDialog({ open, onCancel, onConfirm, title, message, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', variant = 'default', icon = 'help_outline', loading = false }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') !loading && onCancel?.(); };
+        document.addEventListener('keydown', onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    }, [open, onCancel, loading]);
+    if (!open) return null;
+    const accent = variant === 'destructive' ? '#ef4444' : (variant === 'success' ? '#11B328' : '#3b82f6');
+    const content = (
+        <div onClick={() => !loading && onCancel?.()} className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', padding:'4vh 20px', overflowY:'auto', zIndex:10000}}>
+            <div onClick={e => e.stopPropagation()} className="relative bg-card text-card-foreground rounded-lg border animate-fade-in" style={{width:420, maxWidth:'100%', borderColor:'var(--border)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6), 0 0 0 1px var(--border)'}}>
+                <div style={{padding:'24px 24px 16px'}}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center justify-center rounded-full" style={{width:48, height:48, background:`${accent}1f`}}>
+                            <span className="material-icons-round" style={{color:accent, fontSize:26}}>{icon}</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>{title}</h3>
+                        </div>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{color:'var(--muted-foreground)'}}>{message}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t" style={{borderColor:'var(--border)', background:'var(--secondary)'}}>
+                    <button
+                        onClick={() => !loading && onCancel?.()}
+                        disabled={loading}
+                        className="h-9 px-4 rounded-md text-sm font-medium transition-colors border hover:bg-accent"
+                        style={{borderColor:'var(--border)', background:'var(--background)', color:'var(--foreground)'}}
+                    >{cancelLabel}</button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={loading}
+                        className="h-9 px-4 rounded-md text-sm font-bold transition-colors inline-flex items-center gap-2"
+                        style={{background:accent, color:'#fff', opacity: loading ? 0.65 : 1}}
+                    >
+                        {loading && <span className="material-icons-round animate-spin" style={{fontSize:14}}>autorenew</span>}
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+    if (typeof document === 'undefined') return content;
+    const root = document.getElementById('tf-modal-root') || document.body;
+    return ReactDOM.createPortal(content, root);
+}
+
+
 
 
 // ─────────────────────────────────────────────
@@ -8833,12 +8885,11 @@ function ViewHotdesking({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* WALLBOARD VIEW (default) — split logueados arriba / offline abajo */}
+            {/* WALLBOARD VIEW (default) — layout 2 columnas: offline izq, logueados der 4 filas */}
             {viewMode==='wallboard' && (() => {
                 const loggedAgents  = filtered.filter(a => a.logged_in);
                 const offlineAgents = filtered.filter(a => !a.logged_in);
 
-                // detect ringing per agent (cualquier llamada en estado Ringing dirigida a su ext o a alguna de sus colas)
                 const isAgentRinging = (a) => {
                     if (!liveCalls?.length) return false;
                     const myQueues = (a.queues || []).map(q => String(q.queue || q));
@@ -8851,7 +8902,6 @@ function ViewHotdesking({ data, toast }) {
                     });
                 };
 
-                // avatar helper
                 const avatarFor = (a) => {
                     const ext = exts.find(e => e.ext === a.extension);
                     if (ext?.avatar && !ext.avatar.includes('ui-avatars')) return ext.avatar;
@@ -8859,12 +8909,24 @@ function ViewHotdesking({ data, toast }) {
                     return `https://ui-avatars.com/api/?name=${name}&background=11B328&color=fff&size=80&bold=true&format=svg`;
                 };
 
+                // Hangup directo (con confirmación implícita por ser acción única)
+                const doHangup = async (a) => {
+                    if (!a.extension) return;
+                    const fd = new FormData(); fd.append('ext', a.extension);
+                    try {
+                        const r = await fetch('api/hotdesking.php?action=hangup_call', {method:'POST', body:fd, credentials:'include'});
+                        const j = await r.json();
+                        if (j.status === 'ok') toast?.(`Llamada cortada (${j.count} canal${j.count!==1?'es':''})`, 'success');
+                        else toast?.(j.message||'Error', 'error');
+                    } catch(e) { toast?.('Error de red', 'error'); }
+                };
+
                 const renderLogged = (a) => {
-                    const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : '#11B328');
-                    const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : 'DISPONIBLE');
+                    const ringing = !a.in_call && !a.paused && isAgentRinging(a);
+                    const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : (ringing ? '#ef4444' : '#11B328'));
+                    const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : (ringing ? 'LLAMADA ENTRANTE' : 'DISPONIBLE'));
                     const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
                     const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
-                    const ringing = !a.in_call && !a.paused && isAgentRinging(a);
                     return (
                         <div
                             key={a.id}
@@ -8873,60 +8935,57 @@ function ViewHotdesking({ data, toast }) {
                                 "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
                                 ringing && "hzn-ringing"
                             )}
-                            style={{borderColor:'var(--border)', width:200}}
+                            style={{borderColor: a.in_call || ringing ? '#ef4444' : 'var(--border)'}}
                         >
                             <div style={{height:3, background:sc}}/>
-                            <div style={{padding:'14px 14px 12px', textAlign:'center'}}>
-                                {/* Avatar centrado y grande */}
-                                <div style={{position:'relative', width:64, height:64, margin:'0 auto 10px'}}>
-                                    <img
-                                        src={avatarFor(a)}
-                                        alt={a.name}
-                                        onError={(e)=>{e.target.style.display='none'; const next=e.target.nextSibling; if(next) next.style.display='flex';}}
-                                        style={{width:64, height:64, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 14px ${sc}55`}}
-                                    />
-                                    <div style={{display:'none', width:64, height:64, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:18, fontWeight:900, border:`2px solid ${sc}`}}>
+                            <div style={{padding:'12px', display:'flex', alignItems:'center', gap:12}}>
+                                {/* Avatar — más chico en layout horizontal */}
+                                <div style={{position:'relative', width:52, height:52, flexShrink:0}}>
+                                    <img src={avatarFor(a)} alt={a.name}
+                                        onError={(e)=>{e.target.style.display='none'; const n=e.target.nextSibling; if(n) n.style.display='flex';}}
+                                        style={{width:52, height:52, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 12px ${sc}55`}}/>
+                                    <div style={{display:'none', width:52, height:52, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:900, border:`2px solid ${sc}`}}>
                                         {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
                                     </div>
-                                    {/* Indicador estado abajo a la derecha */}
-                                    <span style={{position:'absolute', bottom:0, right:6, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:a.in_call?'pulse-ring 1.5s infinite':''}}/>
+                                    <span style={{position:'absolute', bottom:-1, right:-1, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:a.in_call||ringing?'pulse-ring 1.5s infinite':''}}/>
                                 </div>
 
-                                {/* Nombre destacado */}
-                                <div style={{fontSize:14, fontWeight:800, color:'var(--text)', lineHeight:1.15, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
-
-                                {/* Número de agente — bien grande y destacado */}
-                                <div style={{fontSize:22, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.5px', marginBottom:6}}>#{a.number}</div>
-
-                                {/* Extensión */}
-                                {a.extension && <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace', fontWeight:700, marginBottom:8}}>EXT {a.extension}</div>}
-
-                                {/* Estado badge */}
-                                <div style={{fontSize:9, fontWeight:900, padding:'4px 10px', borderRadius:6, background:`${sc}22`, color:sc, marginBottom:8, letterSpacing:'.1em', display:'inline-block'}}>
-                                    {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}{ringing ? ' · LLAMADA ENTRANTE' : ''}
-                                </div>
-
-                                {/* Colas asignadas — destacadas */}
-                                {a.queues.length > 0 && (
-                                    <div style={{display:'flex', flexWrap:'wrap', gap:4, justifyContent:'center', marginBottom:10}}>
-                                        {a.queues.slice(0,4).map((q,i) => (
-                                            <span key={i} style={{
-                                                fontSize:11, padding:'3px 9px', borderRadius:6,
-                                                background:'rgba(17,179,40,0.15)',
-                                                color:'var(--horizon-green)',
-                                                fontFamily:'monospace', fontWeight:900,
-                                                border:'1px solid rgba(17,179,40,0.3)'
-                                            }}>Q{q.queue||q}</span>
-                                        ))}
-                                        {a.queues.length>4 && <span style={{fontSize:10, color:'var(--muted)', alignSelf:'center'}}>+{a.queues.length-4}</span>}
+                                {/* Info principal */}
+                                <div style={{flex:1, minWidth:0}}>
+                                    <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:2}}>
+                                        <span style={{fontSize:18, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.3px'}}>#{a.number}</span>
+                                        {a.extension && <span style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace', fontWeight:700}}>ext {a.extension}</span>}
                                     </div>
-                                )}
+                                    <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4}}>{a.name}</div>
+                                    <div style={{display:'flex', flexWrap:'wrap', gap:3, alignItems:'center'}}>
+                                        <span style={{fontSize:9, fontWeight:900, padding:'2px 7px', borderRadius:5, background:`${sc}22`, color:sc, letterSpacing:'.05em'}}>
+                                            {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}
+                                        </span>
+                                        {a.queues.slice(0,3).map((q,i)=>(
+                                            <span key={i} style={{fontSize:9, padding:'2px 6px', borderRadius:4, background:'rgba(17,179,40,0.12)', color:'var(--horizon-green)', fontFamily:'monospace', fontWeight:800, border:'1px solid rgba(17,179,40,0.25)'}}>Q{q.queue||q}</span>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                {/* Action buttons */}
-                                <div style={{display:'flex', gap:4}} onClick={e=>e.stopPropagation()}>
-                                    <button onClick={()=>logoutAgent(a)} className="flex-1 rounded-md border border-destructive/40 bg-destructive/10 text-destructive font-bold py-1 text-[10px] cursor-pointer hover:bg-destructive/20 transition-colors">Logout</button>
-                                    <button onClick={()=>setEditing(a)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2 py-1 text-[10px] cursor-pointer hover:bg-accent transition-colors">
-                                        <span className="material-icons-round" style={{fontSize:13}}>edit</span>
+                                {/* Actions verticales */}
+                                <div style={{display:'flex', flexDirection:'column', gap:4}} onClick={e=>e.stopPropagation()}>
+                                    {a.in_call ? (
+                                        <button onClick={()=>doHangup(a)} title="Colgar llamada"
+                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
+                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>call_end</span>
+                                        </button>
+                                    ) : ringing ? (
+                                        <button onClick={()=>doHangup(a)} title="Rechazar llamada"
+                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
+                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>phone_disabled</span>
+                                        </button>
+                                    ) : null}
+                                    <button onClick={()=>logoutAgent(a)} title="Cerrar sesión"
+                                        className="rounded-md border transition-colors hover:bg-accent"
+                                        style={{padding:'4px 8px', fontSize:10, borderColor:'var(--border)', background:'var(--secondary)', color:'var(--foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>logout</span>
                                     </button>
                                 </div>
                             </div>
@@ -8949,49 +9008,72 @@ function ViewHotdesking({ data, toast }) {
                                 <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.name}</div>
                                 <div style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace'}}>#{a.number}</div>
                             </div>
-                            <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}} className="rounded-md border border-success/40 bg-success/10 text-success-foreground px-3 py-1 text-[10px] font-bold cursor-pointer hover:bg-success/20" style={{color:'var(--horizon-green)', borderColor:'rgba(17,179,40,0.4)', background:'rgba(17,179,40,0.1)'}}>Login</button>
+                            <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
+                                className="rounded-md border font-bold transition-colors"
+                                style={{padding:'4px 10px', fontSize:10, color:'var(--horizon-green)', borderColor:'rgba(17,179,40,0.4)', background:'rgba(17,179,40,0.1)'}}>
+                                Login
+                            </button>
                         </div>
                     </div>
                 );
 
-                return (
-                    <div style={{display:'flex', flexDirection:'column', gap:18}}>
-                        {/* SECTION: Agentes logueados — destacados en su propia sección, centrados */}
-                        {loggedAgents.length > 0 && (
-                            <div>
-                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, justifyContent:'center'}}>
-                                    <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
-                                    <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{loggedAgents.length} agente{loggedAgents.length!==1?'s':''} logueado{loggedAgents.length!==1?'s':''}</span>
-                                </div>
-                                <div style={{display:'flex', flexWrap:'wrap', gap:14, justifyContent:'center'}}>
-                                    {loggedAgents.map(renderLogged)}
-                                </div>
-                            </div>
-                        )}
+                if (loggedAgents.length === 0 && offlineAgents.length === 0) {
+                    return (
+                        <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
+                            <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
+                            <div className="text-sm font-bold">Sin agentes para mostrar</div>
+                        </div>
+                    );
+                }
 
-                        {/* SECTION: Agentes offline — compactos en grilla normal */}
-                        {offlineAgents.length > 0 && (
-                            <div>
-                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-                                    <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
-                                    <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} offline</span>
-                                </div>
+                return (
+                    <div className="grid gap-4" style={{gridTemplateColumns:'1fr minmax(340px, 420px)', alignItems:'start'}}>
+                        {/* LEFT: agentes offline (compactos) */}
+                        <div>
+                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                <span style={{width:6, height:6, borderRadius:'50%', background:'#6b7280'}}/>
+                                <span style={{fontSize:11, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em'}}>{offlineAgents.length} agente{offlineAgents.length!==1?'s':''} offline</span>
+                            </div>
+                            {offlineAgents.length > 0 ? (
                                 <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:8}}>
                                     {offlineAgents.map(renderOffline)}
                                 </div>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                                    Todos los agentes están logueados
+                                </div>
+                            )}
+                        </div>
 
-                        {loggedAgents.length === 0 && offlineAgents.length === 0 && (
-                            <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
-                                <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
-                                <div className="text-sm font-bold">Sin agentes para mostrar</div>
-                                <div className="text-xs mt-1">Ajustá los filtros</div>
+                        {/* RIGHT: agentes logueados — grid 4 filas vertical */}
+                        <div className="rounded-xl border bg-card/40 p-3" style={{borderColor:'var(--border)'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingLeft:4}}>
+                                <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', animation:'pulse 2s infinite'}}/>
+                                <span style={{fontSize:11, fontWeight:800, color:'var(--horizon-green)', textTransform:'uppercase', letterSpacing:'.08em'}}>{loggedAgents.length} logueado{loggedAgents.length!==1?'s':''}</span>
                             </div>
-                        )}
+                            {loggedAgents.length > 0 ? (
+                                <div style={{
+                                    display:'grid',
+                                    gridTemplateRows:'repeat(4, minmax(72px, auto))',
+                                    gridAutoFlow:'column',
+                                    gridAutoColumns:'minmax(320px, 1fr)',
+                                    gap:8,
+                                    overflowX:'auto',
+                                    overflowY:'hidden',
+                                    paddingBottom:4
+                                }}>
+                                    {loggedAgents.map(renderLogged)}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-6 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                                    Ningún agente logueado
+                                </div>
+                            )}
+                        </div>
                     </div>
                 );
             })()}
+
 
             {/* TABLE VIEW */}
             {viewMode==='table' && (
@@ -9069,6 +9151,19 @@ function ViewHotdesking({ data, toast }) {
             {loginAgentTarget && <AgentLoginModal open={true} onClose={()=>setLoginAgentTarget(null)} onDone={()=>{setLoginAgentTarget(null);load();loadQueues();}} toast={toast} preselectAgent={loginAgentTarget} />}
             {showWizard && <HotdeskingWizard onClose={()=>setShowWizard(false)} />}
             {editing && <HotdeskingEditModal agent={editing==='new'?null:editing} onClose={()=>setEditing(null)} onSave={save} queues={data?.pbx?.queues||[]} />}
+
+            <ConfirmDialog
+                open={!!logoutTarget}
+                onCancel={()=>setLogoutTarget(null)}
+                onConfirm={confirmLogout}
+                title="Cerrar sesión del agente"
+                message={logoutTarget ? `¿Cerrar la sesión de ${logoutTarget.name} (#${logoutTarget.number})? El agente saldrá de todas las colas activas y deberá loguearse nuevamente para atender llamadas.` : ''}
+                confirmLabel="Sí, cerrar sesión"
+                cancelLabel="Cancelar"
+                variant="destructive"
+                icon="logout"
+                loading={logoutBusy}
+            />
         </div>
     );
 }
