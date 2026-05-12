@@ -44,6 +44,66 @@ const state = {
     queueWaiting: {} // uniqueid → {queue, callerid, joinTime}
 };
 
+// HORIZON: cache de extensiones con RTSP configurada para auto-snapshot on-call
+const rtspExtCache = new Map(); // ext -> { rtsp_url, last_snap_ts }
+const SNAPSHOT_THROTTLE_MS = 30 * 1000; // máx 1 captura por ext cada 30s
+
+async function refreshRtspExtCache() {
+    if (!pool) return;
+    try {
+        const [rows] = await pool.execute("SELECT ext, rtsp_url FROM ext_meta WHERE rtsp_url IS NOT NULL AND rtsp_url != ''");
+        const fresh = new Map();
+        for (const r of rows) {
+            const prev = rtspExtCache.get(r.ext);
+            fresh.set(String(r.ext), { rtsp_url: r.rtsp_url, last_snap_ts: prev?.last_snap_ts || 0 });
+        }
+        // Mantener el throttle state aún si la cache se reconstruye
+        for (const [ext, val] of rtspExtCache) {
+            const f = fresh.get(ext);
+            if (f) f.last_snap_ts = val.last_snap_ts;
+        }
+        // Reemplazar
+        rtspExtCache.clear();
+        for (const [k,v] of fresh) rtspExtCache.set(k, v);
+        console.log(`[realtime] RTSP cache refreshed — ${rtspExtCache.size} extensions con stream`);
+    } catch(e) { console.error('[realtime] refreshRtspExtCache:', e.message); }
+}
+
+// Trigger snapshot via HTTP a localhost — non-blocking
+function triggerAutoSnapshot(ext) {
+    const entry = rtspExtCache.get(String(ext));
+    if (!entry) return; // no tiene RTSP configurado
+    const now = Date.now();
+    if (now - (entry.last_snap_ts || 0) < SNAPSHOT_THROTTLE_MS) return; // throttle
+    entry.last_snap_ts = now;
+    const http = require('http');
+    const postData = `ext=${encodeURIComponent(ext)}`;
+    const req = http.request({
+        host: '127.0.0.1', port: 80, path: '/api/rtsp_snapshot.php?action=capture&loopback=1',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData), 'X-TF-Internal': '1' },
+        timeout: 12000
+    }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+            try {
+                const j = JSON.parse(body);
+                if (j.status === 'ok') console.log(`[snapshot] ext ${ext} → captured ${j.filename}`);
+                else console.warn(`[snapshot] ext ${ext} → failed: ${j.message || body.substring(0,100)}`);
+            } catch(e) { console.warn(`[snapshot] ext ${ext} → bad response`); }
+        });
+    });
+    req.on('error', e => console.warn(`[snapshot] ext ${ext} → http error: ${e.message}`));
+    req.on('timeout', () => { req.destroy(); console.warn(`[snapshot] ext ${ext} → timeout`); });
+    req.write(postData);
+    req.end();
+}
+
+// Refrescar cache al inicio y cada 5 min
+setTimeout(refreshRtspExtCache, 5000);
+setInterval(refreshRtspExtCache, 5 * 60 * 1000);
+
 const extFromChannel = (chan) => {
     if (!chan) return null;
     const m = chan.match(/^(?:PJSIP|SIP|Local)\/(\d+)/i);
@@ -85,7 +145,14 @@ ami.on('managerevent', async (evt) => {
             };
             io.emit('call_update', { type: 'new', call: state.calls[id] });
             const ext = extFromChannel(evt.channel);
-            if (ext) { state.peers[ext] = { ...(state.peers[ext]||{}), status:'BUSY' }; io.emit('peer_update', { ext, status:'BUSY' }); }
+            if (ext) {
+                state.peers[ext] = { ...(state.peers[ext]||{}), status:'BUSY' };
+                io.emit('peer_update', { ext, status:'BUSY' });
+                // HORIZON: auto-snapshot RTSP si la ext que llama tiene videoportero configurado
+                if (rtspExtCache.has(ext)) {
+                    triggerAutoSnapshot(ext);
+                }
+            }
             break;
         }
         case 'newstate': {
@@ -226,6 +293,24 @@ io.on('connection', (socket) => {
 // ───── HTTP /broadcast endpoint para que AGI/PHP notifiquen eventos ──
 const http = require('http');
 const broadcastServer = http.createServer((req, res) => {
+    // Endpoint dedicado para refrescar el cache RTSP (llamado por PHP set_ext_meta loopback)
+    if (req.method === 'POST' && req.url === '/broadcast' && (req.headers['x-tf-notify'] || '') === 'rtsp_meta_changed') {
+        if (!(req.socket.remoteAddress || '').match(/127\.0\.0\.1|::1|::ffff:127\./)) {
+            res.writeHead(403); return res.end('loopback only');
+        }
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', () => {
+            try {
+                const j = JSON.parse(body || '{}');
+                console.log(`[broadcast] rtsp_meta_changed for ext ${j.ext || '?'} — refreshing cache`);
+                refreshRtspExtCache();
+                res.writeHead(200, {'Content-Type':'application/json'});
+                res.end(JSON.stringify({ok:true,refreshed:true}));
+            } catch(e) { res.writeHead(400); res.end('bad'); }
+        });
+        return;
+    }
     if (req.method === 'POST' && req.url === '/broadcast') {
         let body = '';
         req.on('data', c => body += c);

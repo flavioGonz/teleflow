@@ -864,6 +864,17 @@ if ($action === 'set_ext_meta') {
         try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN is_bocina TINYINT(1) NOT NULL DEFAULT 0"); } catch(Exception $_) {}
         $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina)");
         $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina]);
+        // Notificar al realtime hub para refrescar su cache RTSP (best-effort, non-blocking)
+        @file_get_contents('http://127.0.0.1:9001/broadcast', false, stream_context_create([
+            'http' => [
+                'method'  => 'POST',
+                'header'  => "Content-Type: application/json
+X-TF-Notify: rtsp_meta_changed
+",
+                'content' => json_encode(['event'=>'rtsp_meta_changed','ext'=>$ext]),
+                'timeout' => 1
+            ]
+        ]));
         echo json_encode(['success'=>true]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
     exit;

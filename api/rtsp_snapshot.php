@@ -18,10 +18,11 @@ session_start();
 
 header('Content-Type: application/json');
 
-// Authorization: admin OR el propio agente
+// Authorization: admin OR el propio agente OR loopback interno (realtime hub auto-capture)
 $is_admin = !empty($_SESSION['tf_user']);
 $is_agent = !empty($_SESSION['agent_user']);
-if (!$is_admin && !$is_agent) {
+$is_loopback = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1']) && ($_SERVER['HTTP_X_TF_INTERNAL'] ?? '') === '1';
+if (!$is_admin && !$is_agent && !$is_loopback) {
     http_response_code(401);
     echo json_encode(['status'=>'error','message'=>'No autorizado']);
     exit;
