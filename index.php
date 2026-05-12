@@ -4537,18 +4537,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
                         {/* ─── Card 3: Último acceso (thumbnails RTSP) + botón configurar ─── */}
                         <Card>
-                            <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 gap-2">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>photo_library</span>
-                                        Último acceso
-                                    </CardTitle>
-                                    <CardDescription className="text-[10px]">Capturas RTSP últimos 30 días</CardDescription>
-                                </div>
-                                <Button variant="outline" size="sm" onClick={()=>setShowRtspModal(true)} className="h-8 px-2 text-[10px] shrink-0" title="Configurar URL RTSP del stream">
-                                    <span className="material-icons-round" style={{fontSize:13,marginRight:3}}>settings</span>
-                                    RTSP
-                                </Button>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>photo_library</span>
+                                    Último acceso
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">Capturas RTSP últimos 30 días</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {!isNew && form.rtsp_url ? (
