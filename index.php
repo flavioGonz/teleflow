@@ -10210,6 +10210,7 @@ function ViewConfiguracion() {
         { id:'usuarios',       icon:'manage_accounts',label:'Usuarios',       desc:'Admins y agentes' },
         { id:'branding',       icon:'palette',        label:'Branding',       desc:'Logos y colores' },
         { id:'softphone',      icon:'phone_in_talk',  label:'Softphone',      desc:'Cliente WebRTC' },
+        { id:'changelog',      icon:'history',        label:'Changelog',      desc:'Historial de versiones' },
     ];
 
     return (
@@ -10450,6 +10451,7 @@ function ViewConfiguracion() {
             {activeTab === 'softphone' && <ViewConfigSoftphone />}
             {activeTab === 'asterisk'  && <ViewConfigAsterisk />}
             {activeTab === 'usuarios'  && <ViewConfigUsers />}
+            {activeTab === 'changelog' && <ViewConfigChangelog />}
                 </div>
             </div>
         </div>
@@ -11164,6 +11166,184 @@ function ViewConfigSoftphone() {
                 </div>
             </div>
         </div>
+    );
+}
+
+function ViewConfigChangelog() {
+    // Entradas curadas en orden cronológico inverso. Para detalle granular hay `git log` en el repo.
+    const releases = [
+        {
+            v: 'v7.3', date: '2026-05-12', tag: 'release',
+            title: 'Menú Configurar + Dígito de apertura DTMF',
+            items: [
+                'Card "Último acceso" sin botón RTSP propio — la configuración vive en el menú Configurar del overlay del bloque Estado del interno.',
+                'Menú contextual "Configurar" (icono settings) con 3 opciones: RTSP / Grabaciones / Dígito de apertura.',
+                'Nuevo modal "Dígito de apertura" — código DTMF persistido en MySQL (ext_meta.door_dtmf_code, default *9).',
+                'openDoor() ahora envía el código configurado al endpoint api/door_dtmf.php.',
+            ]
+        },
+        {
+            v: 'v7.2', date: '2026-05-11', tag: 'release',
+            title: 'Estado del interno full-card + cleanup RTSP en toast',
+            items: [
+                'Video RTSP cubre TODA la columna de la card "Estado del interno" — sin recuadro interior, título + acciones en overlay.',
+                'Botón de apertura remota agregado al overlay del video.',
+                'RtspPreview del toast Sileo cierra junto con el toast (sync de ciclo de vida — id usa channel consistente entre newchannel y hangup).',
+                'Auto-snapshot RTSP al recibir llamada de videoportero (realtime hub con throttle 30s).',
+            ]
+        },
+        {
+            v: 'v7.1', date: '2026-05-11', tag: 'release',
+            title: 'Wallboard v9 + Hotdesking 2x2 + theme robustness',
+            items: [
+                'Hotdesking en grid 2x2: Logueados+Llamadas en vivo (row 1), Offline+Grupos timbrado (row 2).',
+                'Wallboard con bloques compartimentados y buscador live de agentes.',
+                'Top bar text usa var(--foreground) — solid black en light, white en dark.',
+                'Tokens body unificados — fix de mismatch entre shadcn .dark y legacy body.light.',
+            ]
+        },
+        {
+            v: 'v7.0', date: '2026-05-11', tag: 'major',
+            title: 'Ficha interno v7 — Bocina IP + Debug SIP + Kiosko colas',
+            items: [
+                'Ficha con 4 tabs (Datos / Historial llamadas / Historial agentes / Debug SIP) y Cards independientes.',
+                'Toggle Bocina IP en categoría Cliente (icono campaign ámbar) — fuerza devType SIP y bloquea tecnologías incompatibles.',
+                'Tab Debug SIP con auto-refresh 5s — output pjsip filtrado por extensión.',
+                'Modo Kiosko fullscreen para colas con métricas grandes, reloj live y pulse en críticas.',
+                'Export PDF/Excel del Historial de llamadas filtrado por extensión.',
+            ]
+        },
+        {
+            v: 'v6.5', date: '2026-05-10', tag: 'feature',
+            title: 'Paleta Horizon green + sweep shadcn full',
+            items: [
+                'Brand color: --primary #11B328 (Horizon green), --foreground #1A1A1A, --secondary #E6E7E8.',
+                'Sweep completo: 0 hardcoded purples/violets en el código.',
+                'Todas las vistas migradas a primitives shadcn (Button, Card, Dialog, Sheet, Tabs, ShTable, etc.).',
+                'Dark/light theme con pre-paint inline script para evitar flash.',
+            ]
+        },
+        {
+            v: 'v6.0', date: '2026-05-09', tag: 'feature',
+            title: 'Player de audio wavesurfer + grabaciones inline',
+            items: [
+                'WaveformPlayer con wavesurfer.js v7 (CDN lazy load) + fallback a <audio> nativo.',
+                'Forzado a format=mp3 (más compatible que WAV 8kHz GSM).',
+                'Helper global tfPlayRecording(file, meta) — Dialog mounted en root con evento tf-play-recording.',
+                'Miniatura RTSP (±5min) en cada fila del Historial de llamadas.',
+            ]
+        },
+        {
+            v: 'v5.5', date: '2026-05-08', tag: 'feature',
+            title: 'RTSP por extensión + MediaMTX proxy',
+            items: [
+                'MediaMTX v1.10 instalado en VM como proxy RTSP → HLS (api 9997, hls 8888).',
+                'Endpoint api/rtsp_proxy.php con rtspTransport: tcp y hlsVariant: mpegts.',
+                'Endpoint api/rtsp_snapshot.php — capture/list/image/cleanup con storage por extensión.',
+                'Preview RTSP docked sobre toast de llamada entrante (ResizeObserver-based dynamic positioning).',
+            ]
+        },
+        {
+            v: 'v5.0', date: '2026-05-07', tag: 'feature',
+            title: 'Reportes shadcn + AgentDetailDrawer profesional',
+            items: [
+                'ViewReportes con 4 tabs + período como pill TabsList INLINE al menú.',
+                'AgentDetailDrawer rediseñado: avatar gradient, KPIs harmonizados, exports PDF/Excel.',
+                'Composer + TCPDF + PhpSpreadsheet instalados en VM.',
+                'Fix bug cancelación real con useEffect-scoped fetch.',
+            ]
+        },
+        {
+            v: 'v4.0', date: '2026-05-05', tag: 'security',
+            title: 'Rotación de credenciales + hardening',
+            items: [
+                'Rotación de credenciales MySQL (PBX 10.1.1.7 Issabel-safe) y AMI.',
+                'Reescritura horizon/main sin secretos (force-push tras filtración).',
+                'VM web 10.1.1.192 actualizada con nuevas creds y hub reiniciado.',
+            ]
+        },
+        {
+            v: 'v3.0', date: '2026-05-04', tag: 'feature',
+            title: 'Call Center + Hotdesking + Realtime hub v2',
+            items: [
+                'Realtime hub Node (asterisk-manager + socket.io + mysql2) con persistence completa.',
+                'Endpoints Horizon: agent, hotdesking, reports, ChanSpy.',
+                'AGIs y dialplan en dist/ con audios custom.',
+                'PWA: manifest, icon, sw.js con versionado de cache.',
+            ]
+        },
+    ];
+
+    const tagStyles = {
+        major:   { bg:'color-mix(in srgb, var(--horizon-green) 18%, var(--card))', fg:'var(--horizon-green)', label:'MAJOR' },
+        release: { bg:'color-mix(in srgb, var(--primary) 15%, var(--card))',       fg:'var(--primary)',       label:'RELEASE' },
+        feature: { bg:'color-mix(in srgb, #3b82f6 16%, var(--card))',              fg:'#3b82f6',              label:'FEATURE' },
+        security:{ bg:'color-mix(in srgb, #ef4444 16%, var(--card))',              fg:'#ef4444',              label:'SECURITY' },
+        fix:     { bg:'color-mix(in srgb, #f59e0b 16%, var(--card))',              fg:'#f59e0b',              label:'FIX' },
+    };
+
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 gap-3">
+                <div>
+                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>history</span>
+                        Changelog
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">Versiones y mejoras destacadas — actualizado al cierre de cada sesión de desarrollo</CardDescription>
+                </div>
+                <Badge variant="outline" className="shrink-0">
+                    <span className="material-icons-round mr-1" style={{fontSize:13}}>tag</span>
+                    {releases[0]?.v || 'v?'}
+                </Badge>
+            </CardHeader>
+            <CardContent>
+                <div className="relative pl-6">
+                    {/* Línea vertical de la timeline */}
+                    <div className="absolute left-2 top-2 bottom-2" style={{width:2, background:'color-mix(in srgb, var(--border) 80%, transparent)'}}/>
+                    <div className="flex flex-col gap-5">
+                        {releases.map((r, i) => {
+                            const t = tagStyles[r.tag] || tagStyles.release;
+                            return (
+                                <div key={r.v} className="relative">
+                                    {/* Punto de la timeline */}
+                                    <div className="absolute -left-[18px] top-1.5 rounded-full ring-4"
+                                         style={{width:12, height:12, background:t.fg, ringColor:'var(--card)'}}/>
+                                    <div className="flex items-start gap-2 flex-wrap mb-2">
+                                        <span className="font-bold text-sm" style={{color:'var(--foreground)'}}>{r.v}</span>
+                                        <Badge variant="outline" className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0"
+                                               style={{background:t.bg, color:t.fg, borderColor:'color-mix(in srgb, '+t.fg+' 40%, transparent)'}}>
+                                            {t.label}
+                                        </Badge>
+                                        <span className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>{r.date}</span>
+                                    </div>
+                                    <div className="font-medium text-sm mb-2" style={{color:'var(--foreground)'}}>{r.title}</div>
+                                    <ul className="space-y-1.5 text-xs" style={{color:'var(--muted-foreground)'}}>
+                                        {r.items.map((it, idx) => (
+                                            <li key={idx} className="flex items-start gap-2">
+                                                <span className="material-icons-round shrink-0 mt-[2px]" style={{fontSize:13, color:t.fg, opacity:0.7}}>chevron_right</span>
+                                                <span>{it}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <Separator className="my-5"/>
+                <div className="flex items-center justify-between text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                    <span className="flex items-center gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:14}}>info</span>
+                        Detalle granular en <code className="font-mono px-1 rounded" style={{background:'color-mix(in srgb, var(--muted) 50%, transparent)'}}>git log horizon/main</code>
+                    </span>
+                    <a href="https://github.com/flavioGonz/teleflow" target="_blank" rel="noopener" className="flex items-center gap-1 hover:underline" style={{color:'var(--primary)'}}>
+                        <span className="material-icons-round" style={{fontSize:13}}>open_in_new</span>
+                        Repo
+                    </a>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
