@@ -3454,45 +3454,55 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
 
     return (
         <div className="flex flex-col gap-3">
-            {/* Preview RTSP en vivo (si hay URL) */}
-            {hasRtsp && (
-                <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label}/>
-            )}
-
-            {/* Bloque de estado — icono GRANDE animado de background + badge encima */}
-            <div className="relative rounded-lg border overflow-hidden flex flex-col items-center justify-center"
+            {/* Bloque de estado — si hay RTSP, video al fondo. Sino icono enorme decorativo */}
+            <div className="relative rounded-lg border overflow-hidden"
                  style={{
-                     borderColor:`color-mix(in srgb, ${statusColor} 30%, var(--border))`,
-                     background:`linear-gradient(135deg, color-mix(in srgb, ${statusColor} 6%, var(--card)) 0%, var(--card) 100%)`,
-                     minHeight: hasRtsp ? 112 : 140,
-                     padding:'18px 14px'
+                     borderColor:`color-mix(in srgb, ${statusColor} 35%, var(--border))`,
+                     background: hasRtsp ? '#0a0a0d' : `linear-gradient(135deg, color-mix(in srgb, ${statusColor} 6%, var(--card)) 0%, var(--card) 100%)`,
+                     minHeight: hasRtsp ? 200 : 160
                  }}>
-                {/* Icono enorme al fondo (decorativo) */}
-                <span className="material-icons-round absolute pointer-events-none"
-                      style={{
-                          fontSize: hasRtsp ? 120 : 150,
-                          color: statusColor,
-                          opacity: 0.12,
-                          bottom: -16, right: -10,
-                          animation: sIcon.animation,
-                          transformOrigin: 'center'
-                      }}>
-                    {sIcon.icon}
-                </span>
-                {/* Icono en foreground (más pequeño pero claro, alineado con animación) */}
-                <span className="material-icons-round relative z-10"
-                      style={{
-                          fontSize: hasRtsp ? 44 : 56,
-                          color: statusColor,
-                          filter:`drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 55%, transparent))`,
-                          animation: sIcon.animation
-                      }}>
-                    {sIcon.icon}
-                </span>
-                {/* Badge de estado */}
-                <Badge variant="outline" className="font-bold uppercase text-[10px] mt-2 relative z-10" style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
-                    {statusLabel}
-                </Badge>
+                {/* Background: VIDEO RTSP o ICONO GIGANTE decorativo */}
+                {hasRtsp ? (
+                    <div className="absolute inset-0">
+                        <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
+                        {/* Overlay gradient para legibilidad de los elementos arriba */}
+                        <div className="absolute inset-0 pointer-events-none" style={{
+                            background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.7) 100%)'
+                        }}/>
+                    </div>
+                ) : (
+                    <span className="material-icons-round absolute pointer-events-none"
+                          style={{
+                              fontSize: 160,
+                              color: statusColor,
+                              opacity: 0.13,
+                              bottom: -18, right: -12,
+                              animation: sIcon.animation
+                          }}>{sIcon.icon}</span>
+                )}
+
+                {/* Foreground: status icon + badge centrados */}
+                <div className="relative z-10 flex flex-col items-center justify-center"
+                     style={{padding: hasRtsp ? '20px 14px 16px' : '24px 14px', minHeight: hasRtsp ? 200 : 160}}>
+                    <span className="material-icons-round"
+                          style={{
+                              fontSize: 56,
+                              color: hasRtsp ? '#ffffff' : statusColor,
+                              filter: hasRtsp
+                                  ? `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 80%, transparent)) drop-shadow(0 2px 8px rgba(0,0,0,0.6))`
+                                  : `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 55%, transparent))`,
+                              animation: sIcon.animation
+                          }}>{sIcon.icon}</span>
+                    <Badge variant="outline" className="font-bold uppercase text-[10px] mt-2"
+                           style={{
+                               borderColor: hasRtsp ? `color-mix(in srgb, ${statusColor} 70%, white)` : `${statusColor}66`,
+                               color: hasRtsp ? '#ffffff' : statusColor,
+                               background: hasRtsp ? `color-mix(in srgb, ${statusColor} 50%, rgba(0,0,0,0.5))` : `${statusColor}11`,
+                               textShadow: hasRtsp ? '0 1px 3px rgba(0,0,0,0.7)' : 'none'
+                           }}>
+                        {statusLabel}
+                    </Badge>
+                </div>
             </div>
 
             {/* Métricas */}
@@ -3545,7 +3555,7 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
 }
 
 // ─── RtspInlinePreview: miniatura HLS embebida en la columna Estado ───────
-function RtspInlinePreview({ ext, url, label }) {
+function RtspInlinePreview({ ext, url, label, fillContainer = false }) {
     const videoRef = useRef(null);
     const [error, setError] = useState(null);
     const [resolvedUrl, setResolvedUrl] = useState(null);
@@ -3601,7 +3611,9 @@ function RtspInlinePreview({ ext, url, label }) {
     }, [playUrl, isHls]);
 
     return (
-        <div className="relative rounded-lg overflow-hidden border" style={{
+        <div className={fillContainer ? "absolute inset-0 overflow-hidden" : "relative rounded-lg overflow-hidden border"} style={fillContainer ? {
+            background:'#0a0a0d'
+        } : {
             borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)',
             background:'#0a0a0d',
             aspectRatio:'16/10',

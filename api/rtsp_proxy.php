@@ -53,6 +53,7 @@ if ($needs_update) {
         'sourceOnDemand' => true,
         'sourceOnDemandStartTimeout' => '10s',
         'sourceOnDemandCloseAfter' => '30s',
+        'rtspTransport' => 'tcp',  // HORIZON: forzar TCP — UDP/automatic falla con muchas cámaras
     ]);
     $ch = curl_init("$mtx_api$endpoint");
     curl_setopt_array($ch, [
