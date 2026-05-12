@@ -6097,33 +6097,177 @@ function ViewVivo({ data }) {
 // ─────────────────────────────────────────────
 function ViewGrabaciones({ data }) {
     const recs = data?.pbx?.recordings || [];
+    const exts = data?.pbx?.extensions || [];
+    const [search, setSearch] = useState('');
+    const [dispFilter, setDispFilter] = useState('all');
+
+    const nameOf = (n) => {
+        if (!n) return null;
+        const e = exts.find(x => String(x.ext) === String(n));
+        return e?.name || null;
+    };
+    const labelOf = (n) => {
+        const nm = nameOf(n);
+        return nm ? `${nm} (${n})` : (n || '—');
+    };
+
+    const dispMeta = {
+        'ANSWERED':  { label:'Contestada',    color:'var(--horizon-green)',     icon:'call',           variant:'success' },
+        'NO ANSWER': { label:'No contestada', color:'var(--muted-foreground)',  icon:'phone_missed',   variant:'secondary' },
+        'BUSY':      { label:'Ocupado',       color:'var(--warning)',           icon:'phone_paused',   variant:'warning' },
+        'FAILED':    { label:'Fallida',       color:'var(--destructive)',       icon:'phone_disabled', variant:'destructive' },
+    };
+
+    const filtered = recs.filter(r => {
+        if (dispFilter !== 'all' && r.disposition !== dispFilter) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        const hay = [r.src, r.dst, r.callerid, nameOf(r.src), nameOf(r.dst)]
+            .filter(Boolean).map(x => String(x).toLowerCase()).join(' ');
+        return hay.includes(q);
+    });
+
+    const counters = recs.reduce((acc, r) => {
+        acc.total++;
+        acc[r.disposition || 'OTHER'] = (acc[r.disposition || 'OTHER'] || 0) + 1;
+        return acc;
+    }, { total:0 });
+
+    const filters = [
+        { id:'all',       label:'Todas',        count: counters.total },
+        { id:'ANSWERED',  label:'Contestadas',  count: counters.ANSWERED || 0 },
+        { id:'NO ANSWER', label:'No contestadas', count: counters['NO ANSWER'] || 0 },
+        { id:'BUSY',      label:'Ocupado',      count: counters.BUSY || 0 },
+        { id:'FAILED',    label:'Fallidas',     count: counters.FAILED || 0 },
+    ];
+
     return (
-        <div className="content-area">
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {recs.length === 0
-                    ? <div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>Sin grabaciones disponibles</div>
-                    : recs.map((r,i)=>(
-                        <div key={i} className="glass" style={{padding:'16px 18px'}}>
-                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                                <div style={{display:'flex',gap:10,alignItems:'center'}}>
-                                    <div style={{width:34,height:34,borderRadius:9,background:'color-mix(in srgb, var(--primary) 15%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:16,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>mic</span>
-                                    </div>
-                                    <div>
-                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>#{r.src} → {r.dst}</div>
-                                        <div style={{fontSize:11,color:'#6b7280'}}>{r.calldate?.substring(0,16)}</div>
-                                    </div>
-                                </div>
-                                <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))',fontWeight:600}}>{r.duration}s</span>
-                                    <span style={{fontSize:11,padding:'4px 10px',borderRadius:8,background:r.disposition==='ANSWERED'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)',color:r.disposition==='ANSWERED'?'#4ade80':'#f87171',fontWeight:600}}>{r.disposition}</span>
-                                </div>
-                            </div>
-                            {r.recordingfile && <audio controls src={`api/recording.php?file=${encodeURIComponent(r.recordingfile.split('/').pop())}`} style={{width:'100%'}} />}
+        <div className="content-area view-enter space-y-4">
+            {/* Header: KPI + buscador + filtros */}
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(0, 1.5fr) minmax(280px, 1fr)'}}>
+                <Card className="relative overflow-hidden">
+                    <span className="material-icons-round absolute pointer-events-none" style={{fontSize:140, color:'var(--primary)', opacity:0.07, bottom:-18, right:-12}}>graphic_eq</span>
+                    <CardContent className="p-5 flex items-center gap-4 relative">
+                        <div className="rounded-2xl flex items-center justify-center shrink-0"
+                             style={{
+                                 width:58, height:58,
+                                 background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                                 boxShadow:'0 6px 18px color-mix(in srgb, var(--primary) 30%, transparent)'
+                             }}>
+                            <span className="material-icons-round text-white" style={{fontSize:28}}>graphic_eq</span>
                         </div>
-                    ))
-                }
+                        <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>Grabaciones</div>
+                            <h1 className="text-3xl font-black tabular-nums leading-none mt-1" style={{color:'var(--foreground)'}}>
+                                {counters.total}
+                                <span className="text-sm font-bold ml-2" style={{color:'var(--muted-foreground)'}}>
+                                    disponible{counters.total === 1 ? '' : 's'}
+                                </span>
+                            </h1>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4 flex flex-col gap-2.5">
+                        <div className="relative">
+                            <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16, color:'var(--muted-foreground)'}}>search</span>
+                            <Input placeholder="Buscar interno, nombre, CallerID…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-9"/>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                            {filters.map(f => {
+                                const active = dispFilter === f.id;
+                                return (
+                                    <button key={f.id} type="button" onClick={()=>setDispFilter(f.id)}
+                                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition-all"
+                                            style={{
+                                                background: active ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent',
+                                                color: active ? 'var(--primary)' : 'var(--muted-foreground)',
+                                                border: '1px solid ' + (active ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--border)')
+                                            }}>
+                                        {f.label}
+                                        <span className="font-mono" style={{opacity:0.7}}>{f.count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
+
+            {/* Lista */}
+            {filtered.length === 0 ? (
+                <Card>
+                    <CardContent className="p-12 text-center">
+                        <span className="material-icons-round block mb-3" style={{fontSize:56, color:'var(--muted-foreground)', opacity:0.35}}>mic_off</span>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>
+                            {recs.length === 0 ? 'Sin grabaciones disponibles' : 'Sin resultados con los filtros aplicados'}
+                        </h3>
+                        <p className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>
+                            {recs.length === 0
+                                ? 'Las grabaciones aparecen acá cuando MixMonitor está habilitado en la cola o ext.'
+                                : 'Probá quitando filtros o cambiando el texto de búsqueda.'}
+                        </p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="flex flex-col gap-2">
+                    {filtered.map((r, i) => {
+                        const meta = dispMeta[r.disposition] || { label: r.disposition || '—', color:'var(--muted-foreground)', icon:'help', variant:'secondary' };
+                        return (
+                            <Card key={r.uniqueid || i} className="overflow-hidden transition-all hover:shadow-md">
+                                <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+                                    {/* Play button */}
+                                    <button type="button"
+                                            onClick={()=>tfPlayRecording(r.recordingfile || r.file, {src:r.src, dst:r.dst, calldate:r.calldate, duration:r.duration})}
+                                            disabled={!r.recordingfile && !r.file}
+                                            className="rounded-full flex items-center justify-center transition-all shrink-0 hover:scale-105"
+                                            style={{
+                                                width:42, height:42,
+                                                background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                                                color:'var(--primary-foreground)',
+                                                boxShadow:'0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent)',
+                                                cursor: (r.recordingfile || r.file) ? 'pointer' : 'not-allowed',
+                                                opacity: (r.recordingfile || r.file) ? 1 : 0.4
+                                            }}
+                                            title={(r.recordingfile || r.file) ? 'Reproducir grabación' : 'Sin archivo disponible'}>
+                                        <span className="material-icons-round" style={{fontSize:22}}>play_arrow</span>
+                                    </button>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>
+                                            <span title={String(r.src||'')}>{labelOf(r.src)}</span>
+                                            <span className="font-mono mx-2" style={{color:'var(--muted-foreground)', opacity:0.7}}>→</span>
+                                            <span title={String(r.dst||'')}>{labelOf(r.dst)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5 text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round" style={{fontSize:11}}>schedule</span>
+                                            {(r.calldate || '').substring(0, 16) || '—'}
+                                            {r.callerid && (
+                                                <>
+                                                    <span style={{opacity:0.4}}>·</span>
+                                                    <span className="truncate" style={{maxWidth:240}} title={r.callerid}>{r.callerid}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Duration */}
+                                    <div className="shrink-0 text-right">
+                                        <div className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Duración</div>
+                                        <div className="text-base font-bold font-mono tabular-nums" style={{color:'var(--foreground)'}}>
+                                            {r.duration > 0 ? `${Math.floor(r.duration/60)}:${String(r.duration%60).padStart(2,'0')}` : '—'}
+                                        </div>
+                                    </div>
+                                    {/* Disposition badge */}
+                                    <Badge variant={meta.variant} className="inline-flex items-center gap-1 shrink-0">
+                                        <span className="material-icons-round" style={{fontSize:13}}>{meta.icon}</span>
+                                        {meta.label}
+                                    </Badge>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
