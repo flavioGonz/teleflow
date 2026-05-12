@@ -1020,7 +1020,7 @@ header('Expires: 0');
         .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
         .tfbar-menu { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; overflow: visible; flex-wrap: nowrap; min-width: 0; }
         .tfbar-menu::-webkit-scrollbar { display: none; }
-        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted-foreground); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
+        .tfbar-item { position: relative; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--foreground); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
         .tfbar-item:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--foreground); }
         .tfbar-item.active { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
         .tfbar-item .material-icons-round { font-size: 17px; }
@@ -11681,6 +11681,8 @@ function ViewHotdesking({ data, toast }) {
                 return (
                     <div className="space-y-4">
 
+                        {/* ─── Row 1: Logueados | Llamadas en vivo ─── */}
+                        <div className="grid gap-4 lg:grid-cols-2 items-stretch">
                         {/* ─── BLOCK 1: Logueados (DESTACADO con horizon-green) ─── */}
                         <div className="rounded-xl border overflow-hidden" style={{
                             borderColor:'color-mix(in srgb, var(--horizon-green) 45%, var(--border))',
@@ -11738,6 +11740,51 @@ function ViewHotdesking({ data, toast }) {
                             </div>
                         </div>
 
+                            {/* ─── BLOCK 4 movido aquí: Llamadas en vivo (al lado de Logueados) ─── */}
+                            <Card className="overflow-hidden">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>sensors</span>
+                                        Llamadas en vivo
+                                    </CardTitle>
+                                    <Badge variant="secondary" className="font-mono text-[10px]">{liveCalls.length} canales</Badge>
+                                </CardHeader>
+                                <CardContent>
+                                    {liveCalls.length === 0 ? (
+                                        <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round mb-1.5 block" style={{fontSize:32, opacity:0.4}}>phone_disabled</span>
+                                            <p className="text-xs">Sin llamadas activas</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight:320}}>
+                                            {liveCalls.slice(0,16).map((c, i) => {
+                                                const isUp = c.state === 'Up';
+                                                const isRing = /Ring/.test(c.state || '');
+                                                const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
+                                                return (
+                                                    <div key={i} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5"
+                                                         style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
+                                                        <span className="rounded-full shrink-0" style={{width:8, height:8, background:sc, animation:isRing?'pulse 1s infinite':'none', boxShadow:`0 0 8px ${sc}`}}/>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-mono text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                                {c.ext || c.callerid || '?'} → {c.dest || '?'}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                                                                <span>{c.duration || '00:00'}</span>
+                                                                <span style={{color:'var(--border)'}}>·</span>
+                                                                <span>{isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                        {/* ─── Row 2: Offline | Grupos de timbrado ─── */}
+                        <div className="grid gap-4 lg:grid-cols-2 items-stretch">
                         {/* ─── BLOCK 2: Offline ─── */}
                         <Card className="overflow-hidden">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -11765,10 +11812,7 @@ function ViewHotdesking({ data, toast }) {
                             </CardContent>
                         </Card>
 
-                        {/* ─── Row 3: Grupos de timbrado | Llamadas en vivo (paralelos) ─── */}
-                        <div className="grid gap-4 lg:grid-cols-2">
-
-                            {/* BLOCK 3: Grupos de timbrado */}
+                            {/* BLOCK 3: Grupos de timbrado (movido al lado de Offline) */}
                             <Card className="overflow-hidden">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                                     <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -11813,48 +11857,6 @@ function ViewHotdesking({ data, toast }) {
                                 </CardContent>
                             </Card>
 
-                            {/* BLOCK 4: Llamadas en vivo */}
-                            <Card className="overflow-hidden">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>sensors</span>
-                                        Llamadas en vivo
-                                    </CardTitle>
-                                    <Badge variant="secondary" className="font-mono text-[10px]">{liveCalls.length} canales</Badge>
-                                </CardHeader>
-                                <CardContent>
-                                    {liveCalls.length === 0 ? (
-                                        <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
-                                            <span className="material-icons-round mb-1.5 block" style={{fontSize:32, opacity:0.4}}>phone_disabled</span>
-                                            <p className="text-xs">Sin llamadas activas</p>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight:280}}>
-                                            {liveCalls.slice(0,12).map((c, i) => {
-                                                const isUp = c.state === 'Up';
-                                                const isRing = /Ring/.test(c.state || '');
-                                                const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
-                                                return (
-                                                    <div key={i} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5"
-                                                         style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
-                                                        <span className="rounded-full shrink-0" style={{width:8, height:8, background:sc, animation:isRing?'pulse 1s infinite':'none', boxShadow:`0 0 8px ${sc}`}}/>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="font-mono text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
-                                                                {c.ext || c.callerid || '?'} → {c.dest || '?'}
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>
-                                                                <span>{c.duration || '00:00'}</span>
-                                                                <span style={{color:'var(--border)'}}>·</span>
-                                                                <span>{isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
                         </div>
 
                     </div>
