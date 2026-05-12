@@ -12500,8 +12500,10 @@ function ViewCallCenter({ user, onLogout, data }) {
     useEffect(() => { const t = setInterval(loadHistory, 30000); return () => clearInterval(t); }, []);
 
     // FIX #3: socket listener para captar logout dialplan *7701 + cambios de pausa
+    // Reutilizar el socket global del proyecto (window._tfSocket); NO crear cliente propio
+    // (un cliente paralelo con path:/socket.io daba 404 en Apache → loop conn/disconn).
     useEffect(() => {
-        const sock = window.tfSocket || (window.io && window.location.host ? window.io({path:'/socket.io',transports:['websocket','polling']}) : null);
+        const sock = window._tfSocket;
         if (!sock || !sock.on) return;
         const onLogoutEvt = (msg) => {
             const myExt = (user?.agent?.callback||'').replace(/^\w+\//,'');
