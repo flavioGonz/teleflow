@@ -3466,7 +3466,7 @@ function ExtSipDebugTab({ ext }) {
     );
 }
 
-function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, setShowRtspModal, showHeaderOverlay }) {
+function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, setShowRtspModal, setShowRecModal, setShowDoorModal, showHeaderOverlay, recording, recOptions }) {
     // Parse RTT (puede venir como "12ms", "150ms", "—", null, etc.)
     const rttMs = useMemo(() => {
         if (!ext?.rtt || ext.rtt === '—') return null;
@@ -3499,6 +3499,19 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
             textShadow: '0 1px 3px rgba(0,0,0,0.6)'
         };
 
+        const [localCfgMenu, setLocalCfgMenu] = useState(false);
+        const cfgMenuRef = useRef(null);
+        useEffect(() => {
+            if (!localCfgMenu) return;
+            const h = (e) => { if (!cfgMenuRef.current?.contains(e.target)) setLocalCfgMenu(false); };
+            document.addEventListener('mousedown', h);
+            const onEsc = (e) => { if (e.key === 'Escape') setLocalCfgMenu(false); };
+            document.addEventListener('keydown', onEsc);
+            return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', onEsc); };
+        }, [localCfgMenu]);
+
+        const curRec = recording ? (recOptions||[]).find(o => o.v === recording) : null;
+
         const captureNow = async () => {
             try {
                 const fd = new FormData(); fd.append('ext', form.ext);
@@ -3516,15 +3529,14 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
         };
 
         const openDoor = async () => {
-            // Apertura remota: dispara DTMF *9 hacia el peer (o un AMI Originate al feature code)
-            // Por ahora, dispara evento que puede engancharse al dialplan
+            const dtmfCode = form.door_dtmf_code || '*9';
             try {
-                const fd = new FormData(); fd.append('ext', form.ext); fd.append('dtmf', '*9');
+                const fd = new FormData(); fd.append('ext', form.ext); fd.append('dtmf', dtmfCode);
                 const r = await fetch('api/door_dtmf.php?action=log', { method:'POST', body:fd, credentials:'include' });
                 const j = await r.json();
                 if (j.status === 'ok') {
                     window.dispatchEvent(new CustomEvent('tf-snapshot-captured', { detail: { ext: form.ext } }));
-                    if (window.sileo) window.sileo.push({ kind:'info', icon:'meeting_room', title:'Apertura registrada', msg:`Puerta del ext ${form.ext} abierta`, duration:4000 });
+                    if (window.sileo) window.sileo.push({ kind:'info', icon:'meeting_room', title:'Apertura registrada', msg:`Código ${dtmfCode} disparado en ext ${form.ext}`, duration:4000 });
                 }
             } catch(e) {}
         };
@@ -3533,7 +3545,7 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
             { icon:'meeting_room',  label:'Apertura remota',   tone:'success',     onClick: openDoor },
             { icon:'photo_camera',  label:'Capturar ahora',    tone:'success',     onClick: captureNow },
             { icon:'open_in_full',  label:'Pantalla completa', tone:'default',     onClick: openFullscreen },
-            { icon:'settings',      label:'Configurar RTSP',   tone:'default',     onClick: ()=>setShowRtspModal && setShowRtspModal(true) },
+            { icon:'settings',      label:'Configurar',        tone:'default',     onClick: ()=>setLocalCfgMenu(true) },
         ];
 
         return (
@@ -3563,7 +3575,7 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                 </div>
 
                 {/* Top-right action icons overlay con tooltip animado (debajo del título) */}
-                <div className={"absolute right-2 z-30 flex flex-col gap-1.5 " + (showHeaderOverlay ? 'top-12' : 'top-2')}>
+                <div ref={cfgMenuRef} className={"absolute right-2 z-30 flex flex-col gap-1.5 " + (showHeaderOverlay ? 'top-12' : 'top-2')}>
                     {actions.map(a => (
                         <div key={a.icon} className="relative group">
                             <button type="button" onClick={a.onClick}
@@ -3587,6 +3599,39 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                             </span>
                         </div>
                     ))}
+                    {/* Popover del menú Configurar */}
+                    {localCfgMenu && (
+                        <div className="absolute right-full mr-2 rounded-lg shadow-2xl overflow-hidden"
+                             style={{
+                                 top: 'auto', bottom: 0,
+                                 minWidth: 240,
+                                 background: 'rgba(20,20,20,0.95)',
+                                 border: '1px solid rgba(255,255,255,0.18)',
+                                 backdropFilter: 'blur(12px)',
+                                 WebkitBackdropFilter: 'blur(12px)',
+                                 zIndex: 40
+                             }}>
+                            <div className="px-3 py-2 border-b" style={{borderColor:'rgba(255,255,255,0.12)'}}>
+                                <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#9aa4b1'}}>Configurar</div>
+                                <div className="text-xs font-bold mt-0.5" style={{color:'#fff'}}>Interno #{form.ext}</div>
+                            </div>
+                            {[
+                                { icon:'videocam',        color:'#22c55e', label:'RTSP',                 sub: form.rtsp_url ? 'URL configurada' : 'Sin configurar',     onClick:()=>{ setLocalCfgMenu(false); setShowRtspModal && setShowRtspModal(true); }},
+                                { icon:'fiber_manual_record', color:'#ef4444', label:'Grabaciones',      sub: curRec ? curRec.l : 'Opcional',                            onClick:()=>{ setLocalCfgMenu(false); setShowRecModal && setShowRecModal(true); }},
+                                { icon:'dialpad',         color:'#f59e0b', label:'Dígito de apertura',   sub: `Código actual: ${form.door_dtmf_code || '*9'}`,         onClick:()=>{ setLocalCfgMenu(false); setShowDoorModal && setShowDoorModal(true); }},
+                            ].map(it => (
+                                <button key={it.label} type="button" onClick={it.onClick}
+                                        className="w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors hover:bg-white/10">
+                                    <span className="material-icons-round shrink-0" style={{fontSize:18, color:it.color}}>{it.icon}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-bold" style={{color:'#fff'}}>{it.label}</div>
+                                        <div className="text-[10px]" style={{color:'#9aa4b1'}}>{it.sub}</div>
+                                    </div>
+                                    <span className="material-icons-round" style={{fontSize:14, color:'#9aa4b1', opacity:0.6}}>chevron_right</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Top-center: status icon + badge */}
@@ -3922,7 +3967,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         tipo: (window._tfExtMeta||{})[ext?.ext]?.tipo || '',
         rtsp_url: (window._tfExtMeta||{})[ext?.ext]?.rtsp_url || '',
         rtsp_label: (window._tfExtMeta||{})[ext?.ext]?.rtsp_label || '',
-        is_bocina: !!(window._tfExtMeta||{})[ext?.ext]?.is_bocina
+        is_bocina: !!(window._tfExtMeta||{})[ext?.ext]?.is_bocina,
+        door_dtmf_code: (window._tfExtMeta||{})[ext?.ext]?.door_dtmf_code || '*9'
     });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
@@ -3933,6 +3979,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     // HORIZON v4: modales para RTSP y Grabación
     const [showRtspModal, setShowRtspModal] = useState(false);
     const [showRecModal, setShowRecModal] = useState(false);
+    const [showDoorModal, setShowDoorModal] = useState(false);
+    const [showConfigMenu, setShowConfigMenu] = useState(false);
     const [lightboxShot, setLightboxShot] = useState(null);
     // HORIZON v5: Info básica inicia disabled, se habilita con el lápiz
     const [editing, setEditing] = useState(() => !ext); // si es nuevo, ya está editando
@@ -4021,17 +4069,21 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
         fd.append('device_type', devType);
         fd.append('recording', recording);
         const action = isNew ? 'create_extension' : 'update_extension';
-        // Guardar ext_meta (tipo + rtsp) si cambió alguno
+        // Guardar ext_meta (tipo + rtsp + bocina + door_dtmf_code) si cambió alguno
         const prevMeta = (window._tfExtMeta||{})[form.ext] || {};
         const metaChanged = form.tipo !== (prevMeta.tipo || '') ||
                             form.rtsp_url !== (prevMeta.rtsp_url || '') ||
-                            form.rtsp_label !== (prevMeta.rtsp_label || '');
+                            form.rtsp_label !== (prevMeta.rtsp_label || '') ||
+                            !!form.is_bocina !== !!prevMeta.is_bocina ||
+                            (form.door_dtmf_code || '*9') !== (prevMeta.door_dtmf_code || '*9');
         if (metaChanged) {
             const tfd = new FormData();
             tfd.append('ext', form.ext);
             tfd.append('tipo', form.tipo);
             tfd.append('rtsp_url', form.rtsp_url || '');
             tfd.append('rtsp_label', form.rtsp_label || '');
+            tfd.append('is_bocina', form.is_bocina ? '1' : '0');
+            tfd.append('door_dtmf_code', form.door_dtmf_code || '');
             fetch('api/index.php?action=set_ext_meta', {method:'POST',body:tfd,credentials:'include'})
                 .then(r=>r.json()).then(j=>{
                     if(j.success) {
@@ -4040,7 +4092,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             ext: form.ext,
                             tipo: form.tipo,
                             rtsp_url: form.rtsp_url || '',
-                            rtsp_label: form.rtsp_label || ''
+                            rtsp_label: form.rtsp_label || '',
+                            is_bocina: !!form.is_bocina,
+                            door_dtmf_code: form.door_dtmf_code || '*9'
                         };
                     }
                 });
@@ -4539,32 +4593,36 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                             statusColor={statusColor}
                                             statusLabel={statusLabel}
                                             setShowRtspModal={setShowRtspModal}
+                                            setShowRecModal={setShowRecModal}
+                                            setShowDoorModal={setShowDoorModal}
+                                            recording={recording}
+                                            recOptions={recOptions}
                                             showHeaderOverlay={true}
                                         />
-                                        {/* Botón Grabación de llamadas — abre modal */}
-                                        <div className={form.rtsp_url ? 'p-2.5' : ''}>
-                                        {form.rtsp_url ? null : <Separator/>}
-                                        <button type="button" onClick={()=>setShowRecModal(true)}
-                                                className="w-full rounded-lg border p-2.5 flex items-center gap-2.5 text-left transition-all hover:shadow-sm"
-                                                style={{
-                                                    borderColor: 'var(--border)',
-                                                    background: 'color-mix(in srgb, var(--muted) 30%, var(--card))'
-                                                }}>
-                                            {(() => {
-                                                const cur = recOptions.find(o => o.v === recording) || recOptions[1];
-                                                return (
-                                                    <>
-                                                        <span className="material-icons-round shrink-0" style={{fontSize:18,color:cur.c}}>{cur.i}</span>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</div>
-                                                            <div className="text-xs font-bold mt-0.5" style={{color:cur.c}}>{cur.l}</div>
-                                                        </div>
-                                                        <span className="material-icons-round" style={{fontSize:16,color:'var(--muted-foreground)',opacity:0.6}}>tune</span>
-                                                    </>
-                                                );
-                                            })()}
-                                        </button>
-                                        </div>
+                                        {/* Grabación de llamadas accesible via menú Configurar del overlay del video.
+                                            Cuando NO hay RTSP, mostramos botón inline al pie. */}
+                                        {!form.rtsp_url && (
+                                            <>
+                                                <Separator/>
+                                                <button type="button" onClick={()=>setShowRecModal(true)}
+                                                        className="w-full rounded-lg border p-2.5 flex items-center gap-2.5 text-left transition-all hover:shadow-sm"
+                                                        style={{borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--muted) 30%, var(--card))'}}>
+                                                    {(() => {
+                                                        const cur = recOptions.find(o => o.v === recording) || recOptions[1];
+                                                        return (
+                                                            <>
+                                                                <span className="material-icons-round shrink-0" style={{fontSize:18,color:cur.c}}>{cur.i}</span>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grabación de llamadas</div>
+                                                                    <div className="text-xs font-bold mt-0.5" style={{color:cur.c}}>{cur.l}</div>
+                                                                </div>
+                                                                <span className="material-icons-round" style={{fontSize:16,color:'var(--muted-foreground)',opacity:0.6}}>tune</span>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
@@ -4663,6 +4721,49 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                         <DialogFooter>
                             <Button onClick={()=>setShowRecModal(false)}>
+                                <span className="material-icons-round mr-1.5" style={{fontSize:14}}>check</span>
+                                Listo
+                            </Button>
+                        </DialogFooter>
+                    </Dialog>
+
+                    {/* ─── Modal Dígito de apertura DTMF ─── */}
+                    <Dialog open={showDoorModal} onOpenChange={setShowDoorModal}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:20,color:'#f59e0b'}}>dialpad</span>
+                                Dígito de apertura
+                            </DialogTitle>
+                            <DialogDescription>
+                                Código DTMF que envía Asterisk al peer cuando el operador presiona <strong>Apertura remota</strong> en este interno. Típicamente <code className="font-mono">*9</code> (FreePBX default) o <code className="font-mono">#</code>.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-3 mt-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="door-code">Código DTMF</Label>
+                                <Input id="door-code" value={form.door_dtmf_code || ''} onChange={e=>set('door_dtmf_code', e.target.value.replace(/[^*#0-9]/g,'').substring(0,6))}
+                                       placeholder="*9" className="font-mono font-bold text-lg text-center"/>
+                                <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                    Solo dígitos, * y #. Máximo 6 caracteres.
+                                </p>
+                            </div>
+                            <div className="rounded-md border p-3 space-y-1.5" style={{borderColor:'color-mix(in srgb, var(--warning) 30%, transparent)', background:'color-mix(in srgb, var(--warning) 6%, transparent)'}}>
+                                <div className="flex items-center gap-1.5 text-xs font-bold" style={{color:'var(--warning)'}}>
+                                    <span className="material-icons-round" style={{fontSize:14}}>info</span>
+                                    ¿Cómo funciona?
+                                </div>
+                                <p className="text-[11px] leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                                    Al presionar Apertura remota se loggea el evento en <code className="font-mono">door_events</code> y se intenta capturar un snapshot RTSP. Para que el DTMF efectivamente abra una cerradura, el dialplan debe recibirlo en el feature code o por bridge in-call. Si tu videoportero responde a códigos in-call, configurá el dialplan para forwardear DTMF al peer.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round" style={{fontSize:14}}>history</span>
+                                Los eventos quedan en MySQL <code className="font-mono">door_events</code> y aparecen en el lightbox de Último acceso cuando coincide timestamp con una captura.
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={()=>setShowDoorModal(false)}>Cancelar</Button>
+                            <Button onClick={()=>setShowDoorModal(false)}>
                                 <span className="material-icons-round mr-1.5" style={{fontSize:14}}>check</span>
                                 Listo
                             </Button>

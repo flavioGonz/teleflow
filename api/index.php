@@ -839,7 +839,7 @@ if ($action === 'set_recording') {
 if ($action === 'get_ext_meta') {
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label, IFNULL(is_bocina,0) AS is_bocina FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label, IFNULL(is_bocina,0) AS is_bocina, IFNULL(door_dtmf_code,'*9') AS door_dtmf_code FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
         $map = []; foreach ($rows as $r) $map[$r['ext']] = $r;
         echo json_encode(['success'=>true, 'meta'=>$map]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
@@ -852,6 +852,11 @@ if ($action === 'set_ext_meta') {
     $rtsp_url = trim($_POST['rtsp_url'] ?? '');
     $rtsp_label = trim($_POST['rtsp_label'] ?? '');
     $is_bocina = !empty($_POST['is_bocina']) && $_POST['is_bocina'] !== 'false' && $_POST['is_bocina'] !== '0' ? 1 : 0;
+    $door_dtmf_code = trim($_POST['door_dtmf_code'] ?? '');
+    if ($door_dtmf_code) {
+        $door_dtmf_code = preg_replace('/[^*#0-9]/', '', $door_dtmf_code);
+        if (strlen($door_dtmf_code) > 8) $door_dtmf_code = substr($door_dtmf_code, 0, 8);
+    }
     if (!in_array($tipo, ['cliente','horizon',''])) { echo json_encode(['success'=>false,'error'=>'tipo inválido']); exit; }
     if ($rtsp_url && !preg_match('#^(rtsp|rtsps|http|https)://#i', $rtsp_url)) {
         echo json_encode(['success'=>false,'error'=>'rtsp_url debe empezar con rtsp:// rtsps:// http:// o https://']); exit;
@@ -860,10 +865,11 @@ if ($action === 'set_ext_meta') {
     if (strlen($rtsp_label) > 80) $rtsp_label = substr($rtsp_label, 0, 80);
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        // Asegurar columna is_bocina (idempotente)
+        // Asegurar columnas is_bocina + door_dtmf_code (idempotentes)
         try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN is_bocina TINYINT(1) NOT NULL DEFAULT 0"); } catch(Exception $_) {}
-        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina)");
-        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina]);
+        try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN door_dtmf_code VARCHAR(8) NULL"); } catch(Exception $_) {}
+        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina, door_dtmf_code) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina), door_dtmf_code=VALUES(door_dtmf_code)");
+        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina, $door_dtmf_code ?: null]);
         // Notificar al realtime hub para refrescar su cache RTSP (best-effort, non-blocking)
         @file_get_contents('http://127.0.0.1:9001/broadcast', false, stream_context_create([
             'http' => [
