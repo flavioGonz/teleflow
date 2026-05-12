@@ -27,23 +27,31 @@ while(microtime(true)-$st<5){$l=fgets($ami);if($l===false)break;$l=rtrim($l,"\r\
     if(stripos($l,'QueueStatusComplete')!==false)break;
     if(preg_match('/^([A-Za-z]+):\s*(.*)$/',$l,$m))$cur[strtolower($m[1])]=$m[2];
 }
-$queues=[]; $agent_num=null; $found=false;
+// Buscar TODOS los miembros que correspondan a este ext, tanto chan_sip dynamic como Local static
+// match 1: SIP/<ext>           → dynamic
+// match 2: Local/<ext>@<ctx>   → static (Issabel registra agentes así)
+$matches = []; $agent_num = null;
 foreach($members as $m){
-    if(preg_match('/^(SIP|PJSIP)\/'.preg_quote($ext,'/').'$/',$m['location']??'')){
-        $queues[]=$m['queue']; $found=true;
-        if(preg_match('/^Agent\/(\d+)$/',$m['name']??'',$am))$agent_num=$am[1];
+    $loc = $m['location'] ?? '';
+    if (preg_match('/^(SIP|PJSIP)\/'.preg_quote($ext,'/').'$/', $loc) ||
+        preg_match('/^Local\/'.preg_quote($ext,'/').'@/', $loc)) {
+        $matches[] = ['queue'=>$m['queue'] ?? '', 'location'=>$loc];
+        if (preg_match('/^Agent\/(\d+)$/', $m['name']??'', $am)) $agent_num = $am[1];
     }
 }
 
-if (!$found) { tflog("not_logged_in"); echo '{"ok":false,"error":"not_logged_in"}'; exit; }
+if (empty($matches)) { tflog("not_logged_in ext=$ext"); echo '{"ok":false,"error":"not_logged_in"}'; exit; }
 
 $paused = [];
-foreach (array_unique($queues) as $q) {
-    fwrite($ami, "Action: QueuePause\r\nInterface: SIP/$ext\r\nPaused: true\r\nQueue: $q\r\nReason: $reason_label\r\n\r\n");
+foreach ($matches as $row) {
+    $q = $row['queue']; $iface = $row['location'];
+    fwrite($ami, "Action: QueuePause\r\nInterface: $iface\r\nPaused: true\r\nQueue: $q\r\nReason: $reason_label\r\n\r\n");
     $st=microtime(true); $resp='';
     while(microtime(true)-$st<1){$l=fgets($ami);if($l===false)break;$resp.=$l;if(trim($l)==='')break;}
+    tflog("  QueuePause q=$q iface=$iface → ".trim(preg_replace('/\s+/',' ',$resp)));
     if(strpos($resp,'Response: Success')!==false||strpos($resp,'paused')!==false) $paused[]=$q;
 }
+$queues = array_column($matches, 'queue');
 fwrite($ami, "Action: Logoff\r\n\r\n"); fclose($ami);
 
 // Pesistir con columnas CORRECTAS del schema

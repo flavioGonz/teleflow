@@ -21,21 +21,26 @@ while(microtime(true)-$st<5){$l=fgets($ami);if($l===false)break;$l=rtrim($l,"\r\
     if(stripos($l,'QueueStatusComplete')!==false)break;
     if(preg_match('/^([A-Za-z]+):\s*(.*)$/',$l,$m))$cur[strtolower($m[1])]=$m[2];
 }
-$queues=[]; $agent_num=null;
+$matches=[]; $agent_num=null;
 foreach($members as $m){
-    if(preg_match('/^(SIP|PJSIP)\/'.preg_quote($ext,'/').'$/',$m['location']??'')){
-        $queues[]=$m['queue'];
-        if(preg_match('/^Agent\/(\d+)$/',$m['name']??'',$am))$agent_num=$am[1];
+    $loc = $m['location'] ?? '';
+    if (preg_match('/^(SIP|PJSIP)\/'.preg_quote($ext,'/').'$/', $loc) ||
+        preg_match('/^Local\/'.preg_quote($ext,'/').'@/', $loc)) {
+        $matches[] = ['queue'=>$m['queue']??'', 'location'=>$loc];
+        if(preg_match('/^Agent\/(\d+)$/',$m['name']??'',$am)) $agent_num=$am[1];
     }
 }
 
 $unpaused = [];
-foreach (array_unique($queues) as $q) {
-    fwrite($ami, "Action: QueuePause\r\nInterface: SIP/$ext\r\nPaused: false\r\nQueue: $q\r\n\r\n");
+foreach ($matches as $row) {
+    $q = $row['queue']; $iface = $row['location'];
+    fwrite($ami, "Action: QueuePause\r\nInterface: $iface\r\nPaused: false\r\nQueue: $q\r\n\r\n");
     $st=microtime(true); $resp='';
     while(microtime(true)-$st<1){$l=fgets($ami);if($l===false)break;$resp.=$l;if(trim($l)==='')break;}
+    tflog("  QueueUnpause q=$q iface=$iface → ".trim(preg_replace('/\s+/',' ',$resp)));
     if(strpos($resp,'Response: Success')!==false) $unpaused[]=$q;
 }
+$queues = array_column($matches, 'queue');
 fwrite($ami, "Action: Logoff\r\n\r\n"); fclose($ami);
 
 try {

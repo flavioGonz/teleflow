@@ -30,26 +30,29 @@ while(microtime(true)-$st<5){
     if(preg_match('/^([A-Za-z]+):\s*(.*)$/',$l,$m)) $cur[strtolower($m[1])] = $m[2];
 }
 
-$queues = []; $agent_num = null;
+$matches = []; $agent_num = null;
 foreach ($members as $m) {
     $q   = $m['queue'] ?? '';
     $loc = $m['location'] ?? '';
     $name = $m['name'] ?? '';
     if (!$q) continue;
-    // Match si el Location es SIP/$ext o PJSIP/$ext (el agente se sienta acá)
-    if (preg_match('/^(SIP|PJSIP)\/' . preg_quote($ext,'/') . '$/', $loc)) {
-        $queues[] = $q;
+    // Match contra SIP/<ext>, PJSIP/<ext> o Local/<ext>@<ctx> (chan_sip dynamic o Local static)
+    if (preg_match('/^(SIP|PJSIP)\/' . preg_quote($ext,'/') . '$/', $loc) ||
+        preg_match('/^Local\/' . preg_quote($ext,'/') . '@/', $loc)) {
+        $matches[] = ['queue'=>$q, 'location'=>$loc];
         if (preg_match('/^Agent\/(\d+)$/', $name, $am)) $agent_num = $am[1];
     }
 }
 
-tflog("logout: encontradas ".count($queues)." colas para ext=$ext: ".implode(',',$queues));
+tflog("logout: encontradas ".count($matches)." membresías para ext=$ext");
+$queues = array_column($matches, 'queue');
 
-foreach (array_unique($queues) as $q) {
-    fwrite($ami, "Action: QueueRemove\r\nQueue: $q\r\nInterface: SIP/$ext\r\n\r\n");
+foreach ($matches as $row) {
+    $q = $row['queue']; $iface = $row['location'];
+    fwrite($ami, "Action: QueueRemove\r\nQueue: $q\r\nInterface: $iface\r\n\r\n");
     $st=microtime(true); $resp='';
     while(microtime(true)-$st<1){$l=fgets($ami);if($l===false)break;$resp.=$l;if(trim($l)==='')break;}
-    tflog("  QueueRemove $q SIP/$ext → ".trim(preg_replace('/\s+/',' ',$resp)));
+    tflog("  QueueRemove q=$q iface=$iface → ".trim(preg_replace('/\s+/',' ',$resp)));
 }
 fwrite($ami, "Action: Logoff\r\n\r\n"); fclose($ami);
 
