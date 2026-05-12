@@ -1311,25 +1311,20 @@ header('Expires: 0');
         }
         .sileo-notif {
             min-width: 340px; max-width: 380px;
-            background: rgba(20,20,32,0.92);
-            backdrop-filter: blur(24px) saturate(180%);
-            -webkit-backdrop-filter: blur(24px) saturate(180%);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 16px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 12px 14px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
-            color: #f0f0ff;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+            color: var(--card-foreground);
             pointer-events: auto;
             animation: sileo-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
             display: flex; gap: 12px; align-items: flex-start;
         }
-        .sileo-notif.dismissing { animation: sileo-out 0.3s ease forwards; }
-        body.light .sileo-notif {
-            background: rgba(255,255,255,0.95);
-            border-color: rgba(0,0,0,0.08);
-            color: #111827;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+        html.dark .sileo-notif {
+            box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
         }
+        .sileo-notif.dismissing { animation: sileo-out 0.3s ease forwards; }
         .sileo-icon {
             width: 40px; height: 40px; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
@@ -1337,27 +1332,27 @@ header('Expires: 0');
             background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 75%, #000)); color: #fff;
         }
         .sileo-notif.call .sileo-icon {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
+            background: linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000));
             animation: sileo-pulse-ring 1.4s infinite;
         }
         .sileo-notif.warning .sileo-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .sileo-notif.error .sileo-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .sileo-body { flex: 1; min-width: 0; }
-        .sileo-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.2px; margin-bottom: 2px; }
-        .sileo-msg { font-size: 11.5px; opacity: 0.78; line-height: 1.35; }
+        .sileo-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.2px; margin-bottom: 2px; color: var(--foreground); }
+        .sileo-msg { font-size: 11.5px; line-height: 1.35; color: var(--muted-foreground); }
         .sileo-actions { display: flex; gap: 6px; margin-top: 8px; }
         .sileo-btn { padding: 5px 12px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
-        .sileo-btn.primary { background: color-mix(in srgb, var(--primary) 25%, transparent); color: color-mix(in srgb, var(--primary) 65%, white); }
-        .sileo-btn.primary:hover { background: color-mix(in srgb, var(--primary) 40%, transparent); color: #fff; }
-        .sileo-btn.secondary { background: rgba(255,255,255,0.06); color: #fff; }
-        body.light .sileo-btn.secondary { background: rgba(0,0,0,0.05); color: #111827; }
+        .sileo-btn.primary { background: var(--primary); color: var(--primary-foreground); }
+        .sileo-btn.primary:hover { background: color-mix(in srgb, var(--primary) 85%, #000); }
+        .sileo-btn.secondary { background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--border); }
+        .sileo-btn.secondary:hover { background: var(--accent); }
         .sileo-close { 
             width: 22px; height: 22px; border-radius: 50%; border: none; 
-            background: rgba(255,255,255,0.08); color: #999; cursor: pointer; 
+            background: color-mix(in srgb, var(--muted) 35%, transparent); color: var(--muted-foreground); cursor: pointer; 
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
             font-size: 14px; transition: all 0.15s;
         }
-        .sileo-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        .sileo-close:hover { background: var(--accent); color: var(--accent-foreground); }
         body.light .sileo-close { background: rgba(0,0,0,0.06); }
         body.light .sileo-close:hover { background: rgba(0,0,0,0.1); color: #111; }
         .sileo-time { font-size: 9.5px; opacity: 0.55; font-variant-numeric: tabular-nums; }
@@ -6191,7 +6186,14 @@ function QueueDrawer({ queue, onClose, onSaved, toast }) {
                     <div className="mb-5">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Distribución</label>
                         <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
-                            {STRAT_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                            {[
+                                {v:'ringall',     l:'Simultáneo (ringall)'},
+                                {v:'rrmemory',    l:'Round Robin con memoria'},
+                                {v:'leastrecent', l:'Menos reciente'},
+                                {v:'fewestcalls', l:'Menos llamadas'},
+                                {v:'random',      l:'Aleatorio'},
+                                {v:'linear',      l:'Lineal (orden de la lista)'},
+                            ].map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
                         </select>
                     </div>
 
