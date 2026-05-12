@@ -14178,6 +14178,65 @@ function PageActions({ children }) {
 }
 
 // ─── SpyExtToggle: toggle button sutil que abre un input para ext de escucha ───
+// ─── PbxClock: reloj live del PBX (sync con server una vez, incrementa local) ───
+function PbxClock() {
+    const [offset, setOffset] = useState(0);    // diff ms entre server y cliente
+    const [now, setNow] = useState(() => new Date());
+    const [tz, setTz] = useState(null);
+    const [synced, setSynced] = useState(false);
+
+    // Sync inicial: medir RTT y calcular offset
+    const sync = useCallback(async () => {
+        try {
+            const t0 = Date.now();
+            const r = await fetch('api/server_time.php', { credentials:'include', cache:'no-store' });
+            const j = await r.json();
+            const t1 = Date.now();
+            if (j.ok && j.ts) {
+                const rtt = t1 - t0;
+                const serverNow = j.ts + Math.round(rtt / 2);
+                setOffset(serverNow - t1);
+                setTz(j.tz || null);
+                setSynced(true);
+            }
+        } catch(e) { /* sigue con clock local */ }
+    }, []);
+
+    useEffect(() => { sync(); }, [sync]);
+    // Re-sync cada 5 min para evitar drift
+    useEffect(() => {
+        const t = setInterval(sync, 5 * 60 * 1000);
+        return () => clearInterval(t);
+    }, [sync]);
+    // Tick local 1s
+    useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(t);
+    }, []);
+
+    const pbxDate = new Date(now.getTime() + offset);
+    const pad = (n) => String(n).padStart(2, '0');
+    const time = `${pad(pbxDate.getHours())}:${pad(pbxDate.getMinutes())}:${pad(pbxDate.getSeconds())}`;
+    const date = `${pad(pbxDate.getDate())}/${pad(pbxDate.getMonth()+1)}/${pbxDate.getFullYear()}`;
+
+    return (
+        <div className="rounded-md border flex items-center gap-2 px-2.5 transition-all"
+             title={synced ? `Hora del PBX (sync server${tz?', '+tz:''})` : 'Sincronizando con server…'}
+             style={{
+                 height: 32,
+                 background: 'var(--card)',
+                 borderColor: 'var(--border)',
+                 cursor: 'default'
+             }}>
+            <span className="material-icons-round" style={{fontSize:15, color: synced ? 'var(--horizon-green)' : 'var(--muted-foreground)', animation: synced ? 'tf-status-breath 2.4s ease-in-out infinite' : 'none'}}>schedule</span>
+            <div className="flex flex-col leading-none">
+                <span className="font-mono font-bold text-xs tabular-nums" style={{color:'var(--foreground)', letterSpacing:'-0.3px'}}>{time}</span>
+                <span className="font-mono text-[9px] tabular-nums mt-0.5" style={{color:'var(--muted-foreground)'}}>{date}</span>
+            </div>
+        </div>
+    );
+}
+
 function SpyExtToggle({ spyExt, setSpyExt }) {
     const [open, setOpen] = useState(!!spyExt);
     const inputRef = useRef(null);
@@ -14418,6 +14477,8 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
             )}
 
             <div className="tfbar-spacer" />
+
+            <PbxClock/>
 
             <SpyExtToggle spyExt={spyExt} setSpyExt={setSpyExt}/>
 

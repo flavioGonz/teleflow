@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teleflow-cache-v202605122313';
+const CACHE_NAME = 'teleflow-cache-v202605122318';
 const STATIC_ASSETS = [
   '/teleflow/', 
   '/teleflow/index.php', 
