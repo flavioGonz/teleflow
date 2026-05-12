@@ -6389,7 +6389,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
     return ReactDOM.createPortal(
         <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9999}}>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
-            <div className="relative grid w-full gap-0 border bg-card text-card-foreground rounded-lg animate-fade-in overflow-hidden"
+            <div className="relative flex flex-col w-full gap-0 border bg-card text-card-foreground rounded-lg animate-fade-in overflow-hidden"
                  style={{
                      maxWidth: mode==='logout' ? 560 : 880,
                      maxHeight: '90vh',
@@ -6448,10 +6448,10 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                 </div>
 
                 {/* ─── Body (grid 2 cols en login, 1 col en logout) ─── */}
-                <div className="grid overflow-hidden" style={{
+                <div className="grid overflow-y-auto" style={{
                     gridTemplateColumns: mode==='logout' ? '1fr' : '1fr 1fr',
                     minHeight: 0,
-                    flex: 1
+                    flex: '1 1 auto'
                 }}>
                     {/* ─── Columna izq: Selector de agente ─── */}
                     <div className="flex flex-col overflow-hidden p-5" style={{borderRight: mode==='logout' ? 'none' : '1px solid var(--border)', minHeight:0}}>
@@ -10299,7 +10299,8 @@ function ViewConfiguracion() {
         { id:'debug_sip',      icon:'terminal',       label:'Debug SIP',      desc:'Logs PJSIP en vivo' },
         { id:'pbx',            icon:'dns',            label:'PBX',            desc:'Conexión Asterisk' },
         { id:'asterisk',       icon:'memory',         label:'Asterisk',       desc:'Archivos config + AMI' },
-        { id:'usuarios',       icon:'manage_accounts',label:'Usuarios',       desc:'Admins y agentes' },
+        { id:'usuarios',       icon:'manage_accounts',label:'Usuarios',       desc:'Admins del portal' },
+        { id:'agentes',        icon:'support_agent',  label:'Agentes',        desc:'Operadores de call center' },
         { id:'branding',       icon:'palette',        label:'Branding',       desc:'Logos y colores' },
         { id:'softphone',      icon:'phone_in_talk',  label:'Softphone',      desc:'Cliente WebRTC' },
         { id:'changelog',      icon:'history',        label:'Changelog',      desc:'Historial de versiones' },
@@ -10543,6 +10544,7 @@ function ViewConfiguracion() {
             {activeTab === 'softphone' && <ViewConfigSoftphone />}
             {activeTab === 'asterisk'  && <ViewConfigAsterisk />}
             {activeTab === 'usuarios'  && <ViewConfigUsers />}
+            {activeTab === 'agentes'   && <ViewConfigAgents />}
             {activeTab === 'changelog' && <ViewConfigChangelog />}
                 </div>
             </div>
@@ -11261,6 +11263,279 @@ function ViewConfigSoftphone() {
     );
 }
 
+function ViewConfigAgents() {
+    const [agents, setAgents] = useState(null);
+    const [search, setSearch] = useState('');
+    const [editing, setEditing] = useState(null); // null=none, {}=new, {id, ...}=edit
+    const [busy, setBusy] = useState(false);
+    const [toastMsg, setToastMsg] = useState(null);
+
+    const load = async () => {
+        try {
+            const r = await fetch('api/agents_crud.php?action=list', { credentials:'include' });
+            const j = await r.json();
+            if (j.ok) setAgents(j.agents || []);
+            else setAgents([]);
+        } catch(e) { setAgents([]); }
+    };
+
+    useEffect(() => { load(); }, []);
+
+    const tx = (msg, kind='success') => {
+        setToastMsg({ msg, kind });
+        setTimeout(()=>setToastMsg(null), 3000);
+    };
+
+    const save = async () => {
+        if (!editing) return;
+        const isNew = !editing.id;
+        if (!editing.number || !editing.name || (isNew && !editing.password)) {
+            tx('Completá número, nombre y clave', 'error'); return;
+        }
+        setBusy(true);
+        const fd = new FormData();
+        if (isNew) {
+            fd.append('type', editing.type || 'agent');
+            fd.append('number', editing.number);
+            fd.append('name', editing.name);
+            fd.append('password', editing.password);
+        } else {
+            fd.append('id', editing.id);
+            if (editing.name)     fd.append('name', editing.name);
+            if (editing.password) fd.append('password', editing.password);
+            if (editing.estatus)  fd.append('estatus', editing.estatus);
+        }
+        try {
+            const r = await fetch('api/agents_crud.php?action=' + (isNew ? 'create' : 'update'), {
+                method:'POST', body:fd, credentials:'include'
+            });
+            const j = await r.json();
+            if (j.ok) {
+                tx(isNew ? 'Agente creado' : 'Agente actualizado', 'success');
+                setEditing(null);
+                load();
+            } else {
+                tx(j.error === 'number_exists' ? 'Ya existe un agente con ese número' : ('Error: ' + (j.error||'')), 'error');
+            }
+        } catch(e) { tx('Error de red', 'error'); }
+        setBusy(false);
+    };
+
+    const removeAgent = async (a) => {
+        if (!confirm(`¿Desactivar al agente ${a.number} – ${a.name}? (Soft-delete: queda en históricos, marcado inactivo)`)) return;
+        setBusy(true);
+        const fd = new FormData(); fd.append('id', a.id);
+        try {
+            const r = await fetch('api/agents_crud.php?action=delete', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.ok) { tx('Agente desactivado'); load(); }
+            else tx('Error al eliminar: ' + (j.error||''), 'error');
+        } catch(e) { tx('Error de red', 'error'); }
+        setBusy(false);
+    };
+
+    const reactivate = async (a) => {
+        setBusy(true);
+        const fd = new FormData(); fd.append('id', a.id); fd.append('estatus','A');
+        try {
+            const r = await fetch('api/agents_crud.php?action=update', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.ok) { tx('Agente reactivado'); load(); }
+        } catch(e) { tx('Error de red', 'error'); }
+        setBusy(false);
+    };
+
+    const filtered = (agents || []).filter(a => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (a.number||'').includes(search) || (a.name||'').toLowerCase().includes(q);
+    });
+
+    const activeCount = (agents||[]).filter(a => a.estatus === 'A').length;
+    const inactiveCount = (agents||[]).filter(a => a.estatus !== 'A').length;
+
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 gap-3">
+                <div>
+                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>support_agent</span>
+                        Agentes
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                        Operadores que se loguean a colas con <code className="font-mono text-[11px]">*7700</code> o desde Hotdesking
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-[10px]">
+                        <span className="material-icons-round mr-1" style={{fontSize:11,color:'var(--horizon-green)'}}>check_circle</span>
+                        {activeCount} activos
+                    </Badge>
+                    {inactiveCount > 0 && (
+                        <Badge variant="outline" className="text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round mr-1" style={{fontSize:11}}>do_not_disturb</span>
+                            {inactiveCount} inactivos
+                        </Badge>
+                    )}
+                    <Button size="sm" onClick={()=>setEditing({ type:'agent', number:'', name:'', password:'' })}>
+                        <span className="material-icons-round mr-1" style={{fontSize:14}}>person_add</span>
+                        Nuevo agente
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="relative mb-3">
+                    <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16,color:'var(--muted-foreground)'}}>search</span>
+                    <Input placeholder="Buscar por número o nombre…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-9 max-w-sm"/>
+                </div>
+
+                {agents === null && (
+                    <div className="py-12 flex items-center justify-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round mr-2 animate-spin" style={{fontSize:16}}>autorenew</span>
+                        Cargando agentes…
+                    </div>
+                )}
+                {agents && filtered.length === 0 && (
+                    <div className="py-12 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin resultados</div>
+                )}
+                {agents && filtered.length > 0 && (
+                    <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                        <table className="w-full text-xs">
+                            <thead style={{background:'color-mix(in srgb, var(--muted) 30%, var(--card))'}}>
+                                <tr>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>#</th>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Número</th>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Nombre</th>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.map((a, i) => (
+                                    <tr key={a.id} className="border-t" style={{borderColor:'var(--border)'}}>
+                                        <td className="px-3 py-2 font-mono" style={{color:'var(--muted-foreground)'}}>{i+1}</td>
+                                        <td className="px-3 py-2 font-mono font-bold" style={{color:'var(--foreground)'}}>{a.number}</td>
+                                        <td className="px-3 py-2" style={{color:'var(--foreground)'}}>{a.name}</td>
+                                        <td className="px-3 py-2">
+                                            {a.estatus === 'A'
+                                                ? <Badge variant="success" className="text-[9px]">Activo</Badge>
+                                                : <Badge variant="outline" className="text-[9px]" style={{color:'var(--muted-foreground)'}}>Inactivo</Badge>
+                                            }
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Editar"
+                                                        onClick={()=>setEditing({ id:a.id, type:a.type, number:a.number, name:a.name, password:'', estatus:a.estatus })}>
+                                                    <span className="material-icons-round" style={{fontSize:14}}>edit</span>
+                                                </Button>
+                                                {a.estatus === 'A' ? (
+                                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Desactivar"
+                                                            onClick={()=>removeAgent(a)} disabled={busy}>
+                                                        <span className="material-icons-round" style={{fontSize:14,color:'var(--destructive)'}}>delete_outline</span>
+                                                    </Button>
+                                                ) : (
+                                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Reactivar"
+                                                            onClick={()=>reactivate(a)} disabled={busy}>
+                                                        <span className="material-icons-round" style={{fontSize:14,color:'var(--horizon-green)'}}>restore</span>
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {toastMsg && (
+                    <div className="fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 shadow-2xl border text-sm font-medium animate-fade-in"
+                         style={{
+                             background:'var(--card)',
+                             borderColor: toastMsg.kind === 'success' ? 'var(--horizon-green)' : 'var(--destructive)',
+                             color: toastMsg.kind === 'success' ? 'var(--horizon-green)' : 'var(--destructive)'
+                         }}>
+                        <span className="material-icons-round align-middle mr-1.5" style={{fontSize:16}}>{toastMsg.kind==='success'?'check_circle':'error'}</span>
+                        {toastMsg.msg}
+                    </div>
+                )}
+            </CardContent>
+
+            {/* Dialog editar/crear */}
+            <Dialog open={!!editing} onOpenChange={(v)=>!v && setEditing(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>
+                                {editing?.id ? 'edit' : 'person_add'}
+                            </span>
+                            {editing?.id ? `Editar agente #${editing?.number}` : 'Nuevo agente'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editing?.id ? 'Cambiá nombre, clave o estado del agente.' : 'Datos para crear un nuevo operador.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {editing && (
+                        <div className="space-y-3 py-2">
+                            {!editing.id && (
+                                <div>
+                                    <Label htmlFor="ag-number" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Número de agente</Label>
+                                    <Input id="ag-number" value={editing.number} onChange={e=>setEditing({...editing, number:e.target.value.replace(/\D/g,'')})}
+                                           className="font-mono font-bold mt-1.5" placeholder="Ej: 1001" maxLength={6}/>
+                                </div>
+                            )}
+                            <div>
+                                <Label htmlFor="ag-name" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Nombre</Label>
+                                <Input id="ag-name" value={editing.name||''} onChange={e=>setEditing({...editing, name:e.target.value})}
+                                       className="mt-1.5" placeholder="Ej: Juan Pérez"/>
+                            </div>
+                            <div>
+                                <Label htmlFor="ag-pass" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    Clave numérica {editing.id && <span className="opacity-60">(dejar vacío para no cambiar)</span>}
+                                </Label>
+                                <Input id="ag-pass" type="password" value={editing.password||''} onChange={e=>setEditing({...editing, password:e.target.value.replace(/\D/g,'')})}
+                                       className="font-mono font-bold mt-1.5" placeholder="Ej: 1234" maxLength={12}/>
+                            </div>
+                            {editing.id && (
+                                <div>
+                                    <Label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</Label>
+                                    <div className="flex gap-2 mt-1.5">
+                                        <button type="button" onClick={()=>setEditing({...editing, estatus:'A'})}
+                                                className="flex-1 px-3 py-2 rounded-md border text-xs font-semibold transition-all"
+                                                style={{
+                                                    background: editing.estatus==='A' ? 'color-mix(in srgb, var(--horizon-green) 18%, transparent)' : 'transparent',
+                                                    color:      editing.estatus==='A' ? 'var(--horizon-green)' : 'var(--muted-foreground)',
+                                                    borderColor:editing.estatus==='A' ? 'var(--horizon-green)' : 'var(--border)'
+                                                }}>
+                                            Activo
+                                        </button>
+                                        <button type="button" onClick={()=>setEditing({...editing, estatus:'I'})}
+                                                className="flex-1 px-3 py-2 rounded-md border text-xs font-semibold transition-all"
+                                                style={{
+                                                    background: editing.estatus==='I' ? 'color-mix(in srgb, var(--muted-foreground) 18%, transparent)' : 'transparent',
+                                                    color:      editing.estatus==='I' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                                                    borderColor:editing.estatus==='I' ? 'var(--muted-foreground)' : 'var(--border)'
+                                                }}>
+                                            Inactivo
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={()=>setEditing(null)} disabled={busy}>Cancelar</Button>
+                        <Button onClick={save} disabled={busy}>
+                            <span className="material-icons-round mr-1.5" style={{fontSize:14, animation: busy?'spin 1s linear infinite':'none'}}>{busy?'autorenew':'save'}</span>
+                            {busy ? 'Guardando…' : (editing?.id ? 'Guardar' : 'Crear')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </Card>
+    );
+}
+
 function ViewConfigChangelog() {
     // Entradas curadas en orden cronológico inverso. Para detalle granular hay `git log` en el repo.
     const releases = [
@@ -11620,6 +11895,34 @@ function ViewCallCenter({ user, onLogout, data }) {
 
     useEffect(() => { loadStatus(); loadPauseTypes(); loadHistory(); }, []);
     useEffect(() => { const t = setInterval(loadStatus, 3000); return () => clearInterval(t); }, []);
+
+    // FIX #3: cuando *7701 cierra sesión vía dialplan, el hub emite el evento — escuchamos para refrescar/salir
+    useEffect(() => {
+        const sock = window.tfSocket || (window.io && window.location.host ? window.io({path:'/socket.io',transports:['websocket','polling']}) : null);
+        if (!sock || !sock.on) return;
+        const onLogoutEvt = (msg) => {
+            const myExt = (user?.agent?.callback||'').replace(/^\w+\//,'');
+            if (msg && (msg.ext === myExt || msg.agent === String(user?.agent?.number||''))) {
+                onLogout?.();
+            } else {
+                loadStatus();
+            }
+        };
+        const onPauseEvt = () => loadStatus();
+        sock.on('agent_logout', onLogoutEvt);
+        sock.on('agent_login',  onPauseEvt);
+        sock.on('agent_pause',  onPauseEvt);
+        sock.on('agent_unpause', onPauseEvt);
+        return () => {
+            try {
+                sock.off?.('agent_logout', onLogoutEvt);
+                sock.off?.('agent_login',  onPauseEvt);
+                sock.off?.('agent_pause',  onPauseEvt);
+                sock.off?.('agent_unpause', onPauseEvt);
+            } catch(e) {}
+        };
+    }, [user?.agent?.number]);
+
     useEffect(() => { const t = setInterval(() => setTick(k=>k+1), 1000); return () => clearInterval(t); }, []);
     useEffect(() => { const t = setInterval(loadHistory, 30000); return () => clearInterval(t); }, []);
 

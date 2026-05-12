@@ -6,7 +6,7 @@ $ext = preg_replace('/\D/', '', $_GET['ext'] ?? '');
 $reason_code = preg_replace('/\D/', '', $_GET['reason'] ?? '');
 if (!$ext) { http_response_code(400); echo '{"ok":false}'; exit; }
 
-$reason_map = ['1'=>'LUNCH','2'=>'BREAK','3'=>'BATHROOM','4'=>'MEETING','5'=>'TRAINING','6'=>'PERSONAL'];
+$reason_map = ['1'=>'DESCANSO','2'=>'BATHROOM','3'=>'MEETING','4'=>'TRAINING','0'=>'PERSONAL'];
 $reason_label = $reason_map[$reason_code] ?? 'PERSONAL';
 
 require __DIR__ . '/../config.php';

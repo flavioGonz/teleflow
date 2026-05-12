@@ -128,6 +128,25 @@ function bootstrap() {
 setInterval(bootstrap, 5 * 60 * 1000);
 setInterval(() => io.emit('heartbeat', { ts: Date.now() }), 10000);
 
+// ───── Reconciliación de status BUSY (defensivo contra newchannel/hangup desincronizados) ──
+// Si un peer está BUSY pero NO hay ninguna call activa con su ext → forzar a ONLINE
+setInterval(() => {
+    const activeExts = new Set(
+        Object.values(state.calls).map(c => extFromChannel(c.channel)).filter(Boolean)
+    );
+    Object.entries(state.peers).forEach(([ext, p]) => {
+        if (p.status === 'BUSY' && !activeExts.has(ext)) {
+            const ageMs = Date.now() - (p.busy_since || 0);
+            // Sólo reconciliar si la marca BUSY existe y no hay calls (sin window mínima — el evento newchannel siempre setea busy_since)
+            if (!p.busy_since || ageMs > 8000) {
+                state.peers[ext] = { ...p, status: 'ONLINE', busy_since: 0 };
+                io.emit('peer_update', { ext, status: 'ONLINE' });
+                console.log(`[reconcile] ext ${ext} BUSY → ONLINE (no active call)`);
+            }
+        }
+    });
+}, 12000);
+
 // ───── AMI events ──────────────────────────────────────────
 ami.on('managerevent', async (evt) => {
     const E = (evt.event || '').toLowerCase();
@@ -146,7 +165,7 @@ ami.on('managerevent', async (evt) => {
             io.emit('call_update', { type: 'new', call: state.calls[id] });
             const ext = extFromChannel(evt.channel);
             if (ext) {
-                state.peers[ext] = { ...(state.peers[ext]||{}), status:'BUSY' };
+                state.peers[ext] = { ...(state.peers[ext]||{}), status:'BUSY', busy_since: Date.now() };
                 io.emit('peer_update', { ext, status:'BUSY' });
                 // HORIZON: auto-snapshot RTSP si la ext que llama tiene videoportero configurado
                 if (rtspExtCache.has(ext)) {
