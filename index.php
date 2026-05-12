@@ -11061,7 +11061,7 @@ function ViewHotdesking({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* WALLBOARD VIEW (rediseñado v8) — KPI strip + grid unificado */}
+            {/* WALLBOARD VIEW v9 — 4 bloques compartimentados + buscador live */}
             {viewMode==='wallboard' && (() => {
 
                 const isAgentRinging = (a) => {
@@ -11094,211 +11094,293 @@ function ViewHotdesking({ data, toast }) {
                     } catch(e) { toast?.('Error de red', 'error'); }
                 };
 
-                // Status classifier: 'busy' | 'ringing' | 'paused' | 'available' | 'offline'
+                // Status: 'busy' | 'ringing' | 'paused' | 'available'
                 const statusOf = (a) => {
-                    if (!a.logged_in) return 'offline';
                     if (a.in_call) return 'busy';
                     if (isAgentRinging(a)) return 'ringing';
                     if (a.paused) return 'paused';
                     return 'available';
                 };
 
-                // Priority sort: busy → ringing → paused → available → offline
-                const rank = { busy: 0, ringing: 1, paused: 2, available: 3, offline: 4 };
-                const sortedAgents = [...filtered].sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]);
+                const ringgroups = data?.pbx?.ringgroups || [];
 
-                if (sortedAgents.length === 0) {
-                    return (
-                        <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
-                            <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
-                            <div className="text-sm font-bold">Sin agentes para mostrar</div>
-                        </div>
-                    );
-                }
+                // Lista logueados / offline ordenados por urgencia
+                const loggedAll  = filtered.filter(a => a.logged_in);
+                const rankLogged = { busy:0, ringing:1, paused:2, available:3 };
+                const loggedSorted  = [...loggedAll].sort((a,b) => rankLogged[statusOf(a)] - rankLogged[statusOf(b)]);
+                const offlineSorted = filtered.filter(a => !a.logged_in);
 
-                // Render rich agent tile
-                const renderTile = (a) => {
+                // Render agente logueado tile rico
+                const renderLogged = (a) => {
                     const st = statusOf(a);
                     const scMap = {
-                        busy:      { color:'#ef4444',             label:'EN LLAMADA',     icon:'phone_in_talk' },
-                        ringing:   { color:'#ef4444',             label:'SONANDO',        icon:'phone_callback' },
-                        paused:    { color: a.pause_color || '#f59e0b', label:`PAUSA${a.pause_label ? ' · '+a.pause_label : ''}`, icon:'pause_circle' },
-                        available: { color:'var(--horizon-green)',label:'DISPONIBLE',     icon:'check_circle' },
-                        offline:   { color:'var(--muted-foreground)', label:'OFFLINE',     icon:'power_settings_new' },
+                        busy:      { color:'var(--destructive)',      label:'EN LLAMADA',  icon:'phone_in_talk' },
+                        ringing:   { color:'var(--destructive)',      label:'SONANDO',     icon:'phone_callback' },
+                        paused:    { color: a.pause_color || 'var(--warning)', label:`PAUSA${a.pause_label ? ' · '+a.pause_label : ''}`, icon:'pause_circle' },
+                        available: { color:'var(--horizon-green)',    label:'DISPONIBLE',  icon:'check_circle' },
                     };
                     const cfg = scMap[st];
                     const sc = cfg.color;
-                    const isLive = st !== 'offline';
                     const isCritical = st === 'busy' || st === 'ringing';
                     const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
                     const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
 
                     return (
-                        <div
-                            key={a.id}
-                            onClick={()=>setEditing(a)}
-                            className={cn("relative rounded-xl border overflow-hidden cursor-pointer transition-all hover:shadow-lg group", st === 'ringing' && 'hzn-ringing')}
-                            style={{
-                                borderColor: isLive ? `color-mix(in srgb, ${sc} 50%, var(--border))` : 'var(--border)',
-                                background: isLive
-                                    ? `linear-gradient(180deg, color-mix(in srgb, ${sc} 6%, var(--card)) 0%, var(--card) 80%)`
-                                    : 'var(--card)',
-                                opacity: st === 'offline' ? 0.78 : 1
-                            }}>
-
-                            {/* Top accent bar */}
-                            <div style={{height:3, background: sc, opacity: isLive ? 1 : 0.35}}/>
-
-                            {/* Decorative status icon en background */}
-                            <span className="material-icons-round absolute pointer-events-none select-none"
-                                  style={{
-                                      fontSize: 110, color: sc,
-                                      opacity: 0.06, bottom: -18, right: -12,
-                                      animation: isCritical ? 'tf-status-shake 0.6s ease-in-out infinite' : (st==='available' ? 'tf-status-breath 2.4s ease-in-out infinite' : 'none')
-                                  }}>{cfg.icon}</span>
-
-                            {/* Body */}
-                            <div className="relative p-3 flex items-start gap-3">
-                                {/* Avatar con status ring */}
+                        <div key={a.id} onClick={()=>setEditing(a)}
+                             className={cn("relative rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md group", st === 'ringing' && 'hzn-ringing')}
+                             style={{
+                                 borderColor: `color-mix(in srgb, ${sc} 45%, var(--border))`,
+                                 background: `linear-gradient(180deg, color-mix(in srgb, ${sc} 7%, var(--card)) 0%, var(--card) 80%)`
+                             }}>
+                            <div style={{height:3, background:sc}}/>
+                            <span className="material-icons-round absolute pointer-events-none select-none" style={{
+                                fontSize:90, color:sc, opacity:0.07, bottom:-14, right:-10,
+                                animation: isCritical ? 'tf-status-shake 0.6s ease-in-out infinite' : (st==='available' ? 'tf-status-breath 2.4s ease-in-out infinite' : 'none')
+                            }}>{cfg.icon}</span>
+                            <div className="relative p-2.5 flex items-center gap-2.5">
                                 <div className="relative shrink-0">
                                     <img src={avatarFor(a)} alt={a.name}
                                          onError={(e)=>{e.target.style.display='none'; const n=e.target.nextSibling; if(n) n.style.display='flex';}}
                                          className="rounded-full object-cover"
-                                         style={{
-                                             width:48, height:48,
-                                             border: `2.5px solid ${sc}`,
-                                             boxShadow: isCritical ? `0 0 14px color-mix(in srgb, ${sc} 60%, transparent)` : 'none'
-                                         }}/>
-                                    <div style={{
-                                        display:'none', width:48, height:48, borderRadius:'50%',
-                                        background:`linear-gradient(135deg, ${sc}, color-mix(in srgb, ${sc} 65%, #000))`,
-                                        alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:900,
-                                        border:`2.5px solid ${sc}`
-                                    }}>{(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}</div>
-                                    <span style={{
-                                        position:'absolute', bottom:-2, right:-2,
-                                        width:16, height:16, borderRadius:'50%',
-                                        background: sc, border:'2.5px solid var(--card)',
-                                        animation: isCritical ? 'pulse 1.2s ease-in-out infinite' : 'none'
-                                    }}/>
+                                         style={{ width:40, height:40, border: `2px solid ${sc}`, boxShadow: isCritical ? `0 0 10px color-mix(in srgb, ${sc} 55%, transparent)` : 'none' }}/>
+                                    <div style={{display:'none', width:40, height:40, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, color-mix(in srgb, ${sc} 65%, #000))`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:12, fontWeight:900, border:`2px solid ${sc}`}}>{(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}</div>
+                                    <span style={{position:'absolute', bottom:-2, right:-2, width:13, height:13, borderRadius:'50%', background:sc, border:'2px solid var(--card)', animation: isCritical ? 'pulse 1.2s ease-in-out infinite' : 'none'}}/>
                                 </div>
-
-                                {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-1.5">
-                                        <span className="font-mono font-black text-sm" style={{color: sc, letterSpacing:'-0.3px'}}>#{a.number}</span>
-                                        {a.extension && (
-                                            <span className="font-mono text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>· ext {a.extension}</span>
-                                        )}
+                                        <span className="font-mono font-black text-xs" style={{color: sc, letterSpacing:'-0.2px'}}>#{a.number}</span>
+                                        {a.extension && <span className="font-mono text-[9px] font-bold" style={{color:'var(--muted-foreground)'}}>· {a.extension}</span>}
                                     </div>
-                                    <div className="text-xs font-bold truncate mt-0.5" style={{color:'var(--foreground)'}}>{a.name}</div>
-
-                                    {/* Status pill + live timer */}
-                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black tracking-wider"
+                                    <div className="text-[11px] font-bold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
+                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                        <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-black tracking-wider"
                                               style={{background:`color-mix(in srgb, ${sc} 15%, transparent)`, color:sc, border:`1px solid color-mix(in srgb, ${sc} 30%, transparent)`}}>
-                                            <span className="material-icons-round" style={{fontSize:10}}>{cfg.icon}</span>
                                             {cfg.label}
                                         </span>
-                                        {a.in_call && myCall && (
-                                            <span className="font-mono text-[10px] font-bold" style={{color:sc}}>
-                                                <span className="material-icons-round" style={{fontSize:11, verticalAlign:'middle'}}>schedule</span>
-                                                {myCall.duration || '00:00'}
-                                            </span>
-                                        )}
-                                        {a.paused && pauseDur && (
-                                            <span className="font-mono text-[10px] font-bold" style={{color:sc}}>
-                                                <span className="material-icons-round" style={{fontSize:11, verticalAlign:'middle'}}>timer</span>
-                                                {pauseDur}
-                                            </span>
-                                        )}
+                                        {a.in_call && myCall && <span className="font-mono text-[9px] font-bold" style={{color:sc}}>{myCall.duration || '00:00'}</span>}
+                                        {a.paused && pauseDur && <span className="font-mono text-[9px] font-bold" style={{color:sc}}>{pauseDur}</span>}
                                     </div>
-
-                                    {/* Queues badges */}
-                                    {a.logged_in && a.queues.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1.5">
-                                            {a.queues.slice(0,4).map((q,i)=>(
-                                                <span key={i} className="font-mono text-[9px] font-bold rounded px-1.5 py-0.5"
-                                                      style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', border:'1px solid color-mix(in srgb, var(--horizon-green) 25%, transparent)'}}>
-                                                    Q{q.queue||q}
-                                                </span>
-                                            ))}
-                                            {a.queues.length > 4 && (
-                                                <span className="text-[9px] font-bold" style={{color:'var(--muted-foreground)'}}>+{a.queues.length-4}</span>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
-
-                                {/* Action icons stacked vertically — visible on hover */}
-                                <div className="flex flex-col gap-1 transition-opacity opacity-60 group-hover:opacity-100" onClick={e=>e.stopPropagation()}>
-                                    {st === 'offline' ? (
-                                        <button onClick={()=>setLoginAgentTarget(a)} title="Login agente"
+                                <div className="flex flex-col gap-1 transition-opacity opacity-50 group-hover:opacity-100" onClick={e=>e.stopPropagation()}>
+                                    {(a.in_call || st==='ringing') && (
+                                        <button onClick={()=>doHangup(a)} title={st==='ringing'?'Rechazar':'Colgar'}
                                                 className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
-                                                style={{width:28, height:28, background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', borderColor:'color-mix(in srgb, var(--horizon-green) 35%, transparent)'}}>
-                                            <span className="material-icons-round" style={{fontSize:14}}>login</span>
+                                                style={{width:24, height:24, background:'color-mix(in srgb, var(--destructive) 12%, transparent)', color:'var(--destructive)', borderColor:'color-mix(in srgb, var(--destructive) 35%, transparent)'}}>
+                                            <span className="material-icons-round" style={{fontSize:12}}>{st==='ringing' ? 'phone_disabled' : 'call_end'}</span>
                                         </button>
-                                    ) : (
-                                        <>
-                                            {(a.in_call || st==='ringing') && (
-                                                <button onClick={()=>doHangup(a)} title={st==='ringing'?'Rechazar':'Colgar llamada'}
-                                                        className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
-                                                        style={{width:28, height:28, background:'color-mix(in srgb, var(--destructive) 12%, transparent)', color:'var(--destructive)', borderColor:'color-mix(in srgb, var(--destructive) 35%, transparent)'}}>
-                                                    <span className="material-icons-round" style={{fontSize:14}}>{st==='ringing' ? 'phone_disabled' : 'call_end'}</span>
-                                                </button>
-                                            )}
-                                            <button onClick={()=>logoutAgent(a)} title="Cerrar sesión"
-                                                    className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
-                                                    style={{width:28, height:28, background:'var(--secondary)', color:'var(--muted-foreground)', borderColor:'var(--border)'}}>
-                                                <span className="material-icons-round" style={{fontSize:14}}>logout</span>
-                                            </button>
-                                        </>
                                     )}
+                                    <button onClick={()=>logoutAgent(a)} title="Logout"
+                                            className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
+                                            style={{width:24, height:24, background:'var(--secondary)', color:'var(--muted-foreground)', borderColor:'var(--border)'}}>
+                                        <span className="material-icons-round" style={{fontSize:12}}>logout</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     );
                 };
 
+                // Render agente offline compacto
+                const renderOffline = (a) => (
+                    <div key={a.id} onClick={()=>setEditing(a)}
+                         className="rounded-md border cursor-pointer transition-all hover:shadow-sm flex items-center gap-2 px-2 py-1.5"
+                         style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                        <div className="rounded-full flex items-center justify-center font-black text-white shrink-0"
+                             style={{width:26, height:26, fontSize:10,
+                                     background:'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 60%, #000), color-mix(in srgb, var(--muted-foreground) 85%, #000))'}}>
+                            {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-bold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
+                            <div className="text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>#{a.number}</div>
+                        </div>
+                        <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
+                                className="rounded-md border px-2 py-0.5 text-[9px] font-bold transition-colors hover:shadow-sm"
+                                style={{color:'var(--horizon-green)', borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)', background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)'}}>
+                            Login
+                        </button>
+                    </div>
+                );
+
                 return (
                     <div className="space-y-4">
 
-                        {/* ─── KPI strip ─── */}
-                        <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))'}}>
-                            {[
-                                { label:'Total',       value: agents.length, color:'var(--primary)',           icon:'group',         pulse:false },
-                                { label:'Logueados',   value: totalLogged,   color:'#3b82f6',                  icon:'login',         pulse: totalLogged > 0 },
-                                { label:'Disponibles', value: totalAvail,    color:'var(--horizon-green)',     icon:'check_circle',  pulse: totalAvail > 0 },
-                                { label:'En llamada',  value: totalBusy,     color:'var(--destructive)',       icon:'phone_in_talk', pulse: totalBusy > 0 },
-                                { label:'En pausa',    value: totalPaused,   color:'var(--warning)',           icon:'pause_circle',  pulse: totalPaused > 0 },
-                                { label:'Offline',     value: totalOff,      color:'var(--muted-foreground)',  icon:'power_settings_new', pulse:false },
-                            ].map(k => (
-                                <div key={k.label} className="relative rounded-xl border overflow-hidden p-3"
-                                     style={{
-                                         borderColor:`color-mix(in srgb, ${k.color} 25%, var(--border))`,
-                                         background:`linear-gradient(135deg, color-mix(in srgb, ${k.color} 8%, var(--card)) 0%, var(--card) 70%)`
-                                     }}>
-                                    <span className="material-icons-round absolute pointer-events-none" style={{
-                                        fontSize:80, color:k.color, opacity:0.08, top:-12, right:-10
-                                    }}>{k.icon}</span>
-                                    <div className="relative flex items-center justify-between gap-2 mb-1">
-                                        <span className="text-[10px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{k.label}</span>
-                                        <span className="rounded-md flex items-center justify-center" style={{width:24, height:24, background:`color-mix(in srgb, ${k.color} 15%, transparent)`}}>
-                                            <span className="material-icons-round" style={{fontSize:14, color:k.color}}>{k.icon}</span>
-                                        </span>
+                        {/* ─── BLOCK 1: Logueados (DESTACADO con horizon-green) ─── */}
+                        <div className="rounded-xl border overflow-hidden" style={{
+                            borderColor:'color-mix(in srgb, var(--horizon-green) 45%, var(--border))',
+                            background:'linear-gradient(180deg, color-mix(in srgb, var(--horizon-green) 6%, var(--card)) 0%, var(--card) 60%)',
+                            boxShadow:'0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--horizon-green) 18%, transparent), 0 8px 24px color-mix(in srgb, var(--horizon-green) 10%, transparent)'
+                        }}>
+                            {/* Header destacado */}
+                            <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b"
+                                 style={{borderColor:'color-mix(in srgb, var(--horizon-green) 22%, var(--border))', background:'color-mix(in srgb, var(--horizon-green) 8%, transparent)'}}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="rounded-xl flex items-center justify-center shrink-0"
+                                         style={{
+                                             width:42, height:42,
+                                             background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000))',
+                                             boxShadow:'0 4px 14px color-mix(in srgb, var(--horizon-green) 40%, transparent)'
+                                         }}>
+                                        <span className="material-icons-round text-white" style={{fontSize:22}}>support_agent</span>
                                     </div>
-                                    <div className="relative flex items-baseline gap-1.5">
-                                        <span className="font-mono font-black text-3xl tabular-nums leading-none" style={{color:k.color, letterSpacing:'-1.5px'}}>{k.value}</span>
-                                        {k.pulse && <span className="rounded-full" style={{width:6, height:6, background:k.color, boxShadow:`0 0 6px ${k.color}`, animation:'pulse 1.5s ease-in-out infinite'}}/>}
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.15em]" style={{color:'var(--horizon-green)'}}>Agentes</div>
+                                        <div className="text-lg font-black tracking-tight" style={{color:'var(--foreground)'}}>Logueados</div>
                                     </div>
                                 </div>
-                            ))}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono font-black text-sm"
+                                          style={{background:'color-mix(in srgb, var(--horizon-green) 18%, transparent)', color:'var(--horizon-green)', border:'1px solid color-mix(in srgb, var(--horizon-green) 30%, transparent)'}}>
+                                        {loggedSorted.length > 0 && <span className="rounded-full" style={{width:7, height:7, background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>}
+                                        {loggedSorted.length}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* Body */}
+                            <div className="p-4">
+                                {loggedSorted.length === 0 ? (
+                                    <div className="flex items-center gap-3 py-4 px-2">
+                                        <div className="rounded-full flex items-center justify-center shrink-0" style={{
+                                            width:42, height:42,
+                                            background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)',
+                                            border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'
+                                        }}>
+                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>person_off</span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Ningún agente logueado</div>
+                                            <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                                                Marcá <strong className="font-mono" style={{color:'var(--horizon-green)'}}>*7700</strong> desde el teléfono · {offlineSorted.length} disponibles
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'}}>
+                                        {loggedSorted.map(renderLogged)}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        {/* ─── Agent grid unificado ─── */}
-                        <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))'}}>
-                            {sortedAgents.map(renderTile)}
+                        {/* ─── BLOCK 2: Offline ─── */}
+                        <Card className="overflow-hidden">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18, color:'var(--muted-foreground)'}}>person_off</span>
+                                    Agentes Offline
+                                </CardTitle>
+                                <Badge variant="secondary" className="font-mono text-[10px]">{offlineSorted.length} disponibles</Badge>
+                            </CardHeader>
+                            <CardContent>
+                                {offlineSorted.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
+                                        <div className="rounded-full flex items-center justify-center"
+                                             style={{width:42, height:42, background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'}}>
+                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>check_circle</span>
+                                        </div>
+                                        <div className="text-xs font-bold" style={{color:'var(--foreground)'}}>Todos logueados</div>
+                                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>No hay agentes disponibles para loguear</div>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-1.5 overflow-auto" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', maxHeight:280}}>
+                                        {offlineSorted.map(renderOffline)}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* ─── Row 3: Grupos de timbrado | Llamadas en vivo (paralelos) ─── */}
+                        <div className="grid gap-4 lg:grid-cols-2">
+
+                            {/* BLOCK 3: Grupos de timbrado */}
+                            <Card className="overflow-hidden">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                        <span className="material-icons-round" style={{fontSize:18, color:'#3b82f6'}}>ring_volume</span>
+                                        Grupos de Timbrado
+                                    </CardTitle>
+                                    <Badge variant="secondary" className="font-mono text-[10px]">{ringgroups.length} grupos</Badge>
+                                </CardHeader>
+                                <CardContent>
+                                    {ringgroups.length === 0 ? (
+                                        <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin grupos configurados</div>
+                                    ) : (
+                                        <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', maxHeight:280, overflow:'auto'}}>
+                                            {ringgroups.map((g, i) => {
+                                                const members = Array.isArray(g.members) ? g.members : [];
+                                                const onlineCount = members.filter(m => {
+                                                    const e = exts.find(x => String(x.ext) === String(m));
+                                                    return e?.status === 'ONLINE' || e?.status === 'BUSY';
+                                                }).length;
+                                                return (
+                                                    <div key={i} className="rounded-md border p-2.5 transition-all hover:shadow-sm"
+                                                         style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="font-mono text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>#{g.id}</span>
+                                                            <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                                                                  style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', border:'1px solid color-mix(in srgb, var(--horizon-green) 25%, transparent)'}}>
+                                                                {onlineCount}/{members.length}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>{g.name || '—'}</div>
+                                                        {members.length > 0 && (
+                                                            <div className="text-[9px] font-mono mt-1 truncate" style={{color:'var(--muted-foreground)'}}>
+                                                                <span className="material-icons-round mr-0.5" style={{fontSize:10, verticalAlign:'middle'}}>group</span>
+                                                                {members.slice(0,6).join(', ')}{members.length > 6 ? `, +${members.length-6}` : ''}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* BLOCK 4: Llamadas en vivo */}
+                            <Card className="overflow-hidden">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>sensors</span>
+                                        Llamadas en vivo
+                                    </CardTitle>
+                                    <Badge variant="secondary" className="font-mono text-[10px]">{liveCalls.length} canales</Badge>
+                                </CardHeader>
+                                <CardContent>
+                                    {liveCalls.length === 0 ? (
+                                        <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round mb-1.5 block" style={{fontSize:32, opacity:0.4}}>phone_disabled</span>
+                                            <p className="text-xs">Sin llamadas activas</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight:280}}>
+                                            {liveCalls.slice(0,12).map((c, i) => {
+                                                const isUp = c.state === 'Up';
+                                                const isRing = /Ring/.test(c.state || '');
+                                                const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
+                                                return (
+                                                    <div key={i} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5"
+                                                         style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
+                                                        <span className="rounded-full shrink-0" style={{width:8, height:8, background:sc, animation:isRing?'pulse 1s infinite':'none', boxShadow:`0 0 8px ${sc}`}}/>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-mono text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                                {c.ext || c.callerid || '?'} → {c.dest || '?'}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 mt-0.5 text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                                                                <span>{c.duration || '00:00'}</span>
+                                                                <span style={{color:'var(--border)'}}>·</span>
+                                                                <span>{isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
+
                     </div>
                 );
             })()}
