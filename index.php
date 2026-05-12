@@ -103,18 +103,27 @@ header('Expires: 0');
         };
     </script>
     <script>
-    // Pre-paint theme: aplica .dark al <html> y .light al body antes del primer render
-    // Evita el flash en blanco cuando el usuario tiene dark mode preferido
+    // Pre-paint theme robusto: aplica .dark/.light a html (shadcn) y body.light (legacy)
+    // ANTES del primer render para evitar flash y race conditions
     (function() {
         try {
             var dark = localStorage.getItem('tf_dark');
-            var isDark = dark !== '0'; // default = dark
-            if (isDark) document.documentElement.classList.add('dark');
-            else document.body && document.body.classList.add('light');
-            // Aplicar también al body tan pronto como exista
-            document.addEventListener('DOMContentLoaded', function() {
-                if (!isDark) document.body.classList.add('light');
-            });
+            var isDark = dark !== '0'; // default = dark si no hay valor previo
+            var html = document.documentElement;
+            if (isDark) {
+                html.classList.add('dark');
+                html.classList.remove('light');
+            } else {
+                html.classList.add('light');
+                html.classList.remove('dark');
+            }
+            var applyBody = function() {
+                if (!document.body) return;
+                document.body.classList.toggle('light', !isDark);
+                document.body.classList.toggle('dark', isDark);
+            };
+            applyBody(); // si body ya existe (poco probable en head)
+            document.addEventListener('DOMContentLoaded', applyBody);
         } catch(e) {}
     })();
     </script>
@@ -712,7 +721,7 @@ header('Expires: 0');
             --accent-glow: rgba(17,179,40,0.18);
         }
         body.light .login-bg { background: radial-gradient(ellipse 80% 60% at 50% -10%,color-mix(in srgb, var(--primary) 18%, transparent) 0%,transparent 70%),#f5f7fb; }
-        body.light .glass { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        body.light .glass { background-color: var(--card) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
         body.light .sidebar { background: linear-gradient(180deg,#fafbff,#f5f7fb) !important; border-right: 1px solid var(--border); }
         body.light .nav-item:hover { background: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
         body.light .nav-item.active { background: color-mix(in srgb, var(--primary) 14%, transparent) !important; color: var(--primary) !important; }
@@ -767,7 +776,7 @@ header('Expires: 0');
             background: rgba(255,255,255,0.7);
             box-shadow: 8px 4px 0 -1px rgba(255,255,255,0.6);
         }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; transition: background 0.4s ease, color 0.4s ease; }
+        body { font-family: 'Inter', sans-serif; background: var(--background); color: var(--foreground); overflow: hidden; height: 100vh; transition: background 0.4s ease, color 0.4s ease; }
         .theme-transition * { transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease !important; }
         
         /* ── CONTEXT MENU ── */
@@ -1150,7 +1159,7 @@ header('Expires: 0');
         .content-area { padding: 24px 28px; flex: 1; }
 
         /* ── GLASS CARDS — shadcn-flavored ── */
-        .glass { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+        /* .glass legacy override removed — uses shadcn token from line 327 */
         .glass-hover { transition: background-color .15s, border-color .15s, transform .15s; }
         .glass-hover:hover { border-color: color-mix(in srgb, var(--primary) 30%, transparent); background: color-mix(in srgb, var(--primary) 4%, var(--surface)); }
 
@@ -12909,10 +12918,14 @@ function App() {
     useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
     useEffect(() => { localStorage.setItem('tf_dark', darkMode ? '1' : '0'); }, [darkMode]);
 
-    // Dark/light toggle — sincroniza ambos sistemas: legacy (body.light) + shadcn (html.dark)
+    // Dark/light toggle — sincroniza ambos sistemas: legacy (body) + shadcn (html)
     useEffect(()=>{
-        document.body.classList.toggle('light', !darkMode);
-        document.documentElement.classList.toggle('dark', darkMode);
+        const html = document.documentElement;
+        const body = document.body;
+        html.classList.toggle('dark', darkMode);
+        html.classList.toggle('light', !darkMode);
+        body.classList.toggle('dark', darkMode);
+        body.classList.toggle('light', !darkMode);
     },[darkMode]);
 
     // Toast helper
