@@ -12041,7 +12041,6 @@ function ViewConfigAgents() {
 
             {/* Dialog editar/crear */}
             <Dialog open={!!editing} onOpenChange={(v)=>!v && setEditing(null)}>
-                <DialogContent className="max-w-lg">
                     <DialogHeader className="flex flex-row items-start justify-between space-y-0 gap-3">
                         <div className="flex-1 min-w-0">
                             <DialogTitle className="flex items-center gap-2">
@@ -12132,7 +12131,6 @@ function ViewConfigAgents() {
                             {busy ? 'Guardando…' : (editing?.id ? 'Guardar' : 'Crear')}
                         </Button>
                     </DialogFooter>
-                </DialogContent>
             </Dialog>
         </Card>
     );
