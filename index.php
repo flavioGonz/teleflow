@@ -848,6 +848,29 @@ header('Expires: 0');
             0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px currentColor); }
             50% { transform: scale(1.06); filter: drop-shadow(0 0 16px currentColor); }
         }
+        @keyframes tf-door-left {
+            0%   { transform: perspective(900px) rotateY(0deg); }
+            18%  { transform: perspective(900px) rotateY(-6deg); }
+            72%  { transform: perspective(900px) rotateY(-92deg); }
+            100% { transform: perspective(900px) rotateY(-92deg); opacity:0; }
+        }
+        @keyframes tf-door-right {
+            0%   { transform: perspective(900px) rotateY(0deg); }
+            18%  { transform: perspective(900px) rotateY(6deg); }
+            72%  { transform: perspective(900px) rotateY(92deg); }
+            100% { transform: perspective(900px) rotateY(92deg); opacity:0; }
+        }
+        @keyframes tf-door-flash {
+            0%, 100% { opacity:0; }
+            20%      { opacity:0.55; }
+            70%      { opacity:0.0; }
+        }
+        @keyframes tf-door-icon {
+            0%   { transform: scale(0.4) rotate(-25deg); opacity:0; }
+            30%  { transform: scale(1.15) rotate(8deg);  opacity:1; }
+            70%  { transform: scale(1.0)  rotate(0deg);  opacity:1; }
+            100% { transform: scale(0.85) rotate(0deg);  opacity:0; }
+        }
         .tf-tooltip::after {
             content: "";
             position: absolute;
@@ -3490,17 +3513,9 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
     // Cuando hay RTSP: TODO el panel es un solo card con video al fondo + data overlay
     // Cuando NO hay RTSP: layout original (status card + métricas separadas)
     if (hasRtsp) {
-        const overlayPillStyle = {
-            background: 'rgba(0,0,0,0.55)',
-            color: '#fff',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            textShadow: '0 1px 3px rgba(0,0,0,0.6)'
-        };
-
         const [localCfgMenu, setLocalCfgMenu] = useState(false);
         const cfgMenuRef = useRef(null);
+        const [doorAnim, setDoorAnim] = useState(false);
         useEffect(() => {
             if (!localCfgMenu) return;
             const h = (e) => { if (!cfgMenuRef.current?.contains(e.target)) setLocalCfgMenu(false); };
@@ -3524,12 +3539,14 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
         };
 
         const openFullscreen = () => {
-            // Abrir el RTSP en una nueva ventana / overlay
             window.open(`api/rtsp_proxy.php?ext=${encodeURIComponent(form.ext)}`, '_blank');
         };
 
         const openDoor = async () => {
             const dtmfCode = form.door_dtmf_code || '*9';
+            // Disparar animación de puerta inmediatamente para feedback responsivo
+            setDoorAnim(true);
+            setTimeout(() => setDoorAnim(false), 2000);
             try {
                 const fd = new FormData(); fd.append('ext', form.ext); fd.append('dtmf', dtmfCode);
                 const r = await fetch('api/door_dtmf.php?action=log', { method:'POST', body:fd, credentials:'include' });
@@ -3541,11 +3558,12 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
             } catch(e) {}
         };
 
+        // Acciones — la primera es la "principal" (apertura), resto secundarias
         const actions = [
-            { icon:'meeting_room',  label:'Apertura remota',   tone:'success',     onClick: openDoor },
-            { icon:'photo_camera',  label:'Capturar ahora',    tone:'success',     onClick: captureNow },
-            { icon:'open_in_full',  label:'Pantalla completa', tone:'default',     onClick: openFullscreen },
-            { icon:'settings',      label:'Configurar',        tone:'default',     onClick: ()=>setLocalCfgMenu(true) },
+            { icon:'meeting_room',  label:'Apertura remota',   primary:true,  onClick: openDoor },
+            { icon:'photo_camera',  label:'Capturar ahora',    onClick: captureNow },
+            { icon:'open_in_full',  label:'Pantalla completa', onClick: openFullscreen },
+            { icon:'settings',      label:'Configurar',        onClick: ()=>setLocalCfgMenu(v=>!v) },
         ];
 
         return (
@@ -3555,90 +3573,36 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                      minHeight: 420,
                      borderRadius: showHeaderOverlay ? 0 : 'var(--radius)'
                  }}>
-                {/* Header overlay con título cuando showHeaderOverlay */}
+                {/* VIDEO RTSP llena toda la card sin marco */}
+                <div className="absolute inset-0">
+                    <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
+                    {/* Gradient sólo en la parte inferior para legibilidad de acciones+métricas */}
+                    <div className="absolute inset-x-0 bottom-0 h-44 pointer-events-none" style={{
+                        background:'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.9) 100%)'
+                    }}/>
+                    {/* Gradient sutil arriba para el título Estado+LIVE */}
+                    {showHeaderOverlay && (
+                        <div className="absolute inset-x-0 top-0 h-16 pointer-events-none" style={{
+                            background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)'
+                        }}/>
+                    )}
+                </div>
+
+                {/* Header overlay con el título "Estado del interno" */}
                 {showHeaderOverlay && (
-                    <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-3 pb-2 pointer-events-none"
-                         style={{background:'linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0))'}}>
+                    <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-3 pb-2 pointer-events-none">
                         <div className="flex items-center gap-2 text-sm uppercase tracking-wider" style={{color:'#fff'}}>
                             <span className="material-icons-round" style={{fontSize:18, color:statusColor, filter:`drop-shadow(0 0 8px ${statusColor})`}}>circle</span>
                             <span style={{fontWeight:700, textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>Estado del interno</span>
                         </div>
                     </div>
                 )}
-                {/* VIDEO RTSP llena toda la columna sin border */}
-                <div className="absolute inset-0">
-                    <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
-                    {/* Overlay gradient para legibilidad arriba+abajo */}
-                    <div className="absolute inset-0 pointer-events-none" style={{
-                        background:'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.85) 100%)'
-                    }}/>
-                </div>
 
-                {/* Top-right action icons overlay con tooltip animado (debajo del título) */}
-                <div ref={cfgMenuRef} className={"absolute right-2 z-30 flex flex-col gap-1.5 " + (showHeaderOverlay ? 'top-12' : 'top-2')}>
-                    {actions.map(a => (
-                        <div key={a.icon} className="relative group">
-                            <button type="button" onClick={a.onClick}
-                                    className="rounded-full flex items-center justify-center transition-all hover:scale-110 hover:shadow-lg"
-                                    style={{
-                                        width:32, height:32,
-                                        background:'rgba(0,0,0,0.55)',
-                                        border:'1px solid rgba(255,255,255,0.2)',
-                                        backdropFilter:'blur(8px)',
-                                        WebkitBackdropFilter:'blur(8px)',
-                                        color:'#fff'
-                                    }}>
-                                <span className="material-icons-round" style={{fontSize:16}}>{a.icon}</span>
-                            </button>
-                            {/* Tooltip animado a la izquierda */}
-                            <span className="absolute z-30 right-full mr-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap pointer-events-none opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
-                                  style={{background:'rgba(0,0,0,0.85)', color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
-                                {a.label}
-                                <span className="absolute left-full top-1/2 -translate-y-1/2 w-2 h-2 rotate-45"
-                                      style={{background:'rgba(0,0,0,0.85)', marginLeft:-4}}/>
-                            </span>
-                        </div>
-                    ))}
-                    {/* Popover del menú Configurar */}
-                    {localCfgMenu && (
-                        <div className="absolute right-full mr-2 rounded-lg shadow-2xl overflow-hidden"
-                             style={{
-                                 top: 'auto', bottom: 0,
-                                 minWidth: 240,
-                                 background: 'rgba(20,20,20,0.95)',
-                                 border: '1px solid rgba(255,255,255,0.18)',
-                                 backdropFilter: 'blur(12px)',
-                                 WebkitBackdropFilter: 'blur(12px)',
-                                 zIndex: 40
-                             }}>
-                            <div className="px-3 py-2 border-b" style={{borderColor:'rgba(255,255,255,0.12)'}}>
-                                <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#9aa4b1'}}>Configurar</div>
-                                <div className="text-xs font-bold mt-0.5" style={{color:'#fff'}}>Interno #{form.ext}</div>
-                            </div>
-                            {[
-                                { icon:'videocam',        color:'#22c55e', label:'RTSP',                 sub: form.rtsp_url ? 'URL configurada' : 'Sin configurar',     onClick:()=>{ setLocalCfgMenu(false); setShowRtspModal && setShowRtspModal(true); }},
-                                { icon:'fiber_manual_record', color:'#ef4444', label:'Grabaciones',      sub: curRec ? curRec.l : 'Opcional',                            onClick:()=>{ setLocalCfgMenu(false); setShowRecModal && setShowRecModal(true); }},
-                                { icon:'dialpad',         color:'#f59e0b', label:'Dígito de apertura',   sub: `Código actual: ${form.door_dtmf_code || '*9'}`,         onClick:()=>{ setLocalCfgMenu(false); setShowDoorModal && setShowDoorModal(true); }},
-                            ].map(it => (
-                                <button key={it.label} type="button" onClick={it.onClick}
-                                        className="w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors hover:bg-white/10">
-                                    <span className="material-icons-round shrink-0" style={{fontSize:18, color:it.color}}>{it.icon}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-bold" style={{color:'#fff'}}>{it.label}</div>
-                                        <div className="text-[10px]" style={{color:'#9aa4b1'}}>{it.sub}</div>
-                                    </div>
-                                    <span className="material-icons-round" style={{fontSize:14, color:'#9aa4b1', opacity:0.6}}>chevron_right</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Top-center: status icon + badge */}
-                <div className={"relative z-10 flex flex-col items-center pb-3 pointer-events-none " + (showHeaderOverlay ? 'pt-16' : 'pt-7')}>
+                {/* Center: status icon + badge DISPONIBLE */}
+                <div className={"relative z-10 flex flex-col items-center pointer-events-none " + (showHeaderOverlay ? 'pt-14' : 'pt-6')}>
                     <span className="material-icons-round"
                           style={{
-                              fontSize: 52,
+                              fontSize: 56,
                               color: '#ffffff',
                               filter: `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 90%, transparent)) drop-shadow(0 2px 8px rgba(0,0,0,0.7))`,
                               animation: sIcon.animation
@@ -3660,16 +3624,82 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                 {/* Spacer */}
                 <div className="flex-1"/>
 
-                {/* Bottom: métricas pills */}
-                <div className="relative z-10 px-3 pb-3 flex flex-wrap items-center justify-center gap-1.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
-                        <span className="material-icons-round" style={{fontSize:12, color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>lan</span>
-                        <span style={{color:'#9aa4b1'}}>IP</span>
-                        <span className="font-mono font-black" style={{color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>{ext?.ip || '—'}</span>
+                {/* Bottom row 1: acciones horizontales (apertura + cámara + fullscreen + configurar) */}
+                <div ref={cfgMenuRef} className="relative z-20 px-3 pb-2.5 flex items-center justify-center gap-2 flex-wrap">
+                    {actions.map((a, i) => (
+                        <div key={a.icon} className="relative group">
+                            <button type="button" onClick={a.onClick} title={a.label}
+                                    className={"flex items-center gap-1.5 rounded-full transition-all hover:scale-105 hover:shadow-lg " + (a.primary ? 'px-3.5 py-2' : 'px-2.5 py-2')}
+                                    style={a.primary ? {
+                                        background:'color-mix(in srgb, var(--horizon-green) 92%, transparent)',
+                                        color:'#fff',
+                                        border:'1px solid color-mix(in srgb, var(--horizon-green) 60%, white)',
+                                        boxShadow:'0 4px 14px color-mix(in srgb, var(--horizon-green) 45%, transparent)'
+                                    } : {
+                                        background:'rgba(0,0,0,0.55)',
+                                        color:'#fff',
+                                        border:'1px solid rgba(255,255,255,0.18)',
+                                        backdropFilter:'blur(8px)',
+                                        WebkitBackdropFilter:'blur(8px)'
+                                    }}>
+                                <span className="material-icons-round" style={{fontSize: a.primary ? 17 : 16}}>{a.icon}</span>
+                                {a.primary && <span className="text-[11px] font-bold uppercase tracking-wider">Abrir</span>}
+                            </button>
+                            {/* Tooltip arriba */}
+                            {!a.primary && (
+                                <span className="absolute z-30 left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap pointer-events-none opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200"
+                                      style={{background:'rgba(0,0,0,0.85)', color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
+                                    {a.label}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                    {/* Popover Configurar — encima del botón configurar (último) */}
+                    {localCfgMenu && (
+                        <div className="absolute rounded-lg shadow-2xl overflow-hidden"
+                             style={{
+                                 bottom:'calc(100% + 6px)', right:'12px',
+                                 minWidth: 240,
+                                 background: 'rgba(20,20,20,0.95)',
+                                 border: '1px solid rgba(255,255,255,0.18)',
+                                 backdropFilter: 'blur(12px)',
+                                 WebkitBackdropFilter: 'blur(12px)',
+                                 zIndex: 40
+                             }}>
+                            <div className="px-3 py-2 border-b" style={{borderColor:'rgba(255,255,255,0.12)'}}>
+                                <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'#9aa4b1'}}>Configurar</div>
+                                <div className="text-xs font-bold mt-0.5" style={{color:'#fff'}}>Interno #{form.ext}</div>
+                            </div>
+                            {[
+                                { icon:'videocam',            color:'#22c55e', label:'RTSP',                 sub: form.rtsp_url ? 'URL configurada' : 'Sin configurar',     onClick:()=>{ setLocalCfgMenu(false); setShowRtspModal && setShowRtspModal(true); }},
+                                { icon:'fiber_manual_record', color:'#ef4444', label:'Grabaciones',          sub: curRec ? curRec.l : 'Opcional',                            onClick:()=>{ setLocalCfgMenu(false); setShowRecModal && setShowRecModal(true); }},
+                                { icon:'dialpad',             color:'#f59e0b', label:'Dígito de apertura',   sub: `Código actual: ${form.door_dtmf_code || '*9'}`,         onClick:()=>{ setLocalCfgMenu(false); setShowDoorModal && setShowDoorModal(true); }},
+                            ].map(it => (
+                                <button key={it.label} type="button" onClick={it.onClick}
+                                        className="w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors hover:bg-white/10">
+                                    <span className="material-icons-round shrink-0" style={{fontSize:18, color:it.color}}>{it.icon}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-bold" style={{color:'#fff'}}>{it.label}</div>
+                                        <div className="text-[10px]" style={{color:'#9aa4b1'}}>{it.sub}</div>
+                                    </div>
+                                    <span className="material-icons-round" style={{fontSize:14, color:'#9aa4b1', opacity:0.6}}>chevron_right</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom row 2: métricas planas (IP · RTT · MAC) sin chip */}
+                <div className="relative z-10 px-4 pb-3 flex items-center justify-center gap-5 flex-wrap text-[11px]" style={{color:'#e5e7eb'}}>
+                    <span className="flex items-center gap-1.5" style={{textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>
+                        <span className="material-icons-round" style={{fontSize:13, color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#9aa4b1'}}>lan</span>
+                        <span className="font-bold" style={{color:'#9aa4b1', letterSpacing:'0.04em'}}>IP</span>
+                        <span className="font-mono font-bold" style={{color: ext?.ip && ext.ip !== '—' ? '#93c5fd' : '#9aa4b1'}}>{ext?.ip || '—'}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
-                        <span className="material-icons-round" style={{fontSize:12, color:rttColor}}>speed</span>
-                        <span style={{color:'#9aa4b1'}}>RTT</span>
+                    <span className="opacity-30" style={{color:'#fff'}}>·</span>
+                    <span className="flex items-center gap-1.5" style={{textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>
+                        <span className="material-icons-round" style={{fontSize:13, color:rttColor}}>speed</span>
+                        <span className="font-bold" style={{color:'#9aa4b1', letterSpacing:'0.04em'}}>RTT</span>
                         {rttGrade && (
                             <span className="rounded-full" style={{
                                 width:6, height:6, background:rttColor,
@@ -3677,21 +3707,83 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                                 animation:`pulse ${rttPulseSpeed} ease-in-out infinite`
                             }}/>
                         )}
-                        <span className="font-mono font-black" style={{color:rttColor}}>
+                        <span className="font-mono font-bold" style={{color:rttColor}}>
                             {rttMs !== null ? `${rttMs}ms` : '—'}
                         </span>
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
-                        <span className="material-icons-round" style={{fontSize:12, color:'#9aa4b1'}}>memory</span>
-                        <span style={{color:'#9aa4b1'}}>MAC</span>
-                        <span className="font-mono" style={{color: ext?.mac ? '#ccc' : '#888'}}>{ext?.mac || '—'}</span>
+                    <span className="opacity-30" style={{color:'#fff'}}>·</span>
+                    <span className="flex items-center gap-1.5" style={{textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>
+                        <span className="material-icons-round" style={{fontSize:13, color:'#9aa4b1'}}>memory</span>
+                        <span className="font-bold" style={{color:'#9aa4b1', letterSpacing:'0.04em'}}>MAC</span>
+                        <span className="font-mono" style={{color: ext?.mac ? '#e5e7eb' : '#9aa4b1'}}>{ext?.mac || '—'}</span>
                     </span>
                 </div>
+
+                {/* Overlay de animación de puerta abierta — se monta al disparar openDoor */}
+                {doorAnim && (
+                    <div className="absolute inset-0 z-50 overflow-hidden pointer-events-none" aria-hidden="true">
+                        {/* Flash blanco sutil */}
+                        <div className="absolute inset-0" style={{
+                            background:'#ffffff',
+                            animation:'tf-door-flash 1.8s ease-out forwards',
+                            mixBlendMode:'screen'
+                        }}/>
+                        {/* Hoja izquierda */}
+                        <div className="absolute top-0 bottom-0 left-0" style={{
+                            width:'50%',
+                            background:'linear-gradient(90deg, #1a1f2e 0%, #2a3548 60%, #1a1f2e 100%)',
+                            borderRight:'2px solid rgba(255,255,255,0.18)',
+                            transformOrigin:'left center',
+                            animation:'tf-door-left 1.8s cubic-bezier(0.55, 0.08, 0.35, 0.95) forwards',
+                            boxShadow:'inset -16px 0 40px rgba(0,0,0,0.55)'
+                        }}>
+                            {/* Detalle: tirador a la derecha */}
+                            <div className="absolute" style={{
+                                top:'50%', right:'12px',
+                                width:'6px', height:'48px',
+                                borderRadius:'3px',
+                                background:'linear-gradient(180deg, #9ca3af, #4b5563)',
+                                transform:'translateY(-50%)',
+                                boxShadow:'0 2px 4px rgba(0,0,0,0.5)'
+                            }}/>
+                        </div>
+                        {/* Hoja derecha */}
+                        <div className="absolute top-0 bottom-0 right-0" style={{
+                            width:'50%',
+                            background:'linear-gradient(90deg, #1a1f2e 0%, #2a3548 40%, #1a1f2e 100%)',
+                            borderLeft:'2px solid rgba(255,255,255,0.18)',
+                            transformOrigin:'right center',
+                            animation:'tf-door-right 1.8s cubic-bezier(0.55, 0.08, 0.35, 0.95) forwards',
+                            boxShadow:'inset 16px 0 40px rgba(0,0,0,0.55)'
+                        }}>
+                            <div className="absolute" style={{
+                                top:'50%', left:'12px',
+                                width:'6px', height:'48px',
+                                borderRadius:'3px',
+                                background:'linear-gradient(180deg, #9ca3af, #4b5563)',
+                                transform:'translateY(-50%)',
+                                boxShadow:'0 2px 4px rgba(0,0,0,0.5)'
+                            }}/>
+                        </div>
+                        {/* Icono central que aparece y desaparece */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center" style={{
+                            animation:'tf-door-icon 1.8s ease-out forwards'
+                        }}>
+                            <span className="material-icons-round" style={{
+                                fontSize:72, color:'var(--horizon-green)',
+                                filter:'drop-shadow(0 0 24px var(--horizon-green)) drop-shadow(0 0 8px rgba(0,0,0,0.6))'
+                            }}>meeting_room</span>
+                            <span className="mt-2 text-sm font-black uppercase tracking-widest" style={{
+                                color:'#fff', textShadow:'0 2px 8px rgba(0,0,0,0.8)'
+                            }}>Apertura</span>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
 
-    // Layout sin RTSP: status card + métricas separadas (original)
+        // Layout sin RTSP: status card + métricas separadas (original)
     return (
         <div className="flex flex-col gap-3">
             <div className="relative rounded-lg border overflow-hidden"
