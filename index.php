@@ -2478,6 +2478,142 @@ const useRadarStore = createStore((set) => ({
 // ─────────────────────────────────────────────
 // LOGIN
 // ─────────────────────────────────────────────
+
+// ─── AgentQueueSelectModal: tras autenticar al agente, le pide qué colas atender ───
+function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) {
+    const available = agent?.available_queues || [];
+    const prefSet = new Set((agent?.pref_queues || []).map(String));
+    // Preselección: prefs guardadas o, si no hay, ninguna (el usuario decide).
+    const [selected, setSelected] = useState(() => {
+        if (!agent) return [];
+        if (prefSet.size > 0) return available.map(q => String(q.queue)).filter(qid => prefSet.has(qid));
+        return [];
+    });
+
+    useEffect(() => {
+        if (!agent) return;
+        const pref = new Set((agent.pref_queues || []).map(String));
+        if (pref.size > 0) {
+            setSelected(available.map(q => String(q.queue)).filter(qid => pref.has(qid)));
+        } else {
+            setSelected([]);
+        }
+    }, [agent?.session_id]);
+
+    if (!open || !agent) return null;
+
+    const toggle = (qid) => {
+        const id = String(qid);
+        setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+    };
+    const selectAll  = () => setSelected(available.map(q => String(q.queue)));
+    const selectNone = () => setSelected([]);
+
+    return ReactDOM.createPortal(
+        <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:9999}}>
+            <div className="fixed inset-0" style={{background:'rgba(0,0,0,0.78)', backdropFilter:'blur(6px)'}} onClick={busy ? undefined : onCancel}/>
+            <div className="relative w-full mx-4 flex flex-col border rounded-xl overflow-hidden animate-fade-in"
+                 style={{
+                     maxWidth: 560, maxHeight:'85vh',
+                     background:'var(--card)', color:'var(--card-foreground)',
+                     borderColor:'var(--border)',
+                     boxShadow:'0 28px 70px -14px rgba(0,0,0,0.7)'
+                 }}
+                 onClick={e=>e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-start gap-3 px-5 py-4 border-b" style={{borderColor:'var(--border)'}}>
+                    <div className="rounded-xl flex items-center justify-center shrink-0"
+                         style={{
+                             width:46, height:46,
+                             background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000))',
+                             boxShadow:'0 4px 14px color-mix(in srgb, var(--horizon-green) 38%, transparent)'
+                         }}>
+                        <span className="material-icons-round text-white" style={{fontSize:24}}>queue</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-bold tracking-tight" style={{color:'var(--foreground)'}}>Hola, {agent.name}</h2>
+                        <p className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                            Elegí a qué colas querés atender en esta sesión. Podés cambiarlas más tarde haciendo logout y login otra vez.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Action row: select all/none + contador */}
+                <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 35%, var(--card))'}}>
+                    <div className="flex items-center gap-1.5">
+                        <Button variant="outline" size="sm" onClick={selectAll}  disabled={busy} className="h-7 px-2.5 text-[10px]">Todas</Button>
+                        <Button variant="outline" size="sm" onClick={selectNone} disabled={busy} className="h-7 px-2.5 text-[10px]">Ninguna</Button>
+                        {prefSet.size > 0 && (
+                            <Badge variant="outline" className="text-[9px] ml-1" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round mr-1" style={{fontSize:10}}>bookmark</span>
+                                Preseleccionadas de tu última sesión
+                            </Badge>
+                        )}
+                    </div>
+                    <span className="text-[10px] font-mono" style={{color: selected.length > 0 ? 'var(--horizon-green)' : 'var(--muted-foreground)'}}>
+                        {selected.length} / {available.length}
+                    </span>
+                </div>
+
+                {/* Lista de colas (scroll interno) */}
+                <div className="flex-1 overflow-auto px-3 py-2.5 space-y-1.5" style={{minHeight:140, maxHeight:'45vh'}}>
+                    {available.length === 0 && (
+                        <div className="text-center py-8 text-xs" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-1" style={{fontSize:28, opacity:0.4}}>info</span>
+                            No hay colas activas en el callcenter en este momento.
+                        </div>
+                    )}
+                    {available.map(q => {
+                        const id = String(q.queue);
+                        const isSel = selected.includes(id);
+                        return (
+                            <button key={id} type="button" onClick={()=>toggle(id)} disabled={busy}
+                                    className="w-full rounded-md border px-3 py-2.5 flex items-center gap-3 text-left transition-all"
+                                    style={{
+                                        background: isSel ? 'color-mix(in srgb, var(--horizon-green) 14%, transparent)' : 'var(--card)',
+                                        borderColor: isSel ? 'color-mix(in srgb, var(--horizon-green) 45%, transparent)' : 'var(--border)'
+                                    }}>
+                                <span className="rounded-md flex items-center justify-center shrink-0"
+                                      style={{
+                                          width:24, height:24,
+                                          background: isSel ? 'var(--horizon-green)' : 'transparent',
+                                          border: '1px solid ' + (isSel ? 'var(--horizon-green)' : 'var(--border)')
+                                      }}>
+                                    {isSel && <span className="material-icons-round text-white" style={{fontSize:14}}>check</span>}
+                                </span>
+                                <span className="font-mono font-bold text-xs px-2 py-1 rounded-md shrink-0"
+                                      style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)'}}>
+                                    Q{q.queue}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold truncate" style={{color:'var(--foreground)'}}>{q.name || `Cola ${q.queue}`}</div>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {err && (
+                    <div className="px-5 py-2 text-xs font-semibold" style={{color:'var(--destructive)', background:'color-mix(in srgb, var(--destructive) 8%, transparent)'}}>
+                        <span className="material-icons-round align-middle mr-1" style={{fontSize:13}}>error_outline</span>
+                        {err}
+                    </div>
+                )}
+
+                {/* Footer */}
+                <div className="flex items-center justify-between gap-2 px-5 py-3 border-t" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                    <Button variant="outline" onClick={onCancel} disabled={busy}>Cancelar</Button>
+                    <Button onClick={()=>onConfirm(selected)} disabled={busy || available.length === 0} variant="success">
+                        <span className="material-icons-round mr-1.5" style={{fontSize:15, animation: busy?'spin 1s linear infinite':'none'}}>{busy?'autorenew':'login'}</span>
+                        {busy ? 'Entrando…' : (selected.length === 0 ? 'Entrar sin colas' : `Entrar a ${selected.length} cola${selected.length===1?'':'s'}`)}
+                    </Button>
+                </div>
+            </div>
+        </div>,
+        document.getElementById('tf-modal-root') || document.body
+    );
+}
+
 function Login({ onLogin }) {
     const [role, setRole] = useState('admin');
     const [user, setUser] = useState('');
@@ -2486,6 +2622,9 @@ function Login({ onLogin }) {
     const [err, setErr] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
+
+    // pendingAgent: data del login del agente esperando que elija colas
+    const [pendingAgent, setPendingAgent] = useState(null);
 
     const submit = async (e) => {
         e.preventDefault(); setErr(''); setLoading(true);
@@ -2504,10 +2643,43 @@ function Login({ onLogin }) {
                 fd.append('callback_extension', callbackExt);
                 const r = await fetch('api/agent.php?action=login', { method:'POST', body:fd, credentials:'include' });
                 const d = await r.json();
-                if (d.status === 'success') onLogin({ name: d.agent.name, role: 'agent', agent: d.agent });
-                else setErr(d.message || 'Login de agente falló.');
+                if (d.status === 'success') {
+                    if (d.agent?.pending_queue_selection) {
+                        setPendingAgent(d.agent);
+                    } else {
+                        onLogin({ name: d.agent.name, role: 'agent', agent: d.agent });
+                    }
+                } else setErr(d.message || 'Login de agente falló.');
             }
         } catch { setErr('Error de conexión con el servidor.'); }
+        setLoading(false);
+    };
+
+    const finishAgentLogin = async (chosenQueues) => {
+        if (!pendingAgent) return;
+        setLoading(true); setErr('');
+        try {
+            const fd = new FormData();
+            fd.append('queues', chosenQueues.join(','));
+            const r = await fetch('api/agent.php?action=join_queues', { method:'POST', body:fd, credentials:'include' });
+            const d = await r.json();
+            if (d.status === 'success') {
+                onLogin({
+                    name: pendingAgent.name,
+                    role: 'agent',
+                    agent: { ...pendingAgent, queues: d.joined_queues || chosenQueues, pending_queue_selection: false }
+                });
+            } else {
+                setErr(d.message || 'No se pudo asignar las colas');
+            }
+        } catch { setErr('Error de conexión'); }
+        setLoading(false);
+    };
+
+    const cancelAgentLogin = async () => {
+        // Si el agente decide no entrar todavía, cerramos su sesión PHP para no dejar ghost
+        try { await fetch('api/agent.php?action=logout', { method:'POST', credentials:'include' }); } catch(e) {}
+        setPendingAgent(null);
         setLoading(false);
     };
 
@@ -2669,6 +2841,14 @@ function Login({ onLogin }) {
                     </div>
                 </div>
             </div>
+            {/* Paso 2 del login agente: elegir colas */}
+            <AgentQueueSelectModal
+                open={!!pendingAgent}
+                agent={pendingAgent}
+                busy={loading}
+                err={err}
+                onConfirm={finishAgentLogin}
+                onCancel={cancelAgentLogin}/>
         </div>
     );
 }

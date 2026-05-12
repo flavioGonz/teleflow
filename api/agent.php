@@ -92,7 +92,7 @@ try {
             exit;
         }
 
-        // 2) Abrir sesión TeleFlow
+        // 2) Abrir sesión TeleFlow (sin colas todavía — el agente elige en el paso siguiente)
         $sessionId = 'tf-' . date('Ymd') . '-' . $agentNum . '-' . substr(uniqid(), -6);
         $tf->prepare("INSERT INTO agent_sessions (session_id, agent_ext, shift_date, status) VALUES (?, ?, CURDATE(), 'ACTIVE')")
            ->execute([$sessionId, $agentNum]);
@@ -101,8 +101,78 @@ try {
         $sAgente = $agent['type'] . '/' . $agent['number'];
         $iface = preg_match('|^\w+/\d+$|', $callbackExt) ? $callbackExt : "SIP/$callbackExt";
 
-        // 4) QueueAdd a las colas del callcenter (las activas en queue_call_entry)
-        $queues = $cc->query("SELECT DISTINCT queue FROM queue_call_entry WHERE estatus='A'")->fetchAll(PDO::FETCH_COLUMN);
+        // 4) Listado de colas activas + descripción para que el agente elija
+        // (antes: auto-asignaba a todas. Ahora: devuelve disponibles, el cliente llama action=join_queues)
+        $available_queues = [];
+        try {
+            $rows = $cc->query("SELECT DISTINCT queue FROM queue_call_entry WHERE estatus='A' ORDER BY queue")->fetchAll(PDO::FETCH_COLUMN);
+            // Traer descripciones desde asterisk.queues_config
+            $descMap = [];
+            try {
+                $pbxdb = new PDO("mysql:host=$PBX_DB_HOST;dbname=asterisk;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $dr = $pbxdb->query("SELECT extension, descr FROM queues_config")->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($dr as $row) $descMap[$row['extension']] = $row['descr'];
+            } catch (Exception $e) {}
+            foreach ($rows as $q) {
+                $available_queues[] = ['queue' => $q, 'name' => $descMap[$q] ?? null];
+            }
+        } catch (Exception $e) {}
+
+        // Prefs guardadas en agent_queue_pref (si las hay) para preselección
+        $pref_queues = [];
+        try {
+            $st = $tf->prepare("SELECT queue FROM agent_queue_pref WHERE agent_number = ?");
+            $st->execute([$agentNum]);
+            $pref_queues = $st->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {}
+
+        $_SESSION['agent_user'] = [
+            'session_id' => $sessionId,
+            'agent_id' => $agent['id'],
+            'agent_number' => $agentNum,
+            'agent_name' => $agent['name'],
+            'sAgente' => $sAgente,
+            'callback_ext' => $iface,
+            'queues' => [],   // se completa con action=join_queues
+            'login_time' => date('Y-m-d H:i:s'),
+            'pending_queue_selection' => true,
+        ];
+
+        echo json_encode([
+            'status' => 'success',
+            'agent' => [
+                'number' => $agentNum,
+                'name' => $agent['name'],
+                'type' => $agent['type'],
+                'callback' => $iface,
+                'queues' => [],
+                'session_id' => $sessionId,
+                'available_queues' => $available_queues,
+                'pref_queues' => $pref_queues,
+                'pending_queue_selection' => true,
+            ],
+        ]);
+        exit;
+    }
+
+    // ─── JOIN QUEUES (paso 2 del login: agente elige qué colas atender) ────
+    if ($action === 'join_queues' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $a = $_SESSION['agent_user'] ?? null;
+        if (!$a) {
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Sin sesión activa']);
+            exit;
+        }
+        // Aceptar queues como CSV o como array
+        $raw = $_POST['queues'] ?? '';
+        $queues = is_array($raw) ? $raw : array_filter(array_map('trim', explode(',', (string)$raw)));
+        // Sanitizar contra colas existentes en la PBX (no inventar)
+        $cc = pbx_cc_db();
+        $valid = $cc->query("SELECT DISTINCT queue FROM queue_call_entry WHERE estatus='A'")->fetchAll(PDO::FETCH_COLUMN);
+        $queues = array_values(array_intersect($queues, $valid));
+
+        $iface    = $a['callback_ext'];
+        $sAgente  = $a['sAgente'];
         $addedQueues = [];
         foreach ($queues as $q) {
             try {
@@ -120,27 +190,25 @@ try {
             } catch (Exception $e) { /* continuar */ }
         }
 
-        $_SESSION['agent_user'] = [
-            'session_id' => $sessionId,
-            'agent_id' => $agent['id'],
-            'agent_number' => $agentNum,
-            'agent_name' => $agent['name'],
-            'sAgente' => $sAgente,
-            'callback_ext' => $iface,
-            'queues' => $addedQueues,
-            'login_time' => date('Y-m-d H:i:s'),
-        ];
+        // Persistir prefs (para auto-preselección futura)
+        try {
+            $tf->prepare("DELETE FROM agent_queue_pref WHERE agent_number = ?")->execute([$a['agent_number']]);
+            $ins = $tf->prepare("INSERT INTO agent_queue_pref (agent_number, queue, penalty) VALUES (?, ?, 0)");
+            foreach ($addedQueues as $q) {
+                try { $ins->execute([$a['agent_number'], $q]); } catch (Exception $e) {}
+            }
+        } catch (Exception $e) {}
+
+        // Actualizar sesión
+        $_SESSION['agent_user']['queues'] = $addedQueues;
+        unset($_SESSION['agent_user']['pending_queue_selection']);
+
+        // Notificar al hub realtime
+        @file_get_contents('http://127.0.0.1/api/notify.php?event=agent_login&agent='.urlencode($a['agent_number']).'&ext='.urlencode(preg_replace('|^\w+/|', '', $iface)).'&queues='.urlencode(implode(',', $addedQueues)));
 
         echo json_encode([
             'status' => 'success',
-            'agent' => [
-                'number' => $agentNum,
-                'name' => $agent['name'],
-                'type' => $agent['type'],
-                'callback' => $iface,
-                'queues' => $addedQueues,
-                'session_id' => $sessionId,
-            ],
+            'joined_queues' => $addedQueues,
         ]);
         exit;
     }
