@@ -4603,30 +4603,37 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [lightboxShot, setLightboxShot] = useState(null);
     const [nearbyDoorEvents, setNearbyDoorEvents] = useState([]);
 
-    // Cuando se abre lightbox, cargar eventos de apertura cercanos al timestamp ±5min
+    // Cuando se abre lightbox, cargar eventos de apertura cercanos al timestamp ±5min.
+    // Reset es manual al cerrar el lightbox (onOpenChange) para evitar loops por nuevas refs de array.
+    const lightboxId = lightboxShot ? (lightboxShot.url || '') + '|' + (lightboxShot.timestamp || '') : '';
     useEffect(() => {
-        if (!lightboxShot || !ext?.ext) { setNearbyDoorEvents([]); return; }
+        if (!lightboxShot || !ext?.ext) return;
         let cancelled = false;
         (async () => {
             try {
                 const r = await fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext.ext)}&limit=100`, { credentials:'include' });
                 const j = await r.json();
                 if (cancelled) return;
-                if (j.ok && Array.isArray(j.events) && lightboxShot.timestamp) {
+                if (j && j.ok && Array.isArray(j.events) && lightboxShot.timestamp) {
                     const snapTs = new Date(String(lightboxShot.timestamp).replace(' ', 'T')).getTime();
                     if (!isNaN(snapTs)) {
                         const matches = j.events.filter(e => {
-                            if (!e.occurred_at) return false;
+                            if (!e || !e.occurred_at) return false;
                             const t = new Date(String(e.occurred_at).replace(' ', 'T')).getTime();
                             return !isNaN(t) && Math.abs(t - snapTs) <= 5 * 60 * 1000;
                         });
-                        setNearbyDoorEvents(matches);
+                        if (matches.length > 0) setNearbyDoorEvents(matches);
                     }
                 }
             } catch(e) {}
         })();
         return () => { cancelled = true; };
-    }, [lightboxShot?.url, ext?.ext]);
+    }, [lightboxId, ext?.ext]);
+
+    // Limpiar matches al cerrar el lightbox (separado para no loopear)
+    useEffect(() => {
+        if (!lightboxShot && nearbyDoorEvents.length > 0) setNearbyDoorEvents([]);
+    }, [lightboxShot]);
     // HORIZON v5: Info básica inicia disabled, se habilita con el lápiz
     const [editing, setEditing] = useState(() => !ext); // si es nuevo, ya está editando
 
