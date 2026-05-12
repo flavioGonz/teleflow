@@ -2046,6 +2046,8 @@ function tfPlayRecording(file, meta) {
 
 function RtspPreviewLayer() {
     const [previews, setPreviews] = useState([]);
+    // Dynamic bottom offset que sigue al sileo-stack (resize observer + interval)
+    const [bottomOffset, setBottomOffset] = useState(18);
 
     useEffect(() => {
         const onOpen = (e) => {
@@ -2066,13 +2068,46 @@ function RtspPreviewLayer() {
         };
     }, []);
 
+    // Track sileo-stack height para acoplar el preview JUSTO arriba sin gap
+    useEffect(() => {
+        if (previews.length === 0) return;
+        const measure = () => {
+            const stack = document.querySelector('.sileo-stack');
+            if (!stack) { setBottomOffset(18); return; }
+            const rect = stack.getBoundingClientRect();
+            const h = rect.height;
+            // sileo-stack está a bottom:18, así que el top del stack está a (18 + h) desde el bottom
+            // Posicionamos el RTSP preview con bottom = (18 + h + 6) para tener un pequeño espacio
+            setBottomOffset(h > 0 ? 18 + h + 6 : 18);
+        };
+        measure();
+        const interval = setInterval(measure, 250);
+        let ro = null;
+        try {
+            const stack = document.querySelector('.sileo-stack');
+            if (stack && window.ResizeObserver) {
+                ro = new ResizeObserver(measure);
+                ro.observe(stack);
+            }
+        } catch(e) {}
+        window.addEventListener('resize', measure);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('resize', measure);
+            if (ro) ro.disconnect();
+        };
+    }, [previews.length]);
+
     if (previews.length === 0) return null;
 
     const content = (
         <div style={{
-            position:'fixed', top:24, right:24, zIndex:10001,
-            display:'flex', flexDirection:'column', gap:12,
-            pointerEvents:'auto'
+            position:'fixed',
+            bottom: bottomOffset, right:18,
+            zIndex:10001,
+            display:'flex', flexDirection:'column-reverse', gap:6,
+            pointerEvents:'auto',
+            transition: 'bottom 0.18s ease-out'
         }}>
             {previews.map(p => (
                 <RtspPreviewCard
