@@ -3101,6 +3101,143 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
 // ─────────────────────────────────────────────
 // VISTA: DASHBOARD
 // ─────────────────────────────────────────────
+// ─── DashCallActions: botones Escuchar (ChanSpy) + Asignar (Redirect) por llamada ───
+function DashCallActions({ call, disabled }) {
+    const [busy, setBusy] = useState(false);
+    const [showXfer, setShowXfer] = useState(false);
+    const [xferExt, setXferExt] = useState('');
+    const wrapRef = useRef(null);
+
+    useEffect(() => {
+        if (!showXfer) return;
+        const onClick = (e) => { if (!wrapRef.current?.contains(e.target)) setShowXfer(false); };
+        const onEsc = (e) => { if (e.key === 'Escape') setShowXfer(false); };
+        document.addEventListener('mousedown', onClick);
+        document.addEventListener('keydown', onEsc);
+        return () => {
+            document.removeEventListener('mousedown', onClick);
+            document.removeEventListener('keydown', onEsc);
+        };
+    }, [showXfer]);
+
+    const spyExt = (typeof window !== 'undefined' && (window._tfSpyExt || localStorage.getItem('tf_spy_ext'))) || '';
+
+    const doSpy = async () => {
+        if (!spyExt) {
+            window.sileo?.push?.({ kind:'warning', title:'Falta tu extensión de escucha', msg:'Configurá tu ext en el botón "Escucha" de la barra superior', duration:4000 });
+            return;
+        }
+        if (!call?.channel) return;
+        setBusy(true);
+        try {
+            const fd = new FormData();
+            fd.append('type', 'spy');
+            fd.append('channel', call.channel);
+            fd.append('supervisor', spyExt);
+            const r = await fetch('api/index.php?action=call_action', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            window.sileo?.push?.({
+                kind: j.success ? 'success' : 'error',
+                title: j.success ? 'Escuchando llamada' : 'Error',
+                msg: j.success ? `Te llamamos al interno ${spyExt}, atendé para entrar en modo escucha.` : (j.error || 'No se pudo iniciar la escucha'),
+                duration: 5000
+            });
+        } catch(e) {
+            window.sileo?.push?.({ kind:'error', title:'Error de red', msg:'No se pudo contactar con el server', duration:3500 });
+        }
+        setBusy(false);
+    };
+
+    const doRedirect = async () => {
+        const ext = (xferExt||'').replace(/\D/g,'');
+        if (!ext) return;
+        if (!call?.channel) return;
+        setBusy(true);
+        try {
+            const fd = new FormData();
+            fd.append('channel', call.channel);
+            fd.append('ext', ext);
+            const r = await fetch('api/index.php?action=redirect_call', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            window.sileo?.push?.({
+                kind: j.success ? 'success' : 'error',
+                title: j.success ? 'Llamada asignada' : 'Error',
+                msg: j.success ? `Transferida a ext ${ext}` : (j.error || 'No se pudo asignar'),
+                duration: 4000
+            });
+            if (j.success) { setShowXfer(false); setXferExt(''); }
+        } catch(e) {
+            window.sileo?.push?.({ kind:'error', title:'Error de red', msg:'No se pudo contactar con el server', duration:3500 });
+        }
+        setBusy(false);
+    };
+
+    return (
+        <div ref={wrapRef} className="relative flex items-center gap-1 shrink-0" onClick={e=>e.stopPropagation()}>
+            <button type="button" onClick={doSpy} disabled={disabled || busy}
+                    title={disabled ? 'Disponible cuando la llamada esté en conversación' : (spyExt ? `Escuchar (ChanSpy → ext ${spyExt})` : 'Configurá primero tu ext de escucha')}
+                    className="rounded-md flex items-center justify-center transition-all hover:scale-105"
+                    style={{
+                        width:26, height:26,
+                        background: disabled ? 'transparent' : 'color-mix(in srgb, #3b82f6 12%, transparent)',
+                        color: disabled ? 'var(--muted-foreground)' : '#3b82f6',
+                        border: '1px solid ' + (disabled ? 'var(--border)' : 'color-mix(in srgb, #3b82f6 35%, transparent)'),
+                        opacity: disabled ? 0.45 : 1,
+                        cursor: disabled ? 'not-allowed' : 'pointer'
+                    }}>
+                <span className="material-icons-round" style={{fontSize:14}}>headset_mic</span>
+            </button>
+            <button type="button" onClick={()=>setShowXfer(v=>!v)} disabled={disabled || busy}
+                    title={disabled ? 'Disponible cuando la llamada esté en conversación' : 'Asignar (transferir a otra ext)'}
+                    className="rounded-md flex items-center justify-center transition-all hover:scale-105"
+                    style={{
+                        width:26, height:26,
+                        background: showXfer ? 'color-mix(in srgb, var(--horizon-green) 18%, transparent)' : (disabled ? 'transparent' : 'color-mix(in srgb, var(--horizon-green) 12%, transparent)'),
+                        color: disabled ? 'var(--muted-foreground)' : 'var(--horizon-green)',
+                        border: '1px solid ' + (showXfer ? 'var(--horizon-green)' : (disabled ? 'var(--border)' : 'color-mix(in srgb, var(--horizon-green) 35%, transparent)')),
+                        opacity: disabled ? 0.45 : 1,
+                        cursor: disabled ? 'not-allowed' : 'pointer'
+                    }}>
+                <span className="material-icons-round" style={{fontSize:14}}>swap_calls</span>
+            </button>
+            {showXfer && !disabled && (
+                <div className="absolute right-0 top-full mt-1.5 rounded-lg border shadow-2xl p-2.5 z-50"
+                     style={{
+                         minWidth:220,
+                         background:'var(--card)',
+                         borderColor:'var(--border)',
+                         boxShadow:'0 12px 32px rgba(0,0,0,0.18)'
+                     }}>
+                    <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{color:'var(--muted-foreground)'}}>Asignar a interno</div>
+                    <div className="flex gap-1.5">
+                        <input type="text" inputMode="numeric" value={xferExt} autoFocus
+                               onChange={e=>setXferExt(e.target.value.replace(/\D/g,'').substring(0,6))}
+                               onKeyDown={e=>{ if (e.key === 'Enter') doRedirect(); }}
+                               placeholder="Ej: 1001"
+                               className="flex-1 rounded-md border px-2 font-mono font-bold text-xs"
+                               style={{
+                                   height:30,
+                                   background:'var(--background)',
+                                   color:'var(--foreground)',
+                                   borderColor:'var(--border)'
+                               }}/>
+                        <button type="button" onClick={doRedirect} disabled={busy || !xferExt}
+                                className="rounded-md px-2 text-[10px] font-bold transition-all"
+                                style={{
+                                    height:30,
+                                    background:'var(--horizon-green)',
+                                    color:'#fff',
+                                    opacity: (busy || !xferExt) ? 0.5 : 1
+                                }}>
+                            {busy ? '…' : 'OK'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ViewDashboard({ data }) {
     const exts        = data?.pbx?.extensions || [];
     const queues      = data?.pbx?.queues     || [];
@@ -3182,13 +3319,13 @@ function ViewDashboard({ data }) {
                                 <p className="text-xs">Sin llamadas en curso</p>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 280}}>
+                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 320}}>
                                 {liveCalls.slice(0, 10).map((c, i) => {
                                     const isUp = c.state === 'Up';
                                     const isRing = /Ring/.test(c.state || '');
                                     const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
                                     return (
-                                        <div key={i} className="flex items-center gap-2 rounded-md border px-2.5 py-2"
+                                        <div key={c.channel || i} className="flex items-center gap-2 rounded-md border px-2.5 py-2"
                                              style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
                                             <span className="rounded-full shrink-0"
                                                   style={{width:8,height:8,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}`}}/>
@@ -3200,6 +3337,7 @@ function ViewDashboard({ data }) {
                                                     {c.duration || '00:00'} · {isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}
                                                 </div>
                                             </div>
+                                            <DashCallActions call={c} disabled={!isUp}/>
                                         </div>
                                     );
                                 })}
@@ -3367,6 +3505,77 @@ function ViewDashboard({ data }) {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ─── Row 2.5: Barra horizontal de Colas (todas) ─── */}
+            <Card>
+                <CardHeader className="pb-2.5 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>queue</span>
+                        Colas
+                    </CardTitle>
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                        {(data?.pbx?.queues||[]).length} colas
+                    </Badge>
+                </CardHeader>
+                <CardContent>
+                    {(data?.pbx?.queues||[]).length === 0 ? (
+                        <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-1" style={{fontSize:28, opacity:0.4}}>queue</span>
+                            Sin colas configuradas
+                        </div>
+                    ) : (
+                        <div className="flex gap-2.5 overflow-x-auto pb-1" style={{scrollSnapType:'x mandatory'}}>
+                            {(data?.pbx?.queues||[]).map(q => {
+                                const waiting = q.calls_waiting || 0;
+                                const totalMembers = (q.members||[]).length;
+                                // Llamadas en vivo destinadas a esta cola (ext == q.id)
+                                const liveOnQ = (data?.pbx?.live_calls||[]).filter(c => String(c.dest||c.exten||'') === String(q.id)).length;
+                                const hot = waiting > 0;
+                                const color = hot ? 'var(--warning)' : (totalMembers > 0 ? 'var(--horizon-green)' : 'var(--muted-foreground)');
+                                return (
+                                    <div key={q.id} className="rounded-lg border flex flex-col shrink-0 transition-all hover:shadow-md"
+                                         style={{
+                                             minWidth: 180, scrollSnapAlign:'start',
+                                             borderColor: hot ? 'color-mix(in srgb, var(--warning) 50%, transparent)' : 'var(--border)',
+                                             background: hot ? 'color-mix(in srgb, var(--warning) 6%, var(--card))' : 'var(--card)'
+                                         }}>
+                                        {/* Header del card */}
+                                        <div className="px-3 pt-2.5 pb-2 flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-mono font-black text-base leading-none" style={{color:'var(--foreground)', letterSpacing:'-0.3px'}}>
+                                                    Q{q.id}
+                                                </div>
+                                                <div className="text-[10px] font-semibold mt-1 truncate" style={{color:'var(--muted-foreground)'}} title={q.name||''}>
+                                                    {q.name || 'Sin nombre'}
+                                                </div>
+                                            </div>
+                                            <span className="material-icons-round" style={{
+                                                fontSize:18, color,
+                                                animation: hot ? 'tf-q-vibrate 0.6s ease-in-out infinite' : 'none'
+                                            }}>{hot ? 'notifications_active' : (totalMembers > 0 ? 'verified' : 'do_not_disturb_on')}</span>
+                                        </div>
+                                        {/* Barra de métricas (mini) */}
+                                        <div className="grid grid-cols-3 gap-1 px-3 pb-2.5 text-center">
+                                            <div className="rounded-md py-1.5" style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                                                <div className="font-mono font-black text-sm tabular-nums" style={{color: hot ? 'var(--warning)' : 'var(--foreground)'}}>{waiting}</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Espera</div>
+                                            </div>
+                                            <div className="rounded-md py-1.5" style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                                                <div className="font-mono font-black text-sm tabular-nums" style={{color:'var(--horizon-green)'}}>{liveOnQ}</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Live</div>
+                                            </div>
+                                            <div className="rounded-md py-1.5" style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                                                <div className="font-mono font-black text-sm tabular-nums" style={{color:'var(--foreground)'}}>{totalMembers}</div>
+                                                <div className="text-[8px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Miembros</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* ─── Row 3: Salud del PBX + Signos Vitales en 1 fila ─── */}
             <div className="grid gap-4 lg:grid-cols-2">

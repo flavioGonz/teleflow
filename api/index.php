@@ -673,12 +673,41 @@ if ($action === 'get_full_data') {
         // HORIZON: una sola llamada queue show + parse global
         $queue_show_all = ami_cmd('queue show');
         $members_by_q = []; $waiting_by_q = []; $cur_q = null;
-        foreach (explode("
-", $queue_show_all) as $line) {
+        foreach (explode("\n", $queue_show_all) as $line) {
             if (preg_match('/^\s*(\d+)\s+has\s+(\d+)\s+calls.*?strategy/', $line, $mm)) {
                 $cur_q = $mm[1]; $waiting_by_q[$cur_q] = (int)$mm[2]; $members_by_q[$cur_q] = [];
-            } elseif ($cur_q && preg_match('/^\s+(.+?)\s+\(((?:SIP|PJSIP|Local|Agent)\/[^)]+)\)/', $line, $mm)) {
-                $members_by_q[$cur_q][] = ['name'=>trim($mm[1]), 'iface'=>$mm[2]];
+                continue;
+            }
+            if (!$cur_q) continue;
+
+            // Patrón A — STATIC con nombre humano:
+            //   "    Central Secundaria (Local/1001@from-queue/n from hint:1001@ext-local) (ringinuse enabled) (In use) has taken..."
+            if (preg_match('/^\s+(.+?)\s+\(((?:SIP|PJSIP|Local|Agent)\/[^\s)]+)(?:\s+from\s+[^)]+)?\)/', $line, $mm)) {
+                $name = trim($mm[1]);
+                $iface = $mm[2];
+                // Si el "name" parece otro Interface (ej la línea empieza directo con SIP/9999) cae al patrón B
+                if (!preg_match('|^(SIP|PJSIP|Local|Agent)/|', $name)) {
+                    // Skip rows que no son members: "(ringinuse enabled)" como name no se da porque el .+? es non-greedy
+                    if (stripos($line, 'has taken') !== false || stripos($line, 'login was') !== false || stripos($line, 'last was') !== false || strpos($iface, '/') !== false) {
+                        // Extraer ext del iface si es Local/N@... o SIP/N
+                        $ext = null;
+                        if (preg_match('|^(SIP|PJSIP|Agent)/(\d+)$|', $iface, $em)) $ext = $em[2];
+                        elseif (preg_match('|^Local/(\d+)@|', $iface, $em)) $ext = $em[1];
+                        $members_by_q[$cur_q][] = ['name'=>$name, 'iface'=>$iface, 'ext'=>$ext, 'kind'=>'static'];
+                        continue;
+                    }
+                }
+            }
+
+            // Patrón B — DYNAMIC (interface es el "name"):
+            //   "    SIP/9999 (ringinuse enabled) (dynamic) (Invalid) has taken no calls yet (login was 446728 secs ago)"
+            //   "    PJSIP/1001 (dynamic) (Not in use) has taken 3 calls"
+            if (preg_match('/^\s+((?:SIP|PJSIP|Local|Agent)\/[^\s(]+)(?:\s+\(|\s*$)/', $line, $mm)) {
+                $iface = $mm[1];
+                $ext = null;
+                if (preg_match('|^(SIP|PJSIP|Agent)/(\d+)$|', $iface, $em)) $ext = $em[2];
+                elseif (preg_match('|^Local/(\d+)@|', $iface, $em)) $ext = $em[1];
+                $members_by_q[$cur_q][] = ['name'=>$iface, 'iface'=>$iface, 'ext'=>$ext, 'kind'=>'dynamic'];
             }
         }
         foreach ($queues as &$q) {
