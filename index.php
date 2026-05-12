@@ -9823,25 +9823,53 @@ function ViewConfiguracion() {
         errors: logLines.filter(l => /error|failed/i.test(l)).length,
     };
 
+    const navItems = [
+        { id:'notificaciones', icon:'notifications',  label:'Notificaciones', desc:'Alertas y sonidos' },
+        { id:'debug_sip',      icon:'terminal',       label:'Debug SIP',      desc:'Logs PJSIP en vivo' },
+        { id:'pbx',            icon:'dns',            label:'PBX',            desc:'Conexión Asterisk' },
+        { id:'asterisk',       icon:'memory',         label:'Asterisk',       desc:'Archivos config + AMI' },
+        { id:'usuarios',       icon:'manage_accounts',label:'Usuarios',       desc:'Admins y agentes' },
+        { id:'branding',       icon:'palette',        label:'Branding',       desc:'Logos y colores' },
+        { id:'softphone',      icon:'phone_in_talk',  label:'Softphone',      desc:'Cliente WebRTC' },
+    ];
+
     return (
         <div className="content-area view-enter">
-            <div className="glass" style={{display:'flex', padding:4, borderRadius:16, marginBottom:24, background:'var(--surface2)', width:'fit-content'}}>
-                <button onClick={()=>setActiveTab('notificaciones')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='notificaciones'?'var(--surface)':'transparent', color:activeTab==='notificaciones'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
-                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>notifications</span>Notificaciones
-                </button>
-                <button onClick={()=>setActiveTab('debug_sip')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='debug_sip'?'var(--surface)':'transparent', color:activeTab==='debug_sip'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
-                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>terminal</span>Debug SIP
-                </button>
-                <button onClick={()=>setActiveTab('pbx')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='pbx'?'var(--surface)':'transparent', color:activeTab==='pbx'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
-                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>dns</span>PBX
-                </button>
-                <button onClick={()=>setActiveTab('branding')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='branding'?'var(--surface)':'transparent', color:activeTab==='branding'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
-                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>palette</span>Branding
-                </button>
-                <button onClick={()=>setActiveTab('softphone')} style={{padding:'10px 20px', borderRadius:12, border:'none', background:activeTab==='softphone'?'var(--surface)':'transparent', color:activeTab==='softphone'?'var(--accent)':'var(--muted)', fontWeight:700, fontSize:13, cursor:'pointer', transition:'all .3s'}}>
-                    <span className="material-icons-round" style={{fontSize:18, marginRight:8, verticalAlign:'middle'}}>phone_in_talk</span>Softphone
-                </button>
-            </div>
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(220px, 260px) minmax(0, 1fr)'}}>
+                {/* ─── Sidebar nav ─── */}
+                <Card className="overflow-hidden h-fit sticky" style={{top:14}}>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>settings</span>
+                            Configuración
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-2 pt-0">
+                        <nav className="flex flex-col gap-0.5">
+                            {navItems.map(it => {
+                                const active = activeTab === it.id;
+                                return (
+                                    <button key={it.id} type="button"
+                                            onClick={()=>setActiveTab(it.id)}
+                                            className="rounded-md px-2.5 py-2 text-left flex items-center gap-2.5 transition-all"
+                                            style={{
+                                                background: active ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'transparent',
+                                                color: active ? 'var(--primary)' : 'var(--foreground)',
+                                                borderLeft: '3px solid ' + (active ? 'var(--primary)' : 'transparent')
+                                            }}>
+                                        <span className="material-icons-round shrink-0" style={{fontSize:18, color: active ? 'var(--primary)' : 'var(--muted-foreground)'}}>{it.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-bold truncate">{it.label}</div>
+                                            <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{it.desc}</div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </CardContent>
+                </Card>
+                {/* ─── Content panel ─── */}
+                <div className="min-w-0">
 
             {activeTab === 'notificaciones' && (
                 <div className="anim-fadeup">
@@ -10041,6 +10069,454 @@ function ViewConfiguracion() {
 
             {activeTab === 'branding' && <ViewConfigBranding />}
             {activeTab === 'softphone' && <ViewConfigSoftphone />}
+            {activeTab === 'asterisk'  && <ViewConfigAsterisk />}
+            {activeTab === 'usuarios'  && <ViewConfigUsers />}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Asterisk (archivos + AMI live)
+// ─────────────────────────────────────────────
+function ViewConfigAsterisk() {
+    const [files, setFiles] = useState([]);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [fileContent, setFileContent] = useState('');
+    const [fileLoading, setFileLoading] = useState(false);
+    const [fileMeta, setFileMeta] = useState(null);
+    const [amiCmd, setAmiCmd] = useState('pjsip show endpoints');
+    const [amiOutput, setAmiOutput] = useState('');
+    const [amiLoading, setAmiLoading] = useState(false);
+
+    useEffect(() => {
+        fetch('api/asterisk.php?action=files', {credentials:'include'})
+            .then(r=>r.json()).then(j=>{ if (j.status==='ok') setFiles(j.files || []); });
+    }, []);
+
+    const loadFile = async (f) => {
+        setSelectedFile(f); setFileContent(''); setFileMeta(null); setFileLoading(true);
+        try {
+            const r = await fetch(`api/asterisk.php?action=read_file&file=${encodeURIComponent(f)}`, {credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') { setFileContent(j.content); setFileMeta({size:j.size, lines:j.lines}); }
+            else { setFileContent('// ERROR: ' + (j.message || 'No se pudo leer')); }
+        } catch(e) { setFileContent('// Error de red'); }
+        setFileLoading(false);
+    };
+
+    const runAmi = async () => {
+        if (!amiCmd.trim()) return;
+        setAmiLoading(true); setAmiOutput('');
+        try {
+            const fd = new FormData(); fd.append('cmd', amiCmd.trim());
+            const r = await fetch('api/asterisk.php?action=ami_cmd', {method:'POST', body:fd, credentials:'include'});
+            const j = await r.json();
+            if (j.status === 'ok') setAmiOutput(j.output || '(sin output)');
+            else setAmiOutput('ERROR: ' + (j.message || 'Comando falló'));
+        } catch(e) { setAmiOutput('Error de red'); }
+        setAmiLoading(false);
+    };
+
+    const cmdShortcuts = [
+        'pjsip show endpoints',
+        'pjsip show contacts',
+        'pjsip show channels',
+        'pjsip show registrations',
+        'queue show',
+        'core show channels',
+        'dialplan show from-internal',
+        'module show like res_pjsip',
+        'manager show users',
+        'database show',
+    ];
+
+    return (
+        <div className="space-y-4 anim-fadeup">
+            {/* Info banner */}
+            <Card>
+                <CardContent className="p-4 flex items-start gap-3">
+                    <div className="rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{
+                        width:38, height:38, background:'color-mix(in srgb, var(--primary) 14%, transparent)'
+                    }}>
+                        <span className="material-icons-round" style={{fontSize:20, color:'var(--primary)'}}>info</span>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Inspector de Asterisk</h3>
+                        <p className="text-xs leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                            Esta sección te permite <strong>leer</strong> los archivos de configuración de Asterisk en <code className="font-mono">/etc/asterisk/</code> del PBX (10.1.1.7) y ejecutar comandos AMI de consulta. Por seguridad, las operaciones destructivas (modificar archivos, reiniciar el servicio, originar llamadas) están <strong>bloqueadas</strong> desde aquí — solo lectura y diagnóstico.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                {/* Files panel */}
+                <Card className="overflow-hidden">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>folder_open</span>
+                            Archivos de configuración
+                        </CardTitle>
+                        <CardDescription className="text-[11px]">
+                            Se leen vía SSH al PBX (root@10.1.1.7) — solo lectura
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="flex flex-col gap-0.5 px-2 pb-2 max-h-[480px] overflow-auto">
+                            {files.map(f => {
+                                const active = selectedFile === f.name;
+                                return (
+                                    <button key={f.name} type="button" onClick={()=>loadFile(f.name)}
+                                            className="rounded-md px-2.5 py-2 text-left flex items-center gap-2 transition-all"
+                                            style={{
+                                                background: active ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'transparent',
+                                                color: active ? 'var(--primary)' : 'var(--foreground)'
+                                            }}>
+                                        <span className="material-icons-round shrink-0" style={{fontSize:15, color: active ? 'var(--primary)' : 'var(--muted-foreground)'}}>description</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-mono font-bold truncate">{f.name}</div>
+                                            <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{f.desc}</div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* File content viewer */}
+                <Card className="overflow-hidden">
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>article</span>
+                            {selectedFile || 'Contenido'}
+                        </CardTitle>
+                        {fileMeta && <Badge variant="secondary" className="font-mono text-[10px]">{fileMeta.lines} líneas · {fileMeta.size} bytes</Badge>}
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {fileLoading ? (
+                            <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round animate-spin" style={{fontSize:28, color:'var(--primary)'}}>autorenew</span>
+                                <div className="text-xs mt-2">Leyendo archivo…</div>
+                            </div>
+                        ) : !selectedFile ? (
+                            <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                                <span className="material-icons-round mb-2 block" style={{fontSize:32, opacity:0.4}}>folder_open</span>
+                                <p className="text-xs">Seleccioná un archivo de la izquierda</p>
+                            </div>
+                        ) : (
+                            <pre className="overflow-auto p-3 text-[11px] font-mono leading-relaxed"
+                                 style={{background:'color-mix(in srgb, var(--muted) 35%, var(--card))', color:'var(--foreground)', maxHeight:480, borderTop:'1px solid var(--border)', whiteSpace:'pre', wordBreak:'normal'}}>
+                                {fileContent}
+                            </pre>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* AMI command runner */}
+            <Card className="overflow-hidden">
+                <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span className="material-icons-round" style={{fontSize:18, color:'#3b82f6'}}>terminal</span>
+                        AMI Command Runner
+                    </CardTitle>
+                    <CardDescription className="text-[11px]">
+                        Solo comandos de consulta. Whitelist: <code className="font-mono">core/pjsip/sip/iax2/queue/manager/module/database/dialplan show</code>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                        <Input value={amiCmd} onChange={e=>setAmiCmd(e.target.value)} placeholder="pjsip show endpoints" className="font-mono text-sm flex-1"
+                               onKeyDown={e => { if (e.key === 'Enter') runAmi(); }}/>
+                        <Button onClick={runAmi} disabled={amiLoading || !amiCmd.trim()}>
+                            <span className="material-icons-round mr-1.5" style={{fontSize:15, animation: amiLoading ? 'spin 1s linear infinite' : 'none'}}>{amiLoading ? 'autorenew' : 'play_arrow'}</span>
+                            Ejecutar
+                        </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {cmdShortcuts.map(c => (
+                            <button key={c} type="button" onClick={()=>setAmiCmd(c)}
+                                    className="rounded-md border font-mono text-[10px] px-2 py-1 transition-colors hover:shadow-sm"
+                                    style={{background:'var(--card)', color:'var(--foreground)', borderColor:'var(--border)'}}>
+                                {c}
+                            </button>
+                        ))}
+                    </div>
+                    {amiOutput && (
+                        <pre className="rounded-md border overflow-auto p-3 text-[11px] font-mono leading-relaxed"
+                             style={{background:'color-mix(in srgb, var(--muted) 35%, var(--card))', borderColor:'var(--border)', maxHeight:380, whiteSpace:'pre-wrap', wordBreak:'break-word'}}>
+                            {amiOutput}
+                        </pre>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Usuarios (admins + agentes)
+// ─────────────────────────────────────────────
+function ViewConfigUsers() {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+    const [showPwdAdmin, setShowPwdAdmin] = useState(null);
+    const [showPwdAgent, setShowPwdAgent] = useState(null);
+    const [confirmDelete, setConfirmDelete] = useState(null);
+    const [newAdmin, setNewAdmin] = useState({name:'', password:''});
+    const [pwdInput, setPwdInput] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const load = useCallback(() => {
+        setLoading(true); setError(null);
+        fetch('api/users.php?action=list', {credentials:'include'})
+            .then(r => r.json())
+            .then(j => {
+                if (j.status === 'ok') setData(j);
+                else setError(j.message || 'Error');
+            })
+            .catch(() => setError('Error de red'))
+            .finally(() => setLoading(false));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    const submitCreateAdmin = async () => {
+        if (!newAdmin.name || newAdmin.password.length < 4) return;
+        setSaving(true);
+        const fd = new FormData();
+        fd.append('name', newAdmin.name);
+        fd.append('password', newAdmin.password);
+        const r = await fetch('api/users.php?action=create_admin', {method:'POST', body:fd, credentials:'include'});
+        const j = await r.json();
+        setSaving(false);
+        if (j.status === 'ok') { setShowCreateAdmin(false); setNewAdmin({name:'',password:''}); load(); }
+        else alert(j.message || 'Error');
+    };
+
+    const submitPwd = async () => {
+        if (pwdInput.length < 4) return;
+        setSaving(true);
+        const fd = new FormData();
+        let url;
+        if (showPwdAdmin) {
+            fd.append('name', showPwdAdmin.name);
+            fd.append('new_password', pwdInput);
+            url = 'api/users.php?action=update_admin';
+        } else if (showPwdAgent) {
+            fd.append('number', showPwdAgent.number);
+            fd.append('password', pwdInput);
+            url = 'api/users.php?action=set_agent_password';
+        } else { setSaving(false); return; }
+        const r = await fetch(url, {method:'POST', body:fd, credentials:'include'});
+        const j = await r.json();
+        setSaving(false);
+        if (j.status === 'ok') {
+            setShowPwdAdmin(null); setShowPwdAgent(null); setPwdInput('');
+            load();
+        } else { alert(j.message || 'Error'); }
+    };
+
+    const doDelete = async () => {
+        if (!confirmDelete) return;
+        const fd = new FormData(); fd.append('name', confirmDelete.name);
+        const r = await fetch('api/users.php?action=delete_admin', {method:'POST', body:fd, credentials:'include'});
+        const j = await r.json();
+        if (j.status === 'ok') { setConfirmDelete(null); load(); }
+        else alert(j.message || 'Error');
+    };
+
+    return (
+        <div className="space-y-4 anim-fadeup">
+            {/* Info */}
+            <Card>
+                <CardContent className="p-4 flex items-start gap-3">
+                    <div className="rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{
+                        width:38, height:38, background:'color-mix(in srgb, var(--primary) 14%, transparent)'
+                    }}>
+                        <span className="material-icons-round" style={{fontSize:20, color:'var(--primary)'}}>info</span>
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Gestión de usuarios</h3>
+                        <p className="text-xs leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                            <strong>Administradores</strong> (SQLite acl_user) acceden al panel completo con permisos de configuración.
+                            <strong> Agentes</strong> (MySQL call_center.agent) acceden a su <em>Mi Consola</em> y se loguean a colas vía <code className="font-mono">*7700</code>.
+                            Para ti mismo no podés eliminar tu cuenta logueada.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {loading && (
+                <div className="py-10 text-center" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round animate-spin" style={{fontSize:30, color:'var(--primary)'}}>autorenew</span>
+                    <div className="text-xs mt-2">Cargando usuarios…</div>
+                </div>
+            )}
+            {error && <Card><CardContent className="p-4 text-center text-xs" style={{color:'var(--destructive)'}}>{error}</CardContent></Card>}
+
+            {data && (
+                <div className="grid gap-4 lg:grid-cols-2">
+                    {/* Admins */}
+                    <Card className="overflow-hidden">
+                        <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                            <div>
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>admin_panel_settings</span>
+                                    Administradores
+                                </CardTitle>
+                                <CardDescription className="text-[11px]">Acceso completo al panel</CardDescription>
+                            </div>
+                            <Button size="sm" onClick={()=>setShowCreateAdmin(true)}>
+                                <span className="material-icons-round mr-1" style={{fontSize:14}}>person_add</span>
+                                Nuevo
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="divide-y" style={{borderColor:'var(--border)'}}>
+                                {data.admins.map(a => (
+                                    <div key={a.name} className="flex items-center gap-3 px-4 py-2.5">
+                                        <div className="rounded-full flex items-center justify-center text-white font-black shrink-0"
+                                             style={{width:34, height:34, fontSize:11,
+                                                     background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))'}}>
+                                            {a.name.substring(0,2).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{color:'var(--foreground)'}}>
+                                                {a.name}
+                                                {a.name === data.me && <Badge variant="secondary" className="text-[9px]">VOS</Badge>}
+                                            </div>
+                                            <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Admin</div>
+                                        </div>
+                                        <ActionIconButton icon="key" label="Cambiar password" tone="primary" size={30}
+                                            onClick={()=>setShowPwdAdmin(a)}/>
+                                        {a.name !== data.me && (
+                                            <ActionIconButton icon="delete" label="Eliminar admin" tone="destructive" size={30}
+                                                onClick={()=>setConfirmDelete(a)}/>
+                                        )}
+                                    </div>
+                                ))}
+                                {data.admins.length === 0 && (
+                                    <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin administradores</div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Agentes */}
+                    <Card className="overflow-hidden">
+                        <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                            <div>
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                    <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>support_agent</span>
+                                    Agentes
+                                </CardTitle>
+                                <CardDescription className="text-[11px]">Mi Consola + login en colas</CardDescription>
+                            </div>
+                            <Badge variant="secondary" className="font-mono text-[10px]">{data.agents.length}</Badge>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="divide-y overflow-auto" style={{borderColor:'var(--border)', maxHeight:420}}>
+                                {data.agents.map(a => (
+                                    <div key={a.id || a.number} className="flex items-center gap-3 px-4 py-2.5">
+                                        <div className="rounded-full flex items-center justify-center text-white font-black shrink-0"
+                                             style={{width:34, height:34, fontSize:11,
+                                                     background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000))'}}>
+                                            {(a.name||'?').split(/\s+/).map(x=>x[0]||'').join('').substring(0,2).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
+                                            <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>#{a.number}</div>
+                                        </div>
+                                        <ActionIconButton icon="key" label="Cambiar password" tone="primary" size={30}
+                                            onClick={()=>setShowPwdAgent(a)}/>
+                                    </div>
+                                ))}
+                                {data.agents.length === 0 && (
+                                    <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Sin agentes</div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Modal crear admin */}
+            <Dialog open={showCreateAdmin} onOpenChange={setShowCreateAdmin}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:20, color:'var(--primary)'}}>admin_panel_settings</span>
+                        Nuevo administrador
+                    </DialogTitle>
+                    <DialogDescription>Crea una cuenta admin nueva (acl_user)</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="adm-name">Usuario</Label>
+                        <Input id="adm-name" value={newAdmin.name} onChange={e=>setNewAdmin({...newAdmin, name:e.target.value})} placeholder="ej: supervisor"/>
+                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>2-32 caracteres alfanuméricos</p>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="adm-pwd">Password</Label>
+                        <Input id="adm-pwd" type="password" value={newAdmin.password} onChange={e=>setNewAdmin({...newAdmin, password:e.target.value})} placeholder="••••••••"/>
+                        <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Mínimo 4 caracteres (se guarda como MD5)</p>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={()=>setShowCreateAdmin(false)}>Cancelar</Button>
+                    <Button onClick={submitCreateAdmin} disabled={saving || !newAdmin.name || newAdmin.password.length < 4}>
+                        {saving ? 'Creando…' : 'Crear admin'}
+                    </Button>
+                </DialogFooter>
+            </Dialog>
+
+            {/* Modal cambiar password */}
+            <Dialog open={!!showPwdAdmin || !!showPwdAgent} onOpenChange={(o)=>{ if (!o) { setShowPwdAdmin(null); setShowPwdAgent(null); setPwdInput(''); } }}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:20, color:'var(--primary)'}}>key</span>
+                        Cambiar password
+                    </DialogTitle>
+                    <DialogDescription>
+                        {showPwdAdmin ? `Admin: ${showPwdAdmin.name}` : (showPwdAgent ? `Agente #${showPwdAgent.number} ${showPwdAgent.name}` : '')}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-1.5 mt-2">
+                    <Label htmlFor="new-pwd">Nuevo password</Label>
+                    <Input id="new-pwd" type="password" value={pwdInput} onChange={e=>setPwdInput(e.target.value)} placeholder="••••••••" autoFocus/>
+                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Mínimo 4 caracteres</p>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={()=>{ setShowPwdAdmin(null); setShowPwdAgent(null); setPwdInput(''); }}>Cancelar</Button>
+                    <Button onClick={submitPwd} disabled={saving || pwdInput.length < 4}>
+                        {saving ? 'Guardando…' : 'Guardar'}
+                    </Button>
+                </DialogFooter>
+            </Dialog>
+
+            {/* Confirm delete admin */}
+            <Dialog open={!!confirmDelete} onOpenChange={(o)=>{ if (!o) setConfirmDelete(null); }}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:20, color:'var(--destructive)'}}>warning</span>
+                        ¿Eliminar admin?
+                    </DialogTitle>
+                    <DialogDescription>
+                        Vas a eliminar el admin <strong>{confirmDelete?.name}</strong>. No se puede deshacer.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={()=>setConfirmDelete(null)}>Cancelar</Button>
+                    <Button variant="destructive" onClick={doDelete}>
+                        <span className="material-icons-round mr-1.5" style={{fontSize:14}}>delete</span>
+                        Eliminar
+                    </Button>
+                </DialogFooter>
+            </Dialog>
         </div>
     );
 }
@@ -11879,6 +12355,70 @@ function PageActions({ children }) {
     return null;
 }
 
+// ─── SpyExtToggle: toggle button sutil que abre un input para ext de escucha ───
+function SpyExtToggle({ spyExt, setSpyExt }) {
+    const [open, setOpen] = useState(!!spyExt);
+    const inputRef = useRef(null);
+    const wrapRef = useRef(null);
+    useEffect(() => {
+        if (open && inputRef.current) inputRef.current.focus();
+    }, [open]);
+    useEffect(() => {
+        if (!open || spyExt) return;
+        // Auto-cerrar si el usuario clickea fuera con el input vacío
+        const h = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, [open, spyExt]);
+    const active = !!spyExt;
+    return (
+        <div ref={wrapRef} className="relative" onClick={e=>e.stopPropagation()}>
+            <button type="button"
+                    onClick={()=>setOpen(v=>!v)}
+                    title={active ? `Escuchas en ext ${spyExt} — click para cambiar` : 'Activar extensión de escucha (ChanSpy)'}
+                    className="rounded-md border flex items-center justify-center gap-1.5 px-2.5 transition-all"
+                    style={{
+                        height: 32,
+                        background: active ? 'color-mix(in srgb, var(--horizon-green) 18%, transparent)' : 'var(--card)',
+                        color: active ? 'var(--horizon-green)' : 'var(--muted-foreground)',
+                        borderColor: active ? 'color-mix(in srgb, var(--horizon-green) 40%, transparent)' : 'var(--border)'
+                    }}>
+                <span className="material-icons-round" style={{fontSize:15, animation: active ? 'tf-status-breath 2.4s ease-in-out infinite' : 'none'}}>headset_mic</span>
+                {active ? (
+                    <span className="font-mono text-xs font-bold">{spyExt}</span>
+                ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Escucha</span>
+                )}
+            </button>
+            {open && (
+                <div className="absolute right-0 top-full mt-2 rounded-lg border shadow-lg z-50 p-3 w-[280px]"
+                     style={{background:'var(--card)', borderColor:'var(--border)', boxShadow:'0 12px 32px rgba(0,0,0,0.18)'}}>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider mb-1.5 block" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round mr-1" style={{fontSize:11, verticalAlign:'middle', color:'var(--horizon-green)'}}>headset_mic</span>
+                        Extensión donde escuchás
+                    </Label>
+                    <div className="relative">
+                        <Input ref={inputRef} type="text" value={spyExt}
+                               onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
+                               placeholder="Ej: 9001"
+                               className="font-mono font-bold pr-9"/>
+                        {spyExt && (
+                            <button type="button" onClick={()=>{setSpyExt(''); setOpen(false);}}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 hover:opacity-100 opacity-60"
+                                    title="Quitar">
+                                <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>close</span>
+                            </button>
+                        )}
+                    </div>
+                    <p className="text-[10px] mt-2 leading-relaxed" style={{color:'var(--muted-foreground)'}}>
+                        Tu extensión SIP. Al apretar <strong style={{color:'var(--foreground)'}}>Escuchar</strong> en un toast de llamada entrante, te llamamos acá y escuchás la conversación vía ChanSpy.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data, activeCalls, setVivoFilter }) {
     const [openMenu, setOpenMenu] = useState(null);
     const [menuAnchor, setMenuAnchor] = useState(null);
@@ -12057,18 +12597,7 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
 
             <div className="tfbar-spacer" />
 
-            <div className="tfbar-pill" title="Extensión donde recibís las escuchas (ChanSpy)" onClick={e=>e.stopPropagation()}>
-                <span className="material-icons-round" style={{fontSize:14, color:'var(--horizon-green)'}}>headset_mic</span>
-                <Input
-                    type="text"
-                    value={spyExt}
-                    onChange={e=>setSpyExt(e.target.value.replace(/\D/g,'').substring(0,6))}
-                    placeholder="Ext. escucha"
-                    title="Tu extensión SIP — al apretar Escuchar en un toast de llamada entrante, llama acá y vos escuchás la conversación"
-                    className="h-7 w-[100px] px-2 text-xs font-mono font-bold border-0 shadow-none focus-visible:ring-0"
-                />
-                {spyExt && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)'}} title="Configurada"/>}
-            </div>
+            <SpyExtToggle spyExt={spyExt} setSpyExt={setSpyExt}/>
 
             <div style={{position:'relative'}}>
                 <div className="tfbar-avatar" onClick={(e)=>{ e.stopPropagation(); setShowUserMenu(v=>!v); }}>{inits(userName)}</div>
