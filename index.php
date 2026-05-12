@@ -4435,24 +4435,33 @@ function RtspInlinePreview({ ext, url, label, fillContainer = false }) {
 // ─── RtspSnapshotGallery: histórico de capturas RTSP de los últimos 30 días ───
 function RtspSnapshotGallery({ ext, onShotClick }) {
     const [shots, setShots] = useState(null);
+    const [doorEvents, setDoorEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [filter, setFilter] = useState('all'); // all | today | door
 
-    useEffect(() => {
+    const loadShots = useCallback(() => {
         if (!ext) return;
-        let cancelled = false;
         setLoading(true); setError(null);
         fetch(`api/rtsp_snapshot.php?action=list&ext=${encodeURIComponent(ext)}`, { credentials:'include' })
             .then(r => r.json())
             .then(d => {
-                if (cancelled) return;
                 if (d.status === 'ok') setShots(d.snapshots || []);
                 else setError(d.message || 'Sin datos');
             })
-            .catch(() => { if (!cancelled) setError('No se pudieron cargar las capturas'); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
+            .catch(() => setError('No se pudieron cargar las capturas'))
+            .finally(() => setLoading(false));
     }, [ext]);
+
+    useEffect(() => {
+        if (!ext) return;
+        loadShots();
+        // También cargar door_events del mismo ext para etiquetar capturas de apertura
+        fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext)}&limit=200`, { credentials:'include' })
+            .then(r => r.json())
+            .then(j => { if (j && j.ok) setDoorEvents(j.events || []); })
+            .catch(()=>{});
+    }, [ext, loadShots]);
 
     const captureNow = async () => {
         try {
@@ -4461,13 +4470,13 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
             const r = await fetch('api/rtsp_snapshot.php?action=capture', { method:'POST', body:fd, credentials:'include' });
             const j = await r.json();
             if (j.status === 'ok') {
-                // refresh list
-                setShots(prev => [{ url: j.url, timestamp: j.timestamp, filename: j.filename }, ...(prev || [])]);
+                setShots(prev => [{ url: j.url, timestamp: j.timestamp, filename: j.filename, size: j.size }, ...(prev || [])]);
+                window.sileo?.push?.({ kind:'success', title:'Captura tomada', msg:`Guardada como ${j.filename||'snapshot'}`, duration:2500 });
             }
         } catch(e) {}
     };
 
-    if (loading) return (
+    if (loading && !shots) return (
         <div className="flex items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
             <span className="material-icons-round animate-spin" style={{fontSize:18}}>autorenew</span>
             <span className="text-[11px]">Cargando capturas…</span>
@@ -4477,68 +4486,207 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
         <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
             <span className="material-icons-round" style={{fontSize:26,color:'var(--muted-foreground)',opacity:0.5}}>broken_image</span>
             <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>{error}</p>
+            <Button variant="ghost" size="sm" onClick={loadShots} className="h-6 text-[10px]">
+                <span className="material-icons-round mr-1" style={{fontSize:11}}>refresh</span>
+                Reintentar
+            </Button>
         </div>
     );
 
-    const fmtTimeShort = (ts) => {
+    // Map de filename → door_event para tag
+    const doorByFile = {};
+    doorEvents.forEach(e => { if (e.snapshot) doorByFile[e.snapshot] = e; });
+
+    // Enriquecer cada shot con tag
+    const enriched = (shots||[]).map(s => {
+        const door = s.filename ? doorByFile[s.filename] : null;
+        return { ...s, _door: door, _tag: door ? 'door' : 'auto' };
+    });
+
+    // Aplicar filtro
+    const todayStr = new Date().toLocaleDateString('es-UY', { year:'numeric', month:'2-digit', day:'2-digit' }).split('/').reverse().join('-'); // YYYY-MM-DD
+    const filtered = enriched.filter(s => {
+        if (filter === 'door') return s._tag === 'door';
+        if (filter === 'today') {
+            const d = (s.timestamp || '').substring(0, 10);
+            return d === todayStr;
+        }
+        return true;
+    });
+
+    // Agrupar por día
+    const groups = {};
+    filtered.forEach(s => {
+        const day = (s.timestamp || '').substring(0, 10) || 'sin-fecha';
+        if (!groups[day]) groups[day] = [];
+        groups[day].push(s);
+    });
+    const dayKeys = Object.keys(groups).sort().reverse();
+
+    const dayLabel = (d) => {
+        if (d === todayStr) return 'Hoy';
+        const yest = new Date(); yest.setDate(yest.getDate() - 1);
+        const yestStr = yest.toISOString().substring(0, 10);
+        if (d === yestStr) return 'Ayer';
+        try {
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('es-UY', { weekday:'short', day:'2-digit', month:'short' });
+        } catch(e) { return d; }
+    };
+
+    const fmtHourMin = (ts) => {
         if (!ts) return '—';
         const parts = ts.split(' ');
-        return parts.length === 2 ? `${parts[0]} ${parts[1].substring(0,5)}` : ts;
+        return parts.length === 2 ? parts[1].substring(0, 8) : ts;
     };
+
+    const relTime = (ts) => {
+        if (!ts) return '';
+        const t = new Date(String(ts).replace(' ', 'T')).getTime();
+        if (!t || isNaN(t)) return '';
+        const diff = Date.now() - t;
+        const m = Math.floor(diff / 60000);
+        if (m < 1) return 'recién';
+        if (m < 60) return `hace ${m} min`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `hace ${h}h`;
+        const dd = Math.floor(h / 24);
+        return `hace ${dd}d`;
+    };
+
+    const totalCount = (shots||[]).length;
+    const doorCount  = enriched.filter(s => s._tag === 'door').length;
+    const todayCount = enriched.filter(s => (s.timestamp||'').substring(0,10) === todayStr).length;
+    const lastShot   = enriched[0];
+
+    const filters = [
+        { id:'all',   label:'Todas',     count: totalCount },
+        { id:'today', label:'Hoy',       count: todayCount },
+        { id:'door',  label:'Aperturas', count: doorCount },
+    ];
 
     return (
         <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
-                    {shots && shots.length > 0 ? `${shots.length} ${shots.length === 1 ? 'captura' : 'capturas'}` : 'Sin registros'}
-                </span>
-                <Button variant="ghost" size="sm" onClick={captureNow} className="h-7 px-2 text-[10px]">
+            {/* KPI row */}
+            <div className="grid grid-cols-3 gap-1.5">
+                <div className="rounded-md border px-2 py-1.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                    <div className="font-mono font-black text-sm tabular-nums leading-none" style={{color:'var(--foreground)'}}>{totalCount}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-wider mt-0.5" style={{color:'var(--muted-foreground)'}}>Total</div>
+                </div>
+                <div className="rounded-md border px-2 py-1.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--horizon-green) 8%, var(--card))'}}>
+                    <div className="font-mono font-black text-sm tabular-nums leading-none" style={{color:'var(--horizon-green)'}}>{todayCount}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-wider mt-0.5" style={{color:'var(--muted-foreground)'}}>Hoy</div>
+                </div>
+                <div className="rounded-md border px-2 py-1.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, #f59e0b 8%, var(--card))'}}>
+                    <div className="font-mono font-black text-sm tabular-nums leading-none" style={{color:'#f59e0b'}}>{doorCount}</div>
+                    <div className="text-[8px] font-bold uppercase tracking-wider mt-0.5" style={{color:'var(--muted-foreground)'}}>Aperturas</div>
+                </div>
+            </div>
+
+            {/* Filtros + capturar */}
+            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                    {filters.map(f => {
+                        const active = filter === f.id;
+                        return (
+                            <button key={f.id} type="button" onClick={()=>setFilter(f.id)}
+                                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[9px] font-bold transition-all"
+                                    style={{
+                                        background: active ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'transparent',
+                                        color: active ? 'var(--primary)' : 'var(--muted-foreground)',
+                                        border: '1px solid ' + (active ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'var(--border)')
+                                    }}>
+                                {f.label}
+                                <span className="font-mono" style={{opacity:0.7}}>{f.count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+                <Button variant="ghost" size="sm" onClick={captureNow} className="h-7 px-2 text-[10px] shrink-0">
                     <span className="material-icons-round mr-1" style={{fontSize:13}}>add_a_photo</span>
-                    Capturar ahora
+                    Capturar
                 </Button>
             </div>
-            {(!shots || shots.length === 0) ? (
+
+            {/* Última captura — chip relativo */}
+            {lastShot && (
+                <div className="text-[10px] flex items-center gap-1" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round" style={{fontSize:11, color:'var(--horizon-green)'}}>fiber_manual_record</span>
+                    Última captura {relTime(lastShot.timestamp)}
+                </div>
+            )}
+
+            {/* Tabla agrupada por día */}
+            {(filtered.length === 0) ? (
                 <div className="flex flex-col items-center justify-center py-4 gap-2 text-center rounded-md border border-dashed" style={{borderColor:'var(--border)'}}>
                     <span className="material-icons-round" style={{fontSize:26,color:'var(--muted-foreground)',opacity:0.4}}>image_not_supported</span>
-                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Sin capturas todavía.<br/>Se generan automáticamente al recibir llamadas.</p>
+                    <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                        {totalCount === 0 ? <>Sin capturas todavía.<br/>Se generan automáticamente al recibir llamadas.</> : 'Sin resultados con este filtro'}
+                    </p>
                 </div>
             ) : (
                 <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                    <div className="overflow-auto" style={{maxHeight:280}}>
+                    <div className="overflow-auto" style={{maxHeight:320}}>
                         <table className="w-full text-sm">
-                            <thead className="sticky top-0" style={{background:'color-mix(in srgb, var(--muted) 35%, var(--card))', borderBottom:'1px solid var(--border)'}}>
-                                <tr>
-                                    <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)', width:54}}>Foto</th>
-                                    <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha / Hora</th>
-                                    <th className="text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)', width:50}}>KB</th>
-                                </tr>
-                            </thead>
                             <tbody>
-                                {shots.slice(0, 30).map((s, i) => (
-                                    <tr key={i}
-                                        onClick={()=>onShotClick ? onShotClick(s) : window.open(s.url, '_blank')}
-                                        className="border-b transition-colors hover:bg-muted/40 cursor-pointer"
-                                        style={{borderColor:'var(--border)'}}>
-                                        <td className="px-2 py-1.5">
-                                            <div className="rounded overflow-hidden border" style={{width:42, height:32, borderColor:'var(--border)'}}>
-                                                <img src={s.url} alt={s.timestamp} loading="lazy" className="w-full h-full object-cover"
-                                                     onError={ev => ev.target.style.display='none'}/>
-                                            </div>
-                                        </td>
-                                        <td className="px-2 py-1.5 font-mono text-[11px]" style={{color:'var(--foreground)'}}>{fmtTimeShort(s.timestamp)}</td>
-                                        <td className="px-2 py-1.5 text-right font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                                            {s.size ? Math.round(s.size/1024) : '—'}
-                                        </td>
-                                    </tr>
+                                {dayKeys.map(day => (
+                                    <React.Fragment key={day}>
+                                        <tr style={{background:'color-mix(in srgb, var(--muted) 35%, var(--card))'}}>
+                                            <td colSpan={3} className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                                <span className="material-icons-round mr-1 align-middle" style={{fontSize:10}}>event</span>
+                                                {dayLabel(day)} · <span className="font-mono opacity-60">{day}</span> · {groups[day].length} {groups[day].length === 1 ? 'captura' : 'capturas'}
+                                            </td>
+                                        </tr>
+                                        {groups[day].map((s, i) => (
+                                            <tr key={`${day}-${i}`}
+                                                onClick={()=>onShotClick ? onShotClick({...s, source: s._tag === 'door' ? 'door' : 'auto'}) : window.open(s.url, '_blank')}
+                                                className="border-b transition-colors hover:bg-muted/40 cursor-pointer"
+                                                style={{borderColor:'var(--border)'}}
+                                                title={`${s.timestamp} · ${relTime(s.timestamp)}${s._door ? ' · Apertura DTMF '+s._door.dtmf : ''}`}>
+                                                <td className="px-2 py-1.5" style={{width:54}}>
+                                                    <div className="rounded overflow-hidden border relative" style={{width:42, height:32, borderColor:'var(--border)'}}>
+                                                        <img src={s.url} alt={s.timestamp} loading="lazy" className="w-full h-full object-cover"
+                                                             onError={ev => ev.target.style.display='none'}/>
+                                                        {s._tag === 'door' && (
+                                                            <span className="absolute top-0 right-0 rounded-bl-md flex items-center justify-center"
+                                                                  style={{width:14, height:14, background:'#f59e0b', color:'#fff'}}
+                                                                  title="Apertura DTMF">
+                                                                <span className="material-icons-round" style={{fontSize:10}}>meeting_room</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-2 py-1.5">
+                                                    <div className="font-mono text-[11px] font-bold" style={{color:'var(--foreground)'}}>{fmtHourMin(s.timestamp)}</div>
+                                                    <div className="flex items-center gap-1 text-[9px] mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                                                        {s._tag === 'door' ? (
+                                                            <>
+                                                                <span className="material-icons-round" style={{fontSize:10, color:'#f59e0b'}}>meeting_room</span>
+                                                                Apertura {s._door?.dtmf ? `· ${s._door.dtmf}` : ''}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="material-icons-round" style={{fontSize:10, color:'var(--horizon-green)'}}>auto_awesome</span>
+                                                                Auto
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-2 py-1.5 text-right font-mono text-[10px]" style={{color:'var(--muted-foreground)', width:50}}>
+                                                    {s.size ? Math.round(s.size/1024) + ' KB' : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
-            {shots && shots.length > 30 && (
+            {totalCount > filtered.length && (
                 <div className="text-[10px] text-center" style={{color:'var(--muted-foreground)'}}>
-                    +{shots.length - 30} capturas más en el último mes
+                    {totalCount - filtered.length} ocultas por filtro
                 </div>
             )}
         </div>
