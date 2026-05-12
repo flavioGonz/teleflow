@@ -3466,7 +3466,7 @@ function ExtSipDebugTab({ ext }) {
     );
 }
 
-function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel }) {
+function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, setShowRtspModal }) {
     // Parse RTT (puede venir como "12ms", "150ms", "—", null, etc.)
     const rttMs = useMemo(() => {
         if (!ext?.rtt || ext.rtt === '—') return null;
@@ -3490,32 +3490,81 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
     // Cuando hay RTSP: TODO el panel es un solo card con video al fondo + data overlay
     // Cuando NO hay RTSP: layout original (status card + métricas separadas)
     if (hasRtsp) {
-        const overlayBadge = (txt, color = '#fff', bg = 'rgba(0,0,0,0.55)') => ({
-            background: bg,
-            color: color,
+        const overlayPillStyle = {
+            background: 'rgba(0,0,0,0.55)',
+            color: '#fff',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.15)',
             textShadow: '0 1px 3px rgba(0,0,0,0.6)'
-        });
+        };
+
+        const captureNow = async () => {
+            try {
+                const fd = new FormData(); fd.append('ext', form.ext);
+                const r = await fetch('api/rtsp_snapshot.php?action=capture', { method:'POST', body:fd, credentials:'include' });
+                const j = await r.json();
+                if (j.status === 'ok') {
+                    window.dispatchEvent(new CustomEvent('tf-snapshot-captured', { detail: { ext: form.ext, snap: j } }));
+                }
+            } catch(e) {}
+        };
+
+        const openFullscreen = () => {
+            // Abrir el RTSP en una nueva ventana / overlay
+            window.open(`api/rtsp_proxy.php?ext=${encodeURIComponent(form.ext)}`, '_blank');
+        };
+
+        const actions = [
+            { icon:'photo_camera',  label:'Capturar ahora',   tone:'success',     onClick: captureNow },
+            { icon:'open_in_full',  label:'Abrir en pantalla completa', tone:'default', onClick: openFullscreen },
+            { icon:'settings',      label:'Configurar RTSP',  tone:'default',     onClick: ()=>setShowRtspModal && setShowRtspModal(true) },
+        ];
+
         return (
-            <div className="relative rounded-lg border overflow-hidden flex flex-col"
+            <div className="relative overflow-hidden flex flex-col rounded-lg"
                  style={{
-                     borderColor:`color-mix(in srgb, ${statusColor} 35%, var(--border))`,
                      background:'#0a0a0d',
                      minHeight: 380
                  }}>
-                {/* VIDEO RTSP llena toda la columna */}
+                {/* VIDEO RTSP llena toda la columna sin border */}
                 <div className="absolute inset-0">
                     <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
-                    {/* Overlay gradient para legibilidad */}
+                    {/* Overlay gradient para legibilidad arriba+abajo */}
                     <div className="absolute inset-0 pointer-events-none" style={{
-                        background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.0) 55%, rgba(0,0,0,0.85) 100%)'
+                        background:'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.85) 100%)'
                     }}/>
                 </div>
 
-                {/* Top overlay: status icon + badge */}
-                <div className="relative z-10 flex flex-col items-center pt-7 pb-3">
+                {/* Top-right action icons overlay con tooltip animado */}
+                <div className="absolute top-2 right-2 z-20 flex flex-col gap-1.5">
+                    {actions.map(a => (
+                        <div key={a.icon} className="relative group">
+                            <button type="button" onClick={a.onClick}
+                                    className="rounded-full flex items-center justify-center transition-all hover:scale-110 hover:shadow-lg"
+                                    style={{
+                                        width:32, height:32,
+                                        background:'rgba(0,0,0,0.55)',
+                                        border:'1px solid rgba(255,255,255,0.2)',
+                                        backdropFilter:'blur(8px)',
+                                        WebkitBackdropFilter:'blur(8px)',
+                                        color:'#fff'
+                                    }}>
+                                <span className="material-icons-round" style={{fontSize:16}}>{a.icon}</span>
+                            </button>
+                            {/* Tooltip animado a la izquierda */}
+                            <span className="absolute z-30 right-full mr-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap pointer-events-none opacity-0 translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+                                  style={{background:'rgba(0,0,0,0.85)', color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
+                                {a.label}
+                                <span className="absolute left-full top-1/2 -translate-y-1/2 w-2 h-2 rotate-45"
+                                      style={{background:'rgba(0,0,0,0.85)', marginLeft:-4}}/>
+                            </span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Top-center: status icon + badge */}
+                <div className="relative z-10 flex flex-col items-center pt-7 pb-3 pointer-events-none">
                     <span className="material-icons-round"
                           style={{
                               fontSize: 52,
@@ -3525,29 +3574,29 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
                           }}>{sIcon.icon}</span>
                     <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider mt-2"
                           style={{
-                              ...overlayBadge(statusLabel, '#fff', `color-mix(in srgb, ${statusColor} 70%, rgba(0,0,0,0.55))`),
-                              borderColor: `color-mix(in srgb, ${statusColor} 80%, white)`
+                              background: `color-mix(in srgb, ${statusColor} 70%, rgba(0,0,0,0.55))`,
+                              color: '#fff',
+                              border: `1px solid color-mix(in srgb, ${statusColor} 80%, white)`,
+                              backdropFilter: 'blur(8px)',
+                              WebkitBackdropFilter: 'blur(8px)',
+                              textShadow: '0 1px 3px rgba(0,0,0,0.6)'
                           }}>
                         <span className="rounded-full" style={{width:7, height:7, background:'#fff', boxShadow:`0 0 6px #fff`}}/>
                         {statusLabel}
                     </span>
                 </div>
 
-                {/* Spacer flex-1 para empujar las métricas al bottom */}
+                {/* Spacer */}
                 <div className="flex-1"/>
 
-                {/* Bottom overlay: métricas como pills compactos sobre backdrop blur */}
+                {/* Bottom: métricas pills */}
                 <div className="relative z-10 px-3 pb-3 flex flex-wrap items-center justify-center gap-1.5">
-                    {/* IP */}
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
-                          style={overlayBadge('#fff')}>
-                        <span className="material-icons-round" style={{fontSize:12, color:ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>lan</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
+                        <span className="material-icons-round" style={{fontSize:12, color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>lan</span>
                         <span style={{color:'#9aa4b1'}}>IP</span>
                         <span className="font-mono font-black" style={{color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>{ext?.ip || '—'}</span>
                     </span>
-                    {/* RTT */}
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
-                          style={overlayBadge('#fff')}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
                         <span className="material-icons-round" style={{fontSize:12, color:rttColor}}>speed</span>
                         <span style={{color:'#9aa4b1'}}>RTT</span>
                         {rttGrade && (
@@ -3561,9 +3610,7 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
                             {rttMs !== null ? `${rttMs}ms` : '—'}
                         </span>
                     </span>
-                    {/* MAC */}
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
-                          style={overlayBadge('#fff')}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold" style={overlayPillStyle}>
                         <span className="material-icons-round" style={{fontSize:12, color:'#9aa4b1'}}>memory</span>
                         <span style={{color:'#9aa4b1'}}>MAC</span>
                         <span className="font-mono" style={{color: ext?.mac ? '#ccc' : '#888'}}>{ext?.mac || '—'}</span>
@@ -3775,8 +3822,14 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
         </div>
     );
 
+    const fmtTimeShort = (ts) => {
+        if (!ts) return '—';
+        const parts = ts.split(' ');
+        return parts.length === 2 ? `${parts[0]} ${parts[1].substring(0,5)}` : ts;
+    };
+
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
                     {shots && shots.length > 0 ? `${shots.length} ${shots.length === 1 ? 'captura' : 'capturas'}` : 'Sin registros'}
@@ -3792,27 +3845,42 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
                     <p className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Sin capturas todavía.<br/>Se generan automáticamente al recibir llamadas.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-3 gap-1.5">
-                    {shots.slice(0, 9).map((s, i) => (
-                        <button key={i} type="button"
-                                onClick={()=>onShotClick ? onShotClick(s) : window.open(s.url, '_blank')}
-                                className="block w-full rounded-md overflow-hidden border transition-all hover:scale-105 hover:shadow-lg relative group cursor-pointer"
-                                style={{borderColor:'var(--border)',aspectRatio:'1/1',padding:0}}
-                                title={`Click para ampliar — ${s.timestamp}`}>
-                            <img src={s.url} alt={s.timestamp} className="w-full h-full object-cover"
-                                 loading="lazy"
-                                 onError={ev => ev.target.style.display='none'}/>
-                            <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 text-[8px] font-mono font-bold text-white"
-                                 style={{background:'linear-gradient(0deg, rgba(0,0,0,0.7), transparent)'}}>
-                                {s.timestamp && s.timestamp.split(' ')[1]?.substring(0,5) || ''}
-                            </div>
-                        </button>
-                    ))}
+                <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
+                    <div className="overflow-auto" style={{maxHeight:280}}>
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0" style={{background:'color-mix(in srgb, var(--muted) 35%, var(--card))', borderBottom:'1px solid var(--border)'}}>
+                                <tr>
+                                    <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)', width:54}}>Foto</th>
+                                    <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha / Hora</th>
+                                    <th className="text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)', width:50}}>KB</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {shots.slice(0, 30).map((s, i) => (
+                                    <tr key={i}
+                                        onClick={()=>onShotClick ? onShotClick(s) : window.open(s.url, '_blank')}
+                                        className="border-b transition-colors hover:bg-muted/40 cursor-pointer"
+                                        style={{borderColor:'var(--border)'}}>
+                                        <td className="px-2 py-1.5">
+                                            <div className="rounded overflow-hidden border" style={{width:42, height:32, borderColor:'var(--border)'}}>
+                                                <img src={s.url} alt={s.timestamp} loading="lazy" className="w-full h-full object-cover"
+                                                     onError={ev => ev.target.style.display='none'}/>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-1.5 font-mono text-[11px]" style={{color:'var(--foreground)'}}>{fmtTimeShort(s.timestamp)}</td>
+                                        <td className="px-2 py-1.5 text-right font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                            {s.size ? Math.round(s.size/1024) : '—'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
-            {shots && shots.length > 9 && (
+            {shots && shots.length > 30 && (
                 <div className="text-[10px] text-center" style={{color:'var(--muted-foreground)'}}>
-                    +{shots.length - 9} capturas más en el último mes
+                    +{shots.length - 30} capturas más en el último mes
                 </div>
             )}
         </div>
@@ -4430,9 +4498,9 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                     Estado del interno
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className={form.rtsp_url ? 'p-0' : ''}>
                                 {!isNew ? (
-                                    <div className="space-y-3">
+                                    <div className={form.rtsp_url ? '' : 'space-y-3'}>
                                         <ExtStatusPanel
                                             ext={ext}
                                             form={form}
@@ -4440,9 +4508,11 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                             ini={ini}
                                             statusColor={statusColor}
                                             statusLabel={statusLabel}
+                                            setShowRtspModal={setShowRtspModal}
                                         />
                                         {/* Botón Grabación de llamadas — abre modal */}
-                                        <Separator/>
+                                        <div className={form.rtsp_url ? 'p-2.5' : ''}>
+                                        {form.rtsp_url ? null : <Separator/>}
                                         <button type="button" onClick={()=>setShowRecModal(true)}
                                                 className="w-full rounded-lg border p-2.5 flex items-center gap-2.5 text-left transition-all hover:shadow-sm"
                                                 style={{
@@ -4463,6 +4533,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                                 );
                                             })()}
                                         </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-6 gap-2" style={{color:'var(--muted-foreground)'}}>
@@ -4567,31 +4638,115 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </DialogFooter>
                     </Dialog>
 
-                    {/* ─── Lightbox para snapshot clickeado ─── */}
+                    {/* ─── Modal de detalles de captura + llamada asociada ─── */}
                     {lightboxShot && (
                         <Dialog open={true} onOpenChange={()=>setLightboxShot(null)}>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                    <span className="material-icons-round" style={{fontSize:20,color:'var(--horizon-green)'}}>photo</span>
-                                    Captura del {lightboxShot.timestamp}
+                                    <span className="material-icons-round" style={{fontSize:20,color:'var(--horizon-green)'}}>photo_library</span>
+                                    Detalle de acceso
                                 </DialogTitle>
                                 <DialogDescription>
-                                    Snapshot del videoportero / cámara
+                                    Captura del videoportero <strong>#{form.ext}</strong>{form.rtsp_label ? ` · ${form.rtsp_label}` : ''}
                                 </DialogDescription>
                             </DialogHeader>
+                            {/* Imagen grande */}
                             <div className="rounded-lg overflow-hidden border" style={{borderColor:'var(--border)',background:'#0a0a0d'}}>
                                 <img src={lightboxShot.url} alt={lightboxShot.timestamp}
-                                     className="w-full max-h-[70vh] object-contain"
+                                     className="w-full max-h-[55vh] object-contain"
                                      style={{display:'block'}}/>
                             </div>
+                            {/* Detalles de la captura */}
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                <div className="rounded-md border p-2.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, var(--card))'}}>
+                                    <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round mr-1" style={{fontSize:11, verticalAlign:'-1px'}}>schedule</span>
+                                        Fecha y hora
+                                    </div>
+                                    <div className="font-mono text-xs font-bold mt-0.5" style={{color:'var(--foreground)'}}>
+                                        {lightboxShot.timestamp || '—'}
+                                    </div>
+                                </div>
+                                <div className="rounded-md border p-2.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, var(--card))'}}>
+                                    <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round mr-1" style={{fontSize:11, verticalAlign:'-1px'}}>data_usage</span>
+                                        Tamaño
+                                    </div>
+                                    <div className="font-mono text-xs font-bold mt-0.5" style={{color:'var(--foreground)'}}>
+                                        {lightboxShot.size ? `${Math.round(lightboxShot.size/1024)} KB` : '—'}
+                                    </div>
+                                </div>
+                                {lightboxShot.filename && (
+                                    <div className="rounded-md border p-2.5 col-span-2" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, var(--card))'}}>
+                                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round mr-1" style={{fontSize:11, verticalAlign:'-1px'}}>insert_drive_file</span>
+                                            Archivo
+                                        </div>
+                                        <div className="font-mono text-[11px] mt-0.5 truncate" style={{color:'var(--foreground)'}}>
+                                            uploads/rtsp_snapshots/{form.ext}/{lightboxShot.filename}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            {/* Llamada asociada (busca en callHistory por ventana ±5min) */}
+                            {(() => {
+                                const ts = lightboxShot.timestamp;
+                                if (!ts || !callHistory) return null;
+                                const snapTs = new Date(ts.replace(' ', 'T')).getTime();
+                                const closeCall = callHistory.find(c => {
+                                    if (!c.calldate) return false;
+                                    const ct = new Date(c.calldate.replace(' ', 'T')).getTime();
+                                    return Math.abs(ct - snapTs) <= 5 * 60 * 1000;
+                                });
+                                if (!closeCall) return (
+                                    <div className="text-[11px] flex items-center gap-1.5 px-3 py-2 rounded-md border border-dashed mt-1"
+                                         style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round" style={{fontSize:14}}>info</span>
+                                        Sin llamada asociada en ±5 minutos
+                                    </div>
+                                );
+                                const variant = closeCall.disposition === 'ANSWERED' ? 'success' : (closeCall.disposition === 'BUSY' || closeCall.disposition === 'FAILED' ? 'destructive' : 'secondary');
+                                return (
+                                    <div className="rounded-md border p-3 mt-1" style={{borderColor:'color-mix(in srgb, var(--primary) 30%, var(--border))', background:'color-mix(in srgb, var(--primary) 6%, var(--card))'}}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="material-icons-round" style={{fontSize:16, color:'var(--primary)'}}>phone_in_talk</span>
+                                            <span className="text-xs font-bold uppercase tracking-wider" style={{color:'var(--primary)'}}>Llamada asociada</span>
+                                            <Badge variant={variant} className="ml-auto">{closeCall.disposition}</Badge>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-[11px]">
+                                            <div>
+                                                <div className="text-[9px] font-bold uppercase" style={{color:'var(--muted-foreground)'}}>Origen</div>
+                                                <div className="font-mono font-bold" style={{color:'var(--foreground)'}}>{closeCall.src || '—'}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[9px] font-bold uppercase" style={{color:'var(--muted-foreground)'}}>Destino</div>
+                                                <div className="font-mono font-bold" style={{color:'var(--foreground)'}}>{closeCall.dst || '—'}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[9px] font-bold uppercase" style={{color:'var(--muted-foreground)'}}>Hablado</div>
+                                                <div className="font-mono font-bold" style={{color:'var(--foreground)'}}>{closeCall.billsec || 0}s</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] font-mono mt-2" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round mr-1" style={{fontSize:11, verticalAlign:'-1px'}}>schedule</span>
+                                            {closeCall.calldate}
+                                        </div>
+                                        {closeCall.recordingfile && (
+                                            <Button variant="outline" size="sm" className="mt-2"
+                                                    onClick={()=>tfPlayRecording(closeCall.recordingfile, {src:closeCall.src, dst:closeCall.dst, calldate:closeCall.calldate, duration:closeCall.billsec})}>
+                                                <span className="material-icons-round mr-1.5" style={{fontSize:14, color:'var(--primary)'}}>play_arrow</span>
+                                                Reproducir grabación
+                                            </Button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             <DialogFooter>
                                 <Button asLink href={lightboxShot.url} target="_blank" variant="outline">
                                     <span className="material-icons-round mr-1.5" style={{fontSize:14}}>open_in_new</span>
-                                    Abrir en pestaña
+                                    Abrir imagen
                                 </Button>
-                                <Button onClick={()=>setLightboxShot(null)}>
-                                    Cerrar
-                                </Button>
+                                <Button onClick={()=>setLightboxShot(null)}>Cerrar</Button>
                             </DialogFooter>
                         </Dialog>
                     )}
