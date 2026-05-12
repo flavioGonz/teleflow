@@ -3510,20 +3510,23 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
     };
     const sIcon = statusIconMap[ext?.status] || statusIconMap.OFFLINE;
 
+    // FIX React #310: hooks SIEMPRE al top, nunca dentro de un if condicional
+    // (antes estaban dentro del bloque if(hasRtsp) y al cambiar rtsp_url, el conteo de hooks cambiaba)
+    const [localCfgMenu, setLocalCfgMenu] = useState(false);
+    const cfgMenuRef = useRef(null);
+    const [doorAnim, setDoorAnim] = useState(false);
+    useEffect(() => {
+        if (!localCfgMenu) return;
+        const h = (e) => { if (!cfgMenuRef.current?.contains(e.target)) setLocalCfgMenu(false); };
+        document.addEventListener('mousedown', h);
+        const onEsc = (e) => { if (e.key === 'Escape') setLocalCfgMenu(false); };
+        document.addEventListener('keydown', onEsc);
+        return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', onEsc); };
+    }, [localCfgMenu]);
+
     // Cuando hay RTSP: TODO el panel es un solo card con video al fondo + data overlay
     // Cuando NO hay RTSP: layout original (status card + métricas separadas)
     if (hasRtsp) {
-        const [localCfgMenu, setLocalCfgMenu] = useState(false);
-        const cfgMenuRef = useRef(null);
-        const [doorAnim, setDoorAnim] = useState(false);
-        useEffect(() => {
-            if (!localCfgMenu) return;
-            const h = (e) => { if (!cfgMenuRef.current?.contains(e.target)) setLocalCfgMenu(false); };
-            document.addEventListener('mousedown', h);
-            const onEsc = (e) => { if (e.key === 'Escape') setLocalCfgMenu(false); };
-            document.addEventListener('keydown', onEsc);
-            return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', onEsc); };
-        }, [localCfgMenu]);
 
         const curRec = recording ? (recOptions||[]).find(o => o.v === recording) : null;
 
