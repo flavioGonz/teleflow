@@ -70,65 +70,92 @@ if ($action === 'set_sip_debug') {
 }
 
 if ($action === 'sip_debug_ext') {
-    // Debug SIP filtrado por una extensión específica
-    @set_time_limit(30);
+    // Debug SIP filtrado por una extensión específica — refinado para chan_sip (PBX 10.1.1.7 = chan_sip)
+    @set_time_limit(15);
     $ext = preg_replace('/[^0-9]/', '', $_GET['ext'] ?? '');
     if (!$ext) { header('Content-Type: application/json'); echo json_encode(['success'=>false,'error'=>'ext requerida']); exit; }
-    $log_lines = [];
-    $endpoint    = ami_cmd("pjsip show endpoint $ext");
-    $contacts    = ami_cmd("pjsip show contacts");
-    $aor         = ami_cmd("pjsip show aor $ext");
-    $auth        = ami_cmd("pjsip show auth $ext");
-    $hist        = ami_cmd('pjsip show history');
-    $pjsip_chans = ami_cmd('pjsip show channels');
-    $sip_chans   = ami_cmd('sip show channels');
 
-    $log_lines[] = "=== PJSIP SHOW ENDPOINT $ext ===";
-    $log_lines[] = trim($endpoint) ?: '(no se obtuvo respuesta — verificá que la extensión exista en PJSIP)';
-    $log_lines[] = '';
-    $log_lines[] = "=== PJSIP AOR $ext ===";
-    $log_lines[] = trim($aor) ?: '(sin AOR registrado)';
-    $log_lines[] = '';
-    $log_lines[] = "=== PJSIP AUTH $ext ===";
-    $log_lines[] = trim($auth) ?: '(sin AUTH configurado)';
-    $log_lines[] = '';
-    // Filtrar contactos solo los del ext
-    $log_lines[] = "=== CONTACTS (filtrados por $ext) ===";
-    $cl = [];
-    foreach (explode("\n", $contacts) as $line) {
-        if (strpos($line, "/$ext") !== false || strpos($line, "$ext/") !== false || strpos($line, $ext . "@") !== false || strpos($line, "$ext sip:") !== false) {
-            $cl[] = $line;
-        }
+    // Cache 10s para evitar saturar el AMI con consultas seriales repetidas
+    $cache = "/tmp/teleflow_sip_debug_$ext.json";
+    if (file_exists($cache) && (time() - filemtime($cache)) < 10) {
+        header('Content-Type: application/json');
+        readfile($cache);
+        exit;
     }
-    $log_lines[] = $cl ? implode("\n", $cl) : '(sin contactos)';
+
+    $log_lines = [];
+    // Comandos chan_sip (rápidos individualmente). Si no devuelven nada, se cae a PJSIP como fallback.
+    $peer        = ami_cmd("sip show peer $ext");
+    $registry    = ami_cmd('sip show registry');
+    $sip_chans   = ami_cmd('sip show channels');
+    $log_lines[] = "=== SIP PEER $ext (chan_sip) ===";
+    if (trim($peer)) {
+        $log_lines[] = trim($peer);
+    } else {
+        $log_lines[] = '(sin peer chan_sip — probando PJSIP)';
+        $pjep = ami_cmd("pjsip show endpoint $ext");
+        if (trim($pjep)) $log_lines[] = "(PJSIP fallback) " . trim($pjep);
+        else $log_lines[] = '(la extensión tampoco existe como endpoint PJSIP)';
+    }
     $log_lines[] = '';
-    // Filtrar canales solo los del ext
-    $log_lines[] = "=== PJSIP CHANNELS (filtrados por $ext) ===";
+
+    // SIP channels filtrados por la ext
+    $log_lines[] = "=== SIP CHANNELS (filtrados por $ext) ===";
     $chl = [];
-    foreach (explode("\n", $pjsip_chans) as $line) {
-        if (strpos($line, "/$ext-") !== false || preg_match('/\bPJSIP\/' . preg_quote($ext, '/') . '\b/', $line)) {
+    foreach (explode("\n", $sip_chans) as $line) {
+        if (strpos($line, "/$ext-") !== false ||
+            preg_match('/\bSIP\/' . preg_quote($ext, '/') . '\b/', $line)) {
             $chl[] = $line;
         }
     }
-    $log_lines[] = $chl ? implode("\n", $chl) : '(sin canales activos)';
+    $log_lines[] = $chl ? implode("\n", $chl) : '(sin canales activos para esta ext)';
     $log_lines[] = '';
-    $log_lines[] = "=== HISTORY (últimas líneas mencionando $ext) ===";
-    $hl = [];
-    foreach (explode("\n", $hist) as $line) {
-        if (strpos($line, "/$ext-") !== false || strpos($line, "@$ext;") !== false || preg_match('/\b' . preg_quote($ext, '/') . '\b/', $line)) {
-            $hl[] = $line;
-            if (count($hl) >= 80) break;
+
+    // Registry filtrado (peers que registraron a un trunk externo)
+    if (trim($registry)) {
+        $log_lines[] = "=== SIP REGISTRY (filtrado por $ext) ===";
+        $rl = [];
+        foreach (explode("\n", $registry) as $line) {
+            if (preg_match('/\b' . preg_quote($ext, '/') . '\b/', $line)) $rl[] = $line;
+        }
+        if ($rl) $log_lines[] = implode("\n", $rl);
+        else $log_lines[] = '(sin registry — no aplica a peers locales)';
+        $log_lines[] = '';
+    }
+
+    // Membresías en colas con esta ext (output más útil que pjsip history)
+    $qstat = ami_cmd('queue show');
+    $log_lines[] = "=== QUEUE MEMBERSHIPS (líneas con $ext) ===";
+    $ql = [];
+    $cur_q = null;
+    foreach (explode("\n", $qstat) as $line) {
+        if (preg_match('/^\s*(\d+)\s+has\s+/', $line, $m)) {
+            $cur_q = $m[1];
+            continue;
+        }
+        if ($cur_q && (
+            strpos($line, "SIP/$ext") !== false ||
+            strpos($line, "Local/$ext@") !== false ||
+            preg_match('/\bAgent\/' . preg_quote($ext, '/') . '\b/', $line)
+        )) {
+            $ql[] = "[Q$cur_q] " . trim($line);
         }
     }
-    $log_lines[] = $hl ? implode("\n", $hl) : '(sin historia para esta ext)';
+    $log_lines[] = $ql ? implode("\n", $ql) : '(no está como miembro de ninguna cola)';
+    $log_lines[] = '';
+    $log_lines[] = "=== TS: " . date('Y-m-d H:i:s') . " ===";
 
-    header('Content-Type: application/json');
-    echo json_encode([
+    $payload = json_encode([
         'success' => true,
         'ext'     => $ext,
         'log'     => implode("\n", $log_lines),
+        'driver'  => trim($peer) ? 'chan_sip' : 'unknown',
         'ts'      => date('Y-m-d H:i:s')
     ]);
+    @file_put_contents($cache, $payload);
+
+    header('Content-Type: application/json');
+    echo $payload;
     exit;
 }
 

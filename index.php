@@ -3148,8 +3148,25 @@ function ViewDashboard({ data }) {
                                         </button>
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold truncate font-mono" style={{color:'var(--foreground)'}}>
-                                                {r.src || '?'} → {r.dst || '?'}
+                                            <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                {(() => {
+                                                    const exts = data?.pbx?.extensions || [];
+                                                    const nameOf = (n) => {
+                                                        if (!n) return '?';
+                                                        const e = exts.find(x => String(x.ext) === String(n));
+                                                        return e?.name ? `${e.name}` : String(n);
+                                                    };
+                                                    const labelOf = (n) => {
+                                                        if (!n) return '?';
+                                                        const e = exts.find(x => String(x.ext) === String(n));
+                                                        return e?.name ? `${e.name} (${n})` : String(n);
+                                                    };
+                                                    return (<>
+                                                        <span title={String(r.src||'')}>{labelOf(r.src)}</span>
+                                                        <span className="font-mono" style={{color:'var(--muted-foreground)', margin:'0 6px'}}>→</span>
+                                                        <span title={String(r.dst||'')}>{labelOf(r.dst)}</span>
+                                                    </>);
+                                                })()}
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
                                                 <span>{(r.calldate || '').substring(0, 16) || '—'}</span>
@@ -5625,38 +5642,252 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
 // VISTA: VIVO
 // ─────────────────────────────────────────────
 function ViewVivo({ data }) {
-    const calls = (data?.pbx?.calls || []);
+    // Llamadas en vivo. Usamos live_calls (más actualizado por el hub realtime) con fallback a calls
+    const liveCalls = data?.pbx?.live_calls || data?.pbx?.calls || [];
+    const exts = data?.pbx?.extensions || [];
+    const [search, setSearch] = useState('');
+    const [stateFilter, setStateFilter] = useState('all'); // all | bridged | ringing | up
+    const [tick, setTick] = useState(0);
+    useEffect(() => { const t = setInterval(()=>setTick(k=>k+1), 1000); return ()=>clearInterval(t); }, []);
+
+    const nameOf = (n) => {
+        if (!n) return null;
+        const e = exts.find(x => String(x.ext) === String(n));
+        return e?.name || null;
+    };
+    const labelOf = (n) => {
+        const nm = nameOf(n);
+        return nm ? `${nm} (${n})` : (n || '—');
+    };
+
+    // Normalizar el "estado" de cada call para badge + filtrado
+    const normState = (c) => {
+        const s = String(c.state || c.channelstatedesc || '').toLowerCase();
+        if (c.isBridged || c.bridgeId || s === 'up') return 'bridged';
+        if (s.includes('ring')) return 'ringing';
+        if (s.includes('dial')) return 'ringing';
+        if (s === 'up') return 'up';
+        return 'other';
+    };
+
+    const stateMeta = {
+        bridged: { label:'EN CURSO', color:'var(--horizon-green)', icon:'forum',         pulse:false },
+        ringing: { label:'TIMBRANDO', color:'var(--warning)',       icon:'phone_in_talk', pulse:true  },
+        up:      { label:'CONECTADA', color:'var(--horizon-green)', icon:'phone',         pulse:false },
+        other:   { label:'ACTIVA',    color:'var(--muted-foreground)', icon:'call',       pulse:false },
+    };
+
+    const counters = liveCalls.reduce((acc, c) => {
+        const s = normState(c);
+        acc.total++;
+        acc[s] = (acc[s]||0) + 1;
+        return acc;
+    }, {total:0, bridged:0, ringing:0, up:0, other:0});
+
+    const filtered = liveCalls.filter(c => {
+        if (stateFilter !== 'all' && normState(c) !== stateFilter) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        const hay = [c.src, c.dst, c.callerid, c.channel, nameOf(c.src), nameOf(c.dst)]
+            .filter(Boolean).map(x => String(x).toLowerCase()).join(' ');
+        return hay.includes(q);
+    });
+
+    const fmtCallDuration = (c) => {
+        // duration puede venir como segundos numéricos o como timestamp "00:01:23"
+        if (typeof c.duration === 'string' && /:/.test(c.duration)) return c.duration;
+        let sec = Number(c.duration);
+        if (!sec && c.startTime) sec = Math.floor((Date.now() - c.startTime) / 1000);
+        sec = Math.max(0, sec || 0);
+        const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+        return h > 0
+            ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+            : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    };
+
+    const filters = [
+        { id:'all',     label:'Todas',     count: counters.total },
+        { id:'bridged', label:'En curso',  count: counters.bridged },
+        { id:'ringing', label:'Timbrando', count: counters.ringing + (counters.up||0) },
+    ];
+
     return (
-        <div className="content-area">
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-                <div className="live-indicator" style={{width:10,height:10,borderRadius:'50%',background:'#ef4444',flexShrink:0}} />
-                <span style={{fontSize:13,fontWeight:700,color:'#ef4444'}}>TRANSMISIÓN EN VIVO</span>
-                <span style={{fontSize:12,color:'#6b7280'}}>{calls.length} canales activos</span>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {calls.length === 0
-                    ? <div className="glass" style={{padding:40,textAlign:'center',color:'#6b7280'}}>
-                        <span className="material-icons-round" style={{fontSize:48,marginBottom:12,display:'block',color:'#4b5563'}}>phone_disabled</span>
-                        Sin llamadas activas en este momento
-                      </div>
-                    : calls.map((c,i)=>(
-                        <div key={i} className="live-call-card">
-                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                <div style={{display:'flex',gap:12,alignItems:'center'}}>
-                                    <div style={{width:36,height:36,borderRadius:10,background:'color-mix(in srgb, var(--primary) 20%, transparent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                        <span className="material-icons-round" style={{fontSize:18,color:'color-mix(in srgb, var(--primary) 60%, var(--foreground))'}}>call</span>
-                                    </div>
-                                    <div>
-                                        <div style={{fontSize:13,fontWeight:700,color:'white'}}>{c.src} → {c.dst}</div>
-                                        <div style={{fontSize:11,color:'#9ca3af'}}>{c.state || 'Up'}</div>
-                                    </div>
-                                </div>
-                                <div style={{fontSize:13,fontWeight:700,color:'#f59e0b',fontFamily:'monospace'}}>{fmtTime(c.duration||0)}</div>
+        <div className="content-area view-enter space-y-4">
+            {/* ─── Header con live indicator + KPIs ─── */}
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(0, 2fr) minmax(280px, 1fr)'}}>
+                <Card className="relative overflow-hidden">
+                    <span className="material-icons-round absolute pointer-events-none" style={{
+                        fontSize:140, color:'var(--destructive)', opacity:0.06,
+                        bottom:-18, right:-12
+                    }}>phone_in_talk</span>
+                    <CardContent className="p-5 flex items-center gap-4 relative">
+                        <div className="relative shrink-0">
+                            <div className="rounded-2xl flex items-center justify-center"
+                                 style={{
+                                     width:58, height:58,
+                                     background:'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 65%, #000))',
+                                     boxShadow:'0 6px 18px color-mix(in srgb, var(--destructive) 35%, transparent)'
+                                 }}>
+                                <span className="material-icons-round text-white" style={{fontSize:30, animation: counters.total>0 ? 'tf-status-shake 0.6s ease-in-out infinite' : 'none'}}>radio_button_checked</span>
+                            </div>
+                            {counters.total > 0 && (
+                                <span className="absolute rounded-full" style={{
+                                    top:-2, right:-2, width:14, height:14,
+                                    background:'var(--destructive)',
+                                    border:'3px solid var(--card)',
+                                    animation:'pulse 1.2s ease-in-out infinite'
+                                }}/>
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest" style={{color:'var(--destructive)'}}>
+                                <span className="rounded-full inline-block" style={{width:7, height:7, background:'var(--destructive)', boxShadow:'0 0 8px var(--destructive)', animation:'pulse 1s infinite'}}/>
+                                Transmisión en vivo
+                            </div>
+                            <h1 className="text-3xl font-black tabular-nums leading-none mt-1.5" style={{color:'var(--foreground)'}}>
+                                {counters.total}
+                                <span className="text-sm font-bold ml-2" style={{color:'var(--muted-foreground)'}}>
+                                    {counters.total === 1 ? 'canal activo' : 'canales activos'}
+                                </span>
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs" style={{color:'var(--muted-foreground)'}}>
+                                <Badge variant="outline" className="text-[10px]">
+                                    <span className="material-icons-round mr-1" style={{fontSize:11, color:'var(--horizon-green)'}}>forum</span>
+                                    {counters.bridged} en curso
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                    <span className="material-icons-round mr-1" style={{fontSize:11, color:'var(--warning)'}}>notifications_active</span>
+                                    {counters.ringing} timbrando
+                                </Badge>
                             </div>
                         </div>
-                    ))
-                }
+                    </CardContent>
+                </Card>
+
+                {/* Buscador + filtros pill */}
+                <Card>
+                    <CardContent className="p-4 flex flex-col gap-2.5">
+                        <div className="relative">
+                            <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16, color:'var(--muted-foreground)'}}>search</span>
+                            <Input placeholder="Buscar por interno, nombre, canal…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-9"/>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            {filters.map(f => {
+                                const active = stateFilter === f.id;
+                                return (
+                                    <button key={f.id} type="button" onClick={()=>setStateFilter(f.id)}
+                                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-bold transition-all"
+                                            style={{
+                                                background: active ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent',
+                                                color: active ? 'var(--primary)' : 'var(--muted-foreground)',
+                                                border: '1px solid ' + (active ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--border)')
+                                            }}>
+                                        {f.label}
+                                        <span className="font-mono" style={{opacity:0.7}}>{f.count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
+
+            {/* ─── Grid de canales activos ─── */}
+            {filtered.length === 0 ? (
+                <Card>
+                    <CardContent className="p-12 text-center">
+                        <span className="material-icons-round block mb-3" style={{fontSize:56, color:'var(--muted-foreground)', opacity:0.35}}>phone_disabled</span>
+                        <h3 className="text-base font-bold" style={{color:'var(--foreground)'}}>
+                            {liveCalls.length === 0 ? 'Sin llamadas activas en este momento' : 'Sin resultados con los filtros aplicados'}
+                        </h3>
+                        <p className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>
+                            {liveCalls.length === 0
+                                ? 'Las llamadas aparecerán acá en tiempo real cuando empiecen.'
+                                : 'Probá quitando filtros o cambiando el texto de búsqueda.'}
+                        </p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fill, minmax(340px, 1fr))'}}>
+                    {filtered.map((c, i) => {
+                        const st = normState(c);
+                        const meta = stateMeta[st] || stateMeta.other;
+                        const srcName = nameOf(c.src);
+                        const dstName = nameOf(c.dst);
+                        return (
+                            <Card key={c.id || c.channel || i} className="relative overflow-hidden transition-all hover:shadow-lg"
+                                  style={{
+                                      borderColor: 'color-mix(in srgb, ' + meta.color + ' 28%, var(--border))'
+                                  }}>
+                                {/* Status accent vertical strip */}
+                                <div className="absolute top-0 bottom-0 left-0" style={{
+                                    width:3, background: meta.color,
+                                    boxShadow: meta.pulse ? '0 0 12px ' + meta.color : 'none'
+                                }}/>
+                                <CardContent className="p-4 pl-5 flex flex-col gap-3">
+                                    {/* Header con state badge + duración */}
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5"
+                                               style={{
+                                                   color: meta.color,
+                                                   borderColor:'color-mix(in srgb, ' + meta.color + ' 50%, transparent)',
+                                                   background:'color-mix(in srgb, ' + meta.color + ' 12%, transparent)'
+                                               }}>
+                                            <span className="material-icons-round mr-1" style={{
+                                                fontSize:11,
+                                                animation: meta.pulse ? 'pulse 1s ease-in-out infinite' : 'none'
+                                            }}>{meta.icon}</span>
+                                            {meta.label}
+                                        </Badge>
+                                        <span className="font-mono font-black tabular-nums text-base" style={{color: meta.color, letterSpacing:'-0.5px'}}>
+                                            {fmtCallDuration(c)}
+                                        </span>
+                                    </div>
+
+                                    {/* Origen → Destino */}
+                                    <div className="flex items-center gap-3">
+                                        {/* Origen */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[9px] font-black uppercase tracking-wider mb-0.5" style={{color:'var(--muted-foreground)'}}>Origen</div>
+                                            <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}} title={String(c.src||'')}>
+                                                {srcName || (c.callerid || c.src || '—')}
+                                            </div>
+                                            <div className="text-[10px] font-mono truncate" style={{color:'var(--muted-foreground)'}}>
+                                                {c.src || c.callerid || '—'}
+                                            </div>
+                                        </div>
+                                        {/* Arrow animado */}
+                                        <span className="material-icons-round shrink-0" style={{
+                                            fontSize:20, color: meta.color,
+                                            animation: meta.pulse ? 'pulse 1.2s ease-in-out infinite' : 'none'
+                                        }}>arrow_forward</span>
+                                        {/* Destino */}
+                                        <div className="flex-1 min-w-0 text-right">
+                                            <div className="text-[9px] font-black uppercase tracking-wider mb-0.5" style={{color:'var(--muted-foreground)'}}>Destino</div>
+                                            <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}} title={String(c.dst||'')}>
+                                                {dstName || (c.dst || '—')}
+                                            </div>
+                                            <div className="text-[10px] font-mono truncate" style={{color:'var(--muted-foreground)'}}>
+                                                {c.dst || '—'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer técnico: canal + extras */}
+                                    <div className="flex items-center justify-between text-[10px] pt-2.5 border-t" style={{color:'var(--muted-foreground)', borderColor:'var(--border)'}}>
+                                        <span className="font-mono truncate flex-1 mr-2" title={c.channel||''}>
+                                            {c.channel ? c.channel.replace(/^(SIP|PJSIP|Local)\//, '').split(';')[0] : '—'}
+                                        </span>
+                                        {c.context && (
+                                            <span className="font-mono opacity-75">{c.context}</span>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
@@ -6466,7 +6697,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                             <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16, color:'var(--muted-foreground)'}}>search</span>
                             <Input placeholder="Buscar nombre o número…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-9"/>
                         </div>
-                        <div className="flex-1 overflow-auto rounded-md border p-1 space-y-1" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                        <div className="overflow-y-auto rounded-md border p-1 space-y-1" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))', maxHeight: 300, minHeight: 180}}>
                             {filteredAgents.length === 0 && (
                                 <div className="text-center py-6 text-xs" style={{color:'var(--muted-foreground)'}}>Sin resultados</div>
                             )}
