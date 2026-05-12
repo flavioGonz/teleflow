@@ -3487,71 +3487,125 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
     };
     const sIcon = statusIconMap[ext?.status] || statusIconMap.OFFLINE;
 
+    // Cuando hay RTSP: TODO el panel es un solo card con video al fondo + data overlay
+    // Cuando NO hay RTSP: layout original (status card + métricas separadas)
+    if (hasRtsp) {
+        const overlayBadge = (txt, color = '#fff', bg = 'rgba(0,0,0,0.55)') => ({
+            background: bg,
+            color: color,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)'
+        });
+        return (
+            <div className="relative rounded-lg border overflow-hidden flex flex-col"
+                 style={{
+                     borderColor:`color-mix(in srgb, ${statusColor} 35%, var(--border))`,
+                     background:'#0a0a0d',
+                     minHeight: 380
+                 }}>
+                {/* VIDEO RTSP llena toda la columna */}
+                <div className="absolute inset-0">
+                    <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
+                    {/* Overlay gradient para legibilidad */}
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                        background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.0) 55%, rgba(0,0,0,0.85) 100%)'
+                    }}/>
+                </div>
+
+                {/* Top overlay: status icon + badge */}
+                <div className="relative z-10 flex flex-col items-center pt-7 pb-3">
+                    <span className="material-icons-round"
+                          style={{
+                              fontSize: 52,
+                              color: '#ffffff',
+                              filter: `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 90%, transparent)) drop-shadow(0 2px 8px rgba(0,0,0,0.7))`,
+                              animation: sIcon.animation
+                          }}>{sIcon.icon}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider mt-2"
+                          style={{
+                              ...overlayBadge(statusLabel, '#fff', `color-mix(in srgb, ${statusColor} 70%, rgba(0,0,0,0.55))`),
+                              borderColor: `color-mix(in srgb, ${statusColor} 80%, white)`
+                          }}>
+                        <span className="rounded-full" style={{width:7, height:7, background:'#fff', boxShadow:`0 0 6px #fff`}}/>
+                        {statusLabel}
+                    </span>
+                </div>
+
+                {/* Spacer flex-1 para empujar las métricas al bottom */}
+                <div className="flex-1"/>
+
+                {/* Bottom overlay: métricas como pills compactos sobre backdrop blur */}
+                <div className="relative z-10 px-3 pb-3 flex flex-wrap items-center justify-center gap-1.5">
+                    {/* IP */}
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
+                          style={overlayBadge('#fff')}>
+                        <span className="material-icons-round" style={{fontSize:12, color:ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>lan</span>
+                        <span style={{color:'#9aa4b1'}}>IP</span>
+                        <span className="font-mono font-black" style={{color: ext?.ip && ext.ip !== '—' ? '#60a5fa' : '#888'}}>{ext?.ip || '—'}</span>
+                    </span>
+                    {/* RTT */}
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
+                          style={overlayBadge('#fff')}>
+                        <span className="material-icons-round" style={{fontSize:12, color:rttColor}}>speed</span>
+                        <span style={{color:'#9aa4b1'}}>RTT</span>
+                        {rttGrade && (
+                            <span className="rounded-full" style={{
+                                width:6, height:6, background:rttColor,
+                                boxShadow:`0 0 6px ${rttColor}`,
+                                animation:`pulse ${rttPulseSpeed} ease-in-out infinite`
+                            }}/>
+                        )}
+                        <span className="font-mono font-black" style={{color:rttColor}}>
+                            {rttMs !== null ? `${rttMs}ms` : '—'}
+                        </span>
+                    </span>
+                    {/* MAC */}
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold"
+                          style={overlayBadge('#fff')}>
+                        <span className="material-icons-round" style={{fontSize:12, color:'#9aa4b1'}}>memory</span>
+                        <span style={{color:'#9aa4b1'}}>MAC</span>
+                        <span className="font-mono" style={{color: ext?.mac ? '#ccc' : '#888'}}>{ext?.mac || '—'}</span>
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    // Layout sin RTSP: status card + métricas separadas (original)
     return (
         <div className="flex flex-col gap-3">
-            {/* Bloque de estado — si hay RTSP, video al fondo. Sino icono enorme decorativo */}
             <div className="relative rounded-lg border overflow-hidden"
                  style={{
                      borderColor:`color-mix(in srgb, ${statusColor} 35%, var(--border))`,
-                     background: hasRtsp ? '#0a0a0d' : `linear-gradient(135deg, color-mix(in srgb, ${statusColor} 6%, var(--card)) 0%, var(--card) 100%)`,
-                     minHeight: hasRtsp ? 200 : 160
+                     background:`linear-gradient(135deg, color-mix(in srgb, ${statusColor} 6%, var(--card)) 0%, var(--card) 100%)`,
+                     minHeight: 160
                  }}>
-                {/* Background: VIDEO RTSP o ICONO GIGANTE decorativo */}
-                {hasRtsp ? (
-                    <div className="absolute inset-0">
-                        <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
-                        {/* Overlay gradient para legibilidad de los elementos arriba */}
-                        <div className="absolute inset-0 pointer-events-none" style={{
-                            background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.7) 100%)'
-                        }}/>
-                    </div>
-                ) : (
-                    <span className="material-icons-round absolute pointer-events-none"
-                          style={{
-                              fontSize: 160,
-                              color: statusColor,
-                              opacity: 0.13,
-                              bottom: -18, right: -12,
-                              animation: sIcon.animation
-                          }}>{sIcon.icon}</span>
-                )}
-
-                {/* Foreground: status icon + badge centrados */}
-                <div className="relative z-10 flex flex-col items-center justify-center"
-                     style={{padding: hasRtsp ? '20px 14px 16px' : '24px 14px', minHeight: hasRtsp ? 200 : 160}}>
-                    <span className="material-icons-round"
-                          style={{
-                              fontSize: 56,
-                              color: hasRtsp ? '#ffffff' : statusColor,
-                              filter: hasRtsp
-                                  ? `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 80%, transparent)) drop-shadow(0 2px 8px rgba(0,0,0,0.6))`
-                                  : `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 55%, transparent))`,
-                              animation: sIcon.animation
-                          }}>{sIcon.icon}</span>
+                <span className="material-icons-round absolute pointer-events-none"
+                      style={{fontSize: 160, color: statusColor, opacity: 0.13, bottom: -18, right: -12, animation: sIcon.animation}}>
+                    {sIcon.icon}
+                </span>
+                <div className="relative z-10 flex flex-col items-center justify-center" style={{padding:'24px 14px', minHeight:160}}>
+                    <span className="material-icons-round" style={{
+                        fontSize: 56, color: statusColor,
+                        filter: `drop-shadow(0 0 14px color-mix(in srgb, ${statusColor} 55%, transparent))`,
+                        animation: sIcon.animation
+                    }}>{sIcon.icon}</span>
                     <Badge variant="outline" className="font-bold uppercase text-[10px] mt-2"
-                           style={{
-                               borderColor: hasRtsp ? `color-mix(in srgb, ${statusColor} 70%, white)` : `${statusColor}66`,
-                               color: hasRtsp ? '#ffffff' : statusColor,
-                               background: hasRtsp ? `color-mix(in srgb, ${statusColor} 50%, rgba(0,0,0,0.5))` : `${statusColor}11`,
-                               textShadow: hasRtsp ? '0 1px 3px rgba(0,0,0,0.7)' : 'none'
-                           }}>
+                           style={{borderColor:`${statusColor}66`,color:statusColor,background:`${statusColor}11`}}>
                         {statusLabel}
                     </Badge>
                 </div>
             </div>
-
-            {/* Métricas */}
             <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                {/* IP */}
-                <div className="flex items-center justify-between px-3 py-2"
-                     style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                <div className="flex items-center justify-between px-3 py-2" style={{background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                     <div className="flex items-center gap-1.5">
                         <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>lan</span>
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>IP</span>
                     </div>
                     <span className="font-mono text-xs font-bold" style={{color: ext?.ip && ext.ip !== '—' ? '#3b82f6' : 'var(--muted-foreground)'}}>{ext?.ip || '—'}</span>
                 </div>
-                {/* RTT con animación */}
                 <div className="flex items-center justify-between px-3 py-2 border-t" style={{borderColor:'var(--border)'}}>
                     <div className="flex items-center gap-1.5">
                         <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>speed</span>
@@ -3559,24 +3613,12 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel })
                     </div>
                     <div className="flex items-center gap-1.5">
                         {rttGrade && (
-                            <span style={{
-                                width:8, height:8, borderRadius:'50%',
-                                background:rttColor,
-                                boxShadow:`0 0 6px ${rttColor}`,
-                                animation:`pulse ${rttPulseSpeed} ease-in-out infinite`
-                            }}/>
+                            <span style={{width:8,height:8,borderRadius:'50%',background:rttColor,boxShadow:`0 0 6px ${rttColor}`,animation:`pulse ${rttPulseSpeed} ease-in-out infinite`}}/>
                         )}
-                        <span className="font-mono text-xs font-bold" style={{color:rttColor}}>
-                            {rttMs !== null ? `${rttMs}ms` : '—'}
-                        </span>
-                        {rttGrade && (
-                            <span className="text-[9px] font-bold uppercase ml-1" style={{color:rttColor,opacity:0.85}}>
-                                {rttGrade === 'good' ? 'OK' : (rttGrade === 'mid' ? 'MID' : 'HIGH')}
-                            </span>
-                        )}
+                        <span className="font-mono text-xs font-bold" style={{color:rttColor}}>{rttMs !== null ? `${rttMs}ms` : '—'}</span>
+                        {rttGrade && <span className="text-[9px] font-bold uppercase ml-1" style={{color:rttColor,opacity:0.85}}>{rttGrade === 'good' ? 'OK' : (rttGrade === 'mid' ? 'MID' : 'HIGH')}</span>}
                     </div>
                 </div>
-                {/* MAC */}
                 <div className="flex items-center justify-between px-3 py-2 border-t" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
                     <div className="flex items-center gap-1.5">
                         <span className="material-icons-round" style={{fontSize:13,color:'var(--muted-foreground)'}}>memory</span>

@@ -38,16 +38,17 @@ if (!is_dir($STORE_ROOT)) {
 }
 
 function get_ext_rtsp_url($ext) {
+    global $DB_HOST, $DB_USER, $DB_PASS;
     try {
-        $db = new PDO('sqlite:' . __DIR__ . '/../db/acl.db');
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        // Usar PBX MySQL para ext_meta
-        $pdo = mysql_pbx();
+        $pdo = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        ]);
         $st = $pdo->prepare("SELECT rtsp_url, rtsp_label FROM ext_meta WHERE ext = ?");
         $st->execute([$ext]);
         $r = $st->fetch(PDO::FETCH_ASSOC);
         return $r ? ['url' => $r['rtsp_url'], 'label' => $r['rtsp_label']] : null;
     } catch (Exception $e) {
+        error_log('[rtsp_snapshot] DB error: ' . $e->getMessage());
         return null;
     }
 }
