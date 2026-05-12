@@ -3743,7 +3743,7 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
 
 // ─── ExtStatusPanel: estado en vivo del interno con preview RTSP y RTT animado ───
 // ─── ExtDoorHistoryTab: muestra eventos de apertura DTMF para una extensión ───
-function ExtDoorHistoryTab({ ext }) {
+function ExtDoorHistoryTab({ ext, setLightboxShot }) {
     const [events, setEvents] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -3826,6 +3826,9 @@ function ExtDoorHistoryTab({ ext }) {
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-10" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                             <tr>
+                                <th className="text-center px-2 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)', width:54}}>
+                                    <span className="material-icons-round" style={{fontSize:13}}>image</span>
+                                </th>
                                 <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
                                     <span className="material-icons-round mr-1 align-middle" style={{fontSize:13}}>schedule</span>
                                     Fecha/Hora
@@ -3846,6 +3849,23 @@ function ExtDoorHistoryTab({ ext }) {
                         <tbody>
                             {events.map((e, i) => (
                                 <tr key={i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                    <td className="px-2 py-1.5 text-center">
+                                        {e.snapshot_url ? (
+                                            <button type="button" onClick={()=>setLightboxShot({ url:e.snapshot_url, filename:e.snapshot, timestamp:e.occurred_at, source:'door' })}
+                                                    className="inline-block rounded-md overflow-hidden border transition-transform hover:scale-110 cursor-pointer"
+                                                    style={{width:40, height:40, borderColor:'var(--border)', padding:0}}
+                                                    title={`Captura del momento de la apertura (${e.occurred_at})`}>
+                                                <img src={e.snapshot_url} alt={e.occurred_at}
+                                                     className="w-full h-full object-cover" loading="lazy"
+                                                     onError={ev=>ev.target.style.display='none'}/>
+                                            </button>
+                                        ) : (
+                                            <span title="Sin captura" className="inline-flex items-center justify-center rounded-md border"
+                                                  style={{width:40, height:40, borderColor:'var(--border)', borderStyle:'dashed', background:'color-mix(in srgb, var(--muted) 20%, transparent)'}}>
+                                                <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)', opacity:0.4}}>image</span>
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2 font-mono text-xs" style={{color:'var(--foreground)'}}>{fmtDate(e.occurred_at)}</td>
                                     <td className="px-3 py-2">
                                         <Badge variant="outline" className="font-mono text-xs font-black px-2 py-0.5"
@@ -4581,6 +4601,32 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [showDoorModal, setShowDoorModal] = useState(false);
     const [showConfigMenu, setShowConfigMenu] = useState(false);
     const [lightboxShot, setLightboxShot] = useState(null);
+    const [nearbyDoorEvents, setNearbyDoorEvents] = useState([]);
+
+    // Cuando se abre lightbox, cargar eventos de apertura cercanos al timestamp ±5min
+    useEffect(() => {
+        if (!lightboxShot || !ext?.ext) { setNearbyDoorEvents([]); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const r = await fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext.ext)}&limit=100`, { credentials:'include' });
+                const j = await r.json();
+                if (cancelled) return;
+                if (j.ok && Array.isArray(j.events) && lightboxShot.timestamp) {
+                    const snapTs = new Date(String(lightboxShot.timestamp).replace(' ', 'T')).getTime();
+                    if (!isNaN(snapTs)) {
+                        const matches = j.events.filter(e => {
+                            if (!e.occurred_at) return false;
+                            const t = new Date(String(e.occurred_at).replace(' ', 'T')).getTime();
+                            return !isNaN(t) && Math.abs(t - snapTs) <= 5 * 60 * 1000;
+                        });
+                        setNearbyDoorEvents(matches);
+                    }
+                }
+            } catch(e) {}
+        })();
+        return () => { cancelled = true; };
+    }, [lightboxShot?.url, ext?.ext]);
     // HORIZON v5: Info básica inicia disabled, se habilita con el lápiz
     const [editing, setEditing] = useState(() => !ext); // si es nuevo, ya está editando
 
@@ -4980,7 +5026,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
             {/* ─── TAB: HISTORIAL DE APERTURAS DTMF ─────────────────── */}
             {!isNew && activeTab === 'aperturas' && (
-                <ExtDoorHistoryTab ext={ext.ext}/>
+                <ExtDoorHistoryTab ext={ext.ext} setLightboxShot={setLightboxShot}/>
             )}
 
             {/* ─── TAB: DEBUG SIP ────────────────────────────────────── */}
@@ -5394,17 +5440,28 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </DialogFooter>
                     </Dialog>
 
-                    {/* ─── Modal de detalles de captura + llamada asociada ─── */}
+                    {/* ─── Modal de detalles de captura + llamada asociada — pro ─── */}
                     {lightboxShot && (
                         <Dialog open={true} onOpenChange={()=>setLightboxShot(null)}>
                             <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                    <span className="material-icons-round" style={{fontSize:20,color:'var(--horizon-green)'}}>photo_library</span>
-                                    Detalle de acceso
+                                <DialogTitle className="flex items-center gap-2.5">
+                                    <span className="rounded-lg flex items-center justify-center shrink-0"
+                                          style={{width:34, height:34, background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000))', boxShadow:'0 4px 12px color-mix(in srgb, var(--horizon-green) 30%, transparent)'}}>
+                                        <span className="material-icons-round text-white" style={{fontSize:18}}>{lightboxShot.source === 'door' ? 'meeting_room' : 'photo_library'}</span>
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div>Detalle de acceso</div>
+                                        <div className="text-[10px] font-normal mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                                            Captura del videoportero <strong>#{form.ext}</strong>{form.rtsp_label ? ` · ${form.rtsp_label}` : ''}
+                                        </div>
+                                    </div>
+                                    {lightboxShot.source === 'door' && (
+                                        <Badge variant="outline" className="text-[9px]" style={{color:'#f59e0b', borderColor:'color-mix(in srgb, #f59e0b 45%, transparent)', background:'color-mix(in srgb, #f59e0b 12%, transparent)'}}>
+                                            <span className="material-icons-round mr-1" style={{fontSize:10}}>meeting_room</span>
+                                            Apertura
+                                        </Badge>
+                                    )}
                                 </DialogTitle>
-                                <DialogDescription>
-                                    Captura del videoportero <strong>#{form.ext}</strong>{form.rtsp_label ? ` · ${form.rtsp_label}` : ''}
-                                </DialogDescription>
                             </DialogHeader>
                             {/* Imagen grande */}
                             <div className="rounded-lg overflow-hidden border" style={{borderColor:'var(--border)',background:'#0a0a0d'}}>
@@ -5444,6 +5501,36 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                     </div>
                                 )}
                             </div>
+                            {/* Apertura DTMF asociada (busca en door_events por ventana ±5min) */}
+                            {nearbyDoorEvents.length > 0 && (
+                                <div className="rounded-md border p-3 mt-1" style={{borderColor:'color-mix(in srgb, #f59e0b 30%, var(--border))', background:'color-mix(in srgb, #f59e0b 6%, var(--card))'}}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="material-icons-round" style={{fontSize:16, color:'#f59e0b'}}>meeting_room</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider" style={{color:'#f59e0b'}}>
+                                            {nearbyDoorEvents.length === 1 ? 'Apertura asociada' : `${nearbyDoorEvents.length} aperturas asociadas`}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {nearbyDoorEvents.slice(0, 3).map((d, i) => (
+                                            <div key={i} className="flex items-center gap-2 text-[11px]">
+                                                <Badge variant="outline" className="font-mono text-[10px] font-black px-1.5 py-0"
+                                                       style={{color:'#f59e0b', borderColor:'color-mix(in srgb, #f59e0b 45%, transparent)', background:'color-mix(in srgb, #f59e0b 12%, transparent)'}}>
+                                                    {d.dtmf || '*9'}
+                                                </Badge>
+                                                <span className="font-mono" style={{color:'var(--muted-foreground)'}}>{d.occurred_at}</span>
+                                                <span style={{color:'var(--muted-foreground)'}}>·</span>
+                                                <span className="flex items-center gap-1" style={{color:'var(--foreground)'}}>
+                                                    <span className="material-icons-round" style={{fontSize:12, color: d.actor_kind === 'admin' ? 'var(--primary)' : 'var(--horizon-green)'}}>
+                                                        {d.actor_kind === 'admin' ? 'admin_panel_settings' : 'support_agent'}
+                                                    </span>
+                                                    {d.actor_user || '—'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Llamada asociada (busca en callHistory por ventana ±5min) */}
                             {(() => {
                                 const ts = lightboxShot.timestamp;

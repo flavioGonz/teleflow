@@ -1,7 +1,9 @@
 <?php
-// TeleFlow — devuelve la hora actual del server (sincronizado por NTP con la PBX 10.1.1.7)
+// TeleFlow — devuelve la hora actual del server con timezone correcta
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate');
+
+@include __DIR__ . '/../config.php';   // aplica date_default_timezone_set
 
 $now = microtime(true);
 echo json_encode([
