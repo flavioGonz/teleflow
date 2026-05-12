@@ -3424,6 +3424,143 @@ function AvatarUploader({ ext, name, onUploaded, size = 96 }) {
 
 
 // ─── ExtStatusPanel: estado en vivo del interno con preview RTSP y RTT animado ───
+// ─── ExtDoorHistoryTab: muestra eventos de apertura DTMF para una extensión ───
+function ExtDoorHistoryTab({ ext }) {
+    const [events, setEvents] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const load = useCallback(() => {
+        if (!ext) return;
+        setLoading(true); setError(null);
+        fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext)}&limit=200`, { credentials:'include' })
+            .then(r => r.json())
+            .then(j => {
+                if (j.ok) setEvents(j.events || []);
+                else setError(j.error || 'Error al cargar historial de aperturas');
+            })
+            .catch(() => setError('Error de red'))
+            .finally(() => setLoading(false));
+    }, [ext]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const fmtDate = (s) => {
+        if (!s) return '—';
+        return String(s).replace('T', ' ').substring(0, 19);
+    };
+    const relTime = (s) => {
+        if (!s) return '';
+        const t = new Date(String(s).replace(' ', 'T')).getTime();
+        if (!t) return '';
+        const diff = Date.now() - t;
+        const m = Math.floor(diff / 60000);
+        if (m < 1) return 'recién';
+        if (m < 60) return `hace ${m} min`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `hace ${h}h`;
+        const d = Math.floor(h / 24);
+        return `hace ${d}d`;
+    };
+
+    return (
+        <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 gap-3">
+                <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:18, color:'#f59e0b'}}>meeting_room</span>
+                        Historial de aperturas — Interno #{ext}
+                    </CardTitle>
+                    <CardDescription>
+                        Cada vez que se dispara <strong>Apertura remota</strong> desde la ficha del interno, queda registrado acá con código DTMF, usuario que lo activó y fecha/hora.
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    {events && <Badge variant="secondary" className="font-mono text-[10px]">{events.length} eventos</Badge>}
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <span className="material-icons-round mr-1" style={{fontSize:14, animation: loading ? 'spin 1s linear infinite' : 'none'}}>{loading ? 'autorenew' : 'refresh'}</span>
+                        Refrescar
+                    </Button>
+                </div>
+            </CardHeader>
+
+            {loading && !events && (
+                <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round animate-spin" style={{fontSize:32, color:'#f59e0b'}}>autorenew</span>
+                    <div className="mt-2 text-sm">Cargando aperturas…</div>
+                </div>
+            )}
+            {error && (
+                <div className="py-8 text-center px-4" style={{color:'var(--destructive)'}}>
+                    <span className="material-icons-round mb-2 block" style={{fontSize:36, opacity:0.6}}>error_outline</span>
+                    <div className="text-sm font-bold">{error}</div>
+                </div>
+            )}
+            {!loading && events && events.length === 0 && (
+                <div className="py-12 text-center" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round" style={{fontSize:40, opacity:0.4}}>door_back</span>
+                    <div className="mt-2 text-sm font-bold">Sin aperturas registradas</div>
+                    <div className="mt-1 text-xs">Cuando alguien dispare apertura remota desde la ficha, aparecerá acá.</div>
+                </div>
+            )}
+            {!loading && events && events.length > 0 && (
+                <div className="overflow-auto border-t" style={{maxHeight:'65vh', borderColor:'var(--border)'}}>
+                    <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-10" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                            <tr>
+                                <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    <span className="material-icons-round mr-1 align-middle" style={{fontSize:13}}>schedule</span>
+                                    Fecha/Hora
+                                </th>
+                                <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    <span className="material-icons-round mr-1 align-middle" style={{fontSize:13}}>dialpad</span>
+                                    Código DTMF
+                                </th>
+                                <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    <span className="material-icons-round mr-1 align-middle" style={{fontSize:13}}>person</span>
+                                    Activado por
+                                </th>
+                                <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                    Hace
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {events.map((e, i) => (
+                                <tr key={i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                    <td className="px-3 py-2 font-mono text-xs" style={{color:'var(--foreground)'}}>{fmtDate(e.occurred_at)}</td>
+                                    <td className="px-3 py-2">
+                                        <Badge variant="outline" className="font-mono text-xs font-black px-2 py-0.5"
+                                               style={{
+                                                   color:'#f59e0b',
+                                                   borderColor:'color-mix(in srgb, #f59e0b 45%, transparent)',
+                                                   background:'color-mix(in srgb, #f59e0b 12%, transparent)'
+                                               }}>
+                                            {e.dtmf || '*9'}
+                                        </Badge>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="material-icons-round" style={{fontSize:14, color: e.actor_kind === 'admin' ? 'var(--primary)' : 'var(--horizon-green)'}}>
+                                                {e.actor_kind === 'admin' ? 'admin_panel_settings' : 'support_agent'}
+                                            </span>
+                                            <span style={{color:'var(--foreground)'}}>{e.actor_user || '—'}</span>
+                                            <Badge variant="outline" className="text-[9px] ml-1" style={{color:'var(--muted-foreground)'}}>
+                                                {e.actor_kind === 'admin' ? 'admin' : 'agente'}
+                                            </Badge>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-xs" style={{color:'var(--muted-foreground)'}}>{relTime(e.occurred_at)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </Card>
+    );
+}
+
 // ─── ExtSipDebugTab: muestra info SIP en vivo para una extensión ───
 function ExtSipDebugTab({ ext }) {
     const [data, setData] = useState(null);
@@ -4072,6 +4209,38 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
 
 // FICHA DEL INTERNO — Página dedicada (no modal)
 // ─────────────────────────────────────────────
+// ─── Th: header de tabla con icono + tooltip animado (estilo shadcn) ───
+function Th({ children, tip, icon, align = 'left', width }) {
+    const justify = align === 'right' ? 'justify-end' : (align === 'center' ? 'justify-center' : 'justify-start');
+    return (
+        <th className={"text-" + align + " px-3 py-2 text-xs font-semibold uppercase tracking-wider relative group"}
+            style={{color:'var(--muted-foreground)', width}}>
+            <span className={"inline-flex items-center gap-1.5 " + justify + " w-full cursor-help"}>
+                {icon && (
+                    <span className="material-icons-round" style={{fontSize:13, opacity:0.65}}>{icon}</span>
+                )}
+                <span>{children}</span>
+                {tip && (
+                    <span className="material-icons-round" style={{fontSize:12, opacity:0.4}}>info</span>
+                )}
+            </span>
+            {tip && (
+                <span className="absolute z-30 left-1/2 -translate-x-1/2 top-full mt-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-normal normal-case tracking-normal whitespace-normal pointer-events-none opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200"
+                      style={{
+                          background:'color-mix(in srgb, var(--foreground) 92%, transparent)',
+                          color:'var(--background)',
+                          boxShadow:'0 8px 22px rgba(0,0,0,0.35)',
+                          minWidth:180, maxWidth:280, lineHeight:1.35
+                      }}>
+                    {tip}
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 rotate-45"
+                          style={{background:'color-mix(in srgb, var(--foreground) 92%, transparent)'}}/>
+                </span>
+            )}
+        </th>
+    );
+}
+
 function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ 
@@ -4261,6 +4430,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             { id:'datos',     icon:'tune',           label:'Datos' },
                             { id:'historial', icon:'history',        label:'Historial de llamadas' },
                             { id:'agentes',   icon:'support_agent',  label:'Historial de agentes' },
+                            { id:'aperturas', icon:'meeting_room',   label:'Historial de aperturas' },
                             { id:'sip',       icon:'bug_report',     label:'Debug SIP' },
                         ].map(t => (
                             <button
@@ -4333,23 +4503,27 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     {!historyLoading && callHistory && callHistory.length > 0 && (
                         <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                <thead className="sticky top-0 z-10" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                                     <tr>
-                                        <th className="text-center px-2 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)',width:54}}>Foto</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Fecha/Hora</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Origen</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Destino</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>CallerID</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
-                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Hablado</th>
-                                        <th className="text-center px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Grab.</th>
+                                        <Th tip="Captura RTSP del videoportero capturada dentro de ±5 min del momento de la llamada. Click para ampliar." icon="image" align="center" width={54}>Foto</Th>
+                                        <Th tip="Fecha y hora exacta del inicio de la llamada (zona horaria del PBX)." icon="schedule">Fecha / Hora</Th>
+                                        <Th tip="Quién originó la llamada (extensión o número externo). Resaltado si es esta extensión." icon="north_east">Origen</Th>
+                                        <Th tip="A quién se dirigió la llamada. Resaltado si es esta extensión (llamada entrante)." icon="south_west">Destino</Th>
+                                        <Th tip="CallerID completo tal como lo entrega el operador o el peer SIP origen." icon="badge">CallerID</Th>
+                                        <Th tip="Resultado de la llamada: contestada, no contestada, ocupado o fallida." icon="info">Estado</Th>
+                                        <Th tip="Tiempo efectivamente hablado (segundos). 0 si nadie atendió." icon="timer" align="right">Hablado</Th>
+                                        <Th tip="Si hay grabación disponible, podés reproducirla acá con el reproductor de ondas." icon="graphic_eq" align="center">Grab.</Th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {callHistory.map((c,i) => {
-                                        const variant = c.disposition === 'ANSWERED' ? 'success' : (c.disposition === 'BUSY' || c.disposition === 'FAILED' ? 'destructive' : 'warning');
+                                        const dispMeta = {
+                                            'ANSWERED':  { label:'Contestada',    color:'var(--horizon-green)', icon:'call',           variant:'success'    },
+                                            'NO ANSWER': { label:'No contestada', color:'var(--muted-foreground)', icon:'phone_missed', variant:'secondary'  },
+                                            'BUSY':      { label:'Ocupado',       color:'var(--warning)',       icon:'phone_paused',   variant:'warning'    },
+                                            'FAILED':    { label:'Fallida',       color:'var(--destructive)',   icon:'phone_disabled', variant:'destructive'},
+                                        }[c.disposition] || { label: c.disposition || '—', color:'var(--muted-foreground)', icon:'help', variant:'secondary' };
                                         const isInbound = String(c.dst) === String(ext.ext);
-                                        // Buscar snapshot dentro de ±5 min de la llamada
                                         const callTs = c.calldate ? new Date(c.calldate.replace(' ', 'T')).getTime() : 0;
                                         const closeSnap = callTs && historySnaps ? historySnaps.find(s => {
                                             if (!s.timestamp) return false;
@@ -4375,16 +4549,37 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 font-mono text-xs">{c.calldate}</td>
+                                                <td className="px-3 py-2 font-mono text-xs" style={{color:'var(--foreground)'}}>
+                                                    <span className="material-icons-round mr-1.5 align-middle" style={{fontSize:12, color:'var(--muted-foreground)', opacity:0.7}}>schedule</span>
+                                                    {c.calldate}
+                                                </td>
                                                 <td className="px-3 py-2 font-mono">
+                                                    <span className="material-icons-round mr-1 align-middle" style={{fontSize:13, color: isInbound ? 'var(--muted-foreground)' : 'var(--primary)'}}>
+                                                        {isInbound ? 'arrow_outward' : 'arrow_circle_right'}
+                                                    </span>
                                                     {isInbound ? <span style={{color:'var(--muted-foreground)'}}>{c.src}</span> : <strong style={{color:'var(--primary)'}}>{c.src}</strong>}
                                                 </td>
                                                 <td className="px-3 py-2 font-mono">
+                                                    <span className="material-icons-round mr-1 align-middle" style={{fontSize:13, color: isInbound ? 'var(--primary)' : 'var(--muted-foreground)'}}>
+                                                        {isInbound ? 'arrow_circle_down' : 'arrow_outward'}
+                                                    </span>
                                                     {isInbound ? <strong style={{color:'var(--primary)'}}>{c.dst}</strong> : <span style={{color:'var(--muted-foreground)'}}>{c.dst}</span>}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs truncate" style={{color:'var(--muted-foreground)', maxWidth:200}}>{c.clid}</td>
-                                                <td className="px-3 py-2"><Badge variant={variant}>{c.disposition}</Badge></td>
-                                                <td className="px-3 py-2 text-right font-mono">{c.billsec}s</td>
+                                                <td className="px-3 py-2 text-xs truncate" style={{color:'var(--muted-foreground)', maxWidth:200}} title={c.clid||''}>{c.clid}</td>
+                                                <td className="px-3 py-2">
+                                                    <Badge variant={dispMeta.variant} className="inline-flex items-center gap-1">
+                                                        <span className="material-icons-round" style={{fontSize:13}}>{dispMeta.icon}</span>
+                                                        {dispMeta.label}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-mono" style={{color: c.billsec > 0 ? 'var(--foreground)' : 'var(--muted-foreground)'}}>
+                                                    {c.billsec > 0 ? (
+                                                        <>
+                                                            {Math.floor(c.billsec/60)}:{String(c.billsec%60).padStart(2,'0')}
+                                                            <span className="text-[10px] ml-1" style={{color:'var(--muted-foreground)'}}>min</span>
+                                                        </>
+                                                    ) : '—'}
+                                                </td>
                                                 <td className="px-3 py-2 text-center">
                                                     {c.recordingfile
                                                         ? <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
@@ -4393,7 +4588,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                                                   style={{width:24,height:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'var(--primary)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
                                                               <span className="material-icons-round" style={{fontSize:14}}>play_arrow</span>
                                                           </button>
-                                                        : <span style={{color:'var(--muted-foreground)'}}>—</span>}
+                                                        : <span style={{color:'var(--muted-foreground)', opacity:0.5}}>—</span>}
                                                 </td>
                                             </tr>
                                         );
@@ -4463,6 +4658,11 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                         </div>
                     )}
                 </Card>
+            )}
+
+            {/* ─── TAB: HISTORIAL DE APERTURAS DTMF ─────────────────── */}
+            {!isNew && activeTab === 'aperturas' && (
+                <ExtDoorHistoryTab ext={ext.ext}/>
             )}
 
             {/* ─── TAB: DEBUG SIP ────────────────────────────────────── */}
@@ -11697,38 +11897,62 @@ function ViewConfigAgents() {
 
             {/* Dialog editar/crear */}
             <Dialog open={!!editing} onOpenChange={(v)=>!v && setEditing(null)}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>
-                                {editing?.id ? 'edit' : 'person_add'}
-                            </span>
-                            {editing?.id ? `Editar agente #${editing?.number}` : 'Nuevo agente'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {editing?.id ? 'Cambiá nombre, clave o estado del agente.' : 'Datos para crear un nuevo operador.'}
-                        </DialogDescription>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader className="flex flex-row items-start justify-between space-y-0 gap-3">
+                        <div className="flex-1 min-w-0">
+                            <DialogTitle className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>
+                                    {editing?.id ? 'edit' : 'person_add'}
+                                </span>
+                                {editing?.id ? `Editar agente #${editing?.number}` : 'Nuevo agente'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {editing?.id ? 'Cambiá nombre, clave o estado del agente.' : 'Datos para crear un nuevo operador.'}
+                            </DialogDescription>
+                        </div>
+                        {editing?.id && (
+                            <button type="button" onClick={()=>{ const a={id:editing.id, number:editing.number, name:editing.name}; setEditing(null); removeAgent(a); }}
+                                    disabled={busy}
+                                    title="Eliminar agente (soft-delete: queda en históricos como inactivo)"
+                                    className="shrink-0 rounded-md flex items-center justify-center transition-all hover:scale-105"
+                                    style={{
+                                        width:34, height:34,
+                                        background:'color-mix(in srgb, var(--destructive) 12%, transparent)',
+                                        border:'1px solid color-mix(in srgb, var(--destructive) 35%, transparent)',
+                                        color:'var(--destructive)'
+                                    }}>
+                                <span className="material-icons-round" style={{fontSize:17}}>delete_outline</span>
+                            </button>
+                        )}
                     </DialogHeader>
                     {editing && (
                         <div className="space-y-3 py-2">
-                            {!editing.id && (
+                            {/* Fila 1: número + clave en grid 2 cols (en edit el número va read-only) */}
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <Label htmlFor="ag-number" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Número de agente</Label>
-                                    <Input id="ag-number" value={editing.number} onChange={e=>setEditing({...editing, number:e.target.value.replace(/\D/g,'')})}
-                                           className="font-mono font-bold mt-1.5" placeholder="Ej: 1001" maxLength={6}/>
+                                    <Input id="ag-number"
+                                           value={editing.number||''}
+                                           onChange={e=>setEditing({...editing, number:e.target.value.replace(/\D/g,'')})}
+                                           readOnly={!!editing.id}
+                                           className="font-mono font-bold mt-1.5"
+                                           placeholder="Ej: 1001" maxLength={6}
+                                           style={editing.id ? { background:'color-mix(in srgb, var(--muted) 25%, var(--card))', cursor:'not-allowed' } : undefined}/>
                                 </div>
-                            )}
+                                <div>
+                                    <Label htmlFor="ag-pass" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                                        Clave numérica
+                                        {editing.id && <span className="opacity-60 ml-1 normal-case font-normal">(vacío = sin cambio)</span>}
+                                    </Label>
+                                    <Input id="ag-pass" type="password" value={editing.password||''} onChange={e=>setEditing({...editing, password:e.target.value.replace(/\D/g,'')})}
+                                           className="font-mono font-bold mt-1.5" placeholder="Ej: 1234" maxLength={12}/>
+                                </div>
+                            </div>
+                            {/* Nombre debajo full-width */}
                             <div>
                                 <Label htmlFor="ag-name" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Nombre</Label>
                                 <Input id="ag-name" value={editing.name||''} onChange={e=>setEditing({...editing, name:e.target.value})}
                                        className="mt-1.5" placeholder="Ej: Juan Pérez"/>
-                            </div>
-                            <div>
-                                <Label htmlFor="ag-pass" className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
-                                    Clave numérica {editing.id && <span className="opacity-60">(dejar vacío para no cambiar)</span>}
-                                </Label>
-                                <Input id="ag-pass" type="password" value={editing.password||''} onChange={e=>setEditing({...editing, password:e.target.value.replace(/\D/g,'')})}
-                                       className="font-mono font-bold mt-1.5" placeholder="Ej: 1234" maxLength={12}/>
                             </div>
                             {editing.id && (
                                 <div>
