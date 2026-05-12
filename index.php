@@ -10855,10 +10855,8 @@ function ViewHotdesking({ data, toast }) {
                 </button>
             </PageActions>
 
-            {/* WALLBOARD VIEW (default) — layout 2 columnas: offline izq, logueados der 4 filas */}
+            {/* WALLBOARD VIEW (rediseñado v8) — KPI strip + grid unificado */}
             {viewMode==='wallboard' && (() => {
-                const loggedAgents  = filtered.filter(a => a.logged_in);
-                const offlineAgents = filtered.filter(a => !a.logged_in);
 
                 const isAgentRinging = (a) => {
                     if (!liveCalls?.length) return false;
@@ -10879,7 +10877,6 @@ function ViewHotdesking({ data, toast }) {
                     return `https://ui-avatars.com/api/?name=${name}&background=11B328&color=fff&size=80&bold=true&format=svg`;
                 };
 
-                // Hangup directo (con confirmación implícita por ser acción única)
                 const doHangup = async (a) => {
                     if (!a.extension) return;
                     const fd = new FormData(); fd.append('ext', a.extension);
@@ -10891,112 +10888,20 @@ function ViewHotdesking({ data, toast }) {
                     } catch(e) { toast?.('Error de red', 'error'); }
                 };
 
-                const renderLogged = (a) => {
-                    const ringing = !a.in_call && !a.paused && isAgentRinging(a);
-                    const sc = a.in_call ? '#ef4444' : (a.paused ? (a.pause_color || '#f59e0b') : (ringing ? '#ef4444' : '#11B328'));
-                    const lbl = a.in_call ? 'EN LLAMADA' : (a.paused ? `EN PAUSA · ${a.pause_label || a.pause_type_code}` : (ringing ? 'LLAMADA ENTRANTE' : 'DISPONIBLE'));
-                    const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
-                    const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
-                    return (
-                        <div
-                            key={a.id}
-                            onClick={()=>setEditing(a)}
-                            className={cn(
-                                "rounded-xl border bg-card text-card-foreground overflow-hidden cursor-pointer transition-all hover:bg-muted/40",
-                                ringing && "hzn-ringing"
-                            )}
-                            style={{borderColor: a.in_call || ringing ? '#ef4444' : 'var(--border)'}}
-                        >
-                            <div style={{height:3, background:sc}}/>
-                            <div style={{padding:'12px', display:'flex', alignItems:'center', gap:12}}>
-                                {/* Avatar — más chico en layout horizontal */}
-                                <div style={{position:'relative', width:52, height:52, flexShrink:0}}>
-                                    <img src={avatarFor(a)} alt={a.name}
-                                        onError={(e)=>{e.target.style.display='none'; const n=e.target.nextSibling; if(n) n.style.display='flex';}}
-                                        style={{width:52, height:52, borderRadius:'50%', objectFit:'cover', display:'block', border:`2px solid ${sc}`, boxShadow:`0 4px 12px ${sc}55`}}/>
-                                    <div style={{display:'none', width:52, height:52, borderRadius:'50%', background:`linear-gradient(135deg, ${sc}, ${sc}aa)`, alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:900, border:`2px solid ${sc}`}}>
-                                        {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
-                                    </div>
-                                    <span style={{position:'absolute', bottom:-1, right:-1, width:14, height:14, borderRadius:'50%', background:sc, border:'3px solid var(--card)', animation:a.in_call||ringing?'pulse-ring 1.5s infinite':''}}/>
-                                </div>
-
-                                {/* Info principal */}
-                                <div style={{flex:1, minWidth:0}}>
-                                    <div style={{display:'flex', alignItems:'baseline', gap:6, marginBottom:2}}>
-                                        <span style={{fontSize:18, fontWeight:900, color:'var(--horizon-green)', lineHeight:1, fontFamily:'monospace', letterSpacing:'-.3px'}}>#{a.number}</span>
-                                        {a.extension && <span style={{fontSize:10, color:'var(--muted)', fontFamily:'monospace', fontWeight:700}}>ext {a.extension}</span>}
-                                    </div>
-                                    <div style={{fontSize:12, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4}}>{a.name}</div>
-                                    <div style={{display:'flex', flexWrap:'wrap', gap:3, alignItems:'center'}}>
-                                        <span style={{fontSize:9, fontWeight:900, padding:'2px 7px', borderRadius:5, background:`${sc}22`, color:sc, letterSpacing:'.05em'}}>
-                                            {lbl}{a.in_call && myCall ? ` · ${myCall.duration||'00:00'}` : ''}{a.paused && pauseDur ? ` · ${pauseDur}` : ''}
-                                        </span>
-                                        {a.queues.slice(0,3).map((q,i)=>(
-                                            <span key={i} style={{fontSize:9, padding:'2px 6px', borderRadius:4, background:'rgba(17,179,40,0.12)', color:'var(--horizon-green)', fontFamily:'monospace', fontWeight:800, border:'1px solid rgba(17,179,40,0.25)'}}>Q{q.queue||q}</span>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Actions verticales */}
-                                <div style={{display:'flex', flexDirection:'column', gap:4}} onClick={e=>e.stopPropagation()}>
-                                    {a.in_call ? (
-                                        <button onClick={()=>doHangup(a)} title="Colgar llamada"
-                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
-                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
-                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>call_end</span>
-                                        </button>
-                                    ) : ringing ? (
-                                        <button onClick={()=>doHangup(a)} title="Rechazar llamada"
-                                            className="rounded-md border bg-destructive/15 text-destructive font-bold transition-colors hover:bg-destructive/25"
-                                            style={{padding:'4px 8px', fontSize:10, borderColor:'rgba(239,68,68,0.4)'}}>
-                                            <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>phone_disabled</span>
-                                        </button>
-                                    ) : null}
-                                    <button onClick={()=>logoutAgent(a)} title="Cerrar sesión"
-                                        className="rounded-md border transition-colors hover:bg-accent"
-                                        style={{padding:'4px 8px', fontSize:10, borderColor:'var(--border)', background:'var(--secondary)', color:'var(--foreground)'}}>
-                                        <span className="material-icons-round" style={{fontSize:14, verticalAlign:'middle'}}>logout</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    );
+                // Status classifier: 'busy' | 'ringing' | 'paused' | 'available' | 'offline'
+                const statusOf = (a) => {
+                    if (!a.logged_in) return 'offline';
+                    if (a.in_call) return 'busy';
+                    if (isAgentRinging(a)) return 'ringing';
+                    if (a.paused) return 'paused';
+                    return 'available';
                 };
 
-                const renderOffline = (a) => (
-                    <div
-                        key={a.id}
-                        onClick={()=>setEditing(a)}
-                        className="rounded-md border cursor-pointer transition-all hover:shadow-sm flex items-center gap-2 px-2 py-1.5"
-                        style={{
-                            borderColor:'var(--border)',
-                            background:'var(--card)',
-                            color:'var(--card-foreground)'
-                        }}>
-                        <div className="rounded-full flex items-center justify-center font-black text-white shrink-0"
-                             style={{
-                                 width:28, height:28, fontSize:10,
-                                 background:'linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 60%, #000), color-mix(in srgb, var(--muted-foreground) 85%, #000))'
-                             }}>
-                            {(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>{a.name}</div>
-                            <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>#{a.number}</div>
-                        </div>
-                        <button onClick={(e)=>{e.stopPropagation(); setLoginAgentTarget(a);}}
-                                className="rounded-md border px-2.5 py-1 text-[10px] font-bold transition-colors hover:shadow-sm"
-                                style={{
-                                    color:'var(--horizon-green)',
-                                    borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)',
-                                    background:'color-mix(in srgb, var(--horizon-green) 10%, transparent)'
-                                }}>
-                            Login
-                        </button>
-                    </div>
-                );
+                // Priority sort: busy → ringing → paused → available → offline
+                const rank = { busy: 0, ringing: 1, paused: 2, available: 3, offline: 4 };
+                const sortedAgents = [...filtered].sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]);
 
-                if (loggedAgents.length === 0 && offlineAgents.length === 0) {
+                if (sortedAgents.length === 0) {
                     return (
                         <div className="rounded-lg border border-border bg-card text-card-foreground p-10 text-center text-muted-foreground">
                             <span className="material-icons-round" style={{fontSize:48, opacity:0.4, display:'block', marginBottom:8}}>person_off</span>
@@ -11005,144 +10910,192 @@ function ViewHotdesking({ data, toast }) {
                     );
                 }
 
-                return (
-                    <div className="grid gap-4" style={{gridTemplateColumns:'minmax(0, 2fr) minmax(280px, 1fr)', alignItems:'stretch'}}>
-                        {/* LEFT: agentes logueados — panel destacado con header tipo card shadcn */}
-                        <div className="rounded-xl border overflow-hidden" style={{
-                            borderColor:'color-mix(in srgb, var(--horizon-green) 25%, var(--border))',
-                            background:'linear-gradient(180deg, color-mix(in srgb, var(--horizon-green) 6%, var(--card)) 0%, var(--card) 100%)',
-                            boxShadow:'0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px color-mix(in srgb, var(--horizon-green) 8%, transparent)'
-                        }}>
-                            {/* Header del panel — separado con border-bottom */}
-                            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b" style={{
-                                borderColor:'color-mix(in srgb, var(--horizon-green) 18%, var(--border))',
-                                background:'color-mix(in srgb, var(--horizon-green) 7%, transparent)'
+                // Render rich agent tile
+                const renderTile = (a) => {
+                    const st = statusOf(a);
+                    const scMap = {
+                        busy:      { color:'#ef4444',             label:'EN LLAMADA',     icon:'phone_in_talk' },
+                        ringing:   { color:'#ef4444',             label:'SONANDO',        icon:'phone_callback' },
+                        paused:    { color: a.pause_color || '#f59e0b', label:`PAUSA${a.pause_label ? ' · '+a.pause_label : ''}`, icon:'pause_circle' },
+                        available: { color:'var(--horizon-green)',label:'DISPONIBLE',     icon:'check_circle' },
+                        offline:   { color:'var(--muted-foreground)', label:'OFFLINE',     icon:'power_settings_new' },
+                    };
+                    const cfg = scMap[st];
+                    const sc = cfg.color;
+                    const isLive = st !== 'offline';
+                    const isCritical = st === 'busy' || st === 'ringing';
+                    const myCall = a.in_call ? liveCalls.find(c => String(c.ext)===String(a.extension) || String(c.dest)===String(a.extension)) : null;
+                    const pauseDur = a.paused ? tfFmtSecs((a.pause_seconds || 0) + Math.floor((Date.now() - (window._tfPauseTickT0||(window._tfPauseTickT0=Date.now())))/1000)) : null;
+
+                    return (
+                        <div
+                            key={a.id}
+                            onClick={()=>setEditing(a)}
+                            className={cn("relative rounded-xl border overflow-hidden cursor-pointer transition-all hover:shadow-lg group", st === 'ringing' && 'hzn-ringing')}
+                            style={{
+                                borderColor: isLive ? `color-mix(in srgb, ${sc} 50%, var(--border))` : 'var(--border)',
+                                background: isLive
+                                    ? `linear-gradient(180deg, color-mix(in srgb, ${sc} 6%, var(--card)) 0%, var(--card) 80%)`
+                                    : 'var(--card)',
+                                opacity: st === 'offline' ? 0.78 : 1
                             }}>
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <div style={{
-                                        width:30, height:30, borderRadius:9,
-                                        background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 70%, #16a34a))',
-                                        display:'flex', alignItems:'center', justifyContent:'center',
-                                        boxShadow:'0 2px 8px color-mix(in srgb, var(--horizon-green) 40%, transparent)',
-                                        flexShrink:0
-                                    }}>
-                                        <span className="material-icons-round" style={{color:'#fff', fontSize:17}}>support_agent</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div style={{fontSize:12, fontWeight:800, color:'var(--foreground)', letterSpacing:'-.01em', lineHeight:1.1}}>Logueados</div>
-                                        <div style={{fontSize:10, color:'var(--muted-foreground)', fontWeight:600, marginTop:1, lineHeight:1.2}}>Activos en tiempo real</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <span style={{
-                                        display:'inline-flex', alignItems:'center', gap:5,
-                                        padding:'3px 9px', borderRadius:9999,
-                                        background:'color-mix(in srgb, var(--horizon-green) 18%, transparent)',
-                                        color:'var(--horizon-green)',
-                                        fontSize:11, fontWeight:800, fontFamily:'monospace',
-                                        border:'1px solid color-mix(in srgb, var(--horizon-green) 30%, transparent)'
-                                    }}>
-                                        {loggedAgents.length > 0 && <span style={{width:6, height:6, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>}
-                                        {loggedAgents.length}
-                                    </span>
-                                </div>
-                            </div>
+
+                            {/* Top accent bar */}
+                            <div style={{height:3, background: sc, opacity: isLive ? 1 : 0.35}}/>
+
+                            {/* Decorative status icon en background */}
+                            <span className="material-icons-round absolute pointer-events-none select-none"
+                                  style={{
+                                      fontSize: 110, color: sc,
+                                      opacity: 0.06, bottom: -18, right: -12,
+                                      animation: isCritical ? 'tf-status-shake 0.6s ease-in-out infinite' : (st==='available' ? 'tf-status-breath 2.4s ease-in-out infinite' : 'none')
+                                  }}>{cfg.icon}</span>
 
                             {/* Body */}
-                            <div className="p-3">
-                                {loggedAgents.length > 0 ? (
+                            <div className="relative p-3 flex items-start gap-3">
+                                {/* Avatar con status ring */}
+                                <div className="relative shrink-0">
+                                    <img src={avatarFor(a)} alt={a.name}
+                                         onError={(e)=>{e.target.style.display='none'; const n=e.target.nextSibling; if(n) n.style.display='flex';}}
+                                         className="rounded-full object-cover"
+                                         style={{
+                                             width:48, height:48,
+                                             border: `2.5px solid ${sc}`,
+                                             boxShadow: isCritical ? `0 0 14px color-mix(in srgb, ${sc} 60%, transparent)` : 'none'
+                                         }}/>
                                     <div style={{
-                                        display:'grid',
-                                        gridTemplateRows:'repeat(4, minmax(72px, auto))',
-                                        gridAutoFlow:'column',
-                                        gridAutoColumns:'minmax(320px, 1fr)',
-                                        gap:8,
-                                        overflowX:'auto',
-                                        overflowY:'hidden',
-                                        paddingBottom:6,
-                                        scrollbarWidth:'thin'
-                                    }}>
-                                        {loggedAgents.map(renderLogged)}
+                                        display:'none', width:48, height:48, borderRadius:'50%',
+                                        background:`linear-gradient(135deg, ${sc}, color-mix(in srgb, ${sc} 65%, #000))`,
+                                        alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:900,
+                                        border:`2.5px solid ${sc}`
+                                    }}>{(a.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase()}</div>
+                                    <span style={{
+                                        position:'absolute', bottom:-2, right:-2,
+                                        width:16, height:16, borderRadius:'50%',
+                                        background: sc, border:'2.5px solid var(--card)',
+                                        animation: isCritical ? 'pulse 1.2s ease-in-out infinite' : 'none'
+                                    }}/>
+                                </div>
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="font-mono font-black text-sm" style={{color: sc, letterSpacing:'-0.3px'}}>#{a.number}</span>
+                                        {a.extension && (
+                                            <span className="font-mono text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>· ext {a.extension}</span>
+                                        )}
                                     </div>
-                                ) : (
-                                    <div className="flex items-center gap-3 py-4 px-3">
-                                        <div className="rounded-full flex items-center justify-center shrink-0" style={{
-                                            width:40, height:40,
-                                            background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)',
-                                            border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'
-                                        }}>
-                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>person_off</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold" style={{color:'var(--foreground)'}}>Ningún agente logueado</div>
-                                            <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
-                                                Marcá <strong className="font-mono" style={{color:'var(--horizon-green)'}}>*7700</strong> desde el teléfono · {offlineAgents.length} disponibles
-                                            </div>
-                                        </div>
+                                    <div className="text-xs font-bold truncate mt-0.5" style={{color:'var(--foreground)'}}>{a.name}</div>
+
+                                    {/* Status pill + live timer */}
+                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black tracking-wider"
+                                              style={{background:`color-mix(in srgb, ${sc} 15%, transparent)`, color:sc, border:`1px solid color-mix(in srgb, ${sc} 30%, transparent)`}}>
+                                            <span className="material-icons-round" style={{fontSize:10}}>{cfg.icon}</span>
+                                            {cfg.label}
+                                        </span>
+                                        {a.in_call && myCall && (
+                                            <span className="font-mono text-[10px] font-bold" style={{color:sc}}>
+                                                <span className="material-icons-round" style={{fontSize:11, verticalAlign:'middle'}}>schedule</span>
+                                                {myCall.duration || '00:00'}
+                                            </span>
+                                        )}
+                                        {a.paused && pauseDur && (
+                                            <span className="font-mono text-[10px] font-bold" style={{color:sc}}>
+                                                <span className="material-icons-round" style={{fontSize:11, verticalAlign:'middle'}}>timer</span>
+                                                {pauseDur}
+                                            </span>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* Queues badges */}
+                                    {a.logged_in && a.queues.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                            {a.queues.slice(0,4).map((q,i)=>(
+                                                <span key={i} className="font-mono text-[9px] font-bold rounded px-1.5 py-0.5"
+                                                      style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', border:'1px solid color-mix(in srgb, var(--horizon-green) 25%, transparent)'}}>
+                                                    Q{q.queue||q}
+                                                </span>
+                                            ))}
+                                            {a.queues.length > 4 && (
+                                                <span className="text-[9px] font-bold" style={{color:'var(--muted-foreground)'}}>+{a.queues.length-4}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action icons stacked vertically — visible on hover */}
+                                <div className="flex flex-col gap-1 transition-opacity opacity-60 group-hover:opacity-100" onClick={e=>e.stopPropagation()}>
+                                    {st === 'offline' ? (
+                                        <button onClick={()=>setLoginAgentTarget(a)} title="Login agente"
+                                                className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
+                                                style={{width:28, height:28, background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', borderColor:'color-mix(in srgb, var(--horizon-green) 35%, transparent)'}}>
+                                            <span className="material-icons-round" style={{fontSize:14}}>login</span>
+                                        </button>
+                                    ) : (
+                                        <>
+                                            {(a.in_call || st==='ringing') && (
+                                                <button onClick={()=>doHangup(a)} title={st==='ringing'?'Rechazar':'Colgar llamada'}
+                                                        className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
+                                                        style={{width:28, height:28, background:'color-mix(in srgb, var(--destructive) 12%, transparent)', color:'var(--destructive)', borderColor:'color-mix(in srgb, var(--destructive) 35%, transparent)'}}>
+                                                    <span className="material-icons-round" style={{fontSize:14}}>{st==='ringing' ? 'phone_disabled' : 'call_end'}</span>
+                                                </button>
+                                            )}
+                                            <button onClick={()=>logoutAgent(a)} title="Cerrar sesión"
+                                                    className="rounded-md border flex items-center justify-center transition-all hover:scale-110"
+                                                    style={{width:28, height:28, background:'var(--secondary)', color:'var(--muted-foreground)', borderColor:'var(--border)'}}>
+                                                <span className="material-icons-round" style={{fontSize:14}}>logout</span>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                    );
+                };
 
-                        {/* RIGHT: agentes offline — Card con header + body scrollable */}
-                        <div className="rounded-xl border overflow-hidden flex flex-col" style={{
-                            borderColor:'var(--border)',
-                            background:'var(--card)',
-                            maxHeight:'calc(100vh - 240px)',
-                            minHeight: loggedAgents.length > 0 ? '320px' : '180px'
-                        }}>
-                            {/* Header del panel — mismo patrón que Logueados */}
-                            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b" style={{
-                                borderColor:'var(--border)',
-                                background:'color-mix(in srgb, var(--muted) 35%, transparent)'
-                            }}>
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <div className="rounded-lg flex items-center justify-center shrink-0" style={{
-                                        width:30, height:30,
-                                        background:'color-mix(in srgb, var(--muted-foreground) 22%, transparent)',
-                                        color:'var(--muted-foreground)'
-                                    }}>
-                                        <span className="material-icons-round" style={{fontSize:17}}>person_off</span>
+                return (
+                    <div className="space-y-4">
+
+                        {/* ─── KPI strip ─── */}
+                        <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))'}}>
+                            {[
+                                { label:'Total',       value: agents.length, color:'var(--primary)',           icon:'group',         pulse:false },
+                                { label:'Logueados',   value: totalLogged,   color:'#3b82f6',                  icon:'login',         pulse: totalLogged > 0 },
+                                { label:'Disponibles', value: totalAvail,    color:'var(--horizon-green)',     icon:'check_circle',  pulse: totalAvail > 0 },
+                                { label:'En llamada',  value: totalBusy,     color:'var(--destructive)',       icon:'phone_in_talk', pulse: totalBusy > 0 },
+                                { label:'En pausa',    value: totalPaused,   color:'var(--warning)',           icon:'pause_circle',  pulse: totalPaused > 0 },
+                                { label:'Offline',     value: totalOff,      color:'var(--muted-foreground)',  icon:'power_settings_new', pulse:false },
+                            ].map(k => (
+                                <div key={k.label} className="relative rounded-xl border overflow-hidden p-3"
+                                     style={{
+                                         borderColor:`color-mix(in srgb, ${k.color} 25%, var(--border))`,
+                                         background:`linear-gradient(135deg, color-mix(in srgb, ${k.color} 8%, var(--card)) 0%, var(--card) 70%)`
+                                     }}>
+                                    <span className="material-icons-round absolute pointer-events-none" style={{
+                                        fontSize:80, color:k.color, opacity:0.08, top:-12, right:-10
+                                    }}>{k.icon}</span>
+                                    <div className="relative flex items-center justify-between gap-2 mb-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{k.label}</span>
+                                        <span className="rounded-md flex items-center justify-center" style={{width:24, height:24, background:`color-mix(in srgb, ${k.color} 15%, transparent)`}}>
+                                            <span className="material-icons-round" style={{fontSize:14, color:k.color}}>{k.icon}</span>
+                                        </span>
                                     </div>
-                                    <div className="min-w-0">
-                                        <div className="text-xs font-extrabold tracking-tight" style={{color:'var(--foreground)'}}>Offline</div>
-                                        <div className="text-[10px] font-semibold leading-tight mt-0.5" style={{color:'var(--muted-foreground)'}}>Disponibles para loguear</div>
+                                    <div className="relative flex items-baseline gap-1.5">
+                                        <span className="font-mono font-black text-3xl tabular-nums leading-none" style={{color:k.color, letterSpacing:'-1.5px'}}>{k.value}</span>
+                                        {k.pulse && <span className="rounded-full" style={{width:6, height:6, background:k.color, boxShadow:`0 0 6px ${k.color}`, animation:'pulse 1.5s ease-in-out infinite'}}/>}
                                     </div>
                                 </div>
-                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold font-mono border"
-                                      style={{
-                                          background:'color-mix(in srgb, var(--muted-foreground) 15%, transparent)',
-                                          color:'var(--muted-foreground)',
-                                          borderColor:'color-mix(in srgb, var(--muted-foreground) 28%, transparent)'
-                                      }}>
-                                    {offlineAgents.length}
-                                </span>
-                            </div>
-                            {/* Body */}
-                            <div className="flex-1 overflow-auto p-2" style={{scrollbarWidth:'thin'}}>
-                                {offlineAgents.length > 0 ? (
-                                    <div className="flex flex-col gap-1.5">
-                                        {offlineAgents.map(renderOffline)}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center text-center py-8 px-3 h-full gap-2">
-                                        <div className="rounded-full flex items-center justify-center" style={{
-                                            width:42, height:42,
-                                            background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)',
-                                            border:'1.5px dashed color-mix(in srgb, var(--horizon-green) 40%, transparent)'
-                                        }}>
-                                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>check_circle</span>
-                                        </div>
-                                        <div className="text-xs font-bold" style={{color:'var(--foreground)'}}>Todos logueados</div>
-                                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>No hay agentes disponibles</div>
-                                    </div>
-                                )}
-                            </div>
+                            ))}
+                        </div>
+
+                        {/* ─── Agent grid unificado ─── */}
+                        <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))'}}>
+                            {sortedAgents.map(renderTile)}
                         </div>
                     </div>
                 );
             })()}
-
 
             {/* TABLE VIEW */}
             {viewMode==='table' && (
