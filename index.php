@@ -3466,7 +3466,7 @@ function ExtSipDebugTab({ ext }) {
     );
 }
 
-function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, setShowRtspModal }) {
+function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, setShowRtspModal, showHeaderOverlay }) {
     // Parse RTT (puede venir como "12ms", "150ms", "—", null, etc.)
     const rttMs = useMemo(() => {
         if (!ext?.rtt || ext.rtt === '—') return null;
@@ -3515,18 +3515,44 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
             window.open(`api/rtsp_proxy.php?ext=${encodeURIComponent(form.ext)}`, '_blank');
         };
 
+        const openDoor = async () => {
+            // Apertura remota: dispara DTMF *9 hacia el peer (o un AMI Originate al feature code)
+            // Por ahora, dispara evento que puede engancharse al dialplan
+            try {
+                const fd = new FormData(); fd.append('ext', form.ext); fd.append('dtmf', '*9');
+                const r = await fetch('api/door_dtmf.php?action=log', { method:'POST', body:fd, credentials:'include' });
+                const j = await r.json();
+                if (j.status === 'ok') {
+                    window.dispatchEvent(new CustomEvent('tf-snapshot-captured', { detail: { ext: form.ext } }));
+                    if (window.sileo) window.sileo.push({ kind:'info', icon:'meeting_room', title:'Apertura registrada', msg:`Puerta del ext ${form.ext} abierta`, duration:4000 });
+                }
+            } catch(e) {}
+        };
+
         const actions = [
-            { icon:'photo_camera',  label:'Capturar ahora',   tone:'success',     onClick: captureNow },
-            { icon:'open_in_full',  label:'Abrir en pantalla completa', tone:'default', onClick: openFullscreen },
-            { icon:'settings',      label:'Configurar RTSP',  tone:'default',     onClick: ()=>setShowRtspModal && setShowRtspModal(true) },
+            { icon:'meeting_room',  label:'Apertura remota',   tone:'success',     onClick: openDoor },
+            { icon:'photo_camera',  label:'Capturar ahora',    tone:'success',     onClick: captureNow },
+            { icon:'open_in_full',  label:'Pantalla completa', tone:'default',     onClick: openFullscreen },
+            { icon:'settings',      label:'Configurar RTSP',   tone:'default',     onClick: ()=>setShowRtspModal && setShowRtspModal(true) },
         ];
 
         return (
-            <div className="relative overflow-hidden flex flex-col rounded-lg"
+            <div className="relative overflow-hidden flex flex-col"
                  style={{
                      background:'#0a0a0d',
-                     minHeight: 380
+                     minHeight: 420,
+                     borderRadius: showHeaderOverlay ? 0 : 'var(--radius)'
                  }}>
+                {/* Header overlay con título cuando showHeaderOverlay */}
+                {showHeaderOverlay && (
+                    <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-3 pb-2 pointer-events-none"
+                         style={{background:'linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0))'}}>
+                        <div className="flex items-center gap-2 text-sm uppercase tracking-wider" style={{color:'#fff'}}>
+                            <span className="material-icons-round" style={{fontSize:18, color:statusColor, filter:`drop-shadow(0 0 8px ${statusColor})`}}>circle</span>
+                            <span style={{fontWeight:700, textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>Estado del interno</span>
+                        </div>
+                    </div>
+                )}
                 {/* VIDEO RTSP llena toda la columna sin border */}
                 <div className="absolute inset-0">
                     <RtspInlinePreview ext={form.ext} url={form.rtsp_url} label={form.rtsp_label} fillContainer={true}/>
@@ -3536,8 +3562,8 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                     }}/>
                 </div>
 
-                {/* Top-right action icons overlay con tooltip animado */}
-                <div className="absolute top-2 right-2 z-20 flex flex-col gap-1.5">
+                {/* Top-right action icons overlay con tooltip animado (debajo del título) */}
+                <div className={"absolute right-2 z-30 flex flex-col gap-1.5 " + (showHeaderOverlay ? 'top-12' : 'top-2')}>
                     {actions.map(a => (
                         <div key={a.icon} className="relative group">
                             <button type="button" onClick={a.onClick}
@@ -3564,7 +3590,7 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
                 </div>
 
                 {/* Top-center: status icon + badge */}
-                <div className="relative z-10 flex flex-col items-center pt-7 pb-3 pointer-events-none">
+                <div className={"relative z-10 flex flex-col items-center pb-3 pointer-events-none " + (showHeaderOverlay ? 'pt-16' : 'pt-7')}>
                     <span className="material-icons-round"
                           style={{
                               fontSize: 52,
@@ -4490,15 +4516,19 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </CardContent>
                         </Card>
 
-                        {/* ─── Card 4: Estado del interno (con preview RTSP en vivo si hay URL) ─── */}
-                        <Card className="overflow-hidden">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                                    <span className="material-icons-round" style={{fontSize:18, color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
-                                    Estado del interno
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className={form.rtsp_url ? 'p-0' : ''}>
+                        {/* ─── Card 4: Estado del interno (con video RTSP como background completo si hay URL) ─── */}
+                        <Card className={cn("overflow-hidden", !isNew && form.rtsp_url && "relative")}
+                              style={!isNew && form.rtsp_url ? {minHeight:420, background:'#0a0a0d', borderColor:`color-mix(in srgb, ${statusColor} 35%, var(--border))`} : undefined}>
+                            {/* Cuando hay RTSP: header overlay sobre el video, sino header normal */}
+                            {!isNew && form.rtsp_url ? null : (
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                                        <span className="material-icons-round" style={{fontSize:18, color: !isNew ? statusColor : 'var(--muted-foreground)'}}>circle</span>
+                                        Estado del interno
+                                    </CardTitle>
+                                </CardHeader>
+                            )}
+                            <CardContent className={!isNew && form.rtsp_url ? 'p-0' : ''}>
                                 {!isNew ? (
                                     <div className={form.rtsp_url ? '' : 'space-y-3'}>
                                         <ExtStatusPanel
@@ -4509,6 +4539,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                             statusColor={statusColor}
                                             statusLabel={statusLabel}
                                             setShowRtspModal={setShowRtspModal}
+                                            showHeaderOverlay={true}
                                         />
                                         {/* Botón Grabación de llamadas — abre modal */}
                                         <div className={form.rtsp_url ? 'p-2.5' : ''}>
@@ -12463,7 +12494,14 @@ function SileoProvider({ children }) {
         return id;
     };
     const dismiss = (id) => {
-        setNotifs(prev => prev.map(n => n.id === id ? {...n, _dismiss:true} : n));
+        setNotifs(prev => {
+            // Si el toast tiene previewId asociado, disparar cierre del preview RTSP
+            const target = prev.find(n => n.id === id);
+            if (target && target.previewId) {
+                try { window.dispatchEvent(new CustomEvent('tf-rtsp-preview-close', { detail: { id: target.previewId } })); } catch(e) {}
+            }
+            return prev.map(n => n.id === id ? {...n, _dismiss:true} : n);
+        });
         setTimeout(() => setNotifs(prev => prev.filter(n => n.id !== id)), 320);
     };
 
@@ -13259,7 +13297,7 @@ function App() {
                 if (callerMeta?.rtsp_url) {
                     window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
                         detail: {
-                            id: dedupKey,
+                            id: c.channel || dedupKey,   // usar channel para que cierre coincida
                             ext: c.ext,
                             url: callerMeta.rtsp_url,
                             label: callerMeta.rtsp_label || `Videoportero · ext ${c.ext}`,
@@ -13278,6 +13316,7 @@ function App() {
                     icon: 'phone_in_talk',
                     title: tipoLabel ? `Llamada · ${tipoLabel}` : 'Llamada entrante',
                     msg: `${callerLabel} → ${destLabel}`,
+                    previewId: c.channel || dedupKey,  // para que dismiss cierre el preview
                     actions: [
                         { label: 'Asignar', primary: true, onClick: () => { window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c})); } },
                         { label: 'Escuchar', onClick: () => { window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: c})); } },
@@ -13290,8 +13329,9 @@ function App() {
                 if (!d?.pbx) return d;
                 let live = d.pbx.live_calls || [];
                 if (ev.type === 'hangup') {
-                    // Cerrar preview RTSP si estaba abierto
+                    // Cerrar preview RTSP por channel y por id (cubre ambos casos)
                     window.dispatchEvent(new CustomEvent('tf-rtsp-preview-close', { detail: { id: ev.channel } }));
+                    if (ev.id) window.dispatchEvent(new CustomEvent('tf-rtsp-preview-close', { detail: { id: ev.id } }));
                     live = live.filter(c => c.channel !== ev.channel && c.id !== ev.id);
                 } else if (ev.type === 'new' && ev.call) {
                     if (!live.find(c => c.channel === ev.call.channel || c.id === ev.call.id)) {
