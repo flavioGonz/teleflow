@@ -3101,6 +3101,94 @@ function Topbar({ view, data, onRefresh, setCollapsed }) {
 // ─────────────────────────────────────────────
 // VISTA: DASHBOARD
 // ─────────────────────────────────────────────
+// ─── RtspMiniLive: thumbnail de video RTSP para inline en filas (sin header, sin label) ───
+function RtspMiniLive({ ext, url, width = 88, height = 56 }) {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [resolvedUrl, setResolvedUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!url) return;
+        let cancelled = false;
+        setLoading(true); setError(null); setResolvedUrl(null);
+        const isRtsp = /^rtsps?:\/\//i.test(url);
+        if (isRtsp && ext) {
+            fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+                .then(r => r.json())
+                .then(d => { if (cancelled) return; if (d.status === 'ok' && d.hls_url) setResolvedUrl(d.hls_url); else setError(d.message || 'Sin proxy'); })
+                .catch(() => { if (!cancelled) setError('Sin proxy'); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+        } else {
+            setResolvedUrl(url);
+            setLoading(false);
+        }
+        return () => { cancelled = true; };
+    }, [url, ext]);
+
+    const playUrl = resolvedUrl || '';
+    const isHls = /\.m3u8(\?|$)/i.test(playUrl);
+
+    useEffect(() => {
+        if (!isHls || !playUrl || !videoRef.current) return;
+        const video = videoRef.current;
+        const setupHls = () => {
+            if (!window.Hls) { setError('HLS.js no cargó'); return; }
+            if (window.Hls.isSupported()) {
+                const hls = new window.Hls({ lowLatencyMode: true });
+                hls.loadSource(playUrl);
+                hls.attachMedia(video);
+                hls.on(window.Hls.Events.ERROR, (_, data) => { if (data.fatal) setError('Stream no disponible'); });
+                video._hls = hls;
+                return () => { try { hls.destroy(); } catch(e) {} };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = playUrl;
+            }
+        };
+        if (window.Hls) return setupHls();
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+        s.onload = setupHls;
+        s.onerror = () => setError('No se pudo cargar HLS.js');
+        document.head.appendChild(s);
+        return () => { try { if (video._hls) video._hls.destroy(); } catch(e) {} };
+    }, [playUrl, isHls]);
+
+    return (
+        <div className="relative rounded-md overflow-hidden border shrink-0"
+             title={`Live RTSP de ext ${ext}`}
+             style={{
+                 width, height,
+                 background:'#0a0a0d',
+                 borderColor:'color-mix(in srgb, var(--horizon-green) 40%, transparent)',
+                 boxShadow:'0 2px 8px rgba(0,0,0,0.18)'
+             }}>
+            {/* LIVE pill arriba a la derecha */}
+            {!error && resolvedUrl && (
+                <span className="absolute z-10 right-1 top-1 px-1 rounded text-[8px] font-black tracking-wider flex items-center gap-0.5"
+                      style={{background:'rgba(0,0,0,0.6)', color:'var(--horizon-green)', backdropFilter:'blur(3px)'}}>
+                    <span className="rounded-full inline-block" style={{width:5, height:5, background:'var(--horizon-green)', animation:'pulse 1.2s infinite'}}/>
+                    LIVE
+                </span>
+            )}
+            {loading && !error && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-icons-round animate-spin" style={{fontSize:14, color:'var(--horizon-green)'}}>autorenew</span>
+                </div>
+            )}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center" title={error}>
+                    <span className="material-icons-round" style={{fontSize:16, color:'#ef4444', opacity:0.8}}>videocam_off</span>
+                </div>
+            )}
+            {!error && (
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover"
+                       onError={() => setError('Reproducción falló')}/>
+            )}
+        </div>
+    );
+}
+
 // ─── DashCallActions: botones Escuchar (ChanSpy) + Asignar (Redirect) por llamada ───
 function DashCallActions({ call, disabled }) {
     const [busy, setBusy] = useState(false);
@@ -3324,9 +3412,18 @@ function ViewDashboard({ data }) {
                                     const isUp = c.state === 'Up';
                                     const isRing = /Ring/.test(c.state || '');
                                     const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
+                                    // Resolver rtsp_url para mostrar mini video si el origen tiene cámara
+                                    const meta = (window._tfExtMeta || {});
+                                    const fromExt = String(c.ext || '').replace(/^\D+/, '');
+                                    const destExt = String(c.dest || '').replace(/^\D+/, '');
+                                    const rtspExt = (meta[fromExt]?.rtsp_url ? fromExt : (meta[destExt]?.rtsp_url ? destExt : null));
+                                    const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
                                     return (
                                         <div key={c.channel || i} className="flex items-center gap-2 rounded-md border px-2.5 py-2"
                                              style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
+                                            {rtspUrl && (
+                                                <RtspMiniLive ext={rtspExt} url={rtspUrl} width={72} height={50}/>
+                                            )}
                                             <span className="rounded-full shrink-0"
                                                   style={{width:8,height:8,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}`}}/>
                                             <div className="flex-1 min-w-0">
