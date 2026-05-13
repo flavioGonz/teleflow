@@ -4238,8 +4238,33 @@ function ExtStatusPanel({ ext, form, avatarUrl, ini, statusColor, statusLabel, s
             } catch(e) {}
         };
 
-        const openFullscreen = () => {
-            window.open(`api/rtsp_proxy.php?ext=${encodeURIComponent(form.ext)}`, '_blank');
+        const openFullscreen = async () => {
+            try {
+                const r = await fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(form.ext)}`, { credentials:'include' });
+                const j = await r.json();
+                if (j.status === 'ok' && j.hls_url) {
+                    // Abrir un visor HTML mínimo en nueva pestaña que reproduce el HLS a pantalla completa
+                    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Live · ext ${form.ext}</title>
+<style>html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+video{width:100%;height:100%;object-fit:contain;display:block}
+.hdr{position:fixed;top:8px;left:8px;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);padding:6px 10px;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;z-index:9}
+.dot{width:8px;height:8px;border-radius:50%;background:#11B328;box-shadow:0 0 8px #11B328;animation:p 1.2s infinite}
+@keyframes p{50%{opacity:0.45}}</style></head>
+<body>
+<div class="hdr"><span class="dot"></span><span><b>LIVE</b> · ${form.rtsp_label || ('Ext '+form.ext)}</span></div>
+<video id="v" autoplay muted playsinline controls></video>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js"></script>
+<script>(()=>{const v=document.getElementById('v');const u=${JSON.stringify(j.hls_url)};
+if(window.Hls&&Hls.isSupported()){const h=new Hls({lowLatencyMode:true});h.loadSource(u);h.attachMedia(v);}else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;} })();</script>
+</body></html>`;
+                    const w = window.open('about:blank', '_blank');
+                    if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+                } else {
+                    window.sileo?.push?.({ kind:'error', title:'Stream no disponible', msg: j.message || 'No se pudo obtener el HLS del proxy', duration:3500 });
+                }
+            } catch(e) {
+                window.sileo?.push?.({ kind:'error', title:'Error', msg:'No se pudo abrir el visor', duration:3000 });
+            }
         };
 
         const openDoor = async () => {
@@ -4668,6 +4693,20 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
             .catch(()=>{});
     }, [ext, loadShots]);
 
+    // Auto-refresh al recibir evento tf-snapshot-captured (disparado por captura manual u overlay)
+    useEffect(() => {
+        if (!ext) return;
+        const onSnap = (e) => {
+            if (!e?.detail || String(e.detail.ext) !== String(ext)) return;
+            loadShots();
+            // refrescar también door_events porque el evento puede venir de apertura DTMF
+            fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext)}&limit=200`, { credentials:'include' })
+                .then(r => r.json()).then(j => { if (j && j.ok) setDoorEvents(j.events || []); }).catch(()=>{});
+        };
+        window.addEventListener('tf-snapshot-captured', onSnap);
+        return () => window.removeEventListener('tf-snapshot-captured', onSnap);
+    }, [ext, loadShots]);
+
     const captureNow = async () => {
         try {
             const fd = new FormData();
@@ -4831,7 +4870,7 @@ function RtspSnapshotGallery({ ext, onShotClick }) {
                 </div>
             ) : (
                 <div className="rounded-md border overflow-hidden" style={{borderColor:'var(--border)'}}>
-                    <div className="overflow-auto" style={{maxHeight:320}}>
+                    <div className="overflow-auto" style={{maxHeight:220}}>
                         <table className="w-full text-sm">
                             <tbody>
                                 {dayKeys.map(day => (
@@ -4955,6 +4994,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const [showConfigMenu, setShowConfigMenu] = useState(false);
     const [lightboxShot, setLightboxShot] = useState(null);
     const [nearbyDoorEvents, setNearbyDoorEvents] = useState([]);
+    const [expandedHistRow, setExpandedHistRow] = useState(null);
 
     // Cuando se abre lightbox, cargar eventos de apertura cercanos al timestamp ±5min.
     // Reset es manual al cerrar el lightbox (onOpenChange) para evitar loops por nuevas refs de array.
@@ -5020,9 +5060,14 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
             const today = new Date(); const past = new Date(); past.setDate(past.getDate()-90);
             const from = past.toISOString().split('T')[0];
             const to = today.toISOString().split('T')[0];
-            fetch(`api/reports.php?action=agent_sessions&agent=${ext.ext}&from=${from}&to=${to}`, {credentials:'include'})
-                .then(r=>r.json()).then(d=>{ setAgentHistory(d.sessions || []); setHistoryLoading(false); })
-                .catch(()=>setHistoryLoading(false));
+            Promise.all([
+                fetch(`api/reports.php?action=agent_sessions&agent=${ext.ext}&from=${from}&to=${to}`, {credentials:'include'}).then(r=>r.json()).catch(()=>({sessions:[]})),
+                (historySnaps ? Promise.resolve({snapshots: historySnaps}) : fetch(`api/rtsp_snapshot.php?action=list&ext=${ext.ext}`, {credentials:'include'}).then(r=>r.json()).catch(()=>({snapshots:[]})))
+            ]).then(([d, s]) => {
+                setAgentHistory(d.sessions || []);
+                if (!historySnaps) setHistorySnaps(s.snapshots || []);
+                setHistoryLoading(false);
+            });
         }
     }, [activeTab, ext?.ext, isNew]);
 
@@ -5248,14 +5293,16 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                             'FAILED':    { label:'Fallida',       color:'var(--destructive)',   icon:'phone_disabled', variant:'destructive'},
                                         }[c.disposition] || { label: c.disposition || '—', color:'var(--muted-foreground)', icon:'help', variant:'secondary' };
                                         const isInbound = String(c.dst) === String(ext.ext);
-                                        const callTs = c.calldate ? new Date(c.calldate.replace(' ', 'T')).getTime() : 0;
+                                        // Buscar snapshot dentro de ±5 min usando epoch (call_epoch del CDR + mtime del snapshot)
+                                        const callTs = c.call_epoch ? c.call_epoch * 1000 : (c.calldate ? new Date(String(c.calldate).replace(' ', 'T') + 'Z').getTime() : 0);
                                         const closeSnap = callTs && historySnaps ? historySnaps.find(s => {
-                                            if (!s.timestamp) return false;
-                                            const st = new Date(s.timestamp.replace(' ', 'T')).getTime();
-                                            return Math.abs(st - callTs) <= 5 * 60 * 1000;
+                                            const st = s.mtime ? s.mtime * 1000 : (s.timestamp ? new Date(String(s.timestamp).replace(' ', 'T')).getTime() : 0);
+                                            return st && Math.abs(st - callTs) <= 5 * 60 * 1000;
                                         }) : null;
+                                        const isExp = expandedHistRow === (c.uniqueid || i);
                                         return (
-                                            <tr key={c.uniqueid || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
+                                            <React.Fragment key={c.uniqueid || i}>
+                                            <tr className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)', background: isExp ? 'color-mix(in srgb, var(--primary) 4%, transparent)' : undefined}}>
                                                 <td className="px-2 py-1.5 text-center">
                                                     {closeSnap ? (
                                                         <button type="button" onClick={()=>setLightboxShot(closeSnap)}
@@ -5306,15 +5353,23 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
                                                     {c.recordingfile
-                                                        ? <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
-                                                                  title="Reproducir grabación"
+                                                        ? <button onClick={()=>setExpandedHistRow(isExp ? null : (c.uniqueid || i))}
+                                                                  title={isExp ? 'Cerrar reproductor' : 'Reproducir grabación inline'}
                                                                   className="inline-flex items-center justify-center rounded-full transition-all hover:scale-110"
-                                                                  style={{width:24,height:24,background:'color-mix(in srgb, var(--primary) 15%, transparent)',color:'var(--primary)',border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
-                                                              <span className="material-icons-round" style={{fontSize:14}}>play_arrow</span>
+                                                                  style={{width:26,height:26,background: isExp ? 'var(--primary)' : 'color-mix(in srgb, var(--primary) 15%, transparent)', color: isExp ? 'var(--primary-foreground)' : 'var(--primary)', border:'1px solid color-mix(in srgb, var(--primary) 30%, transparent)'}}>
+                                                              <span className="material-icons-round" style={{fontSize:14}}>{isExp ? 'expand_less' : 'play_arrow'}</span>
                                                           </button>
                                                         : <span style={{color:'var(--muted-foreground)', opacity:0.5}}>—</span>}
                                                 </td>
                                             </tr>
+                                            {isExp && c.recordingfile && (
+                                                <tr>
+                                                    <td colSpan={8} style={{padding:'12px 16px 14px', background:'linear-gradient(180deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, var(--primary) 2%, transparent))', borderTop:'none', borderBottom:'1px solid var(--border)'}}>
+                                                        <CDRAudioPlayer file={c.recordingfile} meta={{src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec}}/>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         );
                                     })}
                                 </tbody>
@@ -5351,23 +5406,52 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     {!historyLoading && agentHistory && agentHistory.length > 0 && (
                         <div className="overflow-auto border-t" style={{maxHeight:'65vh',borderColor:'var(--border)'}}>
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
+                                <thead className="sticky top-0 z-10" style={{background:'var(--card)', borderBottom:'1px solid var(--border)'}}>
                                     <tr>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estado</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Agente</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Login</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Logout</th>
-                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Duración</th>
-                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Llamadas</th>
-                                        <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Talk</th>
+                                        <Th tip="Captura RTSP cercana al login del agente (±5 min)." icon="image" align="center" width={54}>Foto</Th>
+                                        <Th tip="Estado de la sesión: activa si está logueado actualmente, cerrada si hizo logout." icon="info">Estado</Th>
+                                        <Th tip="Número de agente y nombre." icon="badge">Agente</Th>
+                                        <Th tip="Fecha y hora exacta del login a esta extensión." icon="login">Login</Th>
+                                        <Th tip="Fecha y hora del logout. Vacío si la sesión sigue activa." icon="logout">Logout</Th>
+                                        <Th tip="Duración total de la sesión (login → logout o ahora)." icon="schedule" align="right">Duración</Th>
+                                        <Th tip="Llamadas atendidas en esta sesión." icon="phone" align="right">Llamadas</Th>
+                                        <Th tip="Tiempo total hablado en esta sesión." icon="forum" align="right">Talk</Th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {agentHistory.map((s,i) => {
                                         const active = !s.logout_time;
+                                        // Snapshot cercano al login_time (±5 min) usando epoch
+                                        const loginTs = s.login_epoch ? s.login_epoch * 1000 : (s.login_time ? new Date(String(s.login_time).replace(' ', 'T') + 'Z').getTime() : 0);
+                                        const closeSnap = loginTs && historySnaps ? historySnaps.find(sn => {
+                                            const st = sn.mtime ? sn.mtime * 1000 : (sn.timestamp ? new Date(String(sn.timestamp).replace(' ', 'T')).getTime() : 0);
+                                            return st && Math.abs(st - loginTs) <= 5 * 60 * 1000;
+                                        }) : null;
                                         return (
                                             <tr key={s.session_id || i} className="border-b transition-colors hover:bg-muted/40" style={{borderColor:'var(--border)'}}>
-                                                <td className="px-3 py-2"><Badge variant={active ? 'success' : 'secondary'}>{active ? 'ACTIVA' : 'CERRADA'}</Badge></td>
+                                                <td className="px-2 py-1.5 text-center">
+                                                    {closeSnap ? (
+                                                        <button type="button" onClick={()=>setLightboxShot(closeSnap)}
+                                                                className="inline-block rounded-md overflow-hidden border transition-transform hover:scale-110 cursor-pointer"
+                                                                style={{width:40, height:40, borderColor:'var(--border)', padding:0}}
+                                                                title={`Captura del ${closeSnap.timestamp}`}>
+                                                            <img src={closeSnap.url} alt={closeSnap.timestamp}
+                                                                 className="w-full h-full object-cover" loading="lazy"
+                                                                 onError={ev=>ev.target.style.display='none'}/>
+                                                        </button>
+                                                    ) : (
+                                                        <span title="Sin captura cercana" className="inline-flex items-center justify-center rounded-md border"
+                                                              style={{width:40, height:40, borderColor:'var(--border)', borderStyle:'dashed', background:'color-mix(in srgb, var(--muted) 20%, transparent)'}}>
+                                                            <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)', opacity:0.4}}>image</span>
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <Badge variant={active ? 'success' : 'secondary'} className="inline-flex items-center gap-1">
+                                                        <span className="material-icons-round" style={{fontSize:12}}>{active ? 'sensors' : 'sensors_off'}</span>
+                                                        {active ? 'Activa' : 'Cerrada'}
+                                                    </Badge>
+                                                </td>
                                                 <td className="px-3 py-2"><strong style={{color:'var(--primary)'}}>#{s.agent_number || '—'}</strong></td>
                                                 <td className="px-3 py-2 font-mono text-xs">{s.login_time}</td>
                                                 <td className="px-3 py-2 font-mono text-xs">{s.logout_time || '—'}</td>

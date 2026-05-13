@@ -198,7 +198,7 @@ try {
         if ($ext && preg_match('/^[0-9]+$/', $ext)) { $where .= " AND (src = ? OR dst = ?)"; $params[] = $ext; $params[] = $ext; }
         if ($min_dur > 0) { $where .= " AND billsec >= ?"; $params[] = $min_dur; }
         $cdr = pbx_db();
-        $st = $cdr->prepare("SELECT calldate, src, dst, clid, disposition, duration, billsec, recordingfile, uniqueid, linkedid, did FROM cdr WHERE $where ORDER BY calldate DESC LIMIT $limit");
+        $st = $cdr->prepare("SELECT calldate, UNIX_TIMESTAMP(calldate) AS call_epoch, src, dst, clid, disposition, duration, billsec, recordingfile, uniqueid, linkedid, did FROM cdr WHERE $where ORDER BY calldate DESC LIMIT $limit");
         $st->execute($params);
         echo json_encode(['status' => 'ok', 'calls' => $st->fetchAll(PDO::FETCH_ASSOC), 'period' => ['from' => $from, 'to' => $to]]);
         exit;
@@ -264,7 +264,7 @@ try {
     if ($action === 'agent_sessions') {
         $agent = preg_replace('/[^0-9]/', '', $_GET['agent'] ?? '');
         $tf = tf_db();
-        $sql = "SELECT session_id, agent_ext, agent_number, login_time, logout_time, status, TIMESTAMPDIFF(SECOND, login_time, IFNULL(logout_time, NOW())) AS duration_sec, total_calls, total_talk_time, total_pause_time FROM agent_sessions WHERE login_time BETWEEN ? AND ?";
+        $sql = "SELECT session_id, agent_ext, agent_number, login_time, UNIX_TIMESTAMP(login_time) AS login_epoch, logout_time, status, TIMESTAMPDIFF(SECOND, login_time, IFNULL(logout_time, NOW())) AS duration_sec, total_calls, total_talk_time, total_pause_time FROM agent_sessions WHERE login_time BETWEEN ? AND ?";
         $params = [$from, $to];
         if ($agent) { $sql .= " AND (agent_number = ? OR agent_ext = ?)"; $params[] = $agent; $params[] = $agent; }
         $sql .= " ORDER BY login_time DESC LIMIT 2000";
