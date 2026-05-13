@@ -3189,6 +3189,86 @@ function RtspMiniLive({ ext, url, width = 88, height = 56 }) {
     );
 }
 
+// ─── RtspMiniLiveFill: como RtspMiniLive pero ocupa todo el contenedor padre (absolute inset-0) ───
+function RtspMiniLiveFill({ ext, url }) {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [resolvedUrl, setResolvedUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!url) return;
+        let cancelled = false;
+        setLoading(true); setError(null); setResolvedUrl(null);
+        const isRtsp = /^rtsps?:\/\//i.test(url);
+        if (isRtsp && ext) {
+            fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+                .then(r => r.json())
+                .then(d => { if (cancelled) return; if (d.status === 'ok' && d.hls_url) setResolvedUrl(d.hls_url); else setError(d.message || 'Sin proxy'); })
+                .catch(() => { if (!cancelled) setError('Sin proxy'); })
+                .finally(() => { if (!cancelled) setLoading(false); });
+        } else {
+            setResolvedUrl(url);
+            setLoading(false);
+        }
+        return () => { cancelled = true; };
+    }, [url, ext]);
+
+    const playUrl = resolvedUrl || '';
+    const isHls = /\.m3u8(\?|$)/i.test(playUrl);
+
+    useEffect(() => {
+        if (!isHls || !playUrl || !videoRef.current) return;
+        const video = videoRef.current;
+        const setupHls = () => {
+            if (!window.Hls) { setError('HLS.js no cargó'); return; }
+            if (window.Hls.isSupported()) {
+                const hls = new window.Hls({ lowLatencyMode: true });
+                hls.loadSource(playUrl); hls.attachMedia(video);
+                hls.on(window.Hls.Events.ERROR, (_, data) => { if (data.fatal) setError('Stream no disponible'); });
+                video._hls = hls;
+                return () => { try { hls.destroy(); } catch(e) {} };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = playUrl;
+            }
+        };
+        if (window.Hls) return setupHls();
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+        s.onload = setupHls;
+        s.onerror = () => setError('No se pudo cargar HLS.js');
+        document.head.appendChild(s);
+        return () => { try { if (video._hls) video._hls.destroy(); } catch(e) {} };
+    }, [playUrl, isHls]);
+
+    return (
+        <>
+            {!error && resolvedUrl && (
+                <span className="absolute z-10 right-1 top-1 px-1 rounded text-[8px] font-black tracking-wider flex items-center gap-0.5"
+                      style={{background:'rgba(0,0,0,0.6)', color:'var(--horizon-green)', backdropFilter:'blur(3px)'}}>
+                    <span className="rounded-full inline-block" style={{width:5, height:5, background:'var(--horizon-green)', animation:'pulse 1.2s infinite'}}/>
+                    LIVE
+                </span>
+            )}
+            {loading && !error && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-icons-round animate-spin" style={{fontSize:18, color:'var(--horizon-green)'}}>autorenew</span>
+                </div>
+            )}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center" title={error}>
+                    <span className="material-icons-round" style={{fontSize:22, color:'#ef4444', opacity:0.8}}>videocam_off</span>
+                </div>
+            )}
+            {!error && (
+                <video ref={videoRef} autoPlay muted playsInline
+                       className="absolute inset-0 w-full h-full object-cover"
+                       onError={() => setError('Reproducción falló')}/>
+            )}
+        </>
+    );
+}
+
 // ─── DashCallActions: botones Escuchar (ChanSpy) + Asignar (Redirect) por llamada ───
 function DashCallActions({ call, disabled }) {
     const [busy, setBusy] = useState(false);
@@ -3407,8 +3487,12 @@ function ViewDashboard({ data }) {
                                 <p className="text-xs">Sin llamadas en curso</p>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 320}}>
-                                {liveCalls.slice(0, 10).map((c, i) => {
+                            <div className="flex gap-2.5 overflow-x-auto pb-1 tf-scroll-x"
+                                 style={{
+                                     scrollSnapType:'x mandatory',
+                                     scrollbarWidth:'thin'
+                                 }}>
+                                {liveCalls.map((c, i) => {
                                     const isUp = c.state === 'Up';
                                     const isRing = /Ring/.test(c.state || '');
                                     const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
@@ -3418,23 +3502,47 @@ function ViewDashboard({ data }) {
                                     const destExt = String(c.dest || '').replace(/^\D+/, '');
                                     const rtspExt = (meta[fromExt]?.rtsp_url ? fromExt : (meta[destExt]?.rtsp_url ? destExt : null));
                                     const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
+                                    // Anchos: 3 cards visibles. flex-basis con calc para que se ajuste al contenedor
                                     return (
-                                        <div key={c.channel || i} className="flex items-center gap-2 rounded-md border px-2.5 py-2"
-                                             style={{borderColor:'var(--border)', background:`color-mix(in srgb, ${sc} 4%, var(--card))`}}>
-                                            {rtspUrl && (
-                                                <RtspMiniLive ext={rtspExt} url={rtspUrl} width={72} height={50}/>
-                                            )}
-                                            <span className="rounded-full shrink-0"
-                                                  style={{width:8,height:8,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:`0 0 8px ${sc}`}}/>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-mono text-[11px] font-bold truncate" style={{color:'var(--foreground)'}}>
-                                                    {c.ext || c.callerid || '?'} → {c.dest || '?'}
+                                        <div key={c.channel || i}
+                                             className="rounded-lg border flex flex-col shrink-0 overflow-hidden transition-all hover:shadow-md"
+                                             style={{
+                                                 flex:'0 0 calc((100% - 20px) / 3)',
+                                                 minWidth: 220,
+                                                 scrollSnapAlign:'start',
+                                                 borderColor:'color-mix(in srgb, ' + sc + ' 30%, var(--border))',
+                                                 background:'color-mix(in srgb, ' + sc + ' 5%, var(--card))'
+                                             }}>
+                                            {/* Mini video si hay RTSP, sino strip de color */}
+                                            {rtspUrl ? (
+                                                <div className="relative" style={{width:'100%', height:96, background:'#0a0a0d'}}>
+                                                    <RtspMiniLiveFill ext={rtspExt} url={rtspUrl}/>
                                                 </div>
-                                                <div className="font-mono text-[9px]" style={{color:'var(--muted-foreground)'}}>
-                                                    {c.duration || '00:00'} · {isUp ? 'En conversación' : (isRing ? 'Sonando' : c.state)}
+                                            ) : (
+                                                <div style={{height:6, background: sc, opacity: isUp ? 0.85 : 0.55}}/>
+                                            )}
+                                            {/* Body de la card */}
+                                            <div className="px-2.5 py-2 flex-1 flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="rounded-full shrink-0"
+                                                          style={{width:7,height:7,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:'0 0 8px ' + sc}}/>
+                                                    <span className="text-[9px] font-black uppercase tracking-wider" style={{color:sc}}>
+                                                        {isUp ? 'En curso' : (isRing ? 'Timbrando' : (c.state || 'Activa'))}
+                                                    </span>
+                                                    <span className="ml-auto font-mono text-[10px] font-bold tabular-nums" style={{color: isUp ? 'var(--horizon-green)' : 'var(--muted-foreground)'}}>{c.duration || '00:00'}</span>
+                                                </div>
+                                                <div className="font-mono text-xs font-bold truncate" style={{color:'var(--foreground)'}} title={`${c.ext||'?'} → ${c.dest||'?'}`}>
+                                                    {c.ext || c.callerid || '?'} <span style={{color:'var(--muted-foreground)', margin:'0 4px'}}>→</span> {c.dest || '?'}
+                                                </div>
+                                                {c.callerid && c.callerid !== c.ext && (
+                                                    <div className="text-[9px] truncate font-mono" style={{color:'var(--muted-foreground)'}} title={c.callerid}>
+                                                        {c.callerid}
+                                                    </div>
+                                                )}
+                                                <div className="mt-auto pt-1 flex items-center justify-end">
+                                                    <DashCallActions call={c} disabled={!isUp}/>
                                                 </div>
                                             </div>
-                                            <DashCallActions call={c} disabled={!isUp}/>
                                         </div>
                                     );
                                 })}
