@@ -81,7 +81,7 @@ if (!empty($extensions_used)) {
     }
     $where_ext = '(' . implode(' OR ', $like_clauses) . ')';
     $sql = "
-        SELECT calldate, src, dst, clid, duration, billsec, disposition, dstchannel, recordingfile
+        SELECT calldate, UNIX_TIMESTAMP(calldate) AS call_epoch, src, dst, clid, duration, billsec, disposition, dstchannel, recordingfile
         FROM cdr
         WHERE DATE(calldate) BETWEEN ? AND ?
           AND $where_ext
