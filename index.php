@@ -4253,9 +4253,9 @@ video{width:100%;height:100%;object-fit:contain;display:block}
 <body>
 <div class="hdr"><span class="dot"></span><span><b>LIVE</b> · ${form.rtsp_label || ('Ext '+form.ext)}</span></div>
 <video id="v" autoplay muted playsinline controls></video>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js"><\/script>
 <script>(()=>{const v=document.getElementById('v');const u=${JSON.stringify(j.hls_url)};
-if(window.Hls&&Hls.isSupported()){const h=new Hls({lowLatencyMode:true});h.loadSource(u);h.attachMedia(v);}else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;} })();</script>
+if(window.Hls&&Hls.isSupported()){const h=new Hls({lowLatencyMode:true});h.loadSource(u);h.attachMedia(v);}else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=u;} })();<\/script>
 </body></html>`;
                     const w = window.open('about:blank', '_blank');
                     if (w) { w.document.open(); w.document.write(html); w.document.close(); }
