@@ -1,14 +1,26 @@
-const CACHE_NAME = 'teleflow-cache-v202605131306';
-const STATIC_ASSETS = [
-  '/teleflow/', 
-  '/teleflow/index.php', 
-  '/teleflow/manifest.json',
-  '/teleflow/softphone/',
-  '/teleflow/softphone/index.php',
-  '/teleflow/softphone/manifest.json'
+// TeleFlow — Service Worker v8 con strategies diferenciadas
+const CACHE_NAME = 'teleflow-cache-v202605140348';
+const APP_SHELL = [
+  '/',
+  '/index.php',
+  '/manifest.json',
+  '/icon-192.svg',
+  '/offline.html',
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/react@18.2.0/umd/react.production.min.js',
+  'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js',
+  'https://unpkg.com/@babel/standalone@7.24.7/babel.min.js',
+  'https://fonts.googleapis.com/icon?family=Material+Icons+Round',
+  'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js'
 ];
 
-self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(APP_SHELL.map(url => cache.add(url).catch(() => null)))
+    ).then(() => self.skipWaiting())
+  );
+});
 
 self.addEventListener('activate', e => {
   e.waitUntil(
@@ -20,34 +32,86 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  
-  e.respondWith(
-    fetch(e.request).catch(() => {
-      return caches.match(e.request).then(response => {
-        if (response) return response;
-        // Fallback for document navigation
-        if (e.request.mode === 'navigate') {
-          return caches.match('/teleflow/index.php');
+  const url = new URL(e.request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const path = url.pathname;
+
+  // API → network-only
+  if (sameOrigin && path.startsWith('/api/')) return;
+
+  // assets/ → cache-first (con cache-bust ?v= del HTML)
+  if (sameOrigin && path.startsWith('/assets/')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(resp => {
+          if (resp.ok) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          }
+          return resp;
+        }).catch(() => cached);
+      })
+    );
+    return;
+  }
+
+  // HTML/navegación → network-first → cache → offline.html
+  if (e.request.mode === 'navigate' || e.request.destination === 'document' || (sameOrigin && (path === '/' || path.endsWith('.php')))) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         }
-        // Fallback for everything else (return a dummy response instead of undefined)
-        return new Response('Offline and not cached', { 
-           status: 503, 
-           statusText: 'Service Unavailable',
-           headers: new Headers({'Content-Type': 'text/plain'})
-        });
-      });
+        return resp;
+      }).catch(() =>
+        caches.match(e.request).then(c => c || caches.match('/index.php')).then(c => c || caches.match('/offline.html'))
+      )
+    );
+    return;
+  }
+
+  // Imágenes (incluye snapshots RTSP) → cache-first
+  if (e.request.destination === 'image') {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(resp => {
+          if (resp.ok && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          }
+          return resp;
+        }).catch(() => cached || new Response('', { status: 404 }));
+      })
+    );
+    return;
+  }
+
+  // Default: stale-while-revalidate (CDNs, fonts)
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      const fetchPromise = fetch(e.request).then(resp => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      }).catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });
 
-// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+// Push notifications
 self.addEventListener('push', e => {
   const data = e.data ? e.data.json() : { title: 'TeleFlow', body: 'Nueva alerta' };
   e.waitUntil(
     self.registration.showNotification(data.title || 'TeleFlow', {
       body: data.body || '',
-      icon: '/teleflow/icon-192.png',
-      badge: '/teleflow/icon-192.png',
+      icon: '/icon-192.svg',
+      badge: '/icon-192.svg',
       tag: data.tag || 'teleflow-alert',
       data: data,
       requireInteraction: data.requireInteraction || false,
@@ -60,38 +124,33 @@ self.addEventListener('push', e => {
 self.addEventListener('notificationclick', e => {
   const action = e.action;
   e.notification.close();
-
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cls => {
-      const cl = cls.find(c => c.url.includes('/teleflow/softphone')) || cls.find(c => c.url.includes('/teleflow'));
-      
+      const cl = cls.find(c => c.url.includes('/softphone')) || cls[0];
       if (action === 'answer' || action === 'reject') {
-        if (cl) {
-          cl.postMessage({ type: 'CALL_ACTION', action: action });
-          cl.focus();
-        }
+        if (cl) { cl.postMessage({ type: 'CALL_ACTION', action: action }); cl.focus(); }
       } else {
         if (cl) return cl.focus();
-        return clients.openWindow('/teleflow/softphone/');
+        return clients.openWindow('/');
       }
     })
   );
 });
 
-// ── BACKGROUND SYNC (fallback si no hay push server) ─────────────────────────
 self.addEventListener('message', e => {
   if (e.data && e.data.type === 'NOTIFY') {
     self.registration.showNotification(e.data.title || 'TeleFlow', {
       body: e.data.body || '',
-      icon: '/teleflow/icon-192.png',
+      icon: '/icon-192.svg',
       tag: e.data.tag || 'teleflow',
       data: e.data,
       vibrate: [300, 100, 300, 100, 300],
       requireInteraction: true,
       actions: [
-        { action: 'answer', title: 'Contestar', icon: '/teleflow/check_circle.png' },
-        { action: 'reject', title: 'Rechazar', icon: '/teleflow/cancel.png' }
+        { action: 'answer', title: 'Contestar' },
+        { action: 'reject', title: 'Rechazar' }
       ]
     });
   }
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });

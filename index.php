@@ -10,21 +10,10 @@ header('Expires: 0');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0a0a0f">
-    <!-- HORIZON: cache busters -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <script>
-      try {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
-        }
-        if ('caches' in window) caches.keys().then(ks => ks.forEach(k => caches.delete(k)));
-      } catch(e) {}
-    </script>
-    <!-- TF_BUILD: 2026-05-08T1778189164-SESSION -->
-    <title>TeleFlow · Next-Gen PBX Control</title>
+    <meta name="theme-color" content="#11B328" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0a0a0d" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
+    <title>Teleflow Horizon · PBX Control</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="icon-192.svg">
     <link rel="apple-touch-icon" href="icon-192.svg">
@@ -34,6 +23,34 @@ header('Expires: 0');
     <meta name="mobile-web-app-capable" content="yes">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script>
+    <script>
+      // ─── PWA Service Worker: register + auto-update on next reload ─────
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(reg => {
+              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              reg.addEventListener('updatefound', () => {
+                const nw = reg.installing;
+                if (!nw) return;
+                nw.addEventListener('statechange', () => {
+                  if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                    window.dispatchEvent(new CustomEvent('tf-sw-update', { detail: { reg } }));
+                  }
+                });
+              });
+            }).catch(err => console.warn('[SW] register failed:', err));
+
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            if (window._tfUpdateAccepted) location.reload();
+          });
+        });
+      }
+    </script>
     <script>
         // Blindaje contra errores de React DevTools hook corrupto
         (function() {
