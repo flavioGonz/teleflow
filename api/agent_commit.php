@@ -6,14 +6,19 @@ header('Content-Type: application/json');
 $agent_number = preg_replace('/\D/', '', $_GET['agent'] ?? '');
 $pass         = $_GET['pass'] ?? '';
 $callback_ext = preg_replace('/\D/', '', $_GET['ext'] ?? '');
-$target_queue = preg_replace('/\D/', '', $_GET['queue'] ?? '');
+// $queue puede venir como:
+//   - número de cola directo: "8000"
+//   - patrón de atajos via *7700*N: "1", "1*2", "1*2*3"
+//   - múltiples colas crudas separadas: "8000*8001"
+// Sanitizamos preservando * para luego parsear.
+$queue_raw    = preg_replace('/[^0-9*]/', '', $_GET['queue'] ?? '');
 
 if (!$agent_number || !$callback_ext) { http_response_code(400); echo '{"ok":false}'; exit; }
 
 require __DIR__ . '/../config.php';
 $logf = '/tmp/teleflow_agent_commit.log';
 function tflog($m) { global $logf; @file_put_contents($logf, '['.date('Y-m-d H:i:s').'] '.$m."\n", FILE_APPEND | LOCK_EX); }
-tflog("commit agent=$agent_number ext=$callback_ext target_queue=$target_queue");
+tflog("commit agent=$agent_number ext=$callback_ext queue_raw=$queue_raw");
 
 try {
     $cc = new PDO("mysql:host=$DB_HOST;dbname=call_center;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
@@ -26,9 +31,37 @@ $ag = $st->fetch(PDO::FETCH_ASSOC);
 if (!$ag || $ag['password'] !== $pass) { tflog('auth_fail'); echo '{"ok":false}'; exit; }
 
 $queues = [];
-if ($target_queue) {
-    $queues[] = ['queue'=>$target_queue,'penalty'=>0];
-} else {
+
+// ─── Resolución del parámetro queue (atajos *7700*N*M*K) ───
+if ($queue_raw !== '') {
+    // 1) Cargar mapeo de atajos (digit→queue) de la tabla queue_shortcut
+    $shortcuts = [];
+    try {
+        $rs = $tf->query("SELECT digit, queue FROM queue_shortcut WHERE active = 1")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rs as $r) $shortcuts[(int)$r['digit']] = $r['queue'];
+    } catch (Exception $e) { tflog('shortcut_load_fail: ' . $e->getMessage()); }
+
+    // 2) Split por '*' y resolver cada token
+    $tokens = array_filter(explode('*', $queue_raw), fn($x) => $x !== '');
+    $resolved = [];
+    foreach ($tokens as $t) {
+        if (strlen($t) === 1 && ctype_digit($t) && isset($shortcuts[(int)$t])) {
+            // Atajo: dígito único mapeado vía queue_shortcut
+            $resolved[] = $shortcuts[(int)$t];
+        } elseif (ctype_digit($t) && strlen($t) >= 2) {
+            // Token largo: tratarlo como queue ID literal (compat con *7700*8000)
+            $resolved[] = $t;
+        } else {
+            tflog("skip token: $t (no mapeado y no es queue válida)");
+        }
+    }
+    $resolved = array_values(array_unique($resolved));
+    foreach ($resolved as $q) $queues[] = ['queue' => $q, 'penalty' => 0];
+    tflog("queue_raw='$queue_raw' resolved=[" . implode(',', $resolved) . "]");
+}
+
+// Si no vino queue o no se pudo resolver nada → fallback a prefs guardadas
+if (empty($queues)) {
     try {
         $st = $tf->prepare("SELECT queue, penalty FROM agent_queue_pref WHERE agent_number = ?");
         $st->execute([$agent_number]);

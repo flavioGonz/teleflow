@@ -10327,6 +10327,7 @@ function ViewConfiguracion() {
         { id:'debug_sip',      icon:'terminal',       label:'Debug SIP',      desc:'Logs PJSIP en vivo' },
         { id:'pbx',            icon:'dns',            label:'PBX',            desc:'Conexión Asterisk' },
         { id:'asterisk',       icon:'memory',         label:'Asterisk',       desc:'Archivos config + AMI' },
+        { id:'shortcuts',      icon:'keyboard_command_key', label:'Atajos *7700', desc:'Mapeo dígito→cola para login rápido' },
         { id:'usuarios',       icon:'manage_accounts',label:'Usuarios',       desc:'Admins del portal' },
         { id:'agentes',        icon:'support_agent',  label:'Agentes',        desc:'Operadores de call center' },
         { id:'branding',       icon:'palette',        label:'Branding',       desc:'Logos y colores' },
@@ -10571,6 +10572,7 @@ function ViewConfiguracion() {
             {activeTab === 'branding' && <ViewConfigBranding />}
             {activeTab === 'softphone' && <ViewConfigSoftphone />}
             {activeTab === 'asterisk'  && <ViewConfigAsterisk />}
+            {activeTab === 'shortcuts' && <ViewConfigShortcuts />}
             {activeTab === 'usuarios'  && <ViewConfigUsers />}
             {activeTab === 'agentes'   && <ViewConfigAgents />}
             {activeTab === 'changelog' && <ViewConfigChangelog />}
@@ -11581,6 +11583,217 @@ function ViewConfigAgents() {
                             {busy ? 'Guardando…' : (editing?.id ? 'Guardar' : 'Crear')}
                         </Button>
                     </DialogFooter>
+            </Dialog>
+        </Card>
+    );
+}
+
+function ViewConfigShortcuts() {
+    const [shortcuts, setShortcuts] = useState(null);
+    const [queues, setQueues] = useState([]);
+    const [editing, setEditing] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [toastMsg, setToastMsg] = useState(null);
+
+    const load = async () => {
+        try {
+            const [r1, r2] = await Promise.all([
+                fetch('api/queue_shortcuts.php?action=list', { credentials:'include' }).then(r=>r.json()),
+                fetch('api/index.php?action=get_full_data', { credentials:'include' }).then(r=>r.json())
+            ]);
+            setShortcuts(r1.ok ? (r1.shortcuts || []) : []);
+            setQueues((r2?.pbx?.queues || []).filter(q => q.id));
+        } catch(e) { setShortcuts([]); }
+    };
+
+    useEffect(() => { load(); }, []);
+
+    const tx = (msg, kind='success') => {
+        setToastMsg({ msg, kind });
+        setTimeout(()=>setToastMsg(null), 3000);
+    };
+
+    const save = async () => {
+        if (!editing || !editing.queue) { tx('Elegí una cola', 'error'); return; }
+        setBusy(true);
+        const fd = new FormData();
+        fd.append('digit', editing.digit);
+        fd.append('queue', editing.queue);
+        fd.append('label', editing.label || '');
+        try {
+            const r = await fetch('api/queue_shortcuts.php?action=set', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.ok) {
+                tx('Atajo guardado');
+                setEditing(null);
+                load();
+            } else tx(j.error || 'Error al guardar', 'error');
+        } catch(e) { tx('Error de red', 'error'); }
+        setBusy(false);
+    };
+
+    const remove = async (digit) => {
+        if (!confirm(`¿Eliminar el atajo del dígito ${digit}?`)) return;
+        setBusy(true);
+        const fd = new FormData(); fd.append('digit', digit);
+        try {
+            const r = await fetch('api/queue_shortcuts.php?action=delete', { method:'POST', body:fd, credentials:'include' });
+            const j = await r.json();
+            if (j.ok) { tx('Atajo eliminado'); load(); }
+        } catch(e) {}
+        setBusy(false);
+    };
+
+    // Mapa digit→shortcut existente
+    const map = {};
+    (shortcuts || []).forEach(s => { map[s.digit] = s; });
+    const digits = [1,2,3,4,5,6,7,8,9];
+
+    // queue lookup para mostrar nombre
+    const queueName = (qid) => {
+        const q = queues.find(x => String(x.id) === String(qid));
+        return q?.name || `Cola ${qid}`;
+    };
+
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 gap-3">
+                <div>
+                    <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>keyboard_command_key</span>
+                        Atajos de cola para <code className="font-mono text-xs px-1 rounded" style={{background:'color-mix(in srgb, var(--primary) 14%, transparent)', color:'var(--primary)'}}>*7700</code>
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                        Mapeá cada dígito 1-9 a una cola. Los agentes pueden combinar:
+                        <code className="font-mono mx-1 px-1 rounded" style={{background:'var(--muted)'}}>*7700*1</code> entra a 1 cola;
+                        <code className="font-mono mx-1 px-1 rounded" style={{background:'var(--muted)'}}>*7700*1*2*3</code> entra a las 3 simultáneamente.
+                    </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[10px] shrink-0">
+                    {(shortcuts||[]).length} / 9 dígitos
+                </Badge>
+            </CardHeader>
+            <CardContent>
+                {shortcuts === null && (
+                    <div className="py-12 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:18}}>autorenew</span>
+                        Cargando…
+                    </div>
+                )}
+                {shortcuts && (
+                    <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'}}>
+                        {digits.map(d => {
+                            const sc = map[d];
+                            const has = !!sc;
+                            return (
+                                <div key={d} className="rounded-lg border p-3 flex items-center gap-3 transition-all hover:shadow-sm"
+                                     style={{
+                                         borderColor: has ? 'color-mix(in srgb, var(--horizon-green) 35%, var(--border))' : 'var(--border)',
+                                         background: has ? 'color-mix(in srgb, var(--horizon-green) 5%, var(--card))' : 'var(--card)'
+                                     }}>
+                                    <div className="rounded-lg flex items-center justify-center shrink-0 font-mono font-black"
+                                         style={{
+                                             width:44, height:44, fontSize:22,
+                                             background: has ? 'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 65%, #000))' : 'color-mix(in srgb, var(--muted) 40%, transparent)',
+                                             color: has ? '#fff' : 'var(--muted-foreground)',
+                                             boxShadow: has ? '0 3px 10px color-mix(in srgb, var(--horizon-green) 30%, transparent)' : 'none'
+                                         }}>
+                                        {d}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        {has ? (
+                                            <>
+                                                <div className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{color:'var(--muted-foreground)'}}>
+                                                    <code className="font-mono">*7700*{d}</code> →
+                                                </div>
+                                                <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                    Q{sc.queue}
+                                                </div>
+                                                <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>
+                                                    {sc.label || queueName(sc.queue)}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="text-xs italic" style={{color:'var(--muted-foreground)'}}>Sin asignar</div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                                onClick={()=>setEditing({digit:d, queue: sc?.queue || '', label: sc?.label || ''})}
+                                                title={has ? 'Editar' : 'Asignar'}>
+                                            <span className="material-icons-round" style={{fontSize:14}}>{has ? 'edit' : 'add'}</span>
+                                        </Button>
+                                        {has && (
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                                    onClick={()=>remove(d)} disabled={busy} title="Eliminar">
+                                                <span className="material-icons-round" style={{fontSize:14, color:'var(--destructive)'}}>delete_outline</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div className="mt-4 p-3 rounded-md border text-[11px]" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))', color:'var(--muted-foreground)'}}>
+                    <strong style={{color:'var(--foreground)'}}>Cómo lo usan los agentes:</strong> al disipar <code className="font-mono">*7700*N</code> el agente queda en la cola mapeada a N.
+                    Para entrar a varias a la vez: <code className="font-mono">*7700*1*2*3</code>. Igual le pide su número y clave.
+                    Los atajos son globales (todos los agentes los ven igual).
+                </div>
+
+                {toastMsg && (
+                    <div className="fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 shadow-2xl border text-sm font-medium animate-fade-in"
+                         style={{
+                             background:'var(--card)',
+                             borderColor: toastMsg.kind === 'success' ? 'var(--horizon-green)' : 'var(--destructive)',
+                             color: toastMsg.kind === 'success' ? 'var(--horizon-green)' : 'var(--destructive)'
+                         }}>
+                        <span className="material-icons-round align-middle mr-1.5" style={{fontSize:16}}>{toastMsg.kind==='success'?'check_circle':'error'}</span>
+                        {toastMsg.msg}
+                    </div>
+                )}
+            </CardContent>
+
+            <Dialog open={!!editing} onOpenChange={(v)=>!v && setEditing(null)}>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>keyboard_command_key</span>
+                        Atajo del dígito {editing?.digit}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Cuando un agente disque <code className="font-mono">*7700*{editing?.digit}</code>, va a entrar a esta cola.
+                    </DialogDescription>
+                </DialogHeader>
+                {editing && (
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <Label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Cola</Label>
+                            <select
+                                value={editing.queue}
+                                onChange={e=>setEditing({...editing, queue:e.target.value})}
+                                className="w-full mt-1.5 rounded-md border px-3 py-2 font-mono text-sm"
+                                style={{background:'var(--background)', color:'var(--foreground)', borderColor:'var(--border)'}}>
+                                <option value="">— Elegí una cola —</option>
+                                {queues.map(q => (
+                                    <option key={q.id} value={q.id}>Q{q.id} · {q.name || 'Sin nombre'}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <Label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Etiqueta (opcional)</Label>
+                            <Input value={editing.label||''} onChange={e=>setEditing({...editing, label:e.target.value})}
+                                   className="mt-1.5" placeholder="Ej: Soporte nivel 1" maxLength={80}/>
+                        </div>
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button variant="outline" onClick={()=>setEditing(null)} disabled={busy}>Cancelar</Button>
+                    <Button onClick={save} disabled={busy || !editing?.queue}>
+                        <span className="material-icons-round mr-1.5" style={{fontSize:14}}>save</span>
+                        Guardar
+                    </Button>
+                </DialogFooter>
             </Dialog>
         </Card>
     );
