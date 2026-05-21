@@ -1,0 +1,16 @@
+[Unit]
+Description=Teleflow — RTSP URL auto-detection (Akuvox/Hikvision/Dahua)
+Documentation=https://github.com/flavioGonz/teleflow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/teleflow
+ExecStart=/usr/bin/php /var/www/teleflow/cron_rtsp_autodetect.php
+StandardOutput=journal
+StandardError=journal
+# Si tarda más de 5 min mata el proceso — no debería pasar nunca
+TimeoutStartSec=300

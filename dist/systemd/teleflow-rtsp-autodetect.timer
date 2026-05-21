@@ -1,0 +1,13 @@
+[Unit]
+Description=Teleflow — RTSP URL auto-detection (cada 10 minutos)
+Requires=teleflow-rtsp-autodetect.service
+
+[Timer]
+# 2 min después del boot, después cada 10 min
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=teleflow-rtsp-autodetect.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

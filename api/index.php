@@ -936,7 +936,7 @@ if ($action === 'set_recording') {
 if ($action === 'get_ext_meta') {
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label, IFNULL(is_bocina,0) AS is_bocina, IFNULL(door_dtmf_code,'*9') AS door_dtmf_code FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $tf->query("SELECT ext, tipo, notes, rtsp_url, rtsp_label, IFNULL(is_bocina,0) AS is_bocina, IFNULL(door_dtmf_code,'*9') AS door_dtmf_code, rtsp_url_source, rtsp_auto_tried_at FROM ext_meta")->fetchAll(PDO::FETCH_ASSOC);
         $map = []; foreach ($rows as $r) $map[$r['ext']] = $r;
         echo json_encode(['success'=>true, 'meta'=>$map]);
     } catch (Exception $e) { echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
@@ -962,11 +962,15 @@ if ($action === 'set_ext_meta') {
     if (strlen($rtsp_label) > 80) $rtsp_label = substr($rtsp_label, 0, 80);
     try {
         $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
-        // Asegurar columnas is_bocina + door_dtmf_code (idempotentes)
+        // Asegurar columnas (idempotentes)
         try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN is_bocina TINYINT(1) NOT NULL DEFAULT 0"); } catch(Exception $_) {}
         try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN door_dtmf_code VARCHAR(8) NULL"); } catch(Exception $_) {}
-        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina, door_dtmf_code) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina), door_dtmf_code=VALUES(door_dtmf_code)");
-        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina, $door_dtmf_code ?: null]);
+        try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN rtsp_url_source ENUM('manual','auto') NULL DEFAULT NULL"); } catch(Exception $_) {}
+        try { $tf->exec("ALTER TABLE ext_meta ADD COLUMN rtsp_auto_tried_at DATETIME NULL DEFAULT NULL"); } catch(Exception $_) {}
+        // Cuando viene desde la UI: si hay rtsp_url => marcar 'manual'. Si se vació => null.
+        $src = $rtsp_url ? 'manual' : null;
+        $stmt = $tf->prepare("INSERT INTO ext_meta (ext, tipo, notes, rtsp_url, rtsp_label, is_bocina, door_dtmf_code, rtsp_url_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tipo=VALUES(tipo), notes=VALUES(notes), rtsp_url=VALUES(rtsp_url), rtsp_label=VALUES(rtsp_label), is_bocina=VALUES(is_bocina), door_dtmf_code=VALUES(door_dtmf_code), rtsp_url_source=VALUES(rtsp_url_source)");
+        $stmt->execute([$ext, $tipo, $notes, $rtsp_url ?: null, $rtsp_label ?: null, $is_bocina, $door_dtmf_code ?: null, $src]);
         // Notificar al realtime hub para refrescar su cache RTSP (best-effort, non-blocking)
         @file_get_contents('http://127.0.0.1:9001/broadcast', false, stream_context_create([
             'http' => [

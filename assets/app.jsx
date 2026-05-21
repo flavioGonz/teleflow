@@ -3572,6 +3572,76 @@ function Th({ children, tip, icon, align = 'left', width }) {
     );
 }
 
+/**
+ * Toolbar unificado para ExtEditPage — cluster top-right con todas las acciones de edición.
+ *
+ * Estados:
+ *  - isNew:        [Cancelar] [Crear]                  (sin Editar, sin Eliminar)
+ *  - !isNew + view:[Editar]                            [⋯ Eliminar]
+ *  - !isNew + edit:[Cancelar] [Guardar]                [⋯ Eliminar]
+ *
+ * El menú "⋯" exige un click extra para acciones destructivas (Eliminar interno).
+ */
+function ExtEditToolbar({ isNew, editing, saving, deleting, canSave, onEditToggle, onCancel, onSave, onDelete }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+    useEffect(() => {
+        if (!menuOpen) return;
+        const off = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+        document.addEventListener('mousedown', off);
+        return () => document.removeEventListener('mousedown', off);
+    }, [menuOpen]);
+
+    return (
+        <div className="flex items-center gap-2 shrink-0">
+            {/* Editar (toggle) — solo en modo view de existente */}
+            {!isNew && !editing && (
+                <ActionIconButton icon="edit"
+                                  label="Editar campos"
+                                  onClick={onEditToggle}
+                                  tone="primary"/>
+            )}
+            {/* Cancelar — siempre disponible (sale de edit o vuelve al listado) */}
+            {(isNew || editing) && (
+                <ActionIconButton icon="close"
+                                  label={editing && !isNew ? 'Descartar cambios' : 'Cancelar'}
+                                  onClick={onCancel}
+                                  tone="default"/>
+            )}
+            {/* Guardar / Crear */}
+            {(isNew || editing) && (
+                <ActionIconButton icon={saving ? 'autorenew' : 'save'}
+                                  label={saving ? (isNew ? 'Creando…' : 'Guardando…') : (isNew ? 'Crear interno' : 'Guardar cambios')}
+                                  onClick={onSave}
+                                  disabled={saving || !canSave}
+                                  tone="success"/>
+            )}
+            {/* Overflow menu "⋯" — Eliminar interno (protegido) */}
+            {!isNew && (
+                <div className="relative" ref={menuRef}>
+                    <ActionIconButton icon="more_vert"
+                                      label="Más acciones"
+                                      onClick={()=>setMenuOpen(o=>!o)}
+                                      tone="default"/>
+                    {menuOpen && (
+                        <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-md border shadow-lg overflow-hidden"
+                             style={{background:'var(--popover, var(--card))', borderColor:'var(--border)'}}>
+                            <button type="button"
+                                    onClick={()=>{ setMenuOpen(false); onDelete(); }}
+                                    disabled={deleting}
+                                    className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-wait"
+                                    style={{color:'var(--destructive)'}}>
+                                <span className="material-icons-round" style={{fontSize:16}}>{deleting ? 'autorenew' : 'delete_outline'}</span>
+                                {deleting ? 'Eliminando…' : 'Eliminar interno'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const isNew = !ext;
     const [form, setForm] = useState({ 
@@ -3789,7 +3859,10 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
     return (
         <div className="content-area view-enter">
-            {/* ─── BREADCRUMB + ACCIONES ─────────────────────────────── */}
+            {/* ─── BREADCRUMB + TOOLBAR UNIFICADO ──────────────────────
+                 Cluster top-right con todas las acciones de edición:
+                 [Editar/Cancelar] [Guardar] [⋯ overflow → Eliminar]
+                 ─ El menú "⋯" protege la acción destructiva con un click extra. ─ */}
             <div className="flex items-center gap-3 mb-5 flex-wrap">
                 <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
                     <span className="material-icons-round" style={{fontSize:18}}>arrow_back</span>
@@ -3800,32 +3873,25 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                     <span style={{color:'var(--foreground)',fontWeight:700}}>{isNew ? 'Nueva extensión' : `Interno #${form.ext}`}</span>
                 </nav>
                 <div className="flex-1"/>
-                {!isNew && (
-                    <ActionIconButton icon={deleting ? 'autorenew' : 'delete_outline'}
-                                       label={deleting ? 'Eliminando…' : 'Eliminar interno'}
-                                       onClick={remove} disabled={deleting} tone="destructive"/>
-                )}
+                <ExtEditToolbar
+                    isNew={isNew}
+                    editing={editing}
+                    saving={saving}
+                    deleting={deleting}
+                    canSave={isNew ? !!(form.ext && form.name && form.secret) : editing}
+                    onEditToggle={()=>setEditing(v=>!v)}
+                    onCancel={()=>{ if (editing) setEditing(false); else onBack?.(); }}
+                    onSave={save}
+                    onDelete={remove}
+                />
             </div>
 
             {/* ─── TABS + acciones (existente o nuevo) ─── */}
             {isNew ? (
-                // ── Nuevo interno: toolbar simple con Cancelar + Crear (sin tabs, sin requerir edit) ──
-                <div className="flex items-center justify-between gap-2 border-b mb-5 pb-3" style={{borderColor:'var(--border)'}}>
-                    <div className="flex items-center gap-2">
-                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>add_circle</span>
-                        <span className="text-sm font-bold" style={{color:'var(--foreground)'}}>Crear nuevo interno</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <ActionIconButton icon="close"
-                                          label="Cancelar"
-                                          onClick={()=>onBack?.()}
-                                          tone="default"/>
-                        <ActionIconButton icon={saving ? 'autorenew' : 'save'}
-                                          label={saving ? 'Creando…' : 'Crear interno'}
-                                          onClick={save}
-                                          disabled={saving || !form.ext || !form.name || !form.secret}
-                                          tone="success"/>
-                    </div>
+                // ── Nuevo interno: solo el header de sección (las acciones están en el toolbar superior) ──
+                <div className="flex items-center gap-2 border-b mb-5 pb-3" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>add_circle</span>
+                    <span className="text-sm font-bold" style={{color:'var(--foreground)'}}>Crear nuevo interno</span>
                 </div>
             ) : (
                 <div className="flex items-center justify-between gap-2 border-b mb-5 flex-wrap" style={{borderColor:'var(--border)'}}>
@@ -3854,20 +3920,6 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                             </button>
                         ))}
                     </div>
-                    {/* Action icons: Cancelar / Guardar — icon-only con tooltip animado */}
-                    {activeTab === 'datos' && (
-                        <div className="flex items-center gap-2 pb-2">
-                            <ActionIconButton icon="close"
-                                              label={editing ? 'Cancelar edición' : 'Volver al listado'}
-                                              onClick={()=>{ if (editing) setEditing(false); else onBack?.(); }}
-                                              tone="default"/>
-                            <ActionIconButton icon={saving ? 'autorenew' : 'save'}
-                                              label={saving ? 'Guardando…' : (editing ? 'Guardar cambios' : 'Activá edición primero (lápiz en Info básica)')}
-                                              onClick={save}
-                                              disabled={saving || !editing}
-                                              tone="success"/>
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -4124,36 +4176,12 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
 
                         {/* ─── Card 1: Información básica (con lápiz + basura) ─── */}
                         <Card>
-                            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2 space-y-0">
+                            <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
                                     <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>badge</span>
                                     Información básica
                                 </CardTitle>
-                                {!isNew && (
-                                    <div className="flex items-center gap-1">
-                                        <button type="button" onClick={()=>setEditing(v=>!v)}
-                                                title={editing ? 'Bloquear edición' : 'Editar campos'}
-                                                className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
-                                                style={{
-                                                    background: editing ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'color-mix(in srgb, var(--muted) 30%, transparent)',
-                                                    color: editing ? 'var(--primary)' : 'var(--muted-foreground)',
-                                                    border: '1px solid ' + (editing ? 'color-mix(in srgb, var(--primary) 30%, transparent)' : 'var(--border)')
-                                                }}>
-                                            <span className="material-icons-round" style={{fontSize:15}}>{editing ? 'lock_open' : 'edit'}</span>
-                                        </button>
-                                        <button type="button" onClick={remove} disabled={deleting}
-                                                title="Eliminar interno"
-                                                className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
-                                                style={{
-                                                    background: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                                                    color: 'var(--destructive)',
-                                                    border: '1px solid color-mix(in srgb, var(--destructive) 30%, transparent)',
-                                                    opacity: deleting ? 0.5 : 1, cursor: deleting ? 'wait' : 'pointer'
-                                                }}>
-                                            <span className="material-icons-round" style={{fontSize:15}}>{deleting ? 'autorenew' : 'delete'}</span>
-                                        </button>
-                                    </div>
-                                )}
+                                {/* Acciones de edición unificadas en el toolbar superior */}
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div className="space-y-1.5">
@@ -4188,7 +4216,7 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                                 {!editing && !isNew && (
                                     <p className="text-[10px] flex items-center gap-1 pt-1" style={{color:'var(--muted-foreground)'}}>
                                         <span className="material-icons-round" style={{fontSize:11}}>lock</span>
-                                        Click en el lápiz para habilitar la edición
+                                        Tocá <strong>Editar</strong> arriba a la derecha para habilitar los campos
                                     </p>
                                 )}
                             </CardContent>
