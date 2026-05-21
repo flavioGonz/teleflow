@@ -3807,8 +3807,27 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 )}
             </div>
 
-            {/* ─── TABS + acciones a la derecha (Cancelar / Guardar) ─── */}
-            {!isNew && (
+            {/* ─── TABS + acciones (existente o nuevo) ─── */}
+            {isNew ? (
+                // ── Nuevo interno: toolbar simple con Cancelar + Crear (sin tabs, sin requerir edit) ──
+                <div className="flex items-center justify-between gap-2 border-b mb-5 pb-3" style={{borderColor:'var(--border)'}}>
+                    <div className="flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>add_circle</span>
+                        <span className="text-sm font-bold" style={{color:'var(--foreground)'}}>Crear nuevo interno</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <ActionIconButton icon="close"
+                                          label="Cancelar"
+                                          onClick={()=>onBack?.()}
+                                          tone="default"/>
+                        <ActionIconButton icon={saving ? 'autorenew' : 'save'}
+                                          label={saving ? 'Creando…' : 'Crear interno'}
+                                          onClick={save}
+                                          disabled={saving || !form.ext || !form.name || !form.secret}
+                                          tone="success"/>
+                    </div>
+                </div>
+            ) : (
                 <div className="flex items-center justify-between gap-2 border-b mb-5 flex-wrap" style={{borderColor:'var(--border)'}}>
                     <div className="flex items-center gap-1">
                         {[
