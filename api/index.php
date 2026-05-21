@@ -294,83 +294,113 @@ function reload_dialplan() {
 }
 
 function apply_sip_settings($db, $ext, $name, $secret, $devType) {
+    // ── SOFT UPDATE: sin devType solo refresca campos seguros y vuelve ──
+    // Esto evita machacar el peer cuando el front guarda cosas no-SIP (avatar, ext_meta, etc.)
     if (!$devType) {
-         // Si no mandan devType, solo actualizamos secret y name si vienen
-         if ($secret) {
-             $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'secret', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")->execute([$ext, $secret]);
-         }
-         if ($name) {
-             $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'callerid', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")->execute([$ext, "$name <$ext>"]);
-         }
-         return;
+        if ($secret) {
+            $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'secret', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")
+               ->execute([$ext, $secret]);
+        }
+        if ($name) {
+            $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (?, 'callerid', ?, 0) ON DUPLICATE KEY UPDATE data=VALUES(data)")
+               ->execute([$ext, "$name <$ext>"]);
+        }
+        return;
     }
 
+    // ── PRESET chan_sip CLÁSICO (clonado del peer 1000 nativo de Issabel) ──
+    // Todas las extensiones llevan video por default — los teléfonos sin video negocian audio-only en SDP.
     $sip_data = [
-        'type'                            => 'friend',
-        'host'                            => 'dynamic',
-        'nat'                             => 'no',
-        'port'                            => '5060',
-        'qualify'                         => 'yes',
-        'qualifyfreq'                     => '60',
-        'dtmfmode'                        => 'rfc2833',
-        'disallow'                        => 'all',
-        'allow'                           => 'alaw,ulaw',
-        'dial'                            => "PJSIP/$ext",
-        'mailbox'                         => $ext,
-        'context'                         => 'from-internal',
-        'account'                         => $ext,
-        'direct_media'                    => 'no',
-        'max_contacts'                    => '1',
-        'remove_existing'                 => 'yes',
-        'ice_support'                     => 'no',
-        'media_encryption'                => 'no',
-        'dtls_verify'                     => 'no',
-        'dtls_setup'                      => 'actpass',
-        'media_use_received_transport'    => 'no',
-        'allow_subscribe'                 => 'yes',
+        'type'        => 'friend',
+        'host'        => 'dynamic',
+        'context'     => 'from-internal',
+        'account'     => $ext,
+        'mailbox'     => "$ext@device",        // formato FreePBX
+        'dial'        => "SIP/$ext",            // chan_sip, NO pjsip
+        'dtmfmode'    => 'rfc2833',
+        'transport'   => 'udp',
+        'port'        => '5060',
+        'qualify'     => 'yes',
+        'qualifyfreq' => '60',
+        'canreinvite' => 'no',
+        'trustrpid'   => 'yes',
+        'sendrpid'    => 'no',
+        'nat'         => 'yes',                 // default Issabel — atraviesa NAT
+        'callgroup'   => '',
+        'pickupgroup' => '',
+        'deny'        => '0.0.0.0/0.0.0.0',
+        'permit'      => '0.0.0.0/0.0.0.0',
+        'accountcode' => '',
+        // codecs con video por default (alaw/ulaw para audio + h264/vp8 para video + opus opcional)
+        'disallow'    => 'all',
+        'allow'       => 'alaw,ulaw,h264,vp8,opus',
+        // flags chan_sip clásicos en estado base
+        'avpf'        => 'no',
+        'force_avp'   => 'no',
+        'icesupport'  => 'no',
+        'dtlsenable'  => 'no',
+        'dtlsverify'  => 'no',
+        'dtlssetup'   => 'actpass',
+        'encryption'  => 'no',
+        'rtcp_mux'    => 'no',
     ];
-
-    if ($secret) $sip_data['secret'] = $secret;
-    if ($name) $sip_data['callerid'] = "$name <$ext>";
-
-    // CLEANUP: Evitar entradas duplicadas que Issabel genera por defecto y que pisan a las de WebRTC
-    $db->prepare("DELETE FROM sip WHERE id=? AND keyword IN ('rtp_symmetric','rewrite_contact','force_rport','ice_support','use_avpf','rtcp_mux','media_encryption','webrtc','bundle','dtls_auto_generate_cert')")->execute([$ext]);
+    if ($secret) $sip_data['secret']   = $secret;
+    if ($name)   $sip_data['callerid'] = "$name <$ext>";
 
     if ($devType === 'webrtc') {
-        $sip_data['allow'] = 'alaw,ulaw,opus,vp8,h264';
-        $sip_data['webrtc'] = 'yes';
-        $sip_data['use_avpf'] = 'yes';
-        $sip_data['media_encryption'] = 'dtls';
-        $sip_data['dtls_verify'] = 'fingerprint';
-        $sip_data['dtls_setup'] = 'actpass';
-        $sip_data['ice_support'] = 'yes';
+        // chan_sip WebRTC — clonando el peer 10010 que funciona en este Issabel
+        $sip_data['transport']                    = 'ws,wss,udp';
+        $sip_data['avpf']                         = 'yes';
+        $sip_data['icesupport']                   = 'yes';
+        $sip_data['encryption']                   = 'yes';
+        $sip_data['rtcp_mux']                     = 'yes';
+        // Keywords PJSIP-style que chan_sip de Issabel sí acepta (peer 10010 lo prueba):
+        $sip_data['webrtc']                       = 'yes';
+        $sip_data['use_avpf']                     = 'yes';
+        $sip_data['bundle']                       = 'yes';
+        $sip_data['media_encryption']             = 'dtls';
+        $sip_data['dtls_verify']                  = 'fingerprint';
+        $sip_data['dtls_setup']                   = 'actpass';
+        $sip_data['dtls_auto_generate_cert']      = 'yes';
+        $sip_data['rtp_symmetric']                = 'yes';
+        $sip_data['force_rport']                  = 'yes';
+        $sip_data['rewrite_contact']              = 'yes';
+        $sip_data['rtp_keepalive']                = '5';
+        $sip_data['ice_support']                  = 'yes';
         $sip_data['media_use_received_transport'] = 'yes';
-        $sip_data['rtcp_mux'] = 'yes';
-        $sip_data['bundle'] = 'yes';
-        $sip_data['rewrite_contact'] = 'yes';
-        $sip_data['rtp_symmetric'] = 'yes';
-        $sip_data['force_rport'] = 'yes';
-        $sip_data['dtls_auto_generate_cert'] = 'yes';
-        $sip_data['rtp_keepalive'] = '5'; // Enviar paquetes RTP vacíos para mantener NAT abierto
-    } else if ($devType === 'video') {
-        $sip_data['allow'] = 'alaw,ulaw,h264,vp8';
+    }
+    // 'video' y 'sip' usan el preset base (que ya lleva video). El teléfono sin video negocia audio-only.
+
+    // ── CLEANUP de keywords basura del esquema viejo (PJSIP que chan_sip ignora) ──
+    $db->prepare("DELETE FROM sip WHERE id=? AND keyword IN (
+        'max_contacts','remove_existing','direct_media','allow_subscribe'
+    )")->execute([$ext]);
+
+    // Si NO es WebRTC, limpiar flags WebRTC para que no queden residuales si la ext cambió de tipo
+    if ($devType !== 'webrtc') {
+        $db->prepare("DELETE FROM sip WHERE id=? AND keyword IN (
+            'webrtc','use_avpf','bundle','media_encryption','dtls_verify','dtls_setup',
+            'dtls_auto_generate_cert','rtp_symmetric','force_rport','rewrite_contact',
+            'rtp_keepalive','ice_support','media_use_received_transport'
+        )")->execute([$ext]);
     }
 
+    // ── INSERT/UPDATE del peer ──
     $stmt = $db->prepare("INSERT INTO sip (id, keyword, data, flags) VALUES (:id, :kw, :data, 0)
                           ON DUPLICATE KEY UPDATE data=VALUES(data)");
     foreach ($sip_data as $kw => $val) {
         $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
     }
 
-    // Actualizar AstDB para que el dialplan de FreePBX/Issabel lo reconozca inmediatamente
-    $dialStr = $sip_data['dial'] ?? "PJSIP/$ext";
-    shell_exec("/usr/sbin/asterisk -rx 'database put AMPUSER $ext/device $ext'");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/user $ext'");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/dial $dialStr'");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/type fixed'");
-    
-    // Recargar PJSIP para aplicar cambios de MySQL (si es que PJSIP lee de ahí, si no retrieve_conf es necesario)
-    // shell_exec("/usr/sbin/asterisk -rx 'module reload res_pjsip.so'");
+    // ── AstDB con SIP/, no PJSIP/ ──
+    $dialStr = $sip_data['dial'];  // SIP/$ext
+    shell_exec("/usr/sbin/asterisk -rx 'database put AMPUSER $ext/device $ext' >/dev/null 2>&1");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/user $ext' >/dev/null 2>&1");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/dial $dialStr' >/dev/null 2>&1");
+    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/type fixed' >/dev/null 2>&1");
+
+    // ── Reload chan_sip (Issabel usa chan_sip, no PJSIP) ──
+    shell_exec("/usr/sbin/asterisk -rx 'sip reload' >/dev/null 2>&1");
 }
 
 // ─── GET AGENTS DATA (Lite version for Softphone Directory) ─────────────────
@@ -809,9 +839,9 @@ if ($action === 'create_extension') {
         $chk->execute([$ext]);
         if ($chk->fetch()) { echo json_encode(['success' => false, 'error' => "El interno $ext ya existe"]); exit; }
 
-        // 1. devices table
+        // 1. devices table — chan_sip, NO pjsip (Issabel usa chan_sip)
         $db->prepare("INSERT INTO devices (id, tech, dial, devicetype, user, description, emergency_cid) VALUES (?, ?, ?, 'fixed', ?, ?, '')")
-           ->execute([$ext, 'pjsip', "PJSIP/$ext", $ext, $name]);
+           ->execute([$ext, 'sip', "SIP/$ext", $ext, $name]);
 
         // 2. users table (Set recording 'out=Always|in=Always' so new extensions record by default)
         $db->prepare("INSERT INTO users (extension, password, name, voicemail, ringtimer, noanswer, recording, outboundcid, mohclass) VALUES (?, ?, ?, 'novm', 0, '', 'out=Always|in=Always', '', 'default')")

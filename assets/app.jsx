@@ -3584,6 +3584,8 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     });
     const [recording, setRecording] = useState(ext?.recording||'dontcare');
     const [devType, setDevType] = useState('webrtc');
+    const initialDevTypeRef = useRef(null);
+    // Capturar el devType inicial cuando se carga del backend (no en cada render)
     const [showPass, setShowPass] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -3678,7 +3680,13 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
                 .then(r=>r.json())
                 .then(d=>{ if(d.success) {
                     setForm(f=>({...f, secret: d.secret||''}));
-                    if (d.device_type) setDevType(d.device_type);
+                    if (d.device_type) {
+                        setDevType(d.device_type);
+                        // Capturar el devType inicial sólo la primera vez (no sobrescribir si vuelve a cargar)
+                        if (initialDevTypeRef.current === null) initialDevTypeRef.current = d.device_type;
+                    } else if (initialDevTypeRef.current === null) {
+                        initialDevTypeRef.current = 'webrtc';  // fallback al default del state
+                    }
                 }});
         }
     }, [ext, isNew]);
@@ -3716,8 +3724,15 @@ function ExtEditPage({ ext, onBack, onSaved, toast }) {
     const save = async () => {
         setSaving(true);
         const fd = new FormData();
-        Object.entries(form).forEach(([k,v])=>fd.append(k,v));
-        fd.append('device_type', devType);
+        // Excluir campos de meta (no deben ir al endpoint de extensión)
+        const META_KEYS = new Set(['tipo','rtsp_url','rtsp_label','is_bocina','door_dtmf_code']);
+        Object.entries(form).forEach(([k,v]) => { if (!META_KEYS.has(k)) fd.append(k, v); });
+        // device_type SÓLO si cambió respecto al valor inicial cargado del backend.
+        // Si no cambió, el backend hará un soft-update (sólo secret/name) y no reescribirá el peer.
+        const initialDevType = initialDevTypeRef.current;
+        if (devType !== initialDevType) {
+            fd.append('device_type', devType);
+        }
         fd.append('recording', recording);
         const action = isNew ? 'create_extension' : 'update_extension';
         // Guardar ext_meta (tipo + rtsp + bocina + door_dtmf_code) si cambió alguno
