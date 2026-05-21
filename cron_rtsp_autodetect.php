@@ -140,11 +140,15 @@ function get_registered_peer_ips(): array {
     $map = [];
     foreach (explode("\n", $buf) as $line) {
         $line = trim($line);
-        if ($line === '' || strpos($line, 'Name/username') !== false) continue;
+        if ($line === '') continue;
+        // Asterisk AMI prefija cada línea de output con "Output: "
+        if (strpos($line, 'Output: ') === 0) $line = substr($line, 8);
+        if (strpos($line, 'Name/username') !== false) continue;
         if (!preg_match('/^(\d{3,7})(?:\/[\w-]+)?\s+(\S+)\s/', $line, $m)) continue;
         $ext = $m[1];
         $ip  = $m[2];
         if (!filter_var($ip, FILTER_VALIDATE_IP)) continue;
+        // Solo peers efectivamente alcanzables (descarta UNKNOWN, UNREACHABLE, etc.)
         if (strpos($line, 'OK (') === false && strpos($line, 'Reachable') === false) continue;
         $map[$ext] = $ip;
     }
