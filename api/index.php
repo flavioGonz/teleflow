@@ -280,17 +280,25 @@ function get_all_endpoint_statuses() {
     return $statuses;
 }
 
+/**
+ * Ejecuta un comando en la PBX Issabel (10.1.1.7) via SSH usando la clave del usuario www-data.
+ * Devuelve la salida (stdout+stderr) o string vacío si falla.
+ *
+ * La web VM no tiene binario `asterisk` ni `retrieve_conf` (la PBX vive en 10.1.1.7).
+ * Esta función reemplaza los viejos `shell_exec("/usr/sbin/asterisk -rx ...")` que silenciaban errores.
+ */
+function pbx_ssh_exec($cmd) {
+    $key  = '/var/www/.ssh/id_ed25519';
+    if (!is_readable($key)) return ''; // sin clave: noop (no romper instalaciones sin SSH setup)
+    $opts = '-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8';
+    $esc  = escapeshellarg($cmd);
+    return shell_exec("ssh $opts -i $key root@10.1.1.7 $esc 2>&1");
+}
+
 function reload_dialplan() {
-    // Find fwconsole in common locations
-    $paths = ['/var/lib/asterisk/bin/fwconsole','/usr/sbin/fwconsole','/usr/local/sbin/fwconsole'];
-    $fw = '';
-    foreach ($paths as $p) { if (file_exists($p)) { $fw=$p; break; } }
-    if ($fw) {
-        shell_exec("$fw reload --quiet >/dev/null 2>&1");
-    } else {
-        shell_exec("/var/lib/asterisk/bin/retrieve_conf >/dev/null 2>&1");
-        shell_exec("/usr/sbin/asterisk -rx 'core reload' >/dev/null 2>&1");
-    }
+    // La PBX es 10.1.1.7. Regenerar configs estáticos y recargar Asterisk via SSH.
+    // retrieve_conf vuelca devices/users/sip a /etc/asterisk/*_additional.conf.
+    pbx_ssh_exec("/var/lib/asterisk/bin/retrieve_conf >/dev/null 2>&1; /usr/sbin/asterisk -rx 'dialplan reload' >/dev/null 2>&1");
 }
 
 function apply_sip_settings($db, $ext, $name, $secret, $devType) {
@@ -392,15 +400,18 @@ function apply_sip_settings($db, $ext, $name, $secret, $devType) {
         $stmt->execute([':id' => $ext, ':kw' => $kw, ':data' => $val]);
     }
 
-    // ── AstDB con SIP/, no PJSIP/ ──
+    // ── AstDB con SIP/, no PJSIP/ ── (vía SSH al PBX, la web VM no tiene `asterisk`)
     $dialStr = $sip_data['dial'];  // SIP/$ext
-    shell_exec("/usr/sbin/asterisk -rx 'database put AMPUSER $ext/device $ext' >/dev/null 2>&1");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/user $ext' >/dev/null 2>&1");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/dial $dialStr' >/dev/null 2>&1");
-    shell_exec("/usr/sbin/asterisk -rx 'database put DEVICE $ext/type fixed' >/dev/null 2>&1");
+    $astdb = "/usr/sbin/asterisk -rx 'database put AMPUSER $ext/device $ext' >/dev/null 2>&1; "
+           . "/usr/sbin/asterisk -rx 'database put DEVICE $ext/user $ext' >/dev/null 2>&1; "
+           . "/usr/sbin/asterisk -rx 'database put DEVICE $ext/dial $dialStr' >/dev/null 2>&1; "
+           . "/usr/sbin/asterisk -rx 'database put DEVICE $ext/type fixed' >/dev/null 2>&1";
+    pbx_ssh_exec($astdb);
 
-    // ── Reload chan_sip (Issabel usa chan_sip, no PJSIP) ──
-    shell_exec("/usr/sbin/asterisk -rx 'sip reload' >/dev/null 2>&1");
+    // ── retrieve_conf materializa el peer en /etc/asterisk/sip_additional.conf ──
+    // ── y sip reload hace que chan_sip lo cargue. Sin esto el peer existe en MySQL ──
+    // ── pero Asterisk no lo conoce hasta que alguien haga Apply Config en Issabel UI. ──
+    pbx_ssh_exec("/var/lib/asterisk/bin/retrieve_conf >/dev/null 2>&1; /usr/sbin/asterisk -rx 'sip reload' >/dev/null 2>&1");
 }
 
 // ─── GET AGENTS DATA (Lite version for Softphone Directory) ─────────────────
