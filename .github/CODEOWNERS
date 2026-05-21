@@ -1,0 +1,26 @@
+# CODEOWNERS — quién revisa cambios en cada parte del repo
+# Ver https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default — owner principal revisa todo lo que no tenga override
+*                       @flavioGonz
+
+# Backend PHP — endpoints críticos
+/api/                   @flavioGonz
+
+# Realtime hub Node
+/realtime/              @flavioGonz
+
+# Dialplan + AGIs de la PBX
+/dist/                  @flavioGonz
+
+# Frontend SPA principal
+/assets/app.jsx         @flavioGonz
+/index.php              @flavioGonz
+/sw.js                  @flavioGonz
+/manifest.json          @flavioGonz
+
+# Documentación — cualquiera del equipo puede aprobar cambios de docs
+/docs/                  @flavioGonz
+/README.md              @flavioGonz
+/CONTRIBUTING.md        @flavioGonz
+/CHANGELOG.md           @flavioGonz

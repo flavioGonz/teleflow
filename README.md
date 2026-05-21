@@ -1,157 +1,111 @@
-# <div align="center">TeleFlow : Next-Gen PBX Control</div>
+# Teleflow Horizon
 
-<img width="1914" height="939" alt="image" src="https://github.com/user-attachments/assets/cf3657bf-f218-40d8-9cb7-09d9479bd144" />
+> PBX management & call center suite para Asterisk / Issabel.
+> Web app PWA con softphone WebRTC, monitor en vivo, hotdesking, reportes, snapshots automáticos de videoporteros RTSP y debug SIP en línea.
 
-
-<div align="center">
-  
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-18.2.0--stable-blue)](https://github.com/flavioGonz/teleflow)
-[![Platform](https://img.shields.io/badge/Platform-Issabel_|_Asterisk-orange)](https://www.issabel.org/)
-[![UI](https://img.shields.io/badge/UI-React_|_Tailwind-61dafb)](https://react.dev/)
-
-</div>
+[![Branch](https://img.shields.io/badge/branch-horizon%2Fmain-11B328)](https://github.com/flavioGonz/teleflow/tree/horizon/main)
+[![Stack](https://img.shields.io/badge/stack-PHP%208.3%20%2B%20React%20%2B%20Node-orange)]()
+[![PBX](https://img.shields.io/badge/PBX-Asterisk%20%7C%20Issabel%20(chan__sip)-blue)]()
 
 ---
 
-## 🌟 Visión General
-**TeleFlow** es una plataforma de gestión y monitoreo para sistemas de telefonía basados en **Asterisk/Issabel**, diseñada con una estética moderna, fluida y profesional. Orientada a Call Centers de alto rendimiento y entornos de portería inteligente, TeleFlow transforma la compleja administración de una PBX en una experiencia visual intuitiva y potente.
+## Producción
 
-> [!IMPORTANT]
-> TeleFlow no es solo un dashboard, es un ecosistema completo que integra WebRTC, diseño visual de IVR y diagnóstico SIP en tiempo real.
+- **URL**: [http://10.1.1.192/](http://10.1.1.192/)
+- **VM web**: `srv-teleflow` (Ubuntu), Apache + PHP 8.3 + Node hub
+- **PBX**: Issabel @ `10.1.1.7` con chan_sip
+- **Rama productiva**: `horizon/main` (rama default del repo)
 
----
+## Stack
 
-## 🚀 Características Principales
+- **Frontend**: React + Babel-standalone (sin build step), Tailwind CDN, primitives shadcn inline.
+- **Backend**: PHP 8.3 + PDO MySQL + composer (TCPDF, PhpSpreadsheet para exports).
+- **Realtime**: Node 18+ con `asterisk-manager` + `socket.io`.
+- **Media**: MediaMTX v1.10 (proxy RTSP → HLS).
+- **PWA**: service worker con strategies por tipo de recurso, manifest, offline page.
 
-### 📊 1. Dashboard de Control Central
-Visualización inmediata de la salud del sistema y métricas críticas de operación.
-*   **Métricas de Hardware:** Uso de CPU, RAM y Almacenamiento en tiempo real.
-*   **KPIs Telefónicos:** Conexiones activas, uptime del servidor y conteo de llamadas del día.
-*   **Actividad Reciente:** Listado rápido de extensiones registradas y últimas grabaciones procesadas.
+## Quick start
 
-### 👥 2. Gestión Inteligente de Extensiones
-Panel ABM (Alta, Baja, Modificación) avanzado con capacidades de monitoreo de red.
-*   **Filtros Interactivos:** Segmentación instantánea por estado (Online, En Llamada, Offline).
-*   **Diagnóstico de Red:** Visualización de IP de origen, MAC Address y latencia (RTT).
-*   **Identificación de Dispositivos:** Distinción automática entre Softphones, Deskphones y Tablets.
-*   **Side Drawer Pro:** Edición de parámetros técnicos (Secret, CallerID, Video, DTMF) sin perder el contexto de la lista.
+### 1. Acceso SSH a la VM productiva
 
-### 📞 3. Cloud Softphone (WebRTC HD / PWA)
-Un teléfono profesional premium integrado directamente en el navegador con experiencia nativa de iPhone.
-*   **Tecnología SIP.js 0.20.0:** Conexión segura optimizada para Asterisk PJSIP vía WSS.
-*   **Video HD & Audio:** Soporte para videollamadas con interfaz iOS-Style, desenfoque de fondo y controles de cristal.
-*   **Audio Visualizer:** Onda animada en tiempo real (Real-time Decibel Meter) integrada en la cabecera de la llamada.
-*   **Haptics & Sound:** Vibraciones táctiles (Haptic Feedback) y sonidos de ringback/llamada entrante para una experiencia física.
-*   **Gestión de Dispositivos:** Conmutación rápida entre cámaras (Flip Camera) y control de altavoz (Speakerphone).
-*   **Notificaciones PWA:** Soporte completo para "Add to Home Screen" con notificaciones nativas y ejecución en segundo plano.
-*   **Dialpad Táctico:** Teclado numérico con efectos de presión, historial detallado y avatares dinámicos.
+```bash
+ssh hzn@10.1.1.192   # password en LastPass del equipo
+cd /home/hzn/teleflow-horizon-clean
+git status
+```
 
-### 🔗 4. Call Center & Monitoreo en Vivo
-Herramientas críticas para supervisores y gestores de tráfico telefónico.
-*   **Llamadas en Vivo:** Monitorización con timers dinámicos y detalles de origen/destino.
-*   **Gestión de Colas:** Supervisión de llamadas en espera y estrategias de distribución (Ringall, RoundRobin, etc.).
-*   **Grupos de Timbrado:** Configuración visual de grupos con estados dinámicos de sus miembros.
-*   **CDR Avanzado:** Historial detallado con filtros por fecha y búsqueda rápida.
+### 2. Editar y deployar (workflow estándar)
 
-### 🎨 5. Visual IVR Designer
-Diseñador de flujos interactivos para menús de voz.
-*   **Interfaz Drag & Drop:** Basado en React Flow para una construcción intuitiva.
-*   **Nodos de Acción:** Reproducción de audios, menús de opciones e inserción en colas.
+El flujo está descripto paso a paso en [`docs/deploy.md`](docs/deploy.md). Resumen:
 
-### 📈 6. Reportes Analíticos con Chart.js
-Análisis de datos para la toma de decisiones informadas.
-*   **Tendencias Diarias:** Gráficas de volumen de llamadas (Contestadas vs Fallidas).
-*   **Top Performance:** Rankings de internos más activos y destinos más frecuentes.
+1. Editar archivos en una rama feature (`feature/mi-cambio`).
+2. Subir vía SFTP a `/var/www/teleflow/` y a `/home/hzn/teleflow-horizon-clean/`.
+3. Bumpear `CACHE_NAME` en `sw.js`.
+4. `sudo apache2ctl -t && sudo systemctl reload apache2`.
+5. Si tocaste `realtime/index.js`: `sudo systemctl restart teleflow-realtime`.
+6. Commit + push desde la VM. PR a `horizon/main`.
 
-### 🛡️ 7. Diagnóstico & Debug SIP
-Panel de control para administradores de sistemas.
-*   **Logger en Tiempo Real:** Visualización directa de eventos de Asterisk PJSIP/SIP.
-*   **Filtros de Seguridad:** Detección de intentos de registro fallidos y errores de autenticación.
+> ⚠ **DocumentRoot es `/var/www/teleflow/`**, no `/var/www/html/`. Más detalles en [`docs/deploy.md`](docs/deploy.md).
 
----
+### 3. Cómo correr local (sin la PBX)
 
-## 📸 Capturas de Pantalla (Preview)
+```bash
+git clone git@github.com:flavioGonz/teleflow.git
+cd teleflow
+cp config.example.php config.php
+# Editar config.php con creds reales (no commitear)
+php -S 0.0.0.0:8080 -t .
+# Abrir http://localhost:8080
+```
 
-| Dashboard Principal | Softphone WebRTC |
-| :---: | :---: |
-| ![Dashboard Placeholder](https://via.placeholder.com/600x400/0f0f1a/ffffff?text=Dashboard+TeleFlow) | !<img width="428" height="782" alt="image" src="https://github.com/user-attachments/assets/8a468b5d-4b94-4798-8691-5d7d226fdd1f" />
-) |
+Sin acceso a la PBX algunas vistas no van a renderizar data live; el front sigue funcional para trabajar UI.
 
-| Designer IVR | Gestión de Extensiones |
-| :---: | :---: |
-| ![IVR Designer Placeholder](https://via.placeholder.com/600x400/0f0f1a/ffffff?text=IVR+Designer) | ![Extensions Placeholder](https://via.placeholder.com/600x400/0f0f1a/ffffff?text=Extensions+Panel) |
+## Estructura del repo
 
----
+```
+.
+├── index.php                  # Punto de entrada del SPA (70 KB)
+├── assets/app.jsx             # JSX/React del SPA (945 KB, cacheable)
+├── sw.js / manifest.json      # PWA
+├── offline.html               # Página offline elegante
+├── api/                       # Endpoints PHP
+├── dist/                      # Dialplan + AGIs + audios para la PBX
+├── realtime/                  # Node hub socket.io + AMI
+├── softphone/                 # WebRTC softphone (sub-app)
+└── docs/                      # Documentación detallada
+```
 
-## 🛠️ Requisitos Técnicos
+Detalle completo de cada carpeta en [`docs/architecture.md`](docs/architecture.md).
 
-### Servidor (Core)
-*   **PBX:** Issabel 4+, Asterisk 13/16/18+ (PJSIP recomendado).
-*   **OS:** CentOS 7 / Rocky Linux / Oracle Linux (Soportados por Issabel).
-*   **Web:** Apache 2.4+ / Nginx.
-*   **PHP:** 7.4 o superior (con `pdo_mysql`, `sqlite3`).
-*   **Base de datos:** MySQL (Base de datos Asterisk) y SQLite (para gestión de ACL).
+## Documentación
 
-### Red / Seguridad
-*   Certificado SSL Válido (Obligatorio para WebRTC/WSS).
-*   Puertos abiertos: `80/443 (HTTP/S)`, `5060/5061 (SIP)`, `8089/WSS Proxy`.
+| Doc | Tema |
+|-----|------|
+| [`docs/architecture.md`](docs/architecture.md) | Diagrama, capas, decisiones técnicas |
+| [`docs/deploy.md`](docs/deploy.md) | Deploy paso a paso, drift check, troubleshooting |
+| [`docs/api.md`](docs/api.md) | Catálogo de endpoints PHP |
+| [`docs/pbx-integration.md`](docs/pbx-integration.md) | chan_sip vs PJSIP, feature codes, AGI |
+| [`docs/pwa.md`](docs/pwa.md) | Service worker strategies, manifest, push |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Errores comunes y soluciones |
+| [`docs/onboarding.md`](docs/onboarding.md) | Checklist para devs nuevos |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Cómo contribuir (branches, commits, PRs) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Histórico de versiones |
 
----
+## Feature codes (Asterisk)
 
-## ⚙️ Instalación
+| Código | Acción |
+|--------|--------|
+| `*7700` | Login agente con prefs guardadas |
+| `*7700*N` | Login a cola mapeada al dígito N (config en Configuración → Atajos) |
+| `*7700*N*M*K` | Login simultáneo a múltiples colas |
+| `*7700*QUEUE` | Login a cola por ID literal (ej. `*7700*8000`) |
+| `*7701` | Logout total |
+| `*7702` | Pausar (pide motivo DTMF) |
+| `*7703` | Despausar |
 
-1.  **Clonar repositorio:**
-    ```bash
-    cd /var/www/html/
-    git clone https://github.com/flavioGonz/teleflow.git
-    chown -R asterisk:asterisk teleflow
-    ```
+Tabla completa en [`docs/pbx-integration.md`](docs/pbx-integration.md).
 
-2.  **Configuración de Base de Datos:**
-    Asegúrate de que la API tenga acceso a las tablas de Asterisk. El archivo de configuración principal de la API se encuentra en `api/index.php`.
+## Licencia
 
-3.  **Habilitar WebSockets en Asterisk:**
-    En `http_additional.conf` o `http_custom.conf`:
-    ```ini
-    [general]
-    enabled=yes
-    bindaddr=0.0.0.0
-    bindport=8088
-    tlsenable=yes
-    tlsbindaddr=0.0.0.0:8089
-    tlscertfile=/etc/asterisk/keys/asterisk.pem
-    ```
-
-4.  **Configuración de Proxy WSS (Apache):**
-    Añade esto a tu VirtualHost SSL:
-    ```apache
-    ProxyPass /ws wss://127.0.0.1:8089/ws
-    ProxyPassReverse /ws wss://127.0.0.1:8089/ws
-    ```
-
-5.  **Acceso:**
-    Navega a `https://tu-servidor/teleflow` e inicia sesión con tus credenciales de administrador de Issabel.
-
----
-
-## 📱 PWA & Mobile
-TeleFlow es 100% responsive y está optimizado como **Progressive Web App (PWA)**.
-*   **Instalable:** En iPhone (Add to Home Screen) y Android/Desktop.
-*   **Modo Oscuro:** Adaptación automática según preferencia del sistema o toggle manual.
-
----
-
-## 🤝 Contribuciones
-¡Las contribuciones son bienvenidas! Por favor, abre un Issue o envía un Pull Request para mejorar TeleFlow.
-
----
-
-## 📄 Licencia
-Este proyecto está bajo la Licencia MIT - mira el archivo [LICENSE](LICENSE) para detalles.
-
----
-
-<div align="center">
-Desarrollado con ❤️ por <b>Infratec Uruguay</b>
-</div>
+MIT.
