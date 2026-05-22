@@ -56,7 +56,7 @@ $PROBE_PATHS = [
 
 const REPROBE_AUTO_AFTER_SECONDS = 3600;   // rechequeo URL auto: 1h
 const RETRY_THROTTLE_SECONDS     = 21600;  // intento fallido: 6h
-const PROBE_TIMEOUT_SECONDS      = 2;
+const PROBE_TIMEOUT_SECONDS      = 4;   // ffprobe necesita más que un DESCRIBE
 
 function log_v(string $msg): void {
     global $VERBOSE;
@@ -66,46 +66,33 @@ function log_i(string $msg): void { fwrite(STDOUT, "[i] $msg\n"); }
 function log_e(string $msg): void { fwrite(STDERR, "[!] $msg\n"); }
 
 /**
- * DESCRIBE RTSP a host:554 path. Devuelve [code, reason] o null si la conexión falla.
+ * Pre-check rápido: ¿el puerto 554 responde a RTSP? Descarta IPs no-cámaras en ~200ms.
+ * No discrimina 200 vs 401 — solo que algo RTSP-compatible vive allí.
  */
-function rtsp_probe(string $host, string $path, int $timeoutSec = 2): ?array {
+function rtsp_port_alive(string $host, int $timeoutSec = 2): bool {
     $errno = 0; $errstr = '';
-    $fp = @stream_socket_client(
-        "tcp://$host:554",
-        $errno, $errstr,
-        $timeoutSec,
-        STREAM_CLIENT_CONNECT
-    );
-    if (!$fp) {
-        log_v("probe $host$path: connect failed ($errstr)");
-        return null;
-    }
-    stream_set_timeout($fp, $timeoutSec);
-
-    $url = "rtsp://$host$path";
-    $req = "DESCRIBE $url RTSP/1.0\r\n" .
-           "CSeq: 1\r\n" .
-           "User-Agent: TeleflowAutoDetect/1.0\r\n" .
-           "Accept: application/sdp\r\n\r\n";
-    @fwrite($fp, $req);
-
-    $line = @fgets($fp, 1024);
-    @fclose($fp);
-    if (!$line) {
-        log_v("probe $host$path: empty response");
-        return null;
-    }
-    if (!preg_match('#^RTSP/\d\.\d\s+(\d+)\s+(.*?)\r?\n#', $line, $m)) {
-        log_v("probe $host$path: malformed status: " . trim($line));
-        return null;
-    }
-    return [(int)$m[1], trim($m[2])];
+    $fp = @stream_socket_client("tcp://$host:554", $errno, $errstr, $timeoutSec, STREAM_CLIENT_CONNECT);
+    if (!$fp) return false;
+    fclose($fp);
+    return true;
 }
 
-/** 200 OK o 401 Unauthorized = URL existe (404/454 = no existe ese path). */
-function rtsp_url_is_valid(?array $resp): bool {
-    if (!$resp) return false;
-    return $resp[0] === 200 || $resp[0] === 401;
+/**
+ * Valida que un stream RTSP **realmente se puede leer** con ffprobe (timeout corto).
+ * Esto refleja lo que MediaMTX va a hacer cuando intente consumirlo. Si ffprobe
+ * puede leer un stream, MediaMTX también podrá. Si responde 401 o no hay video, falla.
+ *
+ * Devuelve true si exit code = 0 (stream leído OK).
+ */
+function rtsp_can_stream(string $host, string $path, int $timeoutSec = 4): bool {
+    $url = escapeshellarg("rtsp://$host$path");
+    // -timeout es microsegundos para rtsp_transport; -rw_timeout también
+    $cmd = "timeout " . ($timeoutSec + 1) . " ffprobe -v error " .
+           "-rtsp_transport tcp " .
+           "-timeout " . ($timeoutSec * 1000000) . " " .
+           "-show_streams $url 2>&1 >/dev/null";
+    exec($cmd, $out, $rc);
+    return $rc === 0;
 }
 
 /**
@@ -222,14 +209,21 @@ foreach ($peers as $ext => $ip) {
         continue;
     }
 
-    // 4. PROBE
-    log_v("ext $ext @ $ip: probing...");
+    // 4. PROBE: primero pre-check del puerto, después ffprobe real
+    if (!rtsp_port_alive($ip, 1)) {
+        log_v("ext $ext @ $ip: port 554 closed, skipping");
+        $stats['no_match']++;
+        if (!$DRY_RUN) {
+            $upsert = $tf->prepare("INSERT INTO ext_meta (ext, rtsp_auto_tried_at) VALUES (?, ?) ON DUPLICATE KEY UPDATE rtsp_auto_tried_at=VALUES(rtsp_auto_tried_at)");
+            $upsert->execute([$ext, date('Y-m-d H:i:s')]);
+        }
+        continue;
+    }
+    log_v("ext $ext @ $ip: probing with ffprobe...");
     $found = null;
     foreach ($PROBE_PATHS as $cand) {
-        $resp = rtsp_probe($ip, $cand['path'], PROBE_TIMEOUT_SECONDS);
-        if (rtsp_url_is_valid($resp)) {
+        if (rtsp_can_stream($ip, $cand['path'], PROBE_TIMEOUT_SECONDS)) {
             $found = $cand;
-            $found['code'] = $resp[0];
             break;
         }
     }
@@ -238,7 +232,7 @@ foreach ($peers as $ext => $ip) {
     if ($found) {
         $detected = "rtsp://$ip" . $found['path'];
         $label    = ucfirst($found['vendor']) . ' auto';
-        log_i("ext $ext: DETECTED ({$found['vendor']}, code {$found['code']}): $detected");
+        log_i("ext $ext: DETECTED ({$found['vendor']}): $detected");
         $stats['detected']++;
         if (!$DRY_RUN) {
             $upsert = $tf->prepare("INSERT INTO ext_meta (ext, rtsp_url, rtsp_label, rtsp_url_source, rtsp_auto_tried_at) VALUES (?, ?, ?, 'auto', ?) ON DUPLICATE KEY UPDATE rtsp_url=VALUES(rtsp_url), rtsp_label=COALESCE(rtsp_label, VALUES(rtsp_label)), rtsp_url_source='auto', rtsp_auto_tried_at=VALUES(rtsp_auto_tried_at)");
