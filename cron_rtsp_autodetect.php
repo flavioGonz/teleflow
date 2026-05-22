@@ -54,6 +54,14 @@ $PROBE_PATHS = [
     ['vendor' => 'dahua',     'path' => '/cam/realmonitor?channel=1&subtype=1'],
 ];
 
+// Credenciales por defecto para videoporteros que tienen auth habilitada.
+// Las pruebo SOLO después de un intento sin auth. Si funcionan, la URL queda
+// guardada con el formato rtsp://user:pass@host/path (URL-encoded).
+$DEFAULT_RTSP_CREDS = [
+    // Akuvox + algunos otros vendors usan estas en este deployment (confirmado 2026-05-22)
+    ['user' => 'admin', 'pass' => 'Hzn@2468'],
+];
+
 const REPROBE_AUTO_AFTER_SECONDS = 3600;   // rechequeo URL auto: 1h
 const RETRY_THROTTLE_SECONDS     = 21600;  // intento fallido: 6h
 const PROBE_TIMEOUT_SECONDS      = 4;   // ffprobe necesita más que un DESCRIBE
@@ -78,15 +86,20 @@ function rtsp_port_alive(string $host, int $timeoutSec = 2): bool {
 }
 
 /**
- * Valida que un stream RTSP **realmente se puede leer** con ffprobe (timeout corto).
- * Esto refleja lo que MediaMTX va a hacer cuando intente consumirlo. Si ffprobe
- * puede leer un stream, MediaMTX también podrá. Si responde 401 o no hay video, falla.
- *
- * Devuelve true si exit code = 0 (stream leído OK).
+ * Construye una URL RTSP con credenciales URL-encoded.
+ * Maneja caracteres especiales en la password (@, :, /, etc.) via rawurlencode.
  */
-function rtsp_can_stream(string $host, string $path, int $timeoutSec = 4): bool {
-    $url = escapeshellarg("rtsp://$host$path");
-    // -timeout es microsegundos para rtsp_transport; -rw_timeout también
+function rtsp_url_with_creds(string $host, string $path, ?string $user, ?string $pass): string {
+    if (!$user || !$pass) return "rtsp://$host$path";
+    return "rtsp://" . rawurlencode($user) . ":" . rawurlencode($pass) . "@$host$path";
+}
+
+/**
+ * Valida que un stream RTSP **realmente se puede leer** con ffprobe (timeout corto).
+ * Si $user/$pass se pasan, los usa. Devuelve true si exit code = 0.
+ */
+function rtsp_can_stream(string $host, string $path, int $timeoutSec = 4, ?string $user = null, ?string $pass = null): bool {
+    $url = escapeshellarg(rtsp_url_with_creds($host, $path, $user, $pass));
     $cmd = "timeout " . ($timeoutSec + 1) . " ffprobe -v error " .
            "-rtsp_transport tcp " .
            "-timeout " . ($timeoutSec * 1000000) . " " .
@@ -221,17 +234,33 @@ foreach ($peers as $ext => $ip) {
     }
     log_v("ext $ext @ $ip: probing with ffprobe...");
     $found = null;
+    $foundUser = null; $foundPass = null;
+    // 4a. Sin auth primero
     foreach ($PROBE_PATHS as $cand) {
         if (rtsp_can_stream($ip, $cand['path'], PROBE_TIMEOUT_SECONDS)) {
             $found = $cand;
             break;
         }
     }
+    // 4b. Si no anduvo, probar con cada par de credenciales default
+    if (!$found) {
+        foreach ($DEFAULT_RTSP_CREDS as $creds) {
+            foreach ($PROBE_PATHS as $cand) {
+                if (rtsp_can_stream($ip, $cand['path'], PROBE_TIMEOUT_SECONDS, $creds['user'], $creds['pass'])) {
+                    $found = $cand;
+                    $foundUser = $creds['user'];
+                    $foundPass = $creds['pass'];
+                    log_v("ext $ext: matched with credentials user={$creds['user']}");
+                    break 2;
+                }
+            }
+        }
+    }
 
     $now = date('Y-m-d H:i:s');
     if ($found) {
-        $detected = "rtsp://$ip" . $found['path'];
-        $label    = ucfirst($found['vendor']) . ' auto';
+        $detected = rtsp_url_with_creds($ip, $found['path'], $foundUser, $foundPass);
+        $label    = ucfirst($found['vendor']) . ' auto' . ($foundUser ? ' (auth)' : '');
         log_i("ext $ext: DETECTED ({$found['vendor']}): $detected");
         $stats['detected']++;
         if (!$DRY_RUN) {
