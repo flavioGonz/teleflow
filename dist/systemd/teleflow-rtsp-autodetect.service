@@ -13,4 +13,4 @@ ExecStart=/usr/bin/php /var/www/teleflow/cron_rtsp_autodetect.php
 StandardOutput=journal
 StandardError=journal
 # Si tarda más de 5 min mata el proceso — no debería pasar nunca
-TimeoutStartSec=300
+TimeoutStartSec=1800
