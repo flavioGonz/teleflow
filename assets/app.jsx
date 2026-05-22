@@ -10394,6 +10394,7 @@ function ViewConfiguracion() {
         { id:'agentes',        icon:'support_agent',  label:'Agentes',        desc:'Operadores de call center' },
         { id:'branding',       icon:'palette',        label:'Branding',       desc:'Logos y colores' },
         { id:'softphone',      icon:'phone_in_talk',  label:'Softphone',      desc:'Cliente WebRTC' },
+        { id:'ssl',            icon:'verified_user',  label:'Certificado SSL', desc:"Let's Encrypt + renovación" },
         { id:'changelog',      icon:'history',        label:'Changelog',      desc:'Historial de versiones' },
     ];
 
@@ -10637,6 +10638,7 @@ function ViewConfiguracion() {
             {activeTab === 'shortcuts' && <ViewConfigShortcuts />}
             {activeTab === 'usuarios'  && <ViewConfigUsers />}
             {activeTab === 'agentes'   && <ViewConfigAgents />}
+            {activeTab === 'ssl'       && <ViewConfigSsl />}
             {activeTab === 'changelog' && <ViewConfigChangelog />}
                 </div>
             </div>
@@ -11858,6 +11860,172 @@ function ViewConfigShortcuts() {
                 </DialogFooter>
             </Dialog>
         </Card>
+    );
+}
+
+// ─────────────────────────────────────────────
+// VISTA: CONFIGURACIÓN — Certificado SSL Let's Encrypt
+// ─────────────────────────────────────────────
+function ViewConfigSsl() {
+    const [certs, setCerts] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [renewing, setRenewing] = useState(false);
+    const [output, setOutput] = useState('');
+    const [error, setError] = useState('');
+
+    const load = async () => {
+        setLoading(true); setError('');
+        try {
+            const r = await fetch('api/letsencrypt.php?action=status', {credentials:'include'});
+            const d = await r.json();
+            if (d.success) { setCerts(d.certs || []); }
+            else { setError(d.error || 'Error obteniendo certificados'); }
+        } catch (e) { setError('No se pudo conectar al servidor'); }
+        setLoading(false);
+    };
+
+    useEffect(() => { load(); }, []);
+
+    const renew = async () => {
+        if (!confirm('Forzar renovación del certificado ahora?\n\nEsto contacta Let\'s Encrypt y reemplaza el cert actual con uno nuevo (válido 90 días). Útil si necesitás reiniciar el contador o si el cert tiene un problema.')) return;
+        setRenewing(true); setOutput(''); setError('');
+        try {
+            const r = await fetch('api/letsencrypt.php?action=renew', {credentials:'include'});
+            const d = await r.json();
+            if (d.success) {
+                setCerts(d.certs || []);
+                setOutput(d.output || '');
+            } else {
+                setError(d.error || 'Error al renovar');
+            }
+        } catch (e) { setError('Error de red durante renovación'); }
+        setRenewing(false);
+    };
+
+    const fmtDate = (s) => {
+        if (!s) return '—';
+        // Input: "2026-08-20 10:51:54+00:00"
+        try {
+            const d = new Date(s.replace(' ', 'T'));
+            return d.toLocaleString('es-UY', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        } catch { return s; }
+    };
+
+    const statusColor = (days) => {
+        if (days == null) return 'var(--muted-foreground)';
+        if (days > 30) return 'var(--horizon-green)';
+        if (days > 14) return '#f59e0b';
+        return 'var(--destructive)';
+    };
+
+    if (loading) return (
+        <Card><CardContent className="py-8 text-center text-sm" style={{color:'var(--muted-foreground)'}}>
+            <span className="material-icons-round animate-spin" style={{fontSize:24}}>autorenew</span>
+            <div className="mt-2">Leyendo certificados…</div>
+        </CardContent></Card>
+    );
+
+    return (
+        <div className="grid gap-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-between gap-2 text-base">
+                        <div className="flex items-center gap-2">
+                            <span className="material-icons-round" style={{fontSize:20, color:'var(--horizon-green)'}}>verified_user</span>
+                            Certificado SSL — Let's Encrypt
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ActionIconButton icon={loading ? 'autorenew' : 'refresh'} label="Recargar" onClick={load} disabled={loading||renewing} size={32}/>
+                            <ActionIconButton icon={renewing ? 'autorenew' : 'sync'} label={renewing ? 'Renovando…' : 'Forzar renovación'} onClick={renew} disabled={renewing} tone="primary" size={32}/>
+                        </div>
+                    </CardTitle>
+                    <CardDescription>
+                        Certificados emitidos por Let's Encrypt para el dominio público.
+                        Auto-renovación: <strong>certbot.timer</strong> corre 2 veces al día y renueva ~30 días antes de vencer.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {error && (
+                        <div className="mb-3 p-3 rounded-md border text-sm flex items-start gap-2" style={{borderColor:'color-mix(in srgb, var(--destructive) 30%, transparent)', background:'color-mix(in srgb, var(--destructive) 8%, transparent)', color:'var(--destructive)'}}>
+                            <span className="material-icons-round" style={{fontSize:16}}>error_outline</span>
+                            <span className="flex-1">{error}</span>
+                        </div>
+                    )}
+                    {(!certs || certs.length === 0) ? (
+                        <div className="py-6 text-center text-sm" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:32, opacity:0.4}}>shield</span>
+                            <div className="mt-2">No hay certificados instalados.</div>
+                        </div>
+                    ) : (
+                        <div className="grid gap-3">
+                            {certs.map((c, i) => (
+                                <Card key={i} className="overflow-hidden">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="material-icons-round" style={{fontSize:18, color: statusColor(c.days_left)}}>
+                                                        {c.status === 'VALID' ? 'check_circle' : c.status === 'EXPIRED' ? 'cancel' : 'help'}
+                                                    </span>
+                                                    <span className="font-bold text-base" style={{color:'var(--foreground)'}}>{c.name}</span>
+                                                    <Badge variant="secondary" className="text-[10px] font-mono">{c.status || 'unknown'}</Badge>
+                                                </div>
+                                                {c.domains && c.domains.length > 0 && (
+                                                    <div className="text-xs flex flex-wrap gap-1 mb-2" style={{color:'var(--muted-foreground)'}}>
+                                                        <span>Dominios:</span>
+                                                        {c.domains.map((d, idx) => (
+                                                            <span key={idx} className="font-mono px-1.5 py-0.5 rounded text-[11px]" style={{background:'color-mix(in srgb, var(--muted) 40%, transparent)', color:'var(--foreground)'}}>{d}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 gap-x-4 text-[11px]" style={{color:'var(--muted-foreground)'}}>
+                                                    <div><strong style={{color:'var(--foreground)'}}>Expira:</strong> {fmtDate(c.expiry)}</div>
+                                                    <div><strong style={{color: statusColor(c.days_left)}}>Días restantes:</strong> {c.days_left ?? '—'}</div>
+                                                    {c.key_type && <div><strong style={{color:'var(--foreground)'}}>Key:</strong> {c.key_type}</div>}
+                                                    {c.serial && <div className="truncate"><strong style={{color:'var(--foreground)'}}>Serial:</strong> <span className="font-mono">{c.serial.slice(0,16)}…</span></div>}
+                                                </div>
+                                                {c.cert_path && (
+                                                    <div className="mt-2 text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                                                        {c.cert_path}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+            {output && (
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                            <span className="material-icons-round" style={{fontSize:16}}>terminal</span>
+                            Salida del último comando
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <pre className="text-[10px] font-mono p-3 rounded-md max-h-64 overflow-auto whitespace-pre-wrap" style={{background:'var(--muted)', color:'var(--foreground)'}}>{output}</pre>
+                    </CardContent>
+                </Card>
+            )}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>info</span>
+                        Cómo funciona la renovación automática
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs space-y-1.5" style={{color:'var(--muted-foreground)'}}>
+                    <p>• El timer <code className="px-1 rounded" style={{background:'var(--muted)'}}>certbot.timer</code> corre 2 veces al día y renueva los certificados que están a menos de 30 días de vencer.</p>
+                    <p>• La renovación usa el challenge HTTP-01 contra <code className="px-1 rounded" style={{background:'var(--muted)'}}>{'<dominio>'}/.well-known/acme-challenge/</code> — el port 80 público debe seguir apuntando a este servidor.</p>
+                    <p>• Si tenés que cambiar el port forwarding temporalmente y querés volver a generar el cert manualmente cuando vuelva, usá el botón <strong>Forzar renovación</strong> arriba.</p>
+                    <p>• Tras renovar, Apache recarga automáticamente con el nuevo certificado.</p>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
