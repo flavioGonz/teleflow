@@ -911,6 +911,11 @@ header('Expires: 0');
             0% { transform: scale(1); opacity: .6; }
             100% { transform: scale(1.5); opacity: 0; }
         }
+        @keyframes tf-floor-pulse {
+            0%   { transform: scale(0.85); opacity: 1; }
+            70%  { transform: scale(1.2);  opacity: 0; }
+            100% { transform: scale(1.2);  opacity: 0; }
+        }
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
         @keyframes callActive { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
