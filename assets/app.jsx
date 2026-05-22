@@ -4863,11 +4863,17 @@ function ViewExtensiones({ data, toast }) {
     const badgeCls = s => s==='ONLINE'?'badge-online':s==='BUSY'?'badge-busy':'badge-offline';
     const dotCls   = s => s==='ONLINE'?'dot-online':s==='BUSY'?'dot-busy':'dot-offline';
 
-    // Si está editando, mostrar página de edición en lugar de la lista
+    // Si está editando, mostrar página de edición en lugar de la lista.
+    // BUG FIX: derivamos el `ext` LIVE desde `data` en cada render — sino el status
+    // queda congelado en el momento del click (no actualiza tras login/logout/llamada
+    // hasta hacer F5).
     if (editing) {
+        const liveExt = (editing === 'new')
+            ? null
+            : (allExts.find(e => String(e.ext) === String(editing.ext)) || editing);
         return (
             <ExtEditPage
-                ext={editing === 'new' ? null : editing}
+                ext={liveExt}
                 onBack={() => setEditing(null)}
                 onSaved={() => { setEditing(null); setSaved(s=>s+1); }}
                 toast={toast}

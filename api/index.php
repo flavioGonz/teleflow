@@ -903,12 +903,40 @@ if ($action === 'delete_extension') {
     if (!$ext) { echo json_encode(['success' => false, 'error' => 'Interno inválido']); exit; }
     try {
         $db = mysql_pbx();
-        $db->prepare("DELETE FROM devices WHERE id=?")->execute([$ext]);
-        $db->prepare("DELETE FROM users WHERE extension=?")->execute([$ext]);
-        $db->prepare("DELETE FROM sip WHERE id=?")->execute([$ext]);
+
+        // Borrado en cascada de las 3 tablas FreePBX
+        $delDev  = $db->prepare("DELETE FROM devices WHERE id=?");  $delDev->execute([$ext]);
+        $delUsr  = $db->prepare("DELETE FROM users WHERE extension=?"); $delUsr->execute([$ext]);
+        $delSip  = $db->prepare("DELETE FROM sip WHERE id=?");      $delSip->execute([$ext]);
+
+        // Si no se afectó ni una sola fila, la ext no existía en BD
+        $totalDeleted = $delDev->rowCount() + $delUsr->rowCount() + $delSip->rowCount();
+        if ($totalDeleted === 0) {
+            echo json_encode(['success' => false, 'error' => "Extensión $ext no existe en la base de datos"]);
+            exit;
+        }
+
+        // Limpiar avatar local
         @unlink($GLOBALS['avatar_dir'] . "$ext.jpg");
-        reload_dialplan();
-        echo json_encode(['success' => true, 'message' => "Extensión $ext eliminada"]);
+
+        // Limpiar ext_meta de Teleflow (RTSP url, bocina, dtmf, etc.)
+        try {
+            $tf = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8", $DB_USER, $DB_PASS);
+            $tf->prepare("DELETE FROM ext_meta WHERE ext=?")->execute([$ext]);
+        } catch (Exception $_) {}
+
+        // CRÍTICO: retrieve_conf regenera /etc/asterisk/sip_additional.conf SIN el peer,
+        // y sip reload hace que chan_sip lo olvide en RAM. Sin esto el peer sigue
+        // registrable aunque ya no esté en MySQL.
+        pbx_ssh_exec("/var/lib/asterisk/bin/retrieve_conf >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'sip reload' >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'dialplan reload' >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'database del DEVICE $ext/user' >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'database del DEVICE $ext/dial' >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'database del DEVICE $ext/type' >/dev/null 2>&1; "
+                   . "/usr/sbin/asterisk -rx 'database del AMPUSER $ext/device' >/dev/null 2>&1");
+
+        echo json_encode(['success' => true, 'message' => "Extensión $ext eliminada", 'rows' => $totalDeleted]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
