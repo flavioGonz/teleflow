@@ -2388,7 +2388,7 @@ function ViewDashboard({ data }) {
     return (
         <div className="content-area space-y-4">
 
-            {/* ─── Row 1: Colas en vivo | Llamadas activas ─── */}
+            {/* ─── Row 1: Colas en vivo | Mapa del callcenter ─── */}
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* Colas en vivo */}
                 <Card>
@@ -2427,6 +2427,12 @@ function ViewDashboard({ data }) {
                     </CardContent>
                 </Card>
 
+                {/* Mapa del callcenter */}
+                <FloorMap data={data}/>
+            </div>
+
+            {/* ─── Row 2: Llamadas activas | Últimas Grabaciones ─── */}
+            <div className="grid gap-4 lg:grid-cols-2">
                 {/* Llamadas activas */}
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
@@ -2506,13 +2512,6 @@ function ViewDashboard({ data }) {
                         )}
                     </CardContent>
                 </Card>
-            </div>
-
-            {/* ─── Row 2: Mapa del callcenter | Últimas Grabaciones ─── */}
-            <div className="grid gap-4 lg:grid-cols-2">
-                {/* Mapa del callcenter (sustituye el listado plano de Extensiones Activas) */}
-                <FloorMap data={data}/>
-
                 {/* Últimas Grabaciones (redesign + audio player) */}
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
