@@ -1,20 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <defs>
-    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="100%" stop-color="#6d28d9"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(255,255,255,.18)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-    </linearGradient>
-  </defs>
-  <rect width="192" height="192" rx="38" fill="url(#g1)"/>
-  <rect x="0" y="0" width="192" height="96" rx="38" fill="url(#g2)"/>
-  <g transform="translate(96,108)" fill="#ffffff">
-    <path d="M-44,-30 a44,44 0 1 1 88,0 v6 h-12 v-6 a32,32 0 1 0 -64,0 v6 h-12 z"/>
-    <rect x="-50" y="-26" width="20" height="36" rx="6"/>
-    <rect x="30"  y="-26" width="20" height="36" rx="6"/>
-    <text x="0" y="48" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="32" font-weight="900" font-style="italic" text-anchor="middle">TF</text>
+  <rect width="192" height="192" rx="38" fill="#ffffff"/>
+  <g transform="translate(30, 30) scale(1.0)">
+    <svg viewBox="0 0 132.88 132.29" width="132" height="132">
+      <path fill="#4eb857" d="M132.88,66.04C132.66,29.53,103,0,66.44,0S.22,29.53,0,66.04h132.88Z"/>
+      <path fill="#231f20" d="M4,85.81c8.66,26.63,32.92,46.48,62.44,46.48s54.53-19.26,63.19-45.89l-64.16-20.35L4,85.81Z"/>
+    </svg>
   </g>
 </svg>

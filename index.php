@@ -24,13 +24,13 @@ header('Expires: 0');
       } catch(e) {}
     </script>
     <!-- TF_BUILD: 2026-05-08T1778189164-SESSION -->
-    <title>TeleFlow · Next-Gen PBX Control</title>
+    <title>HznFlow · Control de Portería</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="icon-192.svg">
     <link rel="apple-touch-icon" href="icon-192.svg">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="TeleFlow">
+    <meta name="apple-mobile-web-app-title" content="HznFlow">
     <meta name="mobile-web-app-capable" content="yes">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -791,6 +791,11 @@ header('Expires: 0');
             border: 1px solid rgba(139,92,246,0.2);
             box-shadow: 0 0 80px rgba(139,92,246,0.1), 0 40px 80px rgba(0,0,0,0.6);
         }
+        body.light .login-card {
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(139,92,246,0.15);
+            box-shadow: 0 0 40px rgba(139,92,246,0.08), 0 20px 60px rgba(0,0,0,0.12);
+        }
         .login-orb {
             position: absolute;
             border-radius: 50%;
@@ -969,9 +974,9 @@ header('Expires: 0');
 
         .tfbar { position: sticky; top: 0; z-index: 90; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 14px; box-shadow: 0 1px 0 var(--border), 0 4px 12px rgba(0,0,0,0.04); backdrop-filter: blur(6px); overflow: visible; }
         .tfbar-logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; cursor: pointer; }
-        .tfbar-logo-mark { width: 30px; height: 30px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000)); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
+        .tfbar-logo-mark { width: 30px; height: 30px; background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
         .tfbar-logo-text { font-size: 14px; font-weight: 800; color: var(--foreground); letter-spacing: -0.4px; font-style: italic; line-height: 1; }
-        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .12em; text-transform: uppercase; line-height: 1; margin-top: 2px; }
+        .tfbar-logo-sub { font-size: 8px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .04em; line-height: 1; margin-top: 2px; }
         .tfbar-menu { display: flex; align-items: center; gap: 2px; flex: 0 1 auto; overflow: visible; flex-wrap: nowrap; min-width: 0; }
         .tfbar-menu::-webkit-scrollbar { display: none; }
         .tfbar-item { position: relative; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted-foreground); display: flex; align-items: center; gap: 7px; transition: all .15s ease; white-space: nowrap; user-select: none; }
@@ -1233,6 +1238,10 @@ header('Expires: 0');
         .toast-error { background:#450a0a;border:1px solid #991b1b;color:#f87171; }
         .toast-info { background:#1e1b4b;border:1px solid #3730a3;color:#a5b4fc; }
         .toast-warning { background:#431407;border:1px solid #9a3412;color:#fb923c; }
+        body.light .toast-success { background:#dcfce7;border-color:#86efac;color:#15803d; }
+        body.light .toast-error   { background:#fee2e2;border-color:#fca5a5;color:#b91c1c; }
+        body.light .toast-info    { background:#ede9fe;border-color:#c4b5fd;color:#5b21b6; }
+        body.light .toast-warning { background:#ffedd5;border-color:#fed7aa;color:#c2410c; }
         /* HORIZON: Tabla estilo UCM/Grandstream — limpia y profesional */
         .tf-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         .tf-table thead { background: rgba(139,92,246,0.05); border-bottom: 1px solid var(--border); }
@@ -1341,16 +1350,8 @@ const ThemeContext = React.createContext({ theme: 'dark', setTheme: () => {} });
 
 function ThemeProvider({ children }) {
     const [theme, setThemeState] = useState(() => {
-        try { return localStorage.getItem('tf_theme') || 'dark'; } catch(e) { return 'dark'; }
+        try { return localStorage.getItem('tf_dark') !== '0' ? 'dark' : 'light'; } catch(e) { return 'dark'; }
     });
-    useEffect(() => {
-        const root = document.documentElement;
-        root.classList.remove('light', 'dark');
-        root.classList.add(theme);
-        document.body.classList.remove('light', 'dark');
-        document.body.classList.add(theme);
-        try { localStorage.setItem('tf_theme', theme); } catch(e) {}
-    }, [theme]);
     const setTheme = useCallback((t) => setThemeState(t), []);
     const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -1790,7 +1791,7 @@ function RtspPreviewCard({ preview, onClose }) {
     return (
         <div style={{
             width: 340,
-            background: '#0a0a0d',
+            background: 'var(--surface)',
             borderRadius: 12,
             overflow: 'hidden',
             border: '1px solid var(--border)',
@@ -2101,9 +2102,9 @@ function Login({ onLogin }) {
                             <div className="hzn-logo-sub">SEGURIDAD</div>
                         </div>
                         <div className="hzn-logo-mark">
-                            <svg viewBox="0 0 100 100" width="36" height="36">
-                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
-                                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                            <svg viewBox="0 0 132.88 132.29" width="36" height="36">
+                                <path fill="#4eb857" d="M132.88,66.04C132.66,29.53,103,0,66.44,0S.22,29.53,0,66.04h132.88Z"/>
+                                <path fill="#231f20" d="M4,85.81c8.66,26.63,32.92,46.48,62.44,46.48s54.53-19.26,63.19-45.89l-64.16-20.35L4,85.81Z"/>
                             </svg>
                         </div>
                     </div>
@@ -2140,11 +2141,11 @@ function Login({ onLogin }) {
                 <div className="hzn-login-form-inner">
                     {/* Logo mobile (visible solo en mobile) */}
                     <div className="hzn-login-mobile-logo">
-                        <svg viewBox="0 0 100 100" width="44" height="44">
-                            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--horizon-green)" strokeWidth="4"/>
-                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="var(--horizon-green)"/>
+                        <svg viewBox="0 0 132.88 132.29" width="44" height="44">
+                            <path fill="#4eb857" d="M132.88,66.04C132.66,29.53,103,0,66.44,0S.22,29.53,0,66.04h132.88Z"/>
+                            <path fill="#231f20" d="M4,85.81c8.66,26.63,32.92,46.48,62.44,46.48s54.53-19.26,63.19-45.89l-64.16-20.35L4,85.81Z"/>
                         </svg>
-                        <div className="hzn-logo-text-mobile">HORIZON</div>
+                        <div className="hzn-logo-text-mobile">HznFlow</div>
                     </div>
 
                     <div className="hzn-login-heading">
@@ -2240,7 +2241,7 @@ function Login({ onLogin }) {
                     </form>
 
                     <div className="hzn-login-footer">
-                        <span>TeleFlow v18</span>
+                        <span>HznFlow</span>
                         <span className="hzn-dot">·</span>
                         <span>© Infratec {new Date().getFullYear()}</span>
                     </div>
@@ -2319,10 +2320,10 @@ function Sidebar({ view, setView, user, onLogout, collapsed, setCollapsed, darkM
     return (
         <div className={`sidebar${collapsed?' collapsed':''} ${!collapsed && window.innerWidth < 768 ? 'mobile-open' : ''}`} style={{ position: 'relative' }}>
             <div className="sidebar-logo" style={{display:'flex',alignItems:'center',gap:10,padding:collapsed?'18px 0':'20px 14px 14px',justifyContent:collapsed?'center':'flex-start'}}>
-                <div style={{width:32,height:32,background:'linear-gradient(135deg,#8b5cf6,#6d28d9)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}} onClick={()=>setCollapsed(!collapsed)}>
-                    <span className="material-icons-round" style={{fontSize:16,color:'white'}}>{collapsed?'chevron_right':'sensors'}</span>
+                <div style={{width:32,height:32,background:'#fff',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',boxShadow:'0 2px 6px rgba(0,0,0,0.12)'}} onClick={()=>setCollapsed(!collapsed)}>
+                    <svg viewBox="0 0 132.88 132.29" width="22" height="22"><path fill="#4eb857" d="M132.88,66.04C132.66,29.53,103,0,66.44,0S.22,29.53,0,66.04h132.88Z"/><path fill="#231f20" d="M4,85.81c8.66,26.63,32.92,46.48,62.44,46.48s54.53-19.26,63.19-45.89l-64.16-20.35L4,85.81Z"/></svg>
                 </div>
-                {!collapsed&&<div className="sidebar-logo-text"><div style={{fontSize:14,fontWeight:800,color:'var(--text)',letterSpacing:-0.5,fontStyle:'italic'}}>TeleFlow</div><div style={{fontSize:9,fontWeight:600,color:'#6b7280',letterSpacing:'0.1em',textTransform:'uppercase'}}>PBX Control</div></div>}
+                {!collapsed&&<div className="sidebar-logo-text"><div style={{fontSize:14,fontWeight:800,color:'var(--text)',letterSpacing:-0.5,fontStyle:'italic'}}>HznFlow</div><div style={{fontSize:9,fontWeight:600,color:'#6b7280',letterSpacing:'0.04em'}}>Control de Portería</div></div>}
             </div>
             
             <div className="sidebar-nav">
@@ -2585,7 +2586,7 @@ function ViewDashboard({ data }) {
                     <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.12em',display:'flex',alignItems:'center',gap:6}}>
                         <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulse 2s infinite',boxShadow:'0 0 6px #22c55e'}}/>EN VIVO · {new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}
                     </div>
-                    <div style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px',marginTop:3,color:'var(--text)'}}>TeleFlow Operations</div>
+                    <div style={{fontSize:24,fontWeight:900,letterSpacing:'-0.6px',marginTop:3,color:'var(--text)'}}>HznFlow Operations</div>
                     <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>{agentsLogged} agentes activos · {upCalls + ringingCalls} canales en uso · {totalWaiting > 0 ? `${totalWaiting} en espera` : 'sin espera'}</div>
                 </div>
                 <div style={{display:'flex',gap:14,alignItems:'center'}}>
@@ -4249,7 +4250,7 @@ function ExportButton({ rows, filename, title, stats }) {
         doc.setFillColor(139, 92, 246);
         doc.rect(0, 0, 297, 22, 'F');
         doc.setFontSize(16); doc.setTextColor(255,255,255);
-        doc.text('TeleFlow · ' + (title || 'Reporte CDR'), 14, 14);
+        doc.text('HznFlow · ' + (title || 'Reporte CDR'), 14, 14);
         doc.setFontSize(9); doc.setTextColor(255,255,255,0.85);
         doc.text(`Generado: ${new Date().toLocaleString('es-UY')}`, 14, 19);
         // Stats summary
@@ -4281,7 +4282,7 @@ function ExportButton({ rows, filename, title, stats }) {
         for (let i = 1; i <= pages; i++) {
             doc.setPage(i);
             doc.setFontSize(8); doc.setTextColor(150);
-            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad`, 14, 200);
+            doc.text(`Página ${i} de ${pages}  ·  HznFlow · Horizon Seguridad`, 14, 200);
         }
         doc.save(filename + '.pdf');
         setOpen(false);
@@ -6771,7 +6772,7 @@ function AgentReportPanel({ agentNumber, onClose, embedded }) {
         // Footer
         const pages = doc.internal.getNumberOfPages();
         for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(140);
-            doc.text(`Página ${i} de ${pages}  ·  TeleFlow · Horizon Seguridad`, W/2, H-8, {align:'center'});}
+            doc.text(`Página ${i} de ${pages}  ·  HznFlow · Horizon Seguridad`, W/2, H-8, {align:'center'});}
         doc.save(`Reporte_Agente_${ag.number}_${data.period.from}_${data.period.to}.pdf`);
     };
 
@@ -8762,7 +8763,7 @@ function ViewConfigBranding() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field label="Nombre de la empresa" k="brand_company_name" placeholder="Horizon Seguridad"/>
-                    <Field label="Nombre de la aplicación" k="brand_app_name" placeholder="TeleFlow"/>
+                    <Field label="Nombre de la aplicación" k="brand_app_name" placeholder="HznFlow"/>
                     <Field label="Logo — texto principal" k="brand_logo_text" placeholder="HORIZON"/>
                     <Field label="Logo — subtítulo" k="brand_logo_sub" placeholder="SEGURIDAD"/>
                 </div>
@@ -10358,10 +10359,10 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
         <>
         <div className="tfbar">
             <div className="tfbar-logo" onClick={()=>setView('dashboard')}>
-                <div className="tfbar-logo-mark"><span className="material-icons-round" style={{fontSize:16,color:'#fff'}}>sensors</span></div>
+                <div className="tfbar-logo-mark"><svg viewBox="0 0 132.88 132.29" width="20" height="20"><path fill="#4eb857" d="M132.88,66.04C132.66,29.53,103,0,66.44,0S.22,29.53,0,66.04h132.88Z"/><path fill="#231f20" d="M4,85.81c8.66,26.63,32.92,46.48,62.44,46.48s54.53-19.26,63.19-45.89l-64.16-20.35L4,85.81Z"/></svg></div>
                 <div>
-                    <div className="tfbar-logo-text">TeleFlow</div>
-                    <div className="tfbar-logo-sub">PBX Control</div>
+                    <div className="tfbar-logo-text">HznFlow</div>
+                    <div className="tfbar-logo-sub">Control de Portería</div>
                 </div>
             </div>
 
@@ -10717,8 +10718,9 @@ function App() {
     }, []);
     const [user, setUser] = useState(() => {
         const u = localStorage.getItem('tf_user');
-        return (u && u !== 'null') ? u : null;
-    }); 
+        if (!u || u === 'null') return null;
+        try { return JSON.parse(u); } catch(e) { return null; }
+    });
     const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
@@ -10728,13 +10730,18 @@ function App() {
     const [reportQueue, setReportQueue] = useState(null);
 
     // Persist view & user to localStorage
-    useEffect(() => { if (user) localStorage.setItem('tf_user', user); else localStorage.removeItem('tf_user'); }, [user]);
+    useEffect(() => { if (user) { try { localStorage.setItem('tf_user', JSON.stringify(user)); } catch(e) {} } else { localStorage.removeItem('tf_user'); } }, [user]);
     useEffect(() => { localStorage.setItem('tf_view', view); }, [view]);
     useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
     useEffect(() => { localStorage.setItem('tf_dark', darkMode ? '1' : '0'); }, [darkMode]);
 
     // Dark/light toggle
-    useEffect(()=>{ document.body.classList.toggle('light',!darkMode); },[darkMode]);
+    useEffect(()=>{
+        document.body.classList.toggle('light', !darkMode);
+        document.body.classList.toggle('dark', darkMode);
+        document.documentElement.classList.toggle('light', !darkMode);
+        document.documentElement.classList.toggle('dark', darkMode);
+    },[darkMode]);
 
     // Toast helper
     const showToast = (msg, type='info') => {
@@ -10952,7 +10959,7 @@ function App() {
         <div id="app" className="tfshell">
             <TopBarMenu
                 view={view} setView={setView} user={user}
-                onLogout={async () => { await fetch('api/index.php?action=logout', { credentials: 'include' }); setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(e){} }}
+                onLogout={async () => { try { await fetch('api/index.php?action=logout', { credentials: 'include' }); } catch(e) {} setUser(null); try { localStorage.removeItem('tf_user'); localStorage.removeItem('tf_user_cache'); } catch(e) {} }}
                 darkMode={darkMode} setDarkMode={setDarkMode}
                 data={data}
                 activeCalls={data?.pbx?.live_calls?.length || 0}
