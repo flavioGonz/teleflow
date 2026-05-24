@@ -2046,6 +2046,622 @@ function DashCallActions({ call, disabled }) {
 }
 
 // ─────────────────────────────────────────────
+// DisuasionBlock — bloque del Dashboard con paging groups (FreePBX + custom)
+// ─────────────────────────────────────────────
+function DisuasionBlock({ data, toast }) {
+    const [groups, setGroups] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [busyId, setBusyId] = useState(null);
+    const [confirmGroup, setConfirmGroup] = useState(null);
+    const exts = data?.pbx?.extensions || [];
+    // Picker for "vocear desde"
+    const defaultFromExt = useMemo(() => {
+        const me = (typeof window !== 'undefined' && window._tfMyExt) || null;
+        if (me) return me;
+        const first = exts.find(e => e.status === 'ONLINE');
+        return first?.ext || '1000';
+    }, [exts]);
+    const [fromExt, setFromExt] = useState(defaultFromExt);
+    useEffect(() => { if (defaultFromExt && !fromExt) setFromExt(defaultFromExt); }, [defaultFromExt]);
+
+    const load = async () => {
+        setLoading(true);
+        try {
+            const r = await fetch('api/disuasion.php?action=list', { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setGroups(d.groups || []);
+        } catch(e) {}
+        setLoading(false);
+    };
+    useEffect(() => { load(); }, []);
+
+    const doVocear = async (g) => {
+        if (!fromExt) { toast?.('Configurá la extensión origen', 'error'); return; }
+        setBusyId(g.id);
+        try {
+            const fd = new FormData();
+            fd.append('page_code', g.page_code);
+            fd.append('from_ext', fromExt);
+            const r = await fetch('api/disuasion.php?action=originate', { method:'POST', body:fd, credentials:'include' });
+            const d = await r.json();
+            if (d.success) toast?.(`Voceo enviado a "${g.name}"`, 'success');
+            else toast?.(d.error || 'Falló el voceo', 'error');
+        } catch(e) { toast?.('Error de red', 'error'); }
+        setBusyId(null);
+        setConfirmGroup(null);
+    };
+
+    return (
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 gap-3 flex-wrap">
+                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                    <span className="material-icons-round" style={{fontSize:18, color:'#f59e0b'}}>campaign</span>
+                    Disuasión
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="font-mono text-[10px]">{groups.length} grupos</Badge>
+                    <div className="flex items-center gap-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                        <span>Desde</span>
+                        <Input value={fromExt} onChange={e=>setFromExt(e.target.value.replace(/\D/g,''))}
+                               className="h-7 px-2 py-1 text-xs font-mono w-20" placeholder="ext"/>
+                    </div>
+                    <ActionIconButton icon={loading ? 'autorenew' : 'refresh'} label="Recargar" onClick={load} size={28}/>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {loading ? (
+                    <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round animate-spin" style={{fontSize:24}}>autorenew</span>
+                    </div>
+                ) : groups.length === 0 ? (
+                    <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round block mb-1.5" style={{fontSize:32, opacity:0.4}}>campaign</span>
+                        Sin grupos de voceo configurados.<br/>
+                        <span className="text-[10px]">Creá uno en Issabel (Paging/Intercom) o un grupo custom en Teleflow.</span>
+                    </div>
+                ) : (
+                    <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', maxHeight:280, overflow:'auto'}}>
+                        {groups.map(g => (
+                            <div key={g.id} className="rounded-md border p-2.5 flex flex-col gap-1.5 transition-all hover:shadow-md"
+                                 style={{borderColor: 'var(--border)', background:'var(--card)'}}>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="rounded-md flex items-center justify-center shrink-0"
+                                         style={{width:28, height:28, background:`linear-gradient(135deg, ${g.color}, color-mix(in srgb, ${g.color} 60%, #000))`, color:'#fff'}}>
+                                        <span className="material-icons-round" style={{fontSize:16}}>{g.icon}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}} title={g.name}>{g.name}</div>
+                                        <div className="font-mono text-[9px]" style={{color:'var(--muted-foreground)'}}>*{g.page_code} · {g.kind==='custom'?'custom':'FreePBX'}</div>
+                                    </div>
+                                </div>
+                                {g.members && g.members.length > 0 && (
+                                    <div className="flex flex-wrap gap-0.5">
+                                        {g.members.slice(0,5).map((ext, i) => (
+                                            <span key={i} className="font-mono px-1 rounded text-[9px] font-bold"
+                                                  style={{background:'color-mix(in srgb, #f59e0b 12%, transparent)', color:'#f59e0b'}}>{ext}</span>
+                                        ))}
+                                        {g.members.length > 5 && <span className="text-[9px]" style={{color:'var(--muted-foreground)'}}>+{g.members.length-5}</span>}
+                                    </div>
+                                )}
+                                <button type="button"
+                                        onClick={()=>setConfirmGroup(g)}
+                                        disabled={busyId === g.id}
+                                        className="mt-1 px-2 py-1 rounded-md text-[10px] font-bold inline-flex items-center justify-center gap-1 transition-all hover:shadow-sm disabled:opacity-50"
+                                        style={{background: `color-mix(in srgb, ${g.color} 18%, transparent)`, color: g.color, border:`1px solid color-mix(in srgb, ${g.color} 45%, transparent)`}}>
+                                    <span className="material-icons-round" style={{fontSize:12}}>{busyId===g.id ? 'autorenew' : 'campaign'}</span>
+                                    {busyId === g.id ? 'Enviando…' : 'Vocear'}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+            {confirmGroup && (
+                <div onClick={()=>setConfirmGroup(null)} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
+                    <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-sm" style={{background:'var(--card)', borderColor:'var(--border)'}}>
+                        <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
+                            <span className="material-icons-round" style={{fontSize:18, color: confirmGroup.color || '#f59e0b'}}>{confirmGroup.icon || 'campaign'}</span>
+                            <span className="font-bold text-sm">Confirmar voceo</span>
+                        </div>
+                        <div className="p-4 text-xs" style={{color:'var(--foreground)'}}>
+                            Vas a iniciar voceo al grupo <strong>{confirmGroup.name}</strong> (*{confirmGroup.page_code}) desde la extensión <strong>{fromExt}</strong>.
+                            <br/><br/>
+                            <span style={{color:'var(--muted-foreground)'}}>Los miembros del grupo recibirán la llamada de paging.</span>
+                        </div>
+                        <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                            <Button variant="outline" size="sm" onClick={()=>setConfirmGroup(null)}>Cancelar</Button>
+                            <button type="button" onClick={()=>doVocear(confirmGroup)} disabled={busyId === confirmGroup.id}
+                                    className="px-3 py-1.5 rounded-md text-xs font-bold inline-flex items-center gap-1.5"
+                                    style={{background:confirmGroup.color || '#f59e0b', color:'#fff'}}>
+                                <span className="material-icons-round" style={{fontSize:14}}>{busyId === confirmGroup.id ? 'autorenew' : 'campaign'}</span>
+                                {busyId === confirmGroup.id ? 'Enviando…' : 'Vocear ahora'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
+
+// ─────────────────────────────────────────────
+// ViewClientes — vista Operación → Clientes
+// ─────────────────────────────────────────────
+function ViewClientes({ toast, data }) {
+    const [clients, setClients] = useState([]);
+    const [selected, setSelected] = useState(null);   // client_id seleccionado
+    const [detail, setDetail] = useState(null);       // detail del cliente abierto
+    const [editing, setEditing] = useState(null);     // cliente en edición (form)
+    const [nvrs, setNvrs] = useState([]);
+    const [nvrSelected, setNvrSelected] = useState(null);
+    const [nvrDetail, setNvrDetail] = useState(null);
+    const [nvrEdit, setNvrEdit] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const exts = data?.pbx?.extensions || [];
+
+    const loadClients = async () => {
+        try {
+            const r = await fetch('api/clients.php?action=list', { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setClients(d.clients || []);
+        } catch(e) {}
+    };
+    const loadNvrs = async () => {
+        try {
+            const r = await fetch('api/nvr.php?action=list', { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setNvrs(d.nvrs || []);
+        } catch(e) {}
+    };
+    useEffect(() => { Promise.all([loadClients(), loadNvrs()]).finally(() => setLoading(false)); }, []);
+
+    const loadDetail = async (id) => {
+        try {
+            const r = await fetch('api/clients.php?action=get&id=' + id, { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setDetail(d.client);
+        } catch(e) {}
+    };
+    useEffect(() => { if (selected) loadDetail(selected); else setDetail(null); }, [selected]);
+
+    const saveClient = async (form) => {
+        const fd = new FormData();
+        Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
+        const r = await fetch('api/clients.php?action=save', { method:'POST', body:fd, credentials:'include' });
+        const d = await r.json();
+        if (d.success) { toast?.('Cliente guardado','success'); setEditing(null); await loadClients(); if (selected) loadDetail(selected); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+    const delClient = async (id) => {
+        if (!confirm('Eliminar cliente y todas sus asociaciones?')) return;
+        const fd = new FormData(); fd.append('id', id);
+        const r = await fetch('api/clients.php?action=delete', { method:'POST', body:fd, credentials:'include' });
+        const d = await r.json();
+        if (d.success) { toast?.('Eliminado','success'); setSelected(null); loadClients(); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+
+    const saveAssoc = async (kind, refs) => {
+        if (!selected) return;
+        const fd = new FormData();
+        fd.append('id', selected); fd.append('kind', kind); fd.append('refs', JSON.stringify(refs));
+        const r = await fetch('api/clients.php?action=assoc_set', { method:'POST', body:fd, credentials:'include' });
+        const d = await r.json();
+        if (d.success) { toast?.('Asociaciones guardadas','success'); loadDetail(selected); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+
+    const saveNvr = async (form) => {
+        const fd = new FormData();
+        Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
+        const r = await fetch('api/nvr.php?action=save', { method:'POST', body:fd, credentials:'include' });
+        const d = await r.json();
+        if (d.success) { toast?.('NVR guardado','success'); setNvrEdit(null); loadNvrs(); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+    const loadNvrDetail = async (id) => {
+        try {
+            const r = await fetch('api/nvr.php?action=get&id=' + id, { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setNvrDetail(d);
+        } catch(e) {}
+    };
+    useEffect(() => { if (nvrSelected) loadNvrDetail(nvrSelected); else setNvrDetail(null); }, [nvrSelected]);
+
+    if (loading) {
+        return <div className="content-area view-enter"><div className="py-10 text-center text-sm" style={{color:'var(--muted-foreground)'}}>Cargando…</div></div>;
+    }
+
+    return (
+        <div className="content-area view-enter">
+            <PageActions>
+                <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}}
+                        onClick={()=>setEditing({})}>
+                    <span className="material-icons-round" style={{fontSize:16}}>add</span>Nuevo cliente
+                </button>
+                <button className="btn-secondary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5,background:'var(--muted)',color:'var(--foreground)',border:'1px solid var(--border)'}}
+                        onClick={()=>setNvrEdit({})}>
+                    <span className="material-icons-round" style={{fontSize:16}}>videocam</span>Nuevo NVR
+                </button>
+            </PageActions>
+
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(280px, 320px) 1fr'}}>
+                {/* Sidebar: lista de clientes */}
+                <Card className="h-fit sticky" style={{top:14}}>
+                    <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider"><span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>apartment</span>Clientes</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                        {clients.length === 0 ? (
+                            <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                                Sin clientes aún
+                            </div>
+                        ) : clients.map(c => (
+                            <button key={c.id} onClick={()=>setSelected(c.id)}
+                                    className="w-full px-3 py-2.5 text-left text-sm border-b transition-colors hover:bg-accent flex items-center gap-2"
+                                    style={{borderColor:'var(--border)', background: selected === c.id ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent', color:'var(--foreground)'}}>
+                                <div className="rounded-md flex items-center justify-center shrink-0"
+                                     style={{width:32, height:32, background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))', color:'#fff', fontSize:11, fontWeight:900}}>
+                                    {(c.name||'?').substring(0,2).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold truncate">{c.name}</div>
+                                    <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                                        {c.n_ext} ext · {c.n_paging} paging · {c.n_nvr} NVR
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* Detalle del cliente seleccionado */}
+                <div className="space-y-4">
+                    {!selected && !nvrSelected ? (
+                        <Card><CardContent className="py-12 text-center text-sm" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-2" style={{fontSize:42, opacity:0.4}}>apartment</span>
+                            Seleccioná un cliente para ver sus extensiones, parlantes y NVRs asociados.
+                        </CardContent></Card>
+                    ) : null}
+
+                    {selected && detail && (
+                        <ClientDetailCard client={detail} exts={exts} nvrs={nvrs} data={data}
+                                          onEdit={()=>setEditing(detail)} onDelete={()=>delClient(detail.id)}
+                                          onSaveAssoc={saveAssoc} onOpenNvr={(id)=>{setNvrSelected(id); setSelected(null);}}/>
+                    )}
+
+                    {nvrSelected && nvrDetail && (
+                        <NvrDetailCard data={nvrDetail} onBack={()=>setNvrSelected(null)} onEdit={()=>setNvrEdit(nvrDetail.nvr)}/>
+                    )}
+
+                    {/* Listado de NVRs (cuando no hay cliente seleccionado) */}
+                    {!selected && !nvrSelected && nvrs.length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider"><span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>videocam</span>NVRs registrados</CardTitle>
+                                <Badge variant="secondary" className="font-mono text-[10px]">{nvrs.length}</Badge>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
+                                    {nvrs.map(n => (
+                                        <button key={n.id} onClick={()=>setNvrSelected(n.id)}
+                                                className="rounded-md border p-2.5 text-left transition-all hover:shadow-md"
+                                                style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : 'var(--primary)'}}>videocam</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-bold truncate">{n.name}</div>
+                                                    <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.model || '—'}</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                                <span>{n.channels_total || n.n_ch} canales</span>
+                                                <span>·</span>
+                                                <span style={{color: n.n_fail > 0 ? 'var(--destructive)' : 'inherit'}}>{n.n_disks} discos {n.n_fail > 0 ? `(${n.n_fail} fail)` : ''}</span>
+                                                {n.client_name && <><span>·</span><span style={{color:'var(--primary)'}}>{n.client_name}</span></>}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            </div>
+
+            {editing && <ClientEditModal client={editing} onSave={saveClient} onCancel={()=>setEditing(null)}/>}
+            {nvrEdit  && <NvrEditModal nvr={nvrEdit} clients={clients} onSave={saveNvr} onCancel={()=>setNvrEdit(null)}/>}
+        </div>
+    );
+}
+
+function ClientDetailCard({ client, exts, nvrs, data, onEdit, onDelete, onSaveAssoc, onOpenNvr }) {
+    const queues = data?.pbx?.queues || [];
+    const [assocExt, setAssocExt] = useState(client.assoc?.ext || []);
+    const [assocPag, setAssocPag] = useState(client.assoc?.paging || []);
+    const [assocNvr, setAssocNvr] = useState(client.assoc?.nvr || []);
+    const [assocQ,   setAssocQ]   = useState(client.assoc?.queue || []);
+    useEffect(() => { setAssocExt(client.assoc?.ext || []); setAssocPag(client.assoc?.paging || []); setAssocNvr(client.assoc?.nvr || []); setAssocQ(client.assoc?.queue || []); }, [client.id]);
+
+    const togglePill = (list, setList, val) => {
+        const s = String(val);
+        if (list.includes(s)) setList(list.filter(x => x !== s));
+        else setList([...list, s]);
+    };
+    const saveKind = (kind, refs) => onSaveAssoc(kind, refs);
+
+    const nvrsAssoc = nvrs.filter(n => assocNvr.includes(String(n.id)));
+
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0">
+                <div>
+                    <CardTitle className="text-base">{client.name}</CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                        {client.contact && <span>{client.contact} · </span>}
+                        {client.address}
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <ActionIconButton icon="edit" label="Editar" onClick={onEdit} tone="primary" size={28}/>
+                    <ActionIconButton icon="delete_outline" label="Eliminar" onClick={onDelete} tone="destructive" size={28}/>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {client.notes && (
+                    <div className="text-xs p-2 rounded-md" style={{background:'color-mix(in srgb, var(--muted) 40%, transparent)', color:'var(--muted-foreground)'}}>
+                        {client.notes}
+                    </div>
+                )}
+
+                <AssocSection title="Extensiones" icon="phone" color="var(--primary)" items={exts.map(e=>({id:String(e.ext), label:`${e.ext} · ${e.name||''}`}))} value={assocExt} setValue={setAssocExt} onSave={()=>saveKind('ext', assocExt)}/>
+                <AssocSection title="Parlantes (paging groups)" icon="campaign" color="#f59e0b" items={[]}  value={assocPag} setValue={setAssocPag} onSave={()=>saveKind('paging', assocPag)}
+                              loadItems={async () => {
+                                  const r = await fetch('api/disuasion.php?action=list', { credentials:'include' });
+                                  const d = await r.json();
+                                  return (d.groups || []).map(g => ({id:g.page_code, label:`${g.name} (*${g.page_code})`}));
+                              }}/>
+                <AssocSection title="Colas" icon="queue" color="#3b82f6" items={queues.map(q=>({id:String(q.id||q.extension), label:`${q.name||q.id} (${q.extension||q.id})`}))} value={assocQ} setValue={setAssocQ} onSave={()=>saveKind('queue', assocQ)}/>
+
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:14, color:'var(--primary)'}}>videocam</span>
+                            NVRs asociados
+                        </div>
+                        <button onClick={()=>saveKind('nvr', assocNvr)} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{background:'var(--horizon-green)', color:'#0a2a12'}}>Guardar</button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {nvrs.length === 0 && <span className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Sin NVRs registrados</span>}
+                        {nvrs.map(n => {
+                            const sel = assocNvr.includes(String(n.id));
+                            return (
+                                <button key={n.id} onClick={()=>togglePill(assocNvr, setAssocNvr, n.id)}
+                                        className="px-2 py-1 rounded-md text-[10px] font-bold border transition-all"
+                                        style={{borderColor: sel ? 'var(--primary)' : 'var(--border)', background: sel ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--card)', color: sel ? 'var(--primary)' : 'var(--foreground)'}}>
+                                    {n.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {nvrsAssoc.length > 0 && (
+                        <div className="grid gap-2 mt-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
+                            {nvrsAssoc.map(n => (
+                                <button key={n.id} onClick={()=>onOpenNvr(n.id)}
+                                        className="rounded-md border p-2.5 text-left transition-all hover:shadow-md"
+                                        style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : 'var(--primary)'}}>videocam</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold truncate">{n.name}</div>
+                                            <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.channels_total} canales</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function AssocSection({ title, icon, color, items: itemsProp, value, setValue, onSave, loadItems }) {
+    const [items, setItems] = useState(itemsProp || []);
+    const [q, setQ] = useState('');
+    useEffect(() => { if (loadItems) loadItems().then(setItems); else setItems(itemsProp || []); }, []);
+    const filtered = items.filter(it => !q || it.id.includes(q) || (it.label||'').toLowerCase().includes(q.toLowerCase()));
+    const togglePill = (val) => {
+        const s = String(val);
+        if (value.includes(s)) setValue(value.filter(x => x !== s));
+        else setValue([...value, s]);
+    };
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round" style={{fontSize:14, color}}>{icon}</span>
+                    {title} <span className="font-mono">({value.length})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Input placeholder="filtrar…" value={q} onChange={e=>setQ(e.target.value)} className="h-7 px-2 py-1 text-xs w-32"/>
+                    <button onClick={onSave} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{background:'var(--horizon-green)', color:'#0a2a12'}}>Guardar</button>
+                </div>
+            </div>
+            <div className="flex flex-wrap gap-1 max-h-32 overflow-auto p-1.5 rounded-md border" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
+                {filtered.length === 0 && <span className="text-[10px]" style={{color:'var(--muted-foreground)', padding:6}}>Sin opciones</span>}
+                {filtered.slice(0, 80).map(it => {
+                    const sel = value.includes(String(it.id));
+                    return (
+                        <button key={it.id} onClick={()=>togglePill(it.id)}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-mono border transition-all"
+                                style={{borderColor: sel ? color : 'var(--border)', background: sel ? `color-mix(in srgb, ${color} 18%, transparent)` : 'var(--card)', color: sel ? color : 'var(--muted-foreground)'}}>
+                            {it.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function NvrDetailCard({ data, onBack, onEdit }) {
+    const n = data.nvr;
+    const channels = data.channels || [];
+    const disks = data.disks || [];
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0">
+                <div className="flex items-center gap-2">
+                    <ActionIconButton icon="arrow_back" label="Volver" onClick={onBack} size={28}/>
+                    <div>
+                        <CardTitle className="text-base flex items-center gap-2"><span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>videocam</span>{n.name}</CardTitle>
+                        <CardDescription className="text-xs mt-1 font-mono">{n.ip}:{n.port_http} · {n.model || '—'}</CardDescription>
+                    </div>
+                </div>
+                <ActionIconButton icon="edit" label="Editar" onClick={onEdit} tone="primary" size={28}/>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))'}}>
+                    <Stat label="Canales" value={`${channels.length}/${n.channels_total || '?'}`}/>
+                    <Stat label="Discos" value={disks.length} color={disks.some(d=>d.health==='fail') ? 'var(--destructive)' : 'var(--horizon-green)'}/>
+                    <Stat label="SNMP" value={n.snmp_version} sub={n.snmp_community}/>
+                    <Stat label="Último check" value={n.last_check_at ? new Date(n.last_check_at.replace(' ','T')).toLocaleString() : '—'}/>
+                </div>
+
+                <div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{color:'var(--muted-foreground)'}}>Discos</div>
+                    {disks.length === 0 ? <div className="text-[11px]" style={{color:'var(--muted-foreground)'}}>Sin datos SNMP aún (el poller corre cada N min — Fase 2)</div> :
+                        <div className="grid gap-1.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))'}}>
+                            {disks.map(d => {
+                                const c = d.health === 'fail' ? 'var(--destructive)' : (d.health === 'warn' ? 'var(--warning, #f59e0b)' : 'var(--horizon-green)');
+                                return (
+                                    <div key={d.id} className="rounded-md border p-2" style={{borderColor:c}}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-xs font-bold">Disk {d.disk_no}</div>
+                                            <span className="text-[9px] font-bold uppercase px-1 rounded" style={{background:`color-mix(in srgb, ${c} 18%, transparent)`, color:c}}>{d.health}</span>
+                                        </div>
+                                        <div className="text-[10px] font-mono mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                                            {d.capacity_gb ? `${d.capacity_gb}GB` : '—'} {d.free_gb != null && `(${d.free_gb}GB libre)`}
+                                        </div>
+                                        {d.temperature_c != null && <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>{d.temperature_c}°C</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    }
+                </div>
+
+                <div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{color:'var(--muted-foreground)'}}>Canales</div>
+                    {channels.length === 0 ? <div className="text-[11px]" style={{color:'var(--muted-foreground)'}}>Sin canales registrados aún</div> :
+                        <table className="tf-table"><thead><tr><th>#</th><th>Nombre</th><th>Ext</th><th>RTSP</th><th>Rec</th></tr></thead><tbody>
+                        {channels.map(c => (
+                            <tr key={c.id}><td className="font-mono">{c.channel_no}</td><td>{c.name||'—'}</td><td className="font-mono">{c.ext||'—'}</td><td className="font-mono text-[10px] truncate" style={{maxWidth:200}}>{c.rtsp_url||'—'}</td><td>{c.recording ? '✓' : '✗'}</td></tr>
+                        ))}
+                        </tbody></table>
+                    }
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function Stat({ label, value, sub, color }) {
+    return (
+        <div className="rounded-md border p-2" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+            <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</div>
+            <div className="text-sm font-black" style={{color: color || 'var(--foreground)'}}>{value}</div>
+            {sub && <div className="text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
+        </div>
+    );
+}
+
+function ClientEditModal({ client, onSave, onCancel }) {
+    const [f, setF] = useState({
+        id: client.id || '',
+        name: client.name || '',
+        address: client.address || '',
+        contact: client.contact || '',
+        notes: client.notes || '',
+    });
+    return (
+        <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-md" style={{background:'var(--card)', borderColor:'var(--border)'}}>
+                <div className="p-4 border-b" style={{borderColor:'var(--border)'}}>
+                    <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} cliente</span>
+                </div>
+                <div className="p-4 space-y-3">
+                    <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="Fit26, UrbanVII…"/></div>
+                    <div><Label>Dirección</Label><Input value={f.address} onChange={e=>setF({...f,address:e.target.value})}/></div>
+                    <div><Label>Contacto</Label><Input value={f.contact} onChange={e=>setF({...f,contact:e.target.value})} placeholder="Nombre · Teléfono · Email"/></div>
+                    <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={3} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
+                </div>
+                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                    <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+                    <Button size="sm" onClick={()=>onSave(f)}>Guardar</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function NvrEditModal({ nvr, clients, onSave, onCancel }) {
+    const [f, setF] = useState({
+        id: nvr.id || '',
+        name: nvr.name || '',
+        model: nvr.model || '',
+        ip: nvr.ip || '',
+        port_http: nvr.port_http || 80,
+        port_rtsp: nvr.port_rtsp || 554,
+        channels_total: nvr.channels_total || 0,
+        username: nvr.username || 'admin',
+        password: nvr.password || '',
+        snmp_community: nvr.snmp_community || 'public',
+        snmp_version: nvr.snmp_version || '2c',
+        client_id: nvr.client_id || '',
+        notes: nvr.notes || '',
+    });
+    return (
+        <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-lg" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'90vh', overflow:'auto'}}>
+                <div className="p-4 border-b" style={{borderColor:'var(--border)'}}>
+                    <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} NVR</span>
+                </div>
+                <div className="p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></div>
+                        <div><Label>Modelo</Label><Input value={f.model} onChange={e=>setF({...f,model:e.target.value})} placeholder="DS-7616NI / NVR4216"/></div>
+                        <div><Label>IP</Label><Input value={f.ip} onChange={e=>setF({...f,ip:e.target.value})} placeholder="10.20.x.x"/></div>
+                        <div><Label>Cliente</Label>
+                            <select value={f.client_id || ''} onChange={e=>setF({...f,client_id:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
+                                <option value="">— sin cliente —</option>
+                                {(clients||[]).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                        <div><Label>Puerto HTTP</Label><Input type="number" value={f.port_http} onChange={e=>setF({...f,port_http:e.target.value})}/></div>
+                        <div><Label>Puerto RTSP</Label><Input type="number" value={f.port_rtsp} onChange={e=>setF({...f,port_rtsp:e.target.value})}/></div>
+                        <div><Label>Canales totales</Label><Input type="number" value={f.channels_total} onChange={e=>setF({...f,channels_total:e.target.value})}/></div>
+                        <div><Label>Usuario admin</Label><Input value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></div>
+                        <div><Label>Password admin</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></div>
+                        <div><Label>SNMP community</Label><Input value={f.snmp_community} onChange={e=>setF({...f,snmp_community:e.target.value})}/></div>
+                        <div><Label>SNMP versión</Label>
+                            <select value={f.snmp_version} onChange={e=>setF({...f,snmp_version:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
+                                <option value="2c">2c</option><option value="1">1</option><option value="3">3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={2} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
+                </div>
+                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                    <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+                    <Button size="sm" onClick={()=>onSave(f)}>Guardar</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
 // FloorMap — mapa del callcenter con markers de extensiones
 // ─────────────────────────────────────────────
 // Muestra una imagen del plano del piso de fondo y mini-cards de cada extensión
@@ -2620,7 +3236,7 @@ function FloorMapPicker({ exts, queues, onPick, onCancel }) {
 }
 
 
-function ViewDashboard({ data }) {
+function ViewDashboard({ data, toast }) {
     const exts        = data?.pbx?.extensions || [];
     const queues      = data?.pbx?.queues     || [];
     const liveCalls   = data?.pbx?.live_calls || [];
@@ -2861,6 +3477,9 @@ function ViewDashboard({ data }) {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ─── Row 2.5: Disuasión ─── */}
+            <DisuasionBlock data={data} toast={toast}/>
 
             {/* ─── Row 3: Salud del PBX + Signos Vitales en 1 fila ─── */}
             <div className="grid gap-4 lg:grid-cols-2">
@@ -14688,6 +15307,7 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
             { id:'radar', icon:'radar', label:'Tráfico', sub:'Mapa visual de canales activos' },
             { id:'colas', icon:'queue', label:'Colas', sub:'Distribución y espera', badge: totalWaiting },
             { id:'grupos', icon:'ring_volume', label:'Grupos', sub:'Ring groups', badge: groupsRinging },
+            { id:'clientes', icon:'apartment', label:'Clientes', sub:'Extensiones, parlantes y NVR por cliente' },
         ]},
         { id:'tel', label:'Telefonía', icon:'dialpad', items:[
             { id:'extensiones', icon:'group', label:'Extensiones', sub:'Internos SIP/PJSIP', badge: onlineExts },
@@ -15324,7 +15944,7 @@ function App() {
 
     const renderView = () => {
         switch(view) {
-            case 'dashboard':   return <ViewDashboard data={data} />;
+            case 'dashboard':   return <ViewDashboard data={data} toast={showToast} />;
             case 'extensiones': return <ViewExtensiones data={data} toast={showToast} />;
             case 'agentes':     return <ViewAgentes toast={showToast} data={data} />;
             case 'vivo':        return <ViewVivo2 data={data} toast={showToast} initialFilter={vivoFilter} />;
@@ -15333,6 +15953,7 @@ function App() {
             case 'reportes':    return <ViewReportes toast={showToast} queue={reportQueue} onClearQueue={()=>setReportQueue(null)} agentReport={reportAgent} onClearAgent={()=>setReportAgent(null)} />;
             case 'colas':       return <ViewColas toast={showToast} data={data} onReport={(qid)=>{setReportQueue(qid);setView('reportes');}} />;
             case 'grupos':      return <ViewGrupos toast={showToast} />;
+            case 'clientes':    return <ViewClientes toast={showToast} data={data} />;
             case 'ivr':         return <ViewIVR toast={showToast} />;
 // El Softphone ahora es una PWA independiente en /softphone/
 
