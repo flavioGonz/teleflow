@@ -2046,6 +2046,146 @@ function DashCallActions({ call, disabled }) {
 }
 
 // ─────────────────────────────────────────────
+// DashRecordingsBlock — Últimas Grabaciones con audio inline (expand row) + miniatura RTSP
+// ─────────────────────────────────────────────
+function DashRecordingsBlock({ recs, data }) {
+    const [expanded, setExpanded] = useState(null); // index del row expandido
+    const exts = data?.pbx?.extensions || [];
+    const meta = (typeof window !== 'undefined' && window._tfExtMeta) || {};
+
+    const nameOf = (n) => {
+        if (!n) return '?';
+        const e = exts.find(x => String(x.ext) === String(n));
+        return e?.name ? `${e.name}` : String(n);
+    };
+    const labelOf = (n) => {
+        if (!n) return '?';
+        const e = exts.find(x => String(x.ext) === String(n));
+        return e?.name ? `${e.name} (${n})` : String(n);
+    };
+
+    // Resolver ext con RTSP (src o dst) para mostrar miniatura del último snapshot/preview
+    const findRtspExt = (r) => {
+        const src = String(r.src||'').replace(/^\D+/, '').replace(/\D+$/, '');
+        const dst = String(r.dst||'').replace(/^\D+/, '').replace(/\D+$/, '');
+        if (meta[src]?.rtsp_url) return src;
+        if (meta[dst]?.rtsp_url) return dst;
+        return null;
+    };
+
+    return (
+        <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
+                    <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>graphic_eq</span>
+                    Últimas Grabaciones
+                </CardTitle>
+                <Badge variant="secondary" className="font-mono text-[10px]">{recs.length} disponibles</Badge>
+            </CardHeader>
+            <CardContent>
+                {recs.length === 0 ? (
+                    <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round mb-1.5 block" style={{fontSize:36, opacity:0.4}}>mic_off</span>
+                        <p className="text-xs">Sin grabaciones registradas</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 420}}>
+                        {recs.slice(0, 8).map((r, i) => {
+                            const hasFile = !!(r.recordingfile || r.file);
+                            const isOpen = expanded === i;
+                            const rtspExt = findRtspExt(r);
+                            const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
+                            return (
+                                <div key={i} className="rounded-md border overflow-hidden transition-all"
+                                     style={{borderColor: isOpen ? 'var(--primary)' : 'var(--border)', background:'var(--card)'}}>
+                                    {/* Fila clickable */}
+                                    <div className="px-2.5 py-2 flex items-center gap-2.5 cursor-pointer transition-all hover:bg-accent/30"
+                                         onClick={()=> hasFile && setExpanded(isOpen ? null : i)}>
+                                        <button type="button"
+                                                onClick={(e)=>{ e.stopPropagation(); hasFile && setExpanded(isOpen ? null : i); }}
+                                                disabled={!hasFile}
+                                                className="rounded-full flex items-center justify-center transition-all shrink-0"
+                                                style={{
+                                                    width:34, height:34,
+                                                    background: isOpen ? 'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 60%, #000))' : 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                                                    color:'#fff',
+                                                    boxShadow:`0 2px 8px color-mix(in srgb, ${isOpen ? 'var(--horizon-green)' : 'var(--primary)'} 30%, transparent)`,
+                                                    cursor: hasFile ? 'pointer' : 'not-allowed',
+                                                    opacity: hasFile ? 1 : 0.5
+                                                }}
+                                                title={hasFile ? (isOpen ? 'Cerrar' : 'Reproducir') : 'Sin archivo'}>
+                                            <span className="material-icons-round" style={{fontSize:18}}>{isOpen ? 'pause' : 'play_arrow'}</span>
+                                        </button>
+
+                                        {/* Mini snapshot/preview RTSP (si la ext tiene RTSP) */}
+                                        {rtspExt ? (
+                                            <div className="shrink-0 rounded-md overflow-hidden border" style={{width:48, height:36, background:'#0a0a0d', borderColor:'var(--border)', position:'relative'}}>
+                                                <img src={`uploads/rtsp_snapshots/${rtspExt}/latest.jpg?v=${(r.calldate||'').replace(/\D+/g,'')}`}
+                                                     alt="" loading="lazy"
+                                                     style={{width:'100%', height:'100%', objectFit:'cover'}}
+                                                     onError={(e)=>{ e.target.style.display='none'; }}/>
+                                                <span className="material-icons-round" style={{position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', fontSize:18, color:'rgba(255,255,255,0.35)', pointerEvents:'none'}}>videocam</span>
+                                            </div>
+                                        ) : null}
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
+                                                <span title={String(r.src||'')}>{labelOf(r.src)}</span>
+                                                <span className="font-mono" style={{color:'var(--muted-foreground)', margin:'0 6px'}}>→</span>
+                                                <span title={String(r.dst||'')}>{labelOf(r.dst)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                                <span>{(r.calldate || '').substring(0, 16) || '—'}</span>
+                                                <span style={{color:'var(--border)'}}>·</span>
+                                                <span className="font-mono">{r.duration || 0}s</span>
+                                                {r.disposition && (
+                                                    <>
+                                                        <span style={{color:'var(--border)'}}>·</span>
+                                                        <Badge variant={r.disposition === 'ANSWERED' ? 'success' : 'secondary'} className="text-[9px] py-0">{r.disposition}</Badge>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {hasFile && (
+                                            <span className="material-icons-round shrink-0" style={{fontSize:18, color:'var(--muted-foreground)', transition:'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)'}}>expand_more</span>
+                                        )}
+                                    </div>
+
+                                    {/* Panel expandido: waveform inline + (opcional) preview RTSP grande */}
+                                    {isOpen && hasFile && (
+                                        <div className="border-t p-2.5 space-y-2" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
+                                            <InlineRecordingPlayer file={r.recordingfile || r.file}
+                                                                   meta={{src:r.src, dst:r.dst, calldate:r.calldate, duration:r.duration}}/>
+                                            {rtspExt && rtspUrl && (
+                                                <div className="rounded-md overflow-hidden border" style={{borderColor:'var(--border)', height:140, background:'#0a0a0d', position:'relative'}}>
+                                                    <RtspMiniLiveFill ext={rtspExt} url={rtspUrl}/>
+                                                    <div style={{position:'absolute', top:4, left:4, padding:'2px 6px', borderRadius:4, background:'rgba(0,0,0,0.65)', fontSize:9, color:'#fff', fontWeight:800, letterSpacing:'.04em'}}>
+                                                        <span style={{color:'#ef4444', marginRight:4}}>●</span>LIVE · Ext {rtspExt}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// Wrapper que monta WaveformPlayer inline (sin modal)
+function InlineRecordingPlayer({ file, meta }) {
+    // Construir el URL del audio (igual a tfPlayRecording pero local)
+    const url = `api/recording.php?file=${encodeURIComponent(file)}`;
+    return (
+        <WaveformPlayer src={url} meta={meta}/>
+    );
+}
+
+// ─────────────────────────────────────────────
 // DisuasionBlock — bloque del Dashboard con paging groups (FreePBX + custom)
 // ─────────────────────────────────────────────
 function DisuasionBlock({ data, toast }) {
@@ -3504,82 +3644,8 @@ function ViewDashboard({ data, toast }) {
                 {/* Disuasión (movido desde Row 2.5) */}
                 <DisuasionBlock data={data} toast={toast}/>
 
-                {/* Últimas Grabaciones (redesign + audio player) */}
-                <Card>
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>graphic_eq</span>
-                            Últimas Grabaciones
-                        </CardTitle>
-                        <Badge variant="secondary" className="font-mono text-[10px]">{recs.length} disponibles</Badge>
-                    </CardHeader>
-                    <CardContent>
-                        {recs.length === 0 ? (
-                            <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
-                                <span className="material-icons-round mb-1.5 block" style={{fontSize:36, opacity:0.4}}>mic_off</span>
-                                <p className="text-xs">Sin grabaciones registradas</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-1.5 overflow-auto" style={{maxHeight: 280}}>
-                                {recs.slice(0, 8).map((r, i) => (
-                                    <div key={i} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5 transition-all hover:shadow-sm"
-                                         style={{borderColor:'var(--border)', background:'var(--card)'}}>
-                                        {/* Play button */}
-                                        <button type="button"
-                                                onClick={()=>tfPlayRecording(r.recordingfile || r.file, {src:r.src, dst:r.dst, calldate:r.calldate, duration:r.duration})}
-                                                disabled={!r.recordingfile && !r.file}
-                                                className="rounded-full flex items-center justify-center transition-all shrink-0"
-                                                style={{
-                                                    width:34, height:34,
-                                                    background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
-                                                    color:'var(--primary-foreground)',
-                                                    boxShadow:'0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent)',
-                                                    cursor: (r.recordingfile || r.file) ? 'pointer' : 'not-allowed',
-                                                    opacity: (r.recordingfile || r.file) ? 1 : 0.5
-                                                }}
-                                                title={(r.recordingfile || r.file) ? 'Reproducir grabación' : 'Sin archivo disponible'}>
-                                            <span className="material-icons-round" style={{fontSize:18}}>play_arrow</span>
-                                        </button>
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>
-                                                {(() => {
-                                                    const exts = data?.pbx?.extensions || [];
-                                                    const nameOf = (n) => {
-                                                        if (!n) return '?';
-                                                        const e = exts.find(x => String(x.ext) === String(n));
-                                                        return e?.name ? `${e.name}` : String(n);
-                                                    };
-                                                    const labelOf = (n) => {
-                                                        if (!n) return '?';
-                                                        const e = exts.find(x => String(x.ext) === String(n));
-                                                        return e?.name ? `${e.name} (${n})` : String(n);
-                                                    };
-                                                    return (<>
-                                                        <span title={String(r.src||'')}>{labelOf(r.src)}</span>
-                                                        <span className="font-mono" style={{color:'var(--muted-foreground)', margin:'0 6px'}}>→</span>
-                                                        <span title={String(r.dst||'')}>{labelOf(r.dst)}</span>
-                                                    </>);
-                                                })()}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                                                <span>{(r.calldate || '').substring(0, 16) || '—'}</span>
-                                                <span style={{color:'var(--border)'}}>·</span>
-                                                <span className="font-mono">{r.duration || 0}s</span>
-                                                {r.disposition && (
-                                                    <>
-                                                        <span style={{color:'var(--border)'}}>·</span>
-                                                        <Badge variant={r.disposition === 'ANSWERED' ? 'success' : 'secondary'} className="text-[9px] py-0">{r.disposition}</Badge>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                {/* Últimas Grabaciones — audio inline + miniatura RTSP del último snapshot */}
+                <DashRecordingsBlock recs={recs} data={data}/>
             </div>
 
         </div>
