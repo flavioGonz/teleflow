@@ -92,4 +92,98 @@ if ($action === 'assoc_set') {
     exit;
 }
 
+/**
+ * Bootstrap auto: agrupa todas las extensiones por "raíz" del name y crea
+ * un cliente por cada raíz, asociando las exts correspondientes.
+ *
+ * Heurística de raíz: primera secuencia de letras antes de:
+ *   - cualquier dígito
+ *   - guión, paréntesis o coma
+ *   - palabras genéricas (Videoportero, Hall, Garage, Barbacoa, AltoParlante, Principal, Secundario, etc.)
+ * Trim de espacios y dejar máximo 3 palabras significativas.
+ * Si el nombre completo es <20 chars y no matchea el patrón, usar el nombre tal cual.
+ *
+ * Parámetros:
+ *   ?dry_run=1  → no escribe, devuelve preview {root → [exts...]}
+ */
+if ($action === 'bootstrap') {
+    $dryRun = !empty($_GET['dry_run']) || !empty($_POST['dry_run']);
+    try {
+        $pbx = pbx_db_ro();
+        $rows = $pbx->query("SELECT id AS ext, description AS name FROM devices WHERE description IS NOT NULL AND description != '' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        echo json_encode(['success'=>false,'error'=>'No se pudo leer devices: '.$e->getMessage()]);
+        exit;
+    }
+
+    // ── Extractor de raíz humana ──
+    $stopWords = ['Videoportero','Videoportería','Hall','Garage','Barbacoa','AltoParlante','Altoparlante',
+                  'Principal','Secundaria','Secundario','Sas','SAS','Bocina','Cámara','Camara',
+                  'Portero','PPAL','Test','Testing','Demo','Backup','Failover','FailOver','Cola','Queue',
+                  'Salida','Entrada','Acceso','Local'];
+    $extractRoot = function(string $name) use ($stopWords): string {
+        $name = trim($name);
+        if ($name === '') return '';
+        // Cortar en " - " primero (separador común)
+        $parts = preg_split('/\s*[-–—]\s+/', $name, 2);
+        $head = $parts[0];
+        // Cortar en "(" (info extra entre paréntesis)
+        $head = preg_split('/\s*\(/', $head, 2)[0];
+        // Cortar antes del primer dígito (number suelto)
+        $head = preg_split('/\s+\d/', $head, 2)[0];
+        // Cortar antes de una stopword (al inicio de palabra)
+        $stopRegex = '/\s+(' . implode('|', array_map('preg_quote', $stopWords)) . ')(\s|$)/i';
+        $head = preg_split($stopRegex, $head, 2)[0];
+        $head = trim($head);
+        // Si quedó <2 chars, usar el name original truncado a 40
+        if (mb_strlen($head) < 2) $head = mb_substr($name, 0, 40);
+        // Limitar a 3 palabras
+        $words = preg_split('/\s+/', $head);
+        if (count($words) > 3) $head = implode(' ', array_slice($words, 0, 3));
+        return $head;
+    };
+
+    $byRoot = [];
+    foreach ($rows as $r) {
+        $root = $extractRoot($r['name']);
+        if (!$root) continue;
+        $byRoot[$root][] = $r['ext'];
+    }
+    ksort($byRoot);
+
+    $stats = ['groups' => count($byRoot), 'created' => 0, 'reused' => 0, 'assoc' => 0];
+    $preview = [];
+    foreach ($byRoot as $root => $exts) {
+        $preview[$root] = $exts;
+    }
+    if ($dryRun) {
+        echo json_encode(['success'=>true, 'dry_run'=>true, 'stats'=>$stats, 'preview'=>$preview]);
+        exit;
+    }
+
+    $db = ops_db();
+    foreach ($byRoot as $root => $exts) {
+        // upsert cliente
+        $get = $db->prepare("SELECT id FROM clients WHERE name=?");
+        $get->execute([$root]);
+        $cid = $get->fetchColumn();
+        if (!$cid) {
+            $ins = $db->prepare("INSERT INTO clients (name, notes) VALUES (?, ?)");
+            $ins->execute([$root, 'Auto-bootstrap desde extensiones']);
+            $cid = (int)$db->lastInsertId();
+            $stats['created']++;
+        } else {
+            $stats['reused']++;
+        }
+        // upsert asociaciones (NO borra otras kinds)
+        $ins2 = $db->prepare("INSERT IGNORE INTO client_assoc (client_id, kind, ref_id) VALUES (?, 'ext', ?)");
+        foreach ($exts as $e) {
+            $ins2->execute([$cid, $e]);
+            $stats['assoc'] += $ins2->rowCount();
+        }
+    }
+    echo json_encode(['success'=>true, 'stats'=>$stats, 'preview'=>$preview]);
+    exit;
+}
+
 echo json_encode(['success'=>false, 'error'=>'unknown action']);

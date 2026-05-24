@@ -2227,420 +2227,502 @@ function DisuasionBlock({ data, toast }) {
 }
 
 // ─────────────────────────────────────────────
-// ViewClientes — vista Operación → Clientes
+// ViewClientes — Operaciones / Clientes (rediseño profesional)
+// Tabs: Resumen · Extensiones · Parlantes · Colas · NVR · Notas
 // ─────────────────────────────────────────────
 function ViewClientes({ toast, data }) {
     const [clients, setClients] = useState([]);
-    const [selected, setSelected] = useState(null);   // client_id seleccionado
-    const [detail, setDetail] = useState(null);       // detail del cliente abierto
-    const [editing, setEditing] = useState(null);     // cliente en edición (form)
     const [nvrs, setNvrs] = useState([]);
-    const [nvrSelected, setNvrSelected] = useState(null);
-    const [nvrDetail, setNvrDetail] = useState(null);
+    const [selected, setSelected] = useState(null);
+    const [detail, setDetail] = useState(null);
+    const [editing, setEditing] = useState(null);
     const [nvrEdit, setNvrEdit] = useState(null);
+    const [bootPreview, setBootPreview] = useState(null);
+    const [tab, setTab] = useState('resumen');
+    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const exts = data?.pbx?.extensions || [];
+    const queues = data?.pbx?.queues || [];
 
     const loadClients = async () => {
-        try {
-            const r = await fetch('api/clients.php?action=list', { credentials:'include' });
-            const d = await r.json();
-            if (d.success) setClients(d.clients || []);
-        } catch(e) {}
+        try { const r = await fetch('api/clients.php?action=list', { credentials:'include' }); const d = await r.json(); if (d.success) setClients(d.clients || []); } catch(e) {}
     };
     const loadNvrs = async () => {
-        try {
-            const r = await fetch('api/nvr.php?action=list', { credentials:'include' });
-            const d = await r.json();
-            if (d.success) setNvrs(d.nvrs || []);
-        } catch(e) {}
+        try { const r = await fetch('api/nvr.php?action=list', { credentials:'include' }); const d = await r.json(); if (d.success) setNvrs(d.nvrs || []); } catch(e) {}
     };
     useEffect(() => { Promise.all([loadClients(), loadNvrs()]).finally(() => setLoading(false)); }, []);
 
     const loadDetail = async (id) => {
-        try {
-            const r = await fetch('api/clients.php?action=get&id=' + id, { credentials:'include' });
-            const d = await r.json();
-            if (d.success) setDetail(d.client);
-        } catch(e) {}
+        try { const r = await fetch('api/clients.php?action=get&id=' + id, { credentials:'include' }); const d = await r.json(); if (d.success) setDetail(d.client); } catch(e) {}
     };
-    useEffect(() => { if (selected) loadDetail(selected); else setDetail(null); }, [selected]);
+    useEffect(() => { if (selected) { loadDetail(selected); setTab('resumen'); } else setDetail(null); }, [selected]);
 
     const saveClient = async (form) => {
-        const fd = new FormData();
-        Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
+        const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
         const r = await fetch('api/clients.php?action=save', { method:'POST', body:fd, credentials:'include' });
         const d = await r.json();
-        if (d.success) { toast?.('Cliente guardado','success'); setEditing(null); await loadClients(); if (selected) loadDetail(selected); }
-        else toast?.(d.error || 'Error', 'error');
+        if (d.success) { toast?.('Cliente guardado','success'); setEditing(null); await loadClients(); if (selected) loadDetail(selected); else if (d.id) setSelected(d.id); }
+        else toast?.(d.error || 'Error','error');
     };
     const delClient = async (id) => {
-        if (!confirm('Eliminar cliente y todas sus asociaciones?')) return;
+        if (!confirm('Eliminar este cliente y todas sus asociaciones?')) return;
         const fd = new FormData(); fd.append('id', id);
         const r = await fetch('api/clients.php?action=delete', { method:'POST', body:fd, credentials:'include' });
         const d = await r.json();
         if (d.success) { toast?.('Eliminado','success'); setSelected(null); loadClients(); }
         else toast?.(d.error || 'Error', 'error');
     };
-
     const saveAssoc = async (kind, refs) => {
         if (!selected) return;
-        const fd = new FormData();
-        fd.append('id', selected); fd.append('kind', kind); fd.append('refs', JSON.stringify(refs));
+        const fd = new FormData(); fd.append('id', selected); fd.append('kind', kind); fd.append('refs', JSON.stringify(refs));
         const r = await fetch('api/clients.php?action=assoc_set', { method:'POST', body:fd, credentials:'include' });
         const d = await r.json();
-        if (d.success) { toast?.('Asociaciones guardadas','success'); loadDetail(selected); }
+        if (d.success) { toast?.('Asociaciones guardadas','success'); loadDetail(selected); loadClients(); }
         else toast?.(d.error || 'Error', 'error');
     };
-
     const saveNvr = async (form) => {
-        const fd = new FormData();
-        Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
+        const fd = new FormData(); Object.entries(form).forEach(([k,v]) => fd.append(k, v ?? ''));
         const r = await fetch('api/nvr.php?action=save', { method:'POST', body:fd, credentials:'include' });
         const d = await r.json();
-        if (d.success) { toast?.('NVR guardado','success'); setNvrEdit(null); loadNvrs(); }
+        if (d.success) { toast?.('NVR guardado','success'); setNvrEdit(null); loadNvrs(); if (selected) loadDetail(selected); }
         else toast?.(d.error || 'Error', 'error');
     };
-    const loadNvrDetail = async (id) => {
-        try {
-            const r = await fetch('api/nvr.php?action=get&id=' + id, { credentials:'include' });
-            const d = await r.json();
-            if (d.success) setNvrDetail(d);
-        } catch(e) {}
-    };
-    useEffect(() => { if (nvrSelected) loadNvrDetail(nvrSelected); else setNvrDetail(null); }, [nvrSelected]);
 
-    if (loading) {
-        return <div className="content-area view-enter"><div className="py-10 text-center text-sm" style={{color:'var(--muted-foreground)'}}>Cargando…</div></div>;
-    }
+    const doBootstrap = async (dryRun) => {
+        try {
+            const url = 'api/clients.php?action=bootstrap' + (dryRun ? '&dry_run=1' : '');
+            const r = await fetch(url, { method:'POST', credentials:'include' });
+            const d = await r.json();
+            if (!d.success) { toast?.(d.error || 'Error bootstrap', 'error'); return; }
+            if (dryRun) {
+                setBootPreview(d);
+            } else {
+                toast?.(`Bootstrap: ${d.stats.created} clientes nuevos, ${d.stats.reused} existentes, ${d.stats.assoc} asociaciones`, 'success');
+                setBootPreview(null);
+                loadClients();
+            }
+        } catch (e) { toast?.('Error de red', 'error'); }
+    };
+
+    const totalsGlobal = useMemo(() => ({
+        clientes: clients.length,
+        ext: clients.reduce((s,c)=>s+(c.n_ext||0),0),
+        paging: clients.reduce((s,c)=>s+(c.n_paging||0),0),
+        nvr: nvrs.length,
+        cams: nvrs.reduce((s,n)=>s+(n.channels_total||0),0),
+        diskFail: nvrs.reduce((s,n)=>s+(n.n_fail||0),0),
+    }), [clients, nvrs]);
+
+    const filteredClients = clients.filter(c =>
+        !search || (c.name||'').toLowerCase().includes(search.toLowerCase()) ||
+                   (c.address||'').toLowerCase().includes(search.toLowerCase()) ||
+                   (c.contact||'').toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (loading) return <div className="content-area view-enter"><div className="py-10 text-center text-sm" style={{color:'var(--muted-foreground)'}}><span className="material-icons-round animate-spin mb-2 block" style={{fontSize:32}}>autorenew</span>Cargando clientes…</div></div>;
 
     return (
         <div className="content-area view-enter">
-            <PageActions>
-                <button className="btn-primary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5}}
-                        onClick={()=>setEditing({})}>
-                    <span className="material-icons-round" style={{fontSize:16}}>add</span>Nuevo cliente
-                </button>
-                <button className="btn-secondary" style={{padding:'8px 14px',borderRadius:10,fontSize:12,display:'flex',alignItems:'center',gap:5,background:'var(--muted)',color:'var(--foreground)',border:'1px solid var(--border)'}}
-                        onClick={()=>setNvrEdit({})}>
-                    <span className="material-icons-round" style={{fontSize:16}}>videocam</span>Nuevo NVR
-                </button>
-            </PageActions>
+            {/* ── Hero header con stats globales ── */}
+            <div className="rounded-xl border p-4 mb-4 flex items-center justify-between gap-4 flex-wrap"
+                 style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--card)) 0%, var(--card) 100%)'}}>
+                <div>
+                    <h2 className="text-xl font-black tracking-tight flex items-center gap-2" style={{color:'var(--foreground)'}}>
+                        <span className="material-icons-round" style={{fontSize:22, color:'var(--primary)'}}>apartment</span>
+                        Operaciones · Clientes
+                    </h2>
+                    <p className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Gestión de extensiones, parlantes, colas y NVR agrupados por cliente.</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <StatPill icon="apartment"   label="Clientes"  value={totalsGlobal.clientes}  color="var(--primary)"/>
+                    <StatPill icon="phone"       label="Ext"       value={totalsGlobal.ext}       color="#22c55e"/>
+                    <StatPill icon="campaign"    label="Parlantes" value={totalsGlobal.paging}    color="#f59e0b"/>
+                    <StatPill icon="videocam"    label="NVR"       value={totalsGlobal.nvr}       color="#3b82f6"/>
+                    <StatPill icon="camera_alt"  label="Cámaras"   value={totalsGlobal.cams}      color="#8b5cf6"/>
+                    {totalsGlobal.diskFail > 0 && <StatPill icon="warning"  label="Discos fail" value={totalsGlobal.diskFail} color="var(--destructive)"/>}
+                </div>
+            </div>
 
-            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(280px, 320px) 1fr'}}>
-                {/* Sidebar: lista de clientes */}
-                <Card className="h-fit sticky" style={{top:14}}>
-                    <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider"><span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>apartment</span>Clientes</CardTitle></CardHeader>
-                    <CardContent className="p-0">
-                        {clients.length === 0 ? (
-                            <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                                Sin clientes aún
-                            </div>
-                        ) : clients.map(c => (
-                            <button key={c.id} onClick={()=>setSelected(c.id)}
-                                    className="w-full px-3 py-2.5 text-left text-sm border-b transition-colors hover:bg-accent flex items-center gap-2"
-                                    style={{borderColor:'var(--border)', background: selected === c.id ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'transparent', color:'var(--foreground)'}}>
-                                <div className="rounded-md flex items-center justify-center shrink-0"
-                                     style={{width:32, height:32, background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))', color:'#fff', fontSize:11, fontWeight:900}}>
-                                    {(c.name||'?').substring(0,2).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-bold truncate">{c.name}</div>
-                                    <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
-                                        {c.n_ext} ext · {c.n_paging} paging · {c.n_nvr} NVR
-                                    </div>
-                                </div>
-                            </button>
-                        ))}
-                    </CardContent>
-                </Card>
+            {/* ── Toolbar ── */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <div className="relative flex-1 min-w-[240px] max-w-md">
+                    <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16,color:'var(--muted-foreground)'}}>search</span>
+                    <Input placeholder="Buscar cliente, dirección, contacto…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-8 h-9"/>
+                </div>
+                <div className="flex-1"/>
+                <Button variant="outline" size="sm" onClick={()=>doBootstrap(true)}>
+                    <span className="material-icons-round mr-1" style={{fontSize:14}}>auto_awesome</span>
+                    Bootstrap auto
+                </Button>
+                <Button variant="outline" size="sm" onClick={()=>setNvrEdit({})}>
+                    <span className="material-icons-round mr-1" style={{fontSize:14}}>videocam</span>
+                    Nuevo NVR
+                </Button>
+                <Button size="sm" onClick={()=>setEditing({})}>
+                    <span className="material-icons-round mr-1" style={{fontSize:14}}>add</span>
+                    Nuevo cliente
+                </Button>
+            </div>
 
-                {/* Detalle del cliente seleccionado */}
-                <div className="space-y-4">
-                    {!selected && !nvrSelected ? (
-                        <Card><CardContent className="py-12 text-center text-sm" style={{color:'var(--muted-foreground)'}}>
-                            <span className="material-icons-round block mb-2" style={{fontSize:42, opacity:0.4}}>apartment</span>
-                            Seleccioná un cliente para ver sus extensiones, parlantes y NVRs asociados.
+            {/* ── Body: sidebar + detalle ── */}
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(260px, 320px) 1fr'}}>
+                {/* Sidebar */}
+                <div className="space-y-1.5">
+                    {filteredClients.length === 0 ? (
+                        <Card><CardContent className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-2" style={{fontSize:32, opacity:0.4}}>apartment</span>
+                            {search ? 'Sin coincidencias' : 'Sin clientes aún. Usá "Bootstrap auto" para crearlos desde las extensiones.'}
                         </CardContent></Card>
-                    ) : null}
+                    ) : filteredClients.map(c => (
+                        <ClientCard key={c.id} client={c} selected={selected === c.id} onClick={()=>setSelected(c.id)}/>
+                    ))}
+                </div>
 
-                    {selected && detail && (
-                        <ClientDetailCard client={detail} exts={exts} nvrs={nvrs} data={data}
-                                          onEdit={()=>setEditing(detail)} onDelete={()=>delClient(detail.id)}
-                                          onSaveAssoc={saveAssoc} onOpenNvr={(id)=>{setNvrSelected(id); setSelected(null);}}/>
-                    )}
-
-                    {nvrSelected && nvrDetail && (
-                        <NvrDetailCard data={nvrDetail} onBack={()=>setNvrSelected(null)} onEdit={()=>setNvrEdit(nvrDetail.nvr)}/>
-                    )}
-
-                    {/* Listado de NVRs (cuando no hay cliente seleccionado) */}
-                    {!selected && !nvrSelected && nvrs.length > 0 && (
-                        <Card>
-                            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider"><span className="material-icons-round" style={{fontSize:18,color:'var(--primary)'}}>videocam</span>NVRs registrados</CardTitle>
-                                <Badge variant="secondary" className="font-mono text-[10px]">{nvrs.length}</Badge>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
-                                    {nvrs.map(n => (
-                                        <button key={n.id} onClick={()=>setNvrSelected(n.id)}
-                                                className="rounded-md border p-2.5 text-left transition-all hover:shadow-md"
-                                                style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
-                                            <div className="flex items-center gap-2">
-                                                <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : 'var(--primary)'}}>videocam</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-xs font-bold truncate">{n.name}</div>
-                                                    <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.model || '—'}</div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                                                <span>{n.channels_total || n.n_ch} canales</span>
-                                                <span>·</span>
-                                                <span style={{color: n.n_fail > 0 ? 'var(--destructive)' : 'inherit'}}>{n.n_disks} discos {n.n_fail > 0 ? `(${n.n_fail} fail)` : ''}</span>
-                                                {n.client_name && <><span>·</span><span style={{color:'var(--primary)'}}>{n.client_name}</span></>}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                {/* Detail */}
+                <div className="min-w-0">
+                    {!selected ? (
+                        <Card><CardContent className="py-16 text-center" style={{color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-3" style={{fontSize:48, opacity:0.3}}>arrow_back</span>
+                            <p className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Seleccioná un cliente</p>
+                            <p className="text-xs">Sus extensiones, parlantes, colas, NVRs y cámaras aparecerán aquí.</p>
+                        </CardContent></Card>
+                    ) : detail ? (
+                        <ClientDetailV2 client={detail} exts={exts} queues={queues} nvrs={nvrs} tab={tab} setTab={setTab}
+                                        onEdit={()=>setEditing(detail)} onDelete={()=>delClient(detail.id)}
+                                        onSaveAssoc={saveAssoc} onEditNvr={(n)=>setNvrEdit(n)} onNewNvr={()=>setNvrEdit({client_id: detail.id})}/>
+                    ) : (
+                        <Card><CardContent className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Cargando detalle…</CardContent></Card>
                     )}
                 </div>
             </div>
 
             {editing && <ClientEditModal client={editing} onSave={saveClient} onCancel={()=>setEditing(null)}/>}
-            {nvrEdit  && <NvrEditModal nvr={nvrEdit} clients={clients} onSave={saveNvr} onCancel={()=>setNvrEdit(null)}/>}
+            {nvrEdit && <NvrEditModal nvr={nvrEdit} clients={clients} onSave={saveNvr} onCancel={()=>setNvrEdit(null)}/>}
+            {bootPreview && <BootstrapPreviewModal data={bootPreview} onConfirm={()=>doBootstrap(false)} onCancel={()=>setBootPreview(null)}/>}
         </div>
     );
 }
 
-function ClientDetailCard({ client, exts, nvrs, data, onEdit, onDelete, onSaveAssoc, onOpenNvr }) {
-    const queues = data?.pbx?.queues || [];
-    const [assocExt, setAssocExt] = useState(client.assoc?.ext || []);
-    const [assocPag, setAssocPag] = useState(client.assoc?.paging || []);
-    const [assocNvr, setAssocNvr] = useState(client.assoc?.nvr || []);
-    const [assocQ,   setAssocQ]   = useState(client.assoc?.queue || []);
-    useEffect(() => { setAssocExt(client.assoc?.ext || []); setAssocPag(client.assoc?.paging || []); setAssocNvr(client.assoc?.nvr || []); setAssocQ(client.assoc?.queue || []); }, [client.id]);
+function StatPill({ icon, label, value, color }) {
+    return (
+        <div className="rounded-md border px-2.5 py-1.5 flex items-center gap-2"
+             style={{borderColor:`color-mix(in srgb, ${color} 35%, transparent)`, background:`color-mix(in srgb, ${color} 10%, var(--card))`}}>
+            <span className="material-icons-round" style={{fontSize:16, color}}>{icon}</span>
+            <div>
+                <div className="text-xs font-black tabular-nums leading-none" style={{color}}>{value}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style={{color:'var(--muted-foreground)'}}>{label}</div>
+            </div>
+        </div>
+    );
+}
 
-    const togglePill = (list, setList, val) => {
-        const s = String(val);
-        if (list.includes(s)) setList(list.filter(x => x !== s));
-        else setList([...list, s]);
-    };
-    const saveKind = (kind, refs) => onSaveAssoc(kind, refs);
+function ClientCard({ client, selected, onClick }) {
+    const ini = (client.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+    const total = (client.n_ext||0) + (client.n_paging||0) + (client.n_queue||0) + (client.n_nvr||0);
+    return (
+        <button onClick={onClick}
+                className="w-full text-left rounded-lg border p-2.5 flex items-center gap-2.5 transition-all hover:shadow-sm"
+                style={{
+                    borderColor: selected ? 'var(--primary)' : 'var(--border)',
+                    background: selected ? 'color-mix(in srgb, var(--primary) 10%, var(--card))' : 'var(--card)',
+                    color:'var(--foreground)'
+                }}>
+            <div className="rounded-md flex items-center justify-center shrink-0 font-black"
+                 style={{width:38, height:38, fontSize:12,
+                         background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #000))',
+                         color:'#fff'}}>{ini}</div>
+            <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate">{client.name}</div>
+                {client.contact && <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{client.contact}</div>}
+                <div className="flex gap-1 mt-1 text-[9px] font-bold">
+                    {client.n_ext > 0    && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #22c55e 14%, transparent)', color:'#22c55e'}}>{client.n_ext} ext</span>}
+                    {client.n_paging > 0 && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #f59e0b 14%, transparent)', color:'#f59e0b'}}>{client.n_paging} pag</span>}
+                    {client.n_queue > 0  && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #3b82f6 14%, transparent)', color:'#3b82f6'}}>{client.n_queue} cola</span>}
+                    {client.n_nvr > 0    && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #8b5cf6 14%, transparent)', color:'#8b5cf6'}}>{client.n_nvr} NVR</span>}
+                    {total === 0 && <span className="text-[9px] italic" style={{color:'var(--muted-foreground)'}}>sin recursos</span>}
+                </div>
+            </div>
+        </button>
+    );
+}
 
-    const nvrsAssoc = nvrs.filter(n => assocNvr.includes(String(n.id)));
+function ClientDetailV2({ client, exts, queues, nvrs, tab, setTab, onEdit, onDelete, onSaveAssoc, onEditNvr, onNewNvr }) {
+    const ini = (client.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+    const myExts   = (client.assoc?.ext    || []).map(String);
+    const myPaging = (client.assoc?.paging || []).map(String);
+    const myQueues = (client.assoc?.queue  || []).map(String);
+    const myNvrs   = (client.assoc?.nvr    || []).map(String);
+
+    const tabs = [
+        { id:'resumen',    icon:'dashboard',   label:'Resumen',     count: null },
+        { id:'ext',        icon:'phone',       label:'Extensiones', count: myExts.length,   color:'#22c55e' },
+        { id:'paging',     icon:'campaign',    label:'Parlantes',   count: myPaging.length, color:'#f59e0b' },
+        { id:'queue',      icon:'queue',       label:'Colas',       count: myQueues.length, color:'#3b82f6' },
+        { id:'nvr',        icon:'videocam',    label:'NVR',         count: myNvrs.length,   color:'#8b5cf6' },
+        { id:'notas',      icon:'sticky_note_2', label:'Notas',     count: null },
+    ];
 
     return (
-        <Card>
-            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0">
-                <div>
-                    <CardTitle className="text-base">{client.name}</CardTitle>
-                    <CardDescription className="text-xs mt-1">
-                        {client.contact && <span>{client.contact} · </span>}
-                        {client.address}
-                    </CardDescription>
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0"
+                        style={{background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, transparent) 0%, transparent 100%)'}}>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="rounded-xl flex items-center justify-center shrink-0 font-black shadow-md"
+                         style={{width:56, height:56, fontSize:18,
+                                 background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #000))',
+                                 color:'#fff'}}>{ini}</div>
+                    <div className="min-w-0">
+                        <CardTitle className="text-lg">{client.name}</CardTitle>
+                        <CardDescription className="text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                            {client.address && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>place</span>{client.address}</span>}
+                            {client.contact && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>person</span>{client.contact}</span>}
+                        </CardDescription>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <ActionIconButton icon="edit" label="Editar" onClick={onEdit} tone="primary" size={28}/>
-                    <ActionIconButton icon="delete_outline" label="Eliminar" onClick={onDelete} tone="destructive" size={28}/>
+                <div className="flex items-center gap-1.5 shrink-0">
+                    <ActionIconButton icon="edit" label="Editar cliente" onClick={onEdit} tone="primary" size={32}/>
+                    <ActionIconButton icon="delete_outline" label="Eliminar cliente" onClick={onDelete} tone="destructive" size={32}/>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-                {client.notes && (
-                    <div className="text-xs p-2 rounded-md" style={{background:'color-mix(in srgb, var(--muted) 40%, transparent)', color:'var(--muted-foreground)'}}>
-                        {client.notes}
-                    </div>
-                )}
 
-                <AssocSection title="Extensiones" icon="phone" color="var(--primary)" items={exts.map(e=>({id:String(e.ext), label:`${e.ext} · ${e.name||''}`}))} value={assocExt} setValue={setAssocExt} onSave={()=>saveKind('ext', assocExt)}/>
-                <AssocSection title="Parlantes (paging groups)" icon="campaign" color="#f59e0b" items={[]}  value={assocPag} setValue={setAssocPag} onSave={()=>saveKind('paging', assocPag)}
-                              loadItems={async () => {
-                                  const r = await fetch('api/disuasion.php?action=list', { credentials:'include' });
-                                  const d = await r.json();
-                                  return (d.groups || []).map(g => ({id:g.page_code, label:`${g.name} (*${g.page_code})`}));
-                              }}/>
-                <AssocSection title="Colas" icon="queue" color="#3b82f6" items={queues.map(q=>({id:String(q.id||q.extension), label:`${q.name||q.id} (${q.extension||q.id})`}))} value={assocQ} setValue={setAssocQ} onSave={()=>saveKind('queue', assocQ)}/>
+            <div className="border-y flex items-center gap-0 overflow-x-auto" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))'}}>
+                {tabs.map(t => (
+                    <button key={t.id} onClick={()=>setTab(t.id)}
+                            className="px-4 py-2.5 -mb-px flex items-center gap-1.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap"
+                            style={{
+                                borderBottomColor: tab===t.id ? (t.color || 'var(--primary)') : 'transparent',
+                                color: tab===t.id ? (t.color || 'var(--primary)') : 'var(--muted-foreground)'
+                            }}>
+                        <span className="material-icons-round" style={{fontSize:14}}>{t.icon}</span>
+                        {t.label}
+                        {t.count != null && <span className="font-mono px-1 rounded text-[9px]" style={{background: tab===t.id ? `color-mix(in srgb, ${t.color||'var(--primary)'} 18%, transparent)` : 'color-mix(in srgb, var(--muted) 40%, transparent)'}}>{t.count}</span>}
+                    </button>
+                ))}
+            </div>
 
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
-                            <span className="material-icons-round" style={{fontSize:14, color:'var(--primary)'}}>videocam</span>
-                            NVRs asociados
-                        </div>
-                        <button onClick={()=>saveKind('nvr', assocNvr)} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{background:'var(--horizon-green)', color:'#0a2a12'}}>Guardar</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                        {nvrs.length === 0 && <span className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Sin NVRs registrados</span>}
-                        {nvrs.map(n => {
-                            const sel = assocNvr.includes(String(n.id));
-                            return (
-                                <button key={n.id} onClick={()=>togglePill(assocNvr, setAssocNvr, n.id)}
-                                        className="px-2 py-1 rounded-md text-[10px] font-bold border transition-all"
-                                        style={{borderColor: sel ? 'var(--primary)' : 'var(--border)', background: sel ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--card)', color: sel ? 'var(--primary)' : 'var(--foreground)'}}>
-                                    {n.name}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {nvrsAssoc.length > 0 && (
-                        <div className="grid gap-2 mt-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
-                            {nvrsAssoc.map(n => (
-                                <button key={n.id} onClick={()=>onOpenNvr(n.id)}
-                                        className="rounded-md border p-2.5 text-left transition-all hover:shadow-md"
-                                        style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : 'var(--primary)'}}>videocam</span>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold truncate">{n.name}</div>
-                                            <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.channels_total} canales</div>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+            <CardContent className="pt-4">
+                {tab === 'resumen'  && <TabResumen client={client} exts={exts} queues={queues} nvrs={nvrs} myExts={myExts} myPaging={myPaging} myQueues={myQueues} myNvrs={myNvrs}/>}
+                {tab === 'ext'      && <TabAssoc title="Extensiones" icon="phone" color="#22c55e" kind="ext" value={myExts} onSave={onSaveAssoc}
+                                                 fetchItems={async()=>exts.map(e=>({id:String(e.ext), label:`${e.ext} · ${e.name||''}`, sub: e.status}))}/>}
+                {tab === 'paging'   && <TabAssoc title="Parlantes (paging groups)" icon="campaign" color="#f59e0b" kind="paging" value={myPaging} onSave={onSaveAssoc}
+                                                 fetchItems={async()=>{
+                                                     const r = await fetch('api/disuasion.php?action=list',{credentials:'include'});
+                                                     const d = await r.json();
+                                                     return (d.groups||[]).map(g=>({id:String(g.page_code), label:g.name, sub:`*${g.page_code} · ${g.members?.length||0} miembros`}));
+                                                 }}/>}
+                {tab === 'queue'    && <TabAssoc title="Colas" icon="queue" color="#3b82f6" kind="queue" value={myQueues} onSave={onSaveAssoc}
+                                                 fetchItems={async()=>queues.map(q=>({id:String(q.id||q.extension), label:q.name||q.id, sub:`Q${q.id||q.extension}${q.calls_waiting>0 ? ' · '+q.calls_waiting+' espera' : ''}`}))}/>}
+                {tab === 'nvr'      && <TabNvrs nvrs={nvrs} value={myNvrs} onSave={(refs)=>onSaveAssoc('nvr', refs)} onEditNvr={onEditNvr} onNewNvr={onNewNvr}/>}
+                {tab === 'notas'    && <TabNotas notes={client.notes}/>}
             </CardContent>
         </Card>
     );
 }
 
-function AssocSection({ title, icon, color, items: itemsProp, value, setValue, onSave, loadItems }) {
-    const [items, setItems] = useState(itemsProp || []);
-    const [q, setQ] = useState('');
-    useEffect(() => { if (loadItems) loadItems().then(setItems); else setItems(itemsProp || []); }, []);
-    const filtered = items.filter(it => !q || it.id.includes(q) || (it.label||'').toLowerCase().includes(q.toLowerCase()));
-    const togglePill = (val) => {
-        const s = String(val);
-        if (value.includes(s)) setValue(value.filter(x => x !== s));
-        else setValue([...value, s]);
-    };
+function TabResumen({ client, exts, queues, nvrs, myExts, myPaging, myQueues, myNvrs }) {
+    const extObjs = exts.filter(e => myExts.includes(String(e.ext)));
+    const onlineExt = extObjs.filter(e=>e.status==='ONLINE').length;
+    const busyExt   = extObjs.filter(e=>e.status==='BUSY').length;
+    const offExt    = extObjs.length - onlineExt - busyExt;
+    const nvrObjs   = nvrs.filter(n => myNvrs.includes(String(n.id)));
+    const totalCams = nvrObjs.reduce((s,n)=>s+(n.channels_total||0),0);
+    const failDisks = nvrObjs.reduce((s,n)=>s+(n.n_fail||0),0);
     return (
-        <div>
-            <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
-                    <span className="material-icons-round" style={{fontSize:14, color}}>{icon}</span>
-                    {title} <span className="font-mono">({value.length})</span>
+        <div className="space-y-4">
+            <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))'}}>
+                <StatCard label="Extensiones"  value={myExts.length}    sub={`${onlineExt} ON · ${busyExt} BUSY · ${offExt} OFF`} color="#22c55e"/>
+                <StatCard label="Parlantes"    value={myPaging.length}  sub="paging groups" color="#f59e0b"/>
+                <StatCard label="Colas"        value={myQueues.length}  sub="callcenter" color="#3b82f6"/>
+                <StatCard label="NVR"          value={myNvrs.length}    sub={`${totalCams} cámaras`} color="#8b5cf6"/>
+                {failDisks > 0 && <StatCard label="Discos en falla" value={failDisks} color="var(--destructive)"/>}
+            </div>
+            {nvrObjs.length > 0 && (
+                <div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round" style={{fontSize:14, color:'#8b5cf6'}}>videocam</span>
+                        Equipos NVR detectados
+                    </div>
+                    <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
+                        {nvrObjs.map(n => (
+                            <div key={n.id} className="rounded-md border p-2.5"
+                                 style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : '#8b5cf6'}}>videocam</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-bold truncate">{n.name}</div>
+                                        <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip}</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                    <span>{n.channels_total} cámaras</span>·<span style={{color: n.n_fail>0 ? 'var(--destructive)' : 'inherit'}}>{n.n_disks} discos</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function TabAssoc({ title, icon, color, kind, value, onSave, fetchItems }) {
+    const [items, setItems] = useState([]);
+    const [sel, setSel] = useState(value);
+    const [q, setQ] = useState('');
+    const [loading, setLoading] = useState(true);
+    useEffect(() => { setLoading(true); fetchItems().then(its => { setItems(its); setLoading(false); }); }, []);
+    useEffect(() => { setSel(value); }, [value.join(',')]);
+    const filtered = items.filter(it => !q || String(it.id).includes(q) || (it.label||'').toLowerCase().includes(q.toLowerCase()));
+    const toggle = (id) => {
+        const s = String(id);
+        if (sel.includes(s)) setSel(sel.filter(x=>x!==s));
+        else setSel([...sel, s]);
+    };
+    const dirty = JSON.stringify([...sel].sort()) !== JSON.stringify([...value].sort());
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <span className="material-icons-round" style={{fontSize:18, color}}>{icon}</span>
+                    <span className="text-sm font-bold" style={{color:'var(--foreground)'}}>{title}</span>
+                    <Badge variant="secondary" className="font-mono text-[10px]">{sel.length} seleccionados</Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Input placeholder="filtrar…" value={q} onChange={e=>setQ(e.target.value)} className="h-7 px-2 py-1 text-xs w-32"/>
-                    <button onClick={onSave} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{background:'var(--horizon-green)', color:'#0a2a12'}}>Guardar</button>
+                    <Input placeholder="Filtrar…" value={q} onChange={e=>setQ(e.target.value)} className="h-8 w-44"/>
+                    <Button size="sm" disabled={!dirty} onClick={()=>onSave(kind, sel)}>
+                        <span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>
+                        Guardar
+                    </Button>
                 </div>
             </div>
-            <div className="flex flex-wrap gap-1 max-h-32 overflow-auto p-1.5 rounded-md border" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 30%, transparent)'}}>
-                {filtered.length === 0 && <span className="text-[10px]" style={{color:'var(--muted-foreground)', padding:6}}>Sin opciones</span>}
-                {filtered.slice(0, 80).map(it => {
-                    const sel = value.includes(String(it.id));
+            {loading ? <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Cargando…</div> :
+              filtered.length === 0 ? <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>{items.length === 0 ? 'Sin elementos disponibles' : 'Sin coincidencias'}</div> :
+              <div className="grid gap-1.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', maxHeight:380, overflow:'auto'}}>
+                {filtered.map(it => {
+                    const selFlag = sel.includes(String(it.id));
                     return (
-                        <button key={it.id} onClick={()=>togglePill(it.id)}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-mono border transition-all"
-                                style={{borderColor: sel ? color : 'var(--border)', background: sel ? `color-mix(in srgb, ${color} 18%, transparent)` : 'var(--card)', color: sel ? color : 'var(--muted-foreground)'}}>
-                            {it.label}
+                        <button key={it.id} onClick={()=>toggle(it.id)}
+                                className="rounded-md border p-2 text-left transition-all hover:shadow-sm flex items-center gap-2"
+                                style={{borderColor: selFlag ? color : 'var(--border)', background: selFlag ? `color-mix(in srgb, ${color} 10%, var(--card))` : 'var(--card)'}}>
+                            <span className="material-icons-round" style={{fontSize:14, color: selFlag ? color : 'var(--muted-foreground)'}}>
+                                {selFlag ? 'check_circle' : 'radio_button_unchecked'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}}>{it.label}</div>
+                                {it.sub && <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{it.sub}</div>}
+                            </div>
                         </button>
                     );
                 })}
-            </div>
+              </div>
+            }
         </div>
     );
 }
 
-function NvrDetailCard({ data, onBack, onEdit }) {
-    const n = data.nvr;
-    const channels = data.channels || [];
-    const disks = data.disks || [];
+function TabNvrs({ nvrs, value, onSave, onEditNvr, onNewNvr }) {
+    const [sel, setSel] = useState(value);
+    useEffect(() => { setSel(value); }, [value.join(',')]);
+    const dirty = JSON.stringify([...sel].sort()) !== JSON.stringify([...value].sort());
+    const toggle = (id) => {
+        const s = String(id);
+        if (sel.includes(s)) setSel(sel.filter(x=>x!==s));
+        else setSel([...sel, s]);
+    };
     return (
-        <Card>
-            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0">
+        <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                    <ActionIconButton icon="arrow_back" label="Volver" onClick={onBack} size={28}/>
-                    <div>
-                        <CardTitle className="text-base flex items-center gap-2"><span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>videocam</span>{n.name}</CardTitle>
-                        <CardDescription className="text-xs mt-1 font-mono">{n.ip}:{n.port_http} · {n.model || '—'}</CardDescription>
-                    </div>
+                    <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>videocam</span>
+                    <span className="text-sm font-bold">NVRs asociados</span>
+                    <Badge variant="secondary" className="font-mono text-[10px]">{sel.length}/{nvrs.length}</Badge>
                 </div>
-                <ActionIconButton icon="edit" label="Editar" onClick={onEdit} tone="primary" size={28}/>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))'}}>
-                    <Stat label="Canales" value={`${channels.length}/${n.channels_total || '?'}`}/>
-                    <Stat label="Discos" value={disks.length} color={disks.some(d=>d.health==='fail') ? 'var(--destructive)' : 'var(--horizon-green)'}/>
-                    <Stat label="SNMP" value={n.snmp_version} sub={n.snmp_community}/>
-                    <Stat label="Último check" value={n.last_check_at ? new Date(n.last_check_at.replace(' ','T')).toLocaleString() : '—'}/>
+                <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={onNewNvr}>
+                        <span className="material-icons-round mr-1" style={{fontSize:14}}>add</span>Nuevo NVR
+                    </Button>
+                    <Button size="sm" disabled={!dirty} onClick={()=>onSave(sel)}>
+                        <span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar
+                    </Button>
                 </div>
-
-                <div>
-                    <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{color:'var(--muted-foreground)'}}>Discos</div>
-                    {disks.length === 0 ? <div className="text-[11px]" style={{color:'var(--muted-foreground)'}}>Sin datos SNMP aún (el poller corre cada N min — Fase 2)</div> :
-                        <div className="grid gap-1.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))'}}>
-                            {disks.map(d => {
-                                const c = d.health === 'fail' ? 'var(--destructive)' : (d.health === 'warn' ? 'var(--warning, #f59e0b)' : 'var(--horizon-green)');
-                                return (
-                                    <div key={d.id} className="rounded-md border p-2" style={{borderColor:c}}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-xs font-bold">Disk {d.disk_no}</div>
-                                            <span className="text-[9px] font-bold uppercase px-1 rounded" style={{background:`color-mix(in srgb, ${c} 18%, transparent)`, color:c}}>{d.health}</span>
+            </div>
+            {nvrs.length === 0 ? (
+                <div className="py-12 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round block mb-2" style={{fontSize:42, opacity:0.4}}>videocam_off</span>
+                    Aún no hay NVRs registrados. Tocá <strong>Nuevo NVR</strong> para agregar uno.
+                </div>
+            ) : (
+                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))'}}>
+                    {nvrs.map(n => {
+                        const selFlag = sel.includes(String(n.id));
+                        return (
+                            <div key={n.id} className="rounded-md border p-2.5 transition-all"
+                                 style={{borderColor: selFlag ? '#8b5cf6' : (n.n_fail>0 ? 'var(--destructive)' : 'var(--border)'),
+                                         background: selFlag ? 'color-mix(in srgb, #8b5cf6 8%, var(--card))' : 'var(--card)'}}>
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>toggle(n.id)}>
+                                        <span className="material-icons-round" style={{fontSize:18, color: selFlag ? '#8b5cf6' : 'var(--muted-foreground)'}}>
+                                            {selFlag ? 'check_circle' : 'radio_button_unchecked'}
+                                        </span>
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1">
+                                            <span className="material-icons-round" style={{fontSize:14, color:'#8b5cf6'}}>videocam</span>
+                                            <span className="text-xs font-bold truncate">{n.name}</span>
                                         </div>
-                                        <div className="text-[10px] font-mono mt-0.5" style={{color:'var(--muted-foreground)'}}>
-                                            {d.capacity_gb ? `${d.capacity_gb}GB` : '—'} {d.free_gb != null && `(${d.free_gb}GB libre)`}
+                                        <div className="font-mono text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.model||'—'}</div>
+                                        <div className="text-[10px] mt-1" style={{color:'var(--muted-foreground)'}}>
+                                            {n.channels_total} cámaras · {n.n_disks} discos
+                                            {n.n_fail > 0 && <span style={{color:'var(--destructive)'}}> · {n.n_fail} fail</span>}
                                         </div>
-                                        {d.temperature_c != null && <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>{d.temperature_c}°C</div>}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    }
+                                    <ActionIconButton icon="edit" label="Editar NVR" onClick={()=>onEditNvr(n)} tone="primary" size={26}/>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
-
-                <div>
-                    <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{color:'var(--muted-foreground)'}}>Canales</div>
-                    {channels.length === 0 ? <div className="text-[11px]" style={{color:'var(--muted-foreground)'}}>Sin canales registrados aún</div> :
-                        <table className="tf-table"><thead><tr><th>#</th><th>Nombre</th><th>Ext</th><th>RTSP</th><th>Rec</th></tr></thead><tbody>
-                        {channels.map(c => (
-                            <tr key={c.id}><td className="font-mono">{c.channel_no}</td><td>{c.name||'—'}</td><td className="font-mono">{c.ext||'—'}</td><td className="font-mono text-[10px] truncate" style={{maxWidth:200}}>{c.rtsp_url||'—'}</td><td>{c.recording ? '✓' : '✗'}</td></tr>
-                        ))}
-                        </tbody></table>
-                    }
-                </div>
-            </CardContent>
-        </Card>
+            )}
+        </div>
     );
 }
 
-function Stat({ label, value, sub, color }) {
+function TabNotas({ notes }) {
     return (
-        <div className="rounded-md border p-2" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
-            <div className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</div>
-            <div className="text-sm font-black" style={{color: color || 'var(--foreground)'}}>{value}</div>
+        <div className="rounded-md border p-3 text-xs whitespace-pre-wrap" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))', color: notes ? 'var(--foreground)' : 'var(--muted-foreground)', minHeight:80}}>
+            {notes || 'Sin notas. Editá el cliente para agregar notas.'}
+        </div>
+    );
+}
+
+function StatCard({ label, value, sub, color }) {
+    return (
+        <div className="rounded-md border p-2.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))'}}>
+            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</div>
+            <div className="text-lg font-black tabular-nums" style={{color: color || 'var(--foreground)'}}>{value}</div>
             {sub && <div className="text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
         </div>
     );
 }
 
 function ClientEditModal({ client, onSave, onCancel }) {
-    const [f, setF] = useState({
-        id: client.id || '',
-        name: client.name || '',
-        address: client.address || '',
-        contact: client.contact || '',
-        notes: client.notes || '',
-    });
+    const [f, setF] = useState({ id: client.id || '', name: client.name || '', address: client.address || '', contact: client.contact || '', notes: client.notes || '' });
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
             <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-md" style={{background:'var(--card)', borderColor:'var(--border)'}}>
-                <div className="p-4 border-b" style={{borderColor:'var(--border)'}}>
+                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>{f.id ? 'edit' : 'add_business'}</span>
                     <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} cliente</span>
                 </div>
                 <div className="p-4 space-y-3">
-                    <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="Fit26, UrbanVII…"/></div>
+                    <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="Fit26, UrbanVII…" autoFocus/></div>
                     <div><Label>Dirección</Label><Input value={f.address} onChange={e=>setF({...f,address:e.target.value})}/></div>
                     <div><Label>Contacto</Label><Input value={f.contact} onChange={e=>setF({...f,contact:e.target.value})} placeholder="Nombre · Teléfono · Email"/></div>
                     <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={3} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
                 </div>
                 <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
                     <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
-                    <Button size="sm" onClick={()=>onSave(f)}>Guardar</Button>
+                    <Button size="sm" onClick={()=>onSave(f)}><span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar</Button>
                 </div>
             </div>
         </div>
@@ -2649,33 +2731,27 @@ function ClientEditModal({ client, onSave, onCancel }) {
 
 function NvrEditModal({ nvr, clients, onSave, onCancel }) {
     const [f, setF] = useState({
-        id: nvr.id || '',
-        name: nvr.name || '',
-        model: nvr.model || '',
-        ip: nvr.ip || '',
-        port_http: nvr.port_http || 80,
-        port_rtsp: nvr.port_rtsp || 554,
+        id: nvr.id || '', name: nvr.name || '', model: nvr.model || '', ip: nvr.ip || '',
+        port_http: nvr.port_http || 80, port_rtsp: nvr.port_rtsp || 554,
         channels_total: nvr.channels_total || 0,
-        username: nvr.username || 'admin',
-        password: nvr.password || '',
-        snmp_community: nvr.snmp_community || 'public',
-        snmp_version: nvr.snmp_version || '2c',
-        client_id: nvr.client_id || '',
-        notes: nvr.notes || '',
+        username: nvr.username || 'admin', password: nvr.password || '',
+        snmp_community: nvr.snmp_community || 'public', snmp_version: nvr.snmp_version || '2c',
+        client_id: nvr.client_id || '', notes: nvr.notes || '',
     });
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
             <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-lg" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'90vh', overflow:'auto'}}>
-                <div className="p-4 border-b" style={{borderColor:'var(--border)'}}>
+                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>videocam</span>
                     <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} NVR</span>
                 </div>
                 <div className="p-4 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
-                        <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></div>
+                        <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} autoFocus/></div>
                         <div><Label>Modelo</Label><Input value={f.model} onChange={e=>setF({...f,model:e.target.value})} placeholder="DS-7616NI / NVR4216"/></div>
                         <div><Label>IP</Label><Input value={f.ip} onChange={e=>setF({...f,ip:e.target.value})} placeholder="10.20.x.x"/></div>
                         <div><Label>Cliente</Label>
-                            <select value={f.client_id || ''} onChange={e=>setF({...f,client_id:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
+                            <select value={f.client_id || ''} onChange={e=>setF({...f,client_id:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm h-9" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
                                 <option value="">— sin cliente —</option>
                                 {(clients||[]).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
@@ -2686,22 +2762,54 @@ function NvrEditModal({ nvr, clients, onSave, onCancel }) {
                         <div><Label>Usuario admin</Label><Input value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></div>
                         <div><Label>Password admin</Label><Input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></div>
                         <div><Label>SNMP community</Label><Input value={f.snmp_community} onChange={e=>setF({...f,snmp_community:e.target.value})}/></div>
-                        <div><Label>SNMP versión</Label>
-                            <select value={f.snmp_version} onChange={e=>setF({...f,snmp_version:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
-                                <option value="2c">2c</option><option value="1">1</option><option value="3">3</option>
-                            </select>
-                        </div>
                     </div>
                     <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={2} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
                 </div>
                 <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
                     <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
-                    <Button size="sm" onClick={()=>onSave(f)}>Guardar</Button>
+                    <Button size="sm" onClick={()=>onSave(f)}><span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar</Button>
                 </div>
             </div>
         </div>
     );
 }
+
+function BootstrapPreviewModal({ data, onConfirm, onCancel }) {
+    const preview = data.preview || {};
+    const entries = Object.entries(preview);
+    return (
+        <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-2xl flex flex-col" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'85vh'}}>
+                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>auto_awesome</span>
+                    <span className="font-bold text-sm">Bootstrap automático de clientes</span>
+                </div>
+                <div className="p-4 text-xs" style={{color:'var(--muted-foreground)'}}>
+                    Voy a crear <strong style={{color:'var(--foreground)'}}>{entries.length} clientes</strong> agrupando las extensiones por raíz común del nombre.
+                    Los clientes con ese nombre que ya existan se reutilizan (no se duplican).
+                </div>
+                <div className="overflow-auto px-4 pb-2 flex-1">
+                    <table className="tf-table">
+                        <thead><tr><th>Cliente</th><th>Extensiones</th></tr></thead>
+                        <tbody>
+                            {entries.map(([root, exts]) => (
+                                <tr key={root}>
+                                    <td className="font-bold">{root}</td>
+                                    <td className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{exts.join(', ')}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                    <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+                    <Button size="sm" onClick={onConfirm}><span className="material-icons-round mr-1" style={{fontSize:14}}>play_arrow</span>Aplicar</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 // ─────────────────────────────────────────────
 // FloorMap — mapa del callcenter con markers de extensiones
