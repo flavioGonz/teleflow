@@ -2276,9 +2276,39 @@ function FloorMap({ data, toast }) {
                 if (isQueue) {
                     const q = queueByKey[String(m.id)] || { name: m.id, extension: m.id, calls_waiting: 0 };
                     const waiting = q.calls_waiting || 0;
-                    const inCall = waiting > 0;
+
+                    // ── Detectar llamadas Live dirigidas a ESTA cola (Ringing o Up) ──
+                    // En CDR las colas suelen aparecer como destino en formato "Queue/<id>" o directamente el id.
+                    // También miramos por context "ext-queues" o cualquier match contra extension/name.
+                    const qIds = [String(q.extension||''), String(q.id||''), String(q.name||''), String(m.id)].filter(Boolean);
+                    const incomingCalls = liveCalls.filter(c => {
+                        const isRingingOrUp = /^(Up|Ring|Ringing|Dialing)/i.test(c.state||'');
+                        if (!isRingingOrUp) return false;
+                        const dest = String(c.dest||'');
+                        return qIds.some(id => dest === id || dest === ('Queue/'+id) || dest.endsWith('@'+id));
+                    });
+                    const isRinging = incomingCalls.some(c => /^(Ring|Ringing|Dialing)/i.test(c.state||''));
+                    const isUp = incomingCalls.some(c => c.state === 'Up');
+                    const inCall = waiting > 0 || isRinging || isUp;
+
+                    // ── Si hay llamada Up Y el caller tiene rtsp_url → acoplar video al marker ──
+                    const callsWithVideo = incomingCalls.filter(c => {
+                        if (c.state !== 'Up') return false;
+                        const callerExt = String(c.ext||'').replace(/^\D+/, '');
+                        return !!(window._tfExtMeta||{})[callerExt]?.rtsp_url;
+                    });
+                    // Tomamos la primera (lo normal es 1 a la vez en una cola con un único atendido visible).
+                    const videoCall = callsWithVideo[0];
+                    const videoExt = videoCall ? String(videoCall.ext||'').replace(/^\D+/, '') : null;
+                    const videoUrl = videoExt ? (window._tfExtMeta||{})[videoExt]?.rtsp_url : null;
+                    const videoLabel = videoExt ? ((window._tfExtMeta||{})[videoExt]?.name || `Ext ${videoExt}`) : null;
+
                     const secAgo = lastCalls.queues[q.name] ?? lastCalls.queues[q.extension] ?? lastCalls.queues[m.id] ?? null;
                     const ago = formatAgo(secAgo);
+
+                    // Color de borde según urgencia: rojo si ringing/up, naranja si solo waiting, normal si idle
+                    const borderColor = (isRinging || isUp) ? '#ef4444' : (waiting > 0 ? 'var(--warning, #f59e0b)' : 'var(--border)');
+
                     return (
                         <div key={placedKey(m)} data-marker
                              onMouseDown={(e)=>onMarkerMouseDown(m.kind, m.id, e)}
@@ -2286,26 +2316,77 @@ function FloorMap({ data, toast }) {
                                  position:'absolute', left:`${m.x_pct}%`, top:`${m.y_pct}%`,
                                  transform:'translate(-50%, -50%)',
                                  cursor: editing ? 'grab' : 'pointer',
-                                 zIndex: editing ? 20 : 10,
+                                 zIndex: (videoCall || inCall) ? 30 : (editing ? 20 : 10),
+                                 animation: isRinging ? 'tf-queue-vibrate 0.5s ease-in-out infinite' : 'none',
                              }}>
+                            {/* Ring pulse externo cuando hay actividad */}
                             {inCall && (
-                                <span style={{position:'absolute', inset:-10, borderRadius:14, border:'3px solid var(--warning, #f59e0b)',
-                                              animation:'tf-floor-pulse 1.4s ease-out infinite', pointerEvents:'none'}}/>
+                                <span style={{position:'absolute', inset:-12, borderRadius:16,
+                                              border: '3px solid ' + ((isRinging||isUp) ? '#ef4444' : 'var(--warning, #f59e0b)'),
+                                              animation:'tf-floor-pulse 1.2s ease-out infinite', pointerEvents:'none'}}/>
                             )}
+
+                            {/* ── Video acoplado (sobre el marker, anclado al centro horizontal) ── */}
+                            {videoUrl && (
+                                <div style={{
+                                    position:'absolute',
+                                    bottom: 'calc(100% + 6px)',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: 168, height: 108,
+                                    borderRadius: 8, overflow:'hidden',
+                                    border: '2px solid var(--horizon-green)',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4)',
+                                    background:'#0a0a0d',
+                                    zIndex: 31,
+                                }}>
+                                    <div style={{position:'absolute', inset:0}}>
+                                        <RtspMiniLiveFill ext={videoExt} url={videoUrl}/>
+                                    </div>
+                                    {/* Label superior con la cola que recibió la llamada */}
+                                    <div style={{position:'absolute', top:0, left:0, right:0, padding:'3px 6px',
+                                                 background:'linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)',
+                                                 fontSize:9, color:'#fff', fontWeight:800, letterSpacing:'.04em',
+                                                 display:'flex', alignItems:'center', gap:4}}>
+                                        <span style={{width:5, height:5, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>
+                                        <span style={{textTransform:'uppercase'}}>{q.name || `Q${m.id}`}</span>
+                                    </div>
+                                    {/* Label inferior: caller */}
+                                    {videoLabel && (
+                                        <div style={{position:'absolute', bottom:0, left:0, right:0, padding:'3px 6px',
+                                                     background:'linear-gradient(0deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)',
+                                                     fontSize:9, color:'#fff', fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                                            {videoLabel}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="rounded-lg border shadow-md backdrop-blur-sm relative"
                                  style={{
                                      background:'color-mix(in srgb, var(--card) 92%, transparent)',
-                                     borderColor: inCall ? 'var(--warning, #f59e0b)' : 'var(--border)',
+                                     borderColor: borderColor,
                                      padding:'4px 6px', minWidth: 96,
+                                     animation: inCall ? 'tf-queue-glow 1.4s ease-in-out infinite' : 'none',
                                  }}>
                                 <div className="flex items-center gap-1.5">
                                     <div className="rounded-md flex items-center justify-center shrink-0"
-                                         style={{width:24, height:24, background:'linear-gradient(135deg, #f59e0b, #d97706)', color:'#fff'}}>
-                                        <span className="material-icons-round" style={{fontSize:14}}>queue</span>
+                                         style={{width:24, height:24,
+                                                 background: (isRinging||isUp)
+                                                     ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
+                                                     : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                                 color:'#fff',
+                                                 animation: isRinging ? 'tf-queue-vibrate 0.45s ease-in-out infinite' : 'none'}}>
+                                        <span className="material-icons-round" style={{fontSize:14}}>{isUp ? 'phone_in_talk' : 'queue'}</span>
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="text-[10px] font-bold truncate" style={{color:'var(--foreground)', maxWidth:90}}>{q.name || `Cola ${m.id}`}</div>
-                                        <div className="font-mono text-[8.5px] truncate" style={{color:'var(--muted-foreground)'}}>Q{m.id} {waiting>0 ? `· ${waiting} en espera` : ''}</div>
+                                        <div className="font-mono text-[8.5px] truncate" style={{color: inCall ? '#ef4444' : 'var(--muted-foreground)', fontWeight: inCall ? 800 : 400}}>
+                                            Q{m.id}
+                                            {waiting>0 && ` · ${waiting} en espera`}
+                                            {isRinging && !waiting && ' · TIMBRANDO'}
+                                            {isUp && ' · EN LLAMADA'}
+                                        </div>
                                     </div>
                                 </div>
                                 {ago && (

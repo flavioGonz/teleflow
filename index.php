@@ -916,6 +916,15 @@ header('Expires: 0');
             70%  { transform: scale(1.2);  opacity: 0; }
             100% { transform: scale(1.2);  opacity: 0; }
         }
+        @keyframes tf-queue-vibrate {
+            0%, 100% { transform: translate(-50%, -50%) translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-50%, -50%) translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translate(-50%, -50%) translateX(2px); }
+        }
+        @keyframes tf-queue-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55), 0 0 16px rgba(245,158,11,0.4); }
+            50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0), 0 0 26px rgba(245,158,11,0.85); }
+        }
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
         @keyframes callActive { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
