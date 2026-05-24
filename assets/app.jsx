@@ -895,6 +895,44 @@ function RtspPreviewCard({ preview, onClose }) {
                 <div style={{position:'absolute', top:8, left:8, padding:'3px 8px', background:'rgba(239,68,68,0.95)', color:'#fff', borderRadius:4, fontSize:9, fontWeight:900, letterSpacing:'.06em', display:'inline-flex', alignItems:'center', gap:4}}>
                     <span style={{width:6, height:6, borderRadius:'50%', background:'#fff', animation:'pulse 1s infinite'}}/>LIVE
                 </div>
+
+                {/* ── Overlay de acciones del toast (si vino con call+actions, mostramos los botones acá en vez de toast separado) ── */}
+                {preview.actions && preview.actions.length > 0 && (
+                    <>
+                        {/* Gradient para legibilidad */}
+                        <div style={{position:'absolute', bottom:0, left:0, right:0, height:'45%', pointerEvents:'none',
+                                     background:'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)'}}/>
+                        {/* Caller info + acciones */}
+                        <div style={{position:'absolute', bottom:0, left:0, right:0, padding:'8px 10px 10px', color:'#fff'}}>
+                            {preview.callerLine && (
+                                <div style={{fontSize:11, fontWeight:800, marginBottom:6, textShadow:'0 1px 3px rgba(0,0,0,0.8)'}}>
+                                    {preview.callerLine}
+                                </div>
+                            )}
+                            <div style={{display:'flex', gap:5, flexWrap:'wrap'}}>
+                                {preview.actions.map((a, idx) => (
+                                    <button key={idx} type="button"
+                                            onClick={() => {
+                                                try { a.onClick?.(); } catch(e) {}
+                                                if (a.dismissOnClick !== false) onClose?.();
+                                            }}
+                                            style={{
+                                                padding:'5px 10px',
+                                                border:'1px solid ' + (a.primary ? 'var(--horizon-green)' : 'rgba(255,255,255,0.25)'),
+                                                background: a.primary ? 'var(--horizon-green)' : 'rgba(0,0,0,0.55)',
+                                                color: a.primary ? '#0a2a12' : '#fff',
+                                                fontSize: 10, fontWeight: 800,
+                                                borderRadius: 6, cursor: 'pointer',
+                                                backdropFilter: 'blur(4px)',
+                                                transition: 'all .15s ease'
+                                            }}>
+                                        {a.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -2465,43 +2503,57 @@ function ViewDashboard({ data }) {
                                     const rtspExt = (meta[fromExt]?.rtsp_url ? fromExt : (meta[destExt]?.rtsp_url ? destExt : null));
                                     const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
                                     // Anchos: 3 cards visibles. flex-basis con calc para que se ajuste al contenedor
+                                    // Card full-bleed: si hay RTSP el video es el fondo entero; sino gradient con el color del estado.
                                     return (
                                         <div key={c.channel || i}
-                                             className="rounded-lg border flex flex-col shrink-0 overflow-hidden transition-all hover:shadow-md"
+                                             className="rounded-lg border shrink-0 overflow-hidden relative transition-all hover:shadow-lg"
                                              style={{
                                                  flex:'0 0 calc((100% - 20px) / 3)',
                                                  minWidth: 220,
+                                                 aspectRatio: '16 / 10',
                                                  scrollSnapAlign:'start',
-                                                 borderColor:'color-mix(in srgb, ' + sc + ' 30%, var(--border))',
-                                                 background:'color-mix(in srgb, ' + sc + ' 5%, var(--card))'
+                                                 borderColor:'color-mix(in srgb, ' + sc + ' 40%, var(--border))',
+                                                 background: rtspUrl ? '#0a0a0d' : `linear-gradient(135deg, color-mix(in srgb, ${sc} 22%, var(--card)) 0%, var(--card) 100%)`,
                                              }}>
-                                            {/* Mini video si hay RTSP, sino strip de color */}
+                                            {/* Layer 0: Video full-bleed o icono central cuando no hay video */}
                                             {rtspUrl ? (
-                                                <div className="relative" style={{width:'100%', height:96, background:'#0a0a0d'}}>
+                                                <div className="absolute inset-0">
                                                     <RtspMiniLiveFill ext={rtspExt} url={rtspUrl}/>
                                                 </div>
                                             ) : (
-                                                <div style={{height:6, background: sc, opacity: isUp ? 0.85 : 0.55}}/>
+                                                <div className="absolute inset-0 flex items-center justify-center" style={{opacity:0.10}}>
+                                                    <span className="material-icons-round" style={{fontSize:80, color:sc}}>{isUp ? 'phone_in_talk' : 'phone'}</span>
+                                                </div>
                                             )}
-                                            {/* Body de la card */}
-                                            <div className="px-2.5 py-2 flex-1 flex flex-col gap-1.5">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="rounded-full shrink-0"
-                                                          style={{width:7,height:7,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:'0 0 8px ' + sc}}/>
-                                                    <span className="text-[9px] font-black uppercase tracking-wider" style={{color:sc}}>
-                                                        {isUp ? 'En curso' : (isRing ? 'Timbrando' : (c.state || 'Activa'))}
-                                                    </span>
-                                                    <span className="ml-auto font-mono text-[10px] font-bold tabular-nums" style={{color: isUp ? 'var(--horizon-green)' : 'var(--muted-foreground)'}}>{c.duration || '00:00'}</span>
-                                                </div>
-                                                <div className="font-mono text-xs font-bold truncate" style={{color:'var(--foreground)'}} title={`${c.ext||'?'} → ${c.dest||'?'}`}>
-                                                    {c.ext || c.callerid || '?'} <span style={{color:'var(--muted-foreground)', margin:'0 4px'}}>→</span> {c.dest || '?'}
-                                                </div>
-                                                {c.callerid && c.callerid !== c.ext && (
-                                                    <div className="text-[9px] truncate font-mono" style={{color:'var(--muted-foreground)'}} title={c.callerid}>
-                                                        {c.callerid}
+
+                                            {/* Layer 1: Gradient para legibilidad de overlays */}
+                                            <div className="absolute inset-0 pointer-events-none"
+                                                 style={{background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.78) 100%)'}}/>
+
+                                            {/* Layer 2: TOP overlay — status + duración */}
+                                            <div className="absolute top-1.5 left-2 right-2 flex items-center gap-1.5">
+                                                <span className="rounded-full shrink-0"
+                                                      style={{width:7,height:7,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:'0 0 8px ' + sc}}/>
+                                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>
+                                                    {isUp ? 'En curso' : (isRing ? 'Timbrando' : (c.state || 'Activa'))}
+                                                </span>
+                                                <span className="ml-auto font-mono text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded backdrop-blur-sm"
+                                                      style={{color:'#fff', background:'rgba(0,0,0,0.45)'}}>{c.duration || '00:00'}</span>
+                                            </div>
+
+                                            {/* Layer 3: BOTTOM overlay — ext → dest + callerid + acciones */}
+                                            <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 flex items-end gap-1.5">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-mono text-xs font-bold truncate" style={{color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.8)'}} title={`${c.ext||'?'} → ${c.dest||'?'}`}>
+                                                        {c.ext || c.callerid || '?'} <span style={{color:'rgba(255,255,255,0.7)', margin:'0 4px'}}>→</span> {c.dest || '?'}
                                                     </div>
-                                                )}
-                                                <div className="mt-auto pt-1 flex items-center justify-end">
+                                                    {c.callerid && c.callerid !== c.ext && (
+                                                        <div className="text-[9px] truncate font-mono" style={{color:'rgba(255,255,255,0.7)', textShadow:'0 1px 2px rgba(0,0,0,0.7)'}} title={c.callerid}>
+                                                            {c.callerid}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="shrink-0">
                                                     <DashCallActions call={c} disabled={!isUp}/>
                                                 </div>
                                             </div>
@@ -14907,38 +14959,42 @@ function App() {
                 window._tfSeenCalls.add(dedupKey);
                 setTimeout(() => window._tfSeenCalls.delete(dedupKey), 30000);
 
-                // HORIZON: si el caller ext tiene rtsp_url configurado, abrir preview encima del toast
+                const callerLabel = c.name || c.ext || 'Caller';
+                const destLabel = fmtDest(c);
+                const fromTipo = (window._tfExtMeta || {})[c.ext]?.tipo || '';
+                const tipoLabel = fromTipo === 'cliente' ? '👤 Cliente' : (fromTipo === 'horizon' ? '🏢 Horizon' : '');
                 const callerMeta = (window._tfExtMeta || {})[c.ext];
+                const actions = [
+                    { label: 'Asignar', primary: true, onClick: () => { window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c})); } },
+                    { label: 'Escuchar', onClick: () => { window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: c})); } },
+                    { label: 'Ignorar' }
+                ];
+
+                // ── UNIFICADO: si hay RTSP, popup ÚNICO = video con acciones overlay (no toast separado).
+                //    Sin RTSP, fallback al toast Sileo clásico.
                 if (callerMeta?.rtsp_url) {
                     window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
                         detail: {
-                            id: c.channel || dedupKey,   // usar channel para que cierre coincida
+                            id: c.channel || dedupKey,
                             ext: c.ext,
                             url: callerMeta.rtsp_url,
-                            label: callerMeta.rtsp_label || `Videoportero · ext ${c.ext}`,
-                            channel: c.channel
+                            label: callerMeta.rtsp_label || (tipoLabel ? `Llamada · ${tipoLabel}` : `Llamada entrante`),
+                            channel: c.channel,
+                            callerLine: `${callerLabel} → ${destLabel}`,
+                            actions: actions
                         }
                     }));
+                } else {
+                    window.sileo.push({
+                        kind: 'call',
+                        icon: 'phone_in_talk',
+                        title: tipoLabel ? `Llamada · ${tipoLabel}` : 'Llamada entrante',
+                        msg: `${callerLabel} → ${destLabel}`,
+                        previewId: c.channel || dedupKey,
+                        actions: actions,
+                        duration: 12000
+                    });
                 }
-
-                const callerLabel = c.name || c.ext || 'Caller';
-                const destLabel = fmtDest(c);
-                // HORIZON: discriminar tipo de origen (cliente / horizon / sin asignar)
-                const fromTipo = (window._tfExtMeta || {})[c.ext]?.tipo || '';
-                const tipoLabel = fromTipo === 'cliente' ? '👤 Cliente' : (fromTipo === 'horizon' ? '🏢 Horizon' : '');
-                window.sileo.push({
-                    kind: 'call',
-                    icon: 'phone_in_talk',
-                    title: tipoLabel ? `Llamada · ${tipoLabel}` : 'Llamada entrante',
-                    msg: `${callerLabel} → ${destLabel}`,
-                    previewId: c.channel || dedupKey,  // para que dismiss cierre el preview
-                    actions: [
-                        { label: 'Asignar', primary: true, onClick: () => { window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c})); } },
-                        { label: 'Escuchar', onClick: () => { window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: c})); } },
-                        { label: 'Ignorar' }
-                    ],
-                    duration: 12000
-                });
             }
             setData(d => {
                 if (!d?.pbx) return d;
