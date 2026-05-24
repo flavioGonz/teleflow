@@ -2057,19 +2057,33 @@ function FloorMap({ data, toast }) {
     const [mapData, setMapData] = useState({ image_url: '', markers: [] });
     const [editing, setEditing] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [picker, setPicker] = useState(null);
-    const [drag, setDrag] = useState(null);
+    const [picker, setPicker] = useState(null);     // {x_pct, y_pct} cuando se va a colocar nuevo
+    const [drag, setDrag] = useState(null);         // {kind, id} en drag activo
+    const [lastCalls, setLastCalls] = useState({ exts:{}, queues:{}, generated_at: 0 });
+    const [nowTick, setNowTick] = useState(Math.floor(Date.now()/1000));
     const containerRef = useRef(null);
     const fileInputRef = useRef(null);
 
     const exts = data?.pbx?.extensions || [];
+    const queues = data?.pbx?.queues || [];
     const liveCalls = data?.pbx?.live_calls || [];
 
+    // Lookups
     const extByExt = useMemo(() => {
         const m = {};
         for (const e of exts) m[String(e.ext)] = e;
         return m;
     }, [exts]);
+    const queueByKey = useMemo(() => {
+        const m = {};
+        for (const q of queues) {
+            // Las colas pueden indexarse por extension (número) o id (nombre)
+            if (q.extension) m[String(q.extension)] = q;
+            if (q.id)        m[String(q.id)] = q;
+            if (q.name)      m[String(q.name)] = q;
+        }
+        return m;
+    }, [queues]);
 
     const activeCallExts = useMemo(() => {
         const set = new Set();
@@ -2089,7 +2103,19 @@ function FloorMap({ data, toast }) {
             if (d.success) setMapData({ image_url: d.image_url || '', markers: d.markers || [] });
         } catch(e) {}
     };
-    useEffect(() => { load(); }, []);
+    const loadLast = async () => {
+        try {
+            const r = await fetch('api/last_calls.php?action=summary', { credentials:'include' });
+            const d = await r.json();
+            if (d.success) setLastCalls({ exts: d.exts || {}, queues: d.queues || {}, generated_at: d.generated_at || 0 });
+        } catch(e) {}
+    };
+    useEffect(() => { load(); loadLast(); }, []);
+    useEffect(() => {
+        const t1 = setInterval(loadLast, 30000);
+        const t2 = setInterval(() => setNowTick(Math.floor(Date.now()/1000)), 30000); // re-render del badge cada 30s
+        return () => { clearInterval(t1); clearInterval(t2); };
+    }, []);
 
     const handleUpload = async (file) => {
         if (!file) return;
@@ -2109,48 +2135,50 @@ function FloorMap({ data, toast }) {
         setUploading(false);
     };
 
-    const persistMarker = async (ext, x_pct, y_pct) => {
+    const persistMarker = async (kind, id, x_pct, y_pct) => {
         try {
             const fd = new FormData();
-            fd.append('ext', ext); fd.append('x_pct', x_pct); fd.append('y_pct', y_pct);
+            fd.append('kind', kind); fd.append('id', id);
+            fd.append('x_pct', x_pct); fd.append('y_pct', y_pct);
             await fetch('api/floor_map.php?action=set_marker', { method:'POST', body:fd, credentials:'include' });
         } catch(e) {}
     };
-    const removeMarker = async (ext) => {
-        if (!confirm(`Quitar el marker del interno ${ext} del mapa?`)) return;
+    const removeMarker = async (kind, id) => {
+        const what = kind === 'queue' ? `cola ${id}` : `interno ${id}`;
+        if (!confirm(`Quitar el marker de ${what} del mapa?`)) return;
         try {
-            const fd = new FormData(); fd.append('ext', ext);
+            const fd = new FormData(); fd.append('kind', kind); fd.append('id', id);
             await fetch('api/floor_map.php?action=delete_marker', { method:'POST', body:fd, credentials:'include' });
-            setMapData(prev => ({ ...prev, markers: prev.markers.filter(m => String(m.ext) !== String(ext)) }));
-            toast?.(`Marker ${ext} eliminado`,'success');
+            setMapData(prev => ({ ...prev, markers: prev.markers.filter(m => !(m.kind === kind && String(m.id) === String(id))) }));
+            toast?.(`Marker eliminado`,'success');
         } catch(e) {}
     };
 
     const handleContainerClick = (e) => {
         if (!editing || drag) return;
         if (e.target.closest('[data-marker]')) return;
-        if (e.target.closest('[data-no-place]')) return;  // overlays no disparan place
+        if (e.target.closest('[data-no-place]')) return;
         const rect = containerRef.current.getBoundingClientRect();
         const x_pct = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
         const y_pct = Math.round(((e.clientY - rect.top)  / rect.height) * 1000) / 10;
         setPicker({ x_pct, y_pct });
     };
 
-    const placeAt = (ext) => {
+    const placeAt = (kind, id) => {
         if (!picker) return;
-        const m = { ext, x_pct: picker.x_pct, y_pct: picker.y_pct };
+        const m = { kind, id, ext: id, x_pct: picker.x_pct, y_pct: picker.y_pct };
         setMapData(prev => {
-            const others = prev.markers.filter(x => String(x.ext) !== String(ext));
+            const others = prev.markers.filter(x => !(x.kind === kind && String(x.id) === String(id)));
             return { ...prev, markers: [...others, m] };
         });
-        persistMarker(ext, picker.x_pct, picker.y_pct);
+        persistMarker(kind, id, picker.x_pct, picker.y_pct);
         setPicker(null);
     };
 
-    const onMarkerMouseDown = (ext, e) => {
+    const onMarkerMouseDown = (kind, id, e) => {
         if (!editing) return;
         e.preventDefault();
-        setDrag({ ext });
+        setDrag({ kind, id });
     };
     useEffect(() => {
         if (!drag) return;
@@ -2161,12 +2189,12 @@ function FloorMap({ data, toast }) {
             const y_pct = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top)  / rect.height) * 1000) / 10));
             setMapData(prev => ({
                 ...prev,
-                markers: prev.markers.map(m => String(m.ext) === String(drag.ext) ? { ...m, x_pct, y_pct } : m)
+                markers: prev.markers.map(m => (m.kind === drag.kind && String(m.id) === String(drag.id)) ? { ...m, x_pct, y_pct } : m)
             }));
         };
         const onUp = () => {
-            const m = mapData.markers.find(x => String(x.ext) === String(drag.ext));
-            if (m) persistMarker(m.ext, m.x_pct, m.y_pct);
+            const m = mapData.markers.find(x => x.kind === drag.kind && String(x.id) === String(drag.id));
+            if (m) persistMarker(m.kind, m.id, m.x_pct, m.y_pct);
             setDrag(null);
         };
         document.addEventListener('mousemove', onMove);
@@ -2174,13 +2202,31 @@ function FloorMap({ data, toast }) {
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
     }, [drag, mapData.markers]);
 
-    const placedSet = new Set(mapData.markers.map(m => String(m.ext)));
-    const availableForPicker = exts.filter(e => !placedSet.has(String(e.ext)));
+    // Formato "hace X" relativo desde un timestamp Unix
+    const formatAgo = (ts) => {
+        if (!ts) return null;
+        const delta = nowTick - ts;
+        if (delta < 60) return `${delta}s`;
+        if (delta < 3600) return `${Math.floor(delta/60)}m`;
+        if (delta < 86400) return `${Math.floor(delta/3600)}h`;
+        if (delta < 30*86400) return `${Math.floor(delta/86400)}d`;
+        return '+30d';
+    };
+    const ageColor = (delta) => {
+        if (delta == null) return '#6b7280';
+        if (delta < 5*60) return '#22c55e';
+        if (delta < 30*60) return '#f59e0b';
+        return '#ef4444';
+    };
+
+    const placedKey = (m) => `${m.kind}-${m.id}`;
+    const placedSet = new Set(mapData.markers.map(placedKey));
+    const availableExts = exts.filter(e => !placedSet.has(`ext-${e.ext}`));
+    const availableQueues = queues.filter(q => !placedSet.has(`queue-${q.extension || q.id || q.name}`));
 
     const onlineCount = exts.filter(e=>e.status==='ONLINE').length;
     const busyCount   = exts.filter(e=>e.status==='BUSY').length;
 
-    // ── Sin imagen: placeholder centrado, controles visibles (no hace falta hover) ──
     if (!mapData.image_url) {
         return (
             <div className="relative rounded-lg border overflow-hidden flex items-center justify-center"
@@ -2188,7 +2234,7 @@ function FloorMap({ data, toast }) {
                 <div className="text-center px-6 py-10" style={{color:'var(--muted-foreground)'}}>
                     <span className="material-icons-round block mb-2" style={{fontSize:42, opacity:0.4}}>map</span>
                     <p className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Mapa del callcenter</p>
-                    <p className="text-xs mb-4">Subí el plano del piso para posicionar los puestos</p>
+                    <p className="text-xs mb-4">Subí el plano del piso para posicionar puestos y colas</p>
                     <button type="button" onClick={()=>fileInputRef.current?.click()} disabled={uploading}
                             className="px-3 py-1.5 rounded-md border text-xs font-bold inline-flex items-center gap-1.5 transition-all hover:shadow-sm disabled:opacity-50"
                             style={{borderColor:'var(--primary)',color:'var(--primary)',background:'color-mix(in srgb, var(--primary) 8%, transparent)'}}>
@@ -2202,7 +2248,6 @@ function FloorMap({ data, toast }) {
         );
     }
 
-    // ── Con imagen: full-bleed sin bordes/título, controles solo on-hover ──
     return (
         <div ref={containerRef}
              onClick={handleContainerClick}
@@ -2216,37 +2261,91 @@ function FloorMap({ data, toast }) {
                  style={{pointerEvents:'none', userSelect:'none', display:'block'}}
                  draggable={false}/>
 
-            {/* Markers absolute */}
             {mapData.markers.map(m => {
-                const ext = extByExt[String(m.ext)] || { ext: m.ext, name: '?', status: 'OFFLINE' };
-                const inCall = activeCallExts.has(String(m.ext)) || ext.status === 'BUSY';
+                const isQueue = m.kind === 'queue';
+                if (isQueue) {
+                    const q = queueByKey[String(m.id)] || { name: m.id, extension: m.id, calls_waiting: 0 };
+                    const waiting = q.calls_waiting || 0;
+                    const inCall = waiting > 0;
+                    const lastTs = lastCalls.queues[q.name] || lastCalls.queues[q.extension] || lastCalls.queues[m.id] || null;
+                    const delta = lastTs ? (nowTick - lastTs) : null;
+                    const ago = formatAgo(lastTs);
+                    return (
+                        <div key={placedKey(m)} data-marker
+                             onMouseDown={(e)=>onMarkerMouseDown(m.kind, m.id, e)}
+                             style={{
+                                 position:'absolute', left:`${m.x_pct}%`, top:`${m.y_pct}%`,
+                                 transform:'translate(-50%, -50%)',
+                                 cursor: editing ? 'grab' : 'pointer',
+                                 zIndex: editing ? 20 : 10,
+                             }}>
+                            {inCall && (
+                                <span style={{position:'absolute', inset:-10, borderRadius:14, border:'3px solid var(--warning, #f59e0b)',
+                                              animation:'tf-floor-pulse 1.4s ease-out infinite', pointerEvents:'none'}}/>
+                            )}
+                            <div className="rounded-lg border shadow-md backdrop-blur-sm relative"
+                                 style={{
+                                     background:'color-mix(in srgb, var(--card) 92%, transparent)',
+                                     borderColor: inCall ? 'var(--warning, #f59e0b)' : 'var(--border)',
+                                     padding:'4px 6px', minWidth: 96,
+                                 }}>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="rounded-md flex items-center justify-center shrink-0"
+                                         style={{width:24, height:24, background:'linear-gradient(135deg, #f59e0b, #d97706)', color:'#fff'}}>
+                                        <span className="material-icons-round" style={{fontSize:14}}>queue</span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-bold truncate" style={{color:'var(--foreground)', maxWidth:90}}>{q.name || `Cola ${m.id}`}</div>
+                                        <div className="font-mono text-[8.5px] truncate" style={{color:'var(--muted-foreground)'}}>Q{m.id} {waiting>0 ? `· ${waiting} en espera` : ''}</div>
+                                    </div>
+                                </div>
+                                {ago && (
+                                    <div className="flex items-center gap-1 mt-1" title={`Última llamada contestada hace ${ago}`}>
+                                        <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(delta)}}/>
+                                        <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(delta)}}>{ago}</span>
+                                        <span className="text-[8px]" style={{color:'var(--muted-foreground)'}}>sin call</span>
+                                    </div>
+                                )}
+                                {editing && (
+                                    <button type="button"
+                                            onClick={(e)=>{e.stopPropagation(); removeMarker(m.kind, m.id);}}
+                                            className="absolute -top-2 -right-2 rounded-full flex items-center justify-center shadow-md"
+                                            style={{width:18, height:18, background:'var(--destructive)', color:'white', border:'2px solid var(--card)', cursor:'pointer'}}
+                                            title="Quitar del mapa">
+                                        <span className="material-icons-round" style={{fontSize:12}}>close</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+                // ── Marker de extensión ──
+                const ext = extByExt[String(m.id)] || { ext: m.id, name: '?', status: 'OFFLINE' };
+                const inCall = activeCallExts.has(String(m.id)) || ext.status === 'BUSY';
                 const statusColor = inCall ? 'var(--horizon-green)' : (ext.status === 'ONLINE' ? '#22c55e' : (ext.status === 'OFFLINE' ? '#9ca3af' : 'var(--muted-foreground)'));
                 const ini = (ext.name||ext.ext||'?').split(/[\s\-_]+/).map(p=>p[0]||'').join('').substring(0,2).toUpperCase();
-                const queues = ext.queues || ext.queue_memberships || [];
+                const extQueues = ext.queues || ext.queue_memberships || [];
+                const lastTs = lastCalls.exts[String(m.id)] || null;
+                const delta = lastTs ? (nowTick - lastTs) : null;
+                const ago = formatAgo(lastTs);
                 return (
-                    <div key={m.ext} data-marker
-                         onMouseDown={(e)=>onMarkerMouseDown(m.ext, e)}
+                    <div key={placedKey(m)} data-marker
+                         onMouseDown={(e)=>onMarkerMouseDown(m.kind, m.id, e)}
                          style={{
-                             position:'absolute',
-                             left:`${m.x_pct}%`, top:`${m.y_pct}%`,
+                             position:'absolute', left:`${m.x_pct}%`, top:`${m.y_pct}%`,
                              transform:'translate(-50%, -50%)',
                              cursor: editing ? 'grab' : 'pointer',
                              zIndex: editing ? 20 : 10,
                          }}>
                         {inCall && (
-                            <span style={{
-                                position:'absolute', inset:-10,
-                                borderRadius:14, border:'3px solid var(--horizon-green)',
-                                animation:'tf-floor-pulse 1.4s ease-out infinite',
-                                pointerEvents:'none',
-                            }}/>
+                            <span style={{position:'absolute', inset:-10, borderRadius:14, border:'3px solid var(--horizon-green)',
+                                          animation:'tf-floor-pulse 1.4s ease-out infinite', pointerEvents:'none'}}/>
                         )}
                         <div className="rounded-lg border shadow-md backdrop-blur-sm relative"
                              style={{
                                  background:'color-mix(in srgb, var(--card) 92%, transparent)',
                                  borderColor: inCall ? 'var(--horizon-green)' : 'var(--border)',
-                                 padding:'4px 6px',
-                                 minWidth: 96,
+                                 padding:'4px 6px', minWidth: 96,
                              }}>
                             <div className="flex items-center gap-1.5">
                                 <div className="relative shrink-0">
@@ -2254,40 +2353,37 @@ function FloorMap({ data, toast }) {
                                         <img src={ext.avatar} className="rounded-full object-cover" style={{width:24,height:24,border:'2px solid var(--card)'}} onError={(e)=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}}/>
                                     ) : null}
                                     <div className="rounded-full flex items-center justify-center font-black text-white"
-                                         style={{
-                                             width:24, height:24, fontSize:9,
-                                             display: ext.avatar ? 'none' : 'flex',
-                                             background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))'
-                                         }}>{ini}</div>
-                                    <span style={{
-                                        position:'absolute', bottom:-1, right:-1,
-                                        width:8, height:8, borderRadius:'50%',
-                                        background: statusColor,
-                                        border:'1.5px solid var(--card)',
-                                        animation: inCall ? 'pulse 1.4s infinite' : 'none',
-                                    }}/>
+                                         style={{width:24, height:24, fontSize:9, display: ext.avatar ? 'none' : 'flex',
+                                                 background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #000))'}}>{ini}</div>
+                                    <span style={{position:'absolute', bottom:-1, right:-1, width:8, height:8, borderRadius:'50%',
+                                                  background: statusColor, border:'1.5px solid var(--card)',
+                                                  animation: inCall ? 'pulse 1.4s infinite' : 'none'}}/>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-[10px] font-bold truncate" style={{color:'var(--foreground)', maxWidth:90}}>{ext.name || `Int ${m.ext}`}</div>
-                                    <div className="font-mono text-[8.5px] truncate" style={{color:'var(--muted-foreground)'}}>#{m.ext}</div>
+                                    <div className="text-[10px] font-bold truncate" style={{color:'var(--foreground)', maxWidth:90}}>{ext.name || `Int ${m.id}`}</div>
+                                    <div className="font-mono text-[8.5px] truncate" style={{color:'var(--muted-foreground)'}}>#{m.id}</div>
                                 </div>
                             </div>
-                            {queues.length > 0 && (
+                            {extQueues.length > 0 && (
                                 <div className="flex flex-wrap gap-0.5 mt-1">
-                                    {queues.slice(0,3).map((q,i)=>(
+                                    {extQueues.slice(0,3).map((q,i)=>(
                                         <span key={i} className="font-mono px-1 rounded text-[8px] font-bold" style={{background:'color-mix(in srgb, var(--primary) 12%, transparent)',color:'var(--primary)'}}>{q}</span>
                                     ))}
                                 </div>
                             )}
+                            {ago && (
+                                <div className="flex items-center gap-1 mt-1" title={`Última llamada contestada hace ${ago}`}>
+                                    <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(delta)}}/>
+                                    <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(delta)}}>{ago}</span>
+                                    <span className="text-[8px]" style={{color:'var(--muted-foreground)'}}>sin call</span>
+                                </div>
+                            )}
                             {editing && (
                                 <button type="button"
-                                        onClick={(e)=>{e.stopPropagation(); removeMarker(m.ext);}}
+                                        onClick={(e)=>{e.stopPropagation(); removeMarker(m.kind, m.id);}}
                                         className="absolute -top-2 -right-2 rounded-full flex items-center justify-center shadow-md"
-                                        style={{
-                                            width:18, height:18,
-                                            background:'var(--destructive)', color:'white',
-                                            border:'2px solid var(--card)', cursor:'pointer'
-                                        }} title="Quitar del mapa">
+                                        style={{width:18, height:18, background:'var(--destructive)', color:'white', border:'2px solid var(--card)', cursor:'pointer'}}
+                                        title="Quitar del mapa">
                                     <span className="material-icons-round" style={{fontSize:12}}>close</span>
                                 </button>
                             )}
@@ -2296,7 +2392,7 @@ function FloorMap({ data, toast }) {
                 );
             })}
 
-            {/* ── Overlay top: contadores y botón editar (aparece on-hover o en edit mode) ── */}
+            {/* Overlay top (hover/edit) */}
             <div data-no-place
                  className={cn("absolute top-0 left-0 right-0 flex items-center justify-between gap-2 px-3 py-2 transition-opacity duration-200 pointer-events-none",
                                editing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
@@ -2329,13 +2425,12 @@ function FloorMap({ data, toast }) {
                 </div>
             </div>
 
-            {/* ── Overlay bottom (solo en modo edit): herramientas + tip ── */}
             {editing && (
                 <div data-no-place className="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-2 px-3 py-2 pointer-events-none"
                      style={{background:'linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 100%)'}}>
                     <div className="text-[10px] font-bold flex items-center gap-1 pointer-events-auto" style={{color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.6)'}}>
                         <span className="material-icons-round" style={{fontSize:12}}>touch_app</span>
-                        Click para colocar · arrastrá para mover · {availableForPicker.length} sin colocar
+                        Click para colocar · {availableExts.length} ext · {availableQueues.length} colas sin colocar
                     </div>
                     <button type="button" onClick={(e)=>{e.stopPropagation(); fileInputRef.current?.click();}} disabled={uploading}
                             className="pointer-events-auto rounded-md px-2 py-1 text-[10px] font-bold inline-flex items-center gap-1 shadow-md backdrop-blur-sm"
@@ -2351,7 +2446,8 @@ function FloorMap({ data, toast }) {
 
             {picker && (
                 <FloorMapPicker
-                    exts={availableForPicker}
+                    exts={availableExts}
+                    queues={availableQueues}
                     onPick={placeAt}
                     onCancel={()=>setPicker(null)}/>
             )}
@@ -2360,9 +2456,16 @@ function FloorMap({ data, toast }) {
 }
 
 // Modal simple para elegir ext del listado
-function FloorMapPicker({ exts, onPick, onCancel }) {
+function FloorMapPicker({ exts, queues, onPick, onCancel }) {
+    const [tab, setTab] = useState('ext');   // 'ext' | 'queue'
     const [q, setQ] = useState('');
-    const filtered = exts.filter(e => !q || e.ext.includes(q) || (e.name||'').toLowerCase().includes(q.toLowerCase()));
+    const list = tab === 'queue' ? (queues || []) : (exts || []);
+    const filtered = list.filter(e => {
+        if (!q) return true;
+        const id = tab === 'queue' ? (e.extension || e.id || e.name) : e.ext;
+        const name = e.name || '';
+        return String(id).includes(q) || name.toLowerCase().includes(q.toLowerCase());
+    });
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4"
              style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
@@ -2370,35 +2473,56 @@ function FloorMapPicker({ exts, onPick, onCancel }) {
                 <div className="px-4 py-3 border-b flex items-center justify-between gap-2" style={{borderColor:'var(--border)'}}>
                     <div className="flex items-center gap-2">
                         <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>place</span>
-                        <span className="font-bold text-sm" style={{color:'var(--foreground)'}}>Colocar extensión en esta posición</span>
+                        <span className="font-bold text-sm" style={{color:'var(--foreground)'}}>Colocar marker en esta posición</span>
                     </div>
                     <button onClick={onCancel} className="rounded-md p-1 hover:bg-accent">
                         <span className="material-icons-round" style={{fontSize:18}}>close</span>
                     </button>
                 </div>
+                {/* Tabs */}
+                <div className="flex border-b" style={{borderColor:'var(--border)'}}>
+                    {[{id:'ext', label:'Extensiones', icon:'phone', count: (exts||[]).length},
+                      {id:'queue', label:'Colas', icon:'queue', count: (queues||[]).length}].map(t => (
+                        <button key={t.id} onClick={()=>{setTab(t.id); setQ('');}}
+                                className={cn("flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border-b-2",
+                                              tab === t.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:bg-accent/40')}
+                                style={tab === t.id ? {borderBottomColor:'var(--primary)', color:'var(--primary)'} : {borderBottomColor:'transparent', color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round" style={{fontSize:14}}>{t.icon}</span>
+                            {t.label}
+                            <span className="font-mono px-1 rounded text-[9px] font-bold" style={{background:'color-mix(in srgb, var(--muted) 40%, transparent)', color:'var(--muted-foreground)'}}>{t.count}</span>
+                        </button>
+                    ))}
+                </div>
                 <div className="p-3 border-b" style={{borderColor:'var(--border)'}}>
-                    <Input autoFocus placeholder="Buscar interno o nombre…" value={q} onChange={e=>setQ(e.target.value)}/>
+                    <Input autoFocus placeholder={tab === 'queue' ? 'Buscar cola…' : 'Buscar interno o nombre…'} value={q} onChange={e=>setQ(e.target.value)}/>
                 </div>
                 <div className="overflow-auto flex-1">
                     {filtered.length === 0 && (
                         <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                            {exts.length === 0 ? 'Todas las extensiones ya están en el mapa' : 'Sin coincidencias'}
+                            {list.length === 0 ? `Todas las ${tab === 'queue' ? 'colas' : 'extensiones'} ya están en el mapa` : 'Sin coincidencias'}
                         </div>
                     )}
-                    {filtered.slice(0, 50).map(e => (
-                        <button key={e.ext} onClick={()=>onPick(e.ext)}
-                                className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors hover:bg-accent border-b"
-                                style={{borderColor:'var(--border)',color:'var(--foreground)'}}>
-                            <span className="font-mono font-bold" style={{minWidth:50}}>{e.ext}</span>
-                            <span className="flex-1 truncate" style={{color:'var(--muted-foreground)'}}>{e.name}</span>
-                            <Badge variant="outline" className="font-mono text-[9px]">{e.status}</Badge>
-                        </button>
-                    ))}
+                    {filtered.slice(0, 50).map(e => {
+                        const isQueue = tab === 'queue';
+                        const id = isQueue ? (e.extension || e.id || e.name) : e.ext;
+                        return (
+                            <button key={`${tab}-${id}`} onClick={()=>onPick(tab, id)}
+                                    className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors hover:bg-accent border-b"
+                                    style={{borderColor:'var(--border)',color:'var(--foreground)'}}>
+                                <span className="material-icons-round" style={{fontSize:14, color: isQueue ? '#f59e0b' : 'var(--primary)'}}>{isQueue ? 'queue' : 'phone'}</span>
+                                <span className="font-mono font-bold" style={{minWidth:50}}>{id}</span>
+                                <span className="flex-1 truncate" style={{color:'var(--muted-foreground)'}}>{e.name}</span>
+                                {!isQueue && <Badge variant="outline" className="font-mono text-[9px]">{e.status}</Badge>}
+                                {isQueue && e.calls_waiting > 0 && <Badge variant="outline" className="font-mono text-[9px]" style={{color:'#f59e0b'}}>{e.calls_waiting} esperando</Badge>}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
         </div>
     );
 }
+
 
 function ViewDashboard({ data }) {
     const exts        = data?.pbx?.extensions || [];
