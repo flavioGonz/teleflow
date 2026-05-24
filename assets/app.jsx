@@ -2281,11 +2281,18 @@ function FloorMap({ data, toast }) {
                     // En CDR las colas suelen aparecer como destino en formato "Queue/<id>" o directamente el id.
                     // También miramos por context "ext-queues" o cualquier match contra extension/name.
                     const qIds = [String(q.extension||''), String(q.id||''), String(q.name||''), String(m.id)].filter(Boolean);
+                    const cq = window._tfCallToQueue || {};
                     const incomingCalls = liveCalls.filter(c => {
                         const isRingingOrUp = /^(Up|Ring|Ringing|Dialing)/i.test(c.state||'');
                         if (!isRingingOrUp) return false;
                         const dest = String(c.dest||'');
-                        return qIds.some(id => dest === id || dest === ('Queue/'+id) || dest.endsWith('@'+id));
+                        // Match directo: dest es la cola o un Local de la cola
+                        if (qIds.some(id => dest === id || dest === ('Queue/'+id) || dest.endsWith('@'+id))) return true;
+                        // Match indirecto: el caller entró a esta cola (queue_update join lo registró)
+                        const callerNorm = String(c.ext||'').replace(/^\D+/, '').replace(/\D+$/, '');
+                        const callerid = String(c.callerid||'').replace(/^\D+/, '').replace(/\D+$/, '');
+                        const mappedQ = cq[callerNorm]?.queue || cq[callerid]?.queue;
+                        return mappedQ && qIds.includes(String(mappedQ));
                     });
                     const isRinging = incomingCalls.some(c => /^(Ring|Ringing|Dialing)/i.test(c.state||''));
                     const isUp = incomingCalls.some(c => c.state === 'Up');
@@ -15176,22 +15183,30 @@ function App() {
                 const destLabel = fmtDest(c);
                 const fromTipo = (window._tfExtMeta || {})[c.ext]?.tipo || '';
                 const tipoLabel = fromTipo === 'cliente' ? '👤 Cliente' : (fromTipo === 'horizon' ? '🏢 Horizon' : '');
-                const callerMeta = (window._tfExtMeta || {})[c.ext];
+                // FIX: normalizar ext/dest (pueden venir con prefijo no-digit) y probar ambos contra _tfExtMeta.
+                // Antes solo usaba c.ext directo y se perdían matches cuando venía como "1564Guardia…" o similar.
+                const meta = window._tfExtMeta || {};
+                const fromExtNorm = String(c.ext || '').replace(/^\D+/, '').replace(/\D+$/, '');
+                const destExtNorm = String(c.dest || '').replace(/^\D+/, '').replace(/\D+$/, '');
+                const rtspExt = meta[fromExtNorm]?.rtsp_url ? fromExtNorm :
+                                (meta[destExtNorm]?.rtsp_url ? destExtNorm : null);
+                const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
+                const rtspLabel = rtspExt ? meta[rtspExt].rtsp_label : null;
+
                 const actions = [
                     { label: 'Asignar', primary: true, onClick: () => { window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: c})); } },
                     { label: 'Escuchar', onClick: () => { window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: c})); } },
                     { label: 'Ignorar' }
                 ];
 
-                // ── UNIFICADO: si hay RTSP, popup ÚNICO = video con acciones overlay (no toast separado).
-                //    Sin RTSP, fallback al toast Sileo clásico.
-                if (callerMeta?.rtsp_url) {
+                // ── UNIFICADO: si hay RTSP, popup ÚNICO = video con acciones overlay (no toast separado). ──
+                if (rtspUrl) {
                     window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
                         detail: {
                             id: c.channel || dedupKey,
-                            ext: c.ext,
-                            url: callerMeta.rtsp_url,
-                            label: callerMeta.rtsp_label || (tipoLabel ? `Llamada · ${tipoLabel}` : `Llamada entrante`),
+                            ext: rtspExt,
+                            url: rtspUrl,
+                            label: rtspLabel || (tipoLabel ? `Llamada · ${tipoLabel}` : `Llamada entrante`),
                             channel: c.channel,
                             callerLine: `${callerLabel} → ${destLabel}`,
                             actions: actions
@@ -15261,6 +15276,26 @@ function App() {
         });
 
                 socket.on('queue_update', (ev) => {
+            // Mantener mapping callerid → queue para el FloorMap (video acoplado a cola).
+            // Cuando un caller entra a una cola, recordamos la asociación; al completar/abandonar la limpiamos.
+            // Cleanup automático a los 10 min para evitar leaks.
+            window._tfCallToQueue = window._tfCallToQueue || {};
+            const cid = String(ev.callerid || '').replace(/^\D+/, '').replace(/\D+$/, '');
+            if (cid && ev.queue) {
+                if (ev.type === 'join') {
+                    window._tfCallToQueue[cid] = { queue: ev.queue, since: Date.now() };
+                    setTimeout(() => {
+                        const e = window._tfCallToQueue[cid];
+                        if (e && (Date.now() - e.since) >= 600000) delete window._tfCallToQueue[cid];
+                    }, 600000);
+                } else if (ev.type === 'abandon' || ev.type === 'complete' || ev.type === 'completeagent' || ev.type === 'completecaller') {
+                    delete window._tfCallToQueue[cid];
+                }
+            }
+            // Bump counter para forzar re-render de quienes lo lean (FloorMap)
+            window._tfCallToQueueRev = (window._tfCallToQueueRev || 0) + 1;
+            window.dispatchEvent(new CustomEvent('tf-queue-mapping-changed'));
+
             setData(d => {
                 if (!d?.pbx?.queues) return d;
                 const queues = d.pbx.queues.map(q => {
