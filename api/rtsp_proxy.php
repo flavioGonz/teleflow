@@ -73,6 +73,41 @@ if ($needs_update) {
     }
 }
 
+// ── Esperar a que MediaMTX tenga el path READY antes de devolver el URL al cliente.
+// Sin esto, hls.js intenta cargar segmentos antes que el RTSP source esté arriba y
+// el resultado típico es "Stream HLS no disponible" (visto en Hikvision que tarda
+// más en negociar que Akuvox).
+$ready = false;
+$deadline = microtime(true) + 8.0;
+while (microtime(true) < $deadline) {
+    $ch = curl_init("$mtx_api/v3/paths/get/$path_name");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+    $st = curl_exec($ch);
+    $sc = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($sc === 200) {
+        $info = json_decode($st, true);
+        if (!empty($info['ready'])) { $ready = true; break; }
+        // Trigger on-demand pidiendo el playlist HLS (esto le dice al MTX que necesita el source).
+        // Usamos curl HEAD para no descargar nada — solo iniciar el flujo.
+        $ch2 = curl_init("http://127.0.0.1:8888/$path_name/index.m3u8");
+        curl_setopt_array($ch2, [CURLOPT_NOBODY=>1, CURLOPT_TIMEOUT=>1, CURLOPT_RETURNTRANSFER=>1]);
+        @curl_exec($ch2);
+        curl_close($ch2);
+    }
+    usleep(250000); // 250ms entre polls
+}
+
+// Pre-warm de un segundo GET al playlist para que MTX empiece a generar el primer segmento.
+// Si tras el ready aún no hay segmentos, hls.js da error pasajero — esto los acelera.
+if ($ready) {
+    $ch3 = curl_init("http://127.0.0.1:8888/$path_name/index.m3u8");
+    curl_setopt_array($ch3, [CURLOPT_RETURNTRANSFER=>1, CURLOPT_TIMEOUT=>2]);
+    @curl_exec($ch3);
+    curl_close($ch3);
+}
+
 $host = $_SERVER['HTTP_HOST'] ?? '10.1.1.192';
 $host_only = preg_replace('/:.*/', '', $host);
 
@@ -84,4 +119,6 @@ echo json_encode([
     'hls_url'     => "http://$host_only:8888/$path_name/index.m3u8",
     'webrtc_url'  => "http://$host_only:8889/$path_name",
     'path'        => $path_name,
+    'ready'       => $ready,
+    'wait_ms'     => intval((8.0 - max(0, $deadline - microtime(true))) * 1000),
 ]);
