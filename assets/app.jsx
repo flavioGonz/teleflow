@@ -5096,6 +5096,33 @@ function ExtensionRow({ e, liveCalls, onClick }) {
                     {e.device_type === 'softphone' ? 'WebRTC' : 'SIP'}
                 </span>
             </td>
+            <td style={{textAlign:'center'}}>
+                {(() => {
+                    const meta = (window._tfExtMeta || {})[e.ext] || {};
+                    const hasVideo = !!meta.rtsp_url;
+                    if (!hasVideo) return <span style={{color:'var(--muted-foreground)',opacity:0.35}}>—</span>;
+                    const src = meta.rtsp_url_source || 'manual';
+                    const tooltip = `RTSP ${src === 'auto' ? 'auto-detectado' : 'configurado manualmente'}\n${meta.rtsp_url}`;
+                    return (
+                        <span title={tooltip} style={{
+                            display:'inline-flex', alignItems:'center', gap:4,
+                            padding:'3px 8px', borderRadius:8,
+                            background:'color-mix(in srgb, #22c55e 12%, transparent)',
+                            border:'1px solid color-mix(in srgb, #22c55e 35%, transparent)',
+                            color:'#22c55e'
+                        }}>
+                            <span style={{
+                                width:6, height:6, borderRadius:'50%',
+                                background:'#22c55e',
+                                boxShadow:'0 0 6px #22c55e',
+                                animation:'pulse 1.5s infinite'
+                            }}/>
+                            <span className="material-icons-round" style={{fontSize:13}}>videocam</span>
+                            <span style={{fontSize:8,fontWeight:900,letterSpacing:'.06em'}}>LIVE</span>
+                        </span>
+                    );
+                })()}
+            </td>
             <td><span className="material-icons-round" style={{fontSize:17,color:'#6b7280'}}>chevron_right</span></td>
         </tr>
     );
@@ -5301,12 +5328,13 @@ function ViewExtensiones({ data, toast }) {
                                 <th>RTT</th>
                                 <th>Categoría</th>
                                 <th>Tipo</th>
+                                <th style={{width:70}}>Video</th>
                                 <th style={{width:40}}></th>
                             </tr>
                         </thead>
                         <tbody>
                             {exts.map(e => <ExtensionRow key={e.ext} e={e} liveCalls={liveCalls} onClick={()=>setEditing(e)} />)}
-                            {exts.length===0&&<tr><td colSpan={10} style={{textAlign:'center',color:'#6b7280',padding:30}}>Sin extensiones</td></tr>}
+                            {exts.length===0&&<tr><td colSpan={11} style={{textAlign:'center',color:'#6b7280',padding:30}}>Sin extensiones</td></tr>}
                         </tbody>
                     </table>
                 </div>
