@@ -3569,6 +3569,7 @@ function ViewDashboard({ data, toast }) {
                 </Card>
             </div>
 
+        </div>
     );
 }
 // ─────────────────────────────────────────────
