@@ -2053,8 +2053,8 @@ function DisuasionBlock({ data, toast }) {
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState(null);
     const [confirmGroup, setConfirmGroup] = useState(null);
+    const [search, setSearch] = useState('');
     const exts = data?.pbx?.extensions || [];
-    // Picker for "vocear desde"
     const defaultFromExt = useMemo(() => {
         const me = (typeof window !== 'undefined' && window._tfMyExt) || null;
         if (me) return me;
@@ -2091,66 +2091,108 @@ function DisuasionBlock({ data, toast }) {
         setConfirmGroup(null);
     };
 
+    const totalMembers = groups.reduce((s,g)=>s+(g.members?.length||0), 0);
+    const visibleGroups = groups.filter(g => !search ||
+        (g.name||'').toLowerCase().includes(search.toLowerCase()) ||
+        String(g.page_code).includes(search) ||
+        (g.members||[]).some(m => String(m).includes(search))
+    );
+
     return (
         <Card className="overflow-hidden">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0 gap-3 flex-wrap">
-                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                    <span className="material-icons-round" style={{fontSize:18, color:'#f59e0b'}}>campaign</span>
-                    Disuasión
-                </CardTitle>
+            {/* Hero header con gradient y stats */}
+            <div className="px-4 py-3 border-b flex items-center justify-between gap-3 flex-wrap"
+                 style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, #f59e0b 12%, var(--card)) 0%, var(--card) 60%)'}}>
+                <div className="flex items-center gap-2.5">
+                    <div className="rounded-lg flex items-center justify-center"
+                         style={{width:36, height:36, background:'linear-gradient(135deg, #f59e0b, #d97706)', color:'#fff', boxShadow:'0 4px 12px rgba(245,158,11,0.25)'}}>
+                        <span className="material-icons-round" style={{fontSize:20}}>campaign</span>
+                    </div>
+                    <div>
+                        <div className="text-sm font-black tracking-tight" style={{color:'var(--foreground)'}}>Disuasión</div>
+                        <div className="text-[10px] font-mono" style={{color:'var(--muted-foreground)'}}>
+                            {groups.length} grupos · {totalMembers} parlantes
+                        </div>
+                    </div>
+                </div>
                 <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="font-mono text-[10px]">{groups.length} grupos</Badge>
-                    <div className="flex items-center gap-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                        <span>Desde</span>
-                        <Input value={fromExt} onChange={e=>setFromExt(e.target.value.replace(/\D/g,''))}
-                               className="h-7 px-2 py-1 text-xs font-mono w-20" placeholder="ext"/>
+                    <div className="relative">
+                        <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2" style={{fontSize:14,color:'var(--muted-foreground)'}}>search</span>
+                        <Input placeholder="Buscar grupo o ext…" value={search} onChange={e=>setSearch(e.target.value)} className="h-8 pl-7 pr-2 text-xs w-44"/>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                        <span className="material-icons-round" style={{fontSize:14, color:'var(--muted-foreground)'}}>headset_mic</span>
+                        <span className="text-[10px] font-bold" style={{color:'var(--muted-foreground)'}}>Desde</span>
+                        <input value={fromExt} onChange={e=>setFromExt(e.target.value.replace(/\D/g,''))}
+                               className="w-14 px-1 py-0 text-xs font-mono font-bold bg-transparent border-0 outline-none"
+                               style={{color:'var(--foreground)'}} placeholder="ext"/>
                     </div>
                     <ActionIconButton icon={loading ? 'autorenew' : 'refresh'} label="Recargar" onClick={load} size={28}/>
                 </div>
-            </CardHeader>
-            <CardContent>
+            </div>
+
+            <CardContent className="pt-3">
                 {loading ? (
-                    <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                        <span className="material-icons-round animate-spin" style={{fontSize:24}}>autorenew</span>
+                    <div className="py-10 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round animate-spin block mb-1" style={{fontSize:28, color:'#f59e0b'}}>autorenew</span>
+                        Cargando grupos de voceo…
                     </div>
                 ) : groups.length === 0 ? (
-                    <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                        <span className="material-icons-round block mb-1.5" style={{fontSize:32, opacity:0.4}}>campaign</span>
-                        Sin grupos de voceo configurados.<br/>
-                        <span className="text-[10px]">Creá uno en Issabel (Paging/Intercom) o un grupo custom en Teleflow.</span>
+                    <div className="py-10 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round block mb-2" style={{fontSize:40, opacity:0.35}}>campaign</span>
+                        <p className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Sin grupos de voceo</p>
+                        <p>Creá uno en Issabel (Paging/Intercom) o un grupo custom en Teleflow.</p>
+                    </div>
+                ) : visibleGroups.length === 0 ? (
+                    <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                        Sin coincidencias para "{search}"
                     </div>
                 ) : (
-                    <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', maxHeight:280, overflow:'auto'}}>
-                        {groups.map(g => (
-                            <div key={g.id} className="rounded-md border p-2.5 flex flex-col gap-1.5 transition-all hover:shadow-md"
-                                 style={{borderColor: 'var(--border)', background:'var(--card)'}}>
-                                <div className="flex items-center gap-1.5">
-                                    <div className="rounded-md flex items-center justify-center shrink-0"
-                                         style={{width:28, height:28, background:`linear-gradient(135deg, ${g.color}, color-mix(in srgb, ${g.color} 60%, #000))`, color:'#fff'}}>
-                                        <span className="material-icons-round" style={{fontSize:16}}>{g.icon}</span>
+                    <div className="grid gap-2.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', maxHeight:340, overflow:'auto'}}>
+                        {visibleGroups.map(g => (
+                            <div key={g.id} className="group relative rounded-lg border overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5"
+                                 style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                                {/* Top accent strip */}
+                                <div style={{height:3, background: `linear-gradient(90deg, ${g.color}, color-mix(in srgb, ${g.color} 50%, transparent))`}}/>
+                                <div className="p-3 space-y-2">
+                                    <div className="flex items-start gap-2">
+                                        <div className="rounded-md flex items-center justify-center shrink-0"
+                                             style={{width:34, height:34, background:`linear-gradient(135deg, ${g.color}, color-mix(in srgb, ${g.color} 55%, #000))`,
+                                                     color:'#fff', boxShadow:`0 3px 8px color-mix(in srgb, ${g.color} 30%, transparent)`}}>
+                                            <span className="material-icons-round" style={{fontSize:18}}>{g.icon}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold truncate leading-tight" style={{color:'var(--foreground)'}} title={g.name}>{g.name}</div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="font-mono text-[10px] font-bold px-1 rounded"
+                                                      style={{background:'color-mix(in srgb, var(--muted) 40%, transparent)', color:'var(--foreground)'}}>*{g.page_code}</span>
+                                                <span className="text-[9px] uppercase font-bold" style={{color:'var(--muted-foreground)'}}>{g.kind==='custom'?'custom':'FreePBX'}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-bold truncate" style={{color:'var(--foreground)'}} title={g.name}>{g.name}</div>
-                                        <div className="font-mono text-[9px]" style={{color:'var(--muted-foreground)'}}>*{g.page_code} · {g.kind==='custom'?'custom':'FreePBX'}</div>
-                                    </div>
+                                    {g.members && g.members.length > 0 ? (
+                                        <div className="flex items-center gap-1 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                            <span className="material-icons-round" style={{fontSize:12}}>group</span>
+                                            <span>{g.members.length} parlante{g.members.length!==1?'s':''}:</span>
+                                            <div className="flex flex-wrap gap-0.5 ml-1">
+                                                {g.members.slice(0,4).map((ext, i) => (
+                                                    <span key={i} className="font-mono px-1 rounded text-[9px] font-bold"
+                                                          style={{background:'color-mix(in srgb, #f59e0b 14%, transparent)', color:'#f59e0b'}}>{ext}</span>
+                                                ))}
+                                                {g.members.length > 4 && <span className="text-[9px]" style={{color:'var(--muted-foreground)'}}>+{g.members.length-4}</span>}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[10px] italic" style={{color:'var(--muted-foreground)'}}>Sin parlantes definidos</div>
+                                    )}
+                                    <button type="button" onClick={()=>setConfirmGroup(g)} disabled={busyId === g.id}
+                                            className="w-full px-2 py-1.5 rounded-md text-[11px] font-black inline-flex items-center justify-center gap-1.5 transition-all hover:shadow-md disabled:opacity-50"
+                                            style={{background: `linear-gradient(135deg, ${g.color}, color-mix(in srgb, ${g.color} 80%, #000))`, color:'#fff',
+                                                    boxShadow:`0 2px 6px color-mix(in srgb, ${g.color} 25%, transparent)`}}>
+                                        <span className={"material-icons-round " + (busyId===g.id ? 'animate-spin' : '')} style={{fontSize:14}}>{busyId===g.id ? 'autorenew' : 'campaign'}</span>
+                                        {busyId === g.id ? 'Enviando…' : 'Vocear ahora'}
+                                    </button>
                                 </div>
-                                {g.members && g.members.length > 0 && (
-                                    <div className="flex flex-wrap gap-0.5">
-                                        {g.members.slice(0,5).map((ext, i) => (
-                                            <span key={i} className="font-mono px-1 rounded text-[9px] font-bold"
-                                                  style={{background:'color-mix(in srgb, #f59e0b 12%, transparent)', color:'#f59e0b'}}>{ext}</span>
-                                        ))}
-                                        {g.members.length > 5 && <span className="text-[9px]" style={{color:'var(--muted-foreground)'}}>+{g.members.length-5}</span>}
-                                    </div>
-                                )}
-                                <button type="button"
-                                        onClick={()=>setConfirmGroup(g)}
-                                        disabled={busyId === g.id}
-                                        className="mt-1 px-2 py-1 rounded-md text-[10px] font-bold inline-flex items-center justify-center gap-1 transition-all hover:shadow-sm disabled:opacity-50"
-                                        style={{background: `color-mix(in srgb, ${g.color} 18%, transparent)`, color: g.color, border:`1px solid color-mix(in srgb, ${g.color} 45%, transparent)`}}>
-                                    <span className="material-icons-round" style={{fontSize:12}}>{busyId===g.id ? 'autorenew' : 'campaign'}</span>
-                                    {busyId === g.id ? 'Enviando…' : 'Vocear'}
-                                </button>
                             </div>
                         ))}
                     </div>
@@ -2949,39 +2991,70 @@ function FloorMap({ data, toast }) {
                                               animation:'tf-floor-pulse 1.2s ease-out infinite', pointerEvents:'none'}}/>
                             )}
 
-                            {/* ── Video acoplado (sobre el marker, anclado al centro horizontal) ── */}
+                            {/* ── Video acoplado al marker (Up + videoportero):
+                                  - Caller info visible siempre (top + bottom overlay)
+                                  - Controles Asignar/Escuchar emergen on-hover sobre el video ── */}
                             {videoUrl && (
-                                <div style={{
+                                <div className="group/video" style={{
                                     position:'absolute',
-                                    bottom: 'calc(100% + 6px)',
+                                    bottom: 'calc(100% + 8px)',
                                     left: '50%',
                                     transform: 'translateX(-50%)',
-                                    width: 168, height: 108,
-                                    borderRadius: 8, overflow:'hidden',
+                                    width: 220, height: 140,
+                                    borderRadius: 10, overflow:'hidden',
                                     border: '2px solid var(--horizon-green)',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4)',
+                                    boxShadow: '0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4), 0 0 20px color-mix(in srgb, var(--horizon-green) 30%, transparent)',
                                     background:'#0a0a0d',
                                     zIndex: 31,
                                 }}>
                                     <div style={{position:'absolute', inset:0}}>
                                         <RtspMiniLiveFill ext={videoExt} url={videoUrl}/>
                                     </div>
-                                    {/* Label superior con la cola que recibió la llamada */}
-                                    <div style={{position:'absolute', top:0, left:0, right:0, padding:'3px 6px',
-                                                 background:'linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)',
-                                                 fontSize:9, color:'#fff', fontWeight:800, letterSpacing:'.04em',
-                                                 display:'flex', alignItems:'center', gap:4}}>
-                                        <span style={{width:5, height:5, borderRadius:'50%', background:'var(--horizon-green)', boxShadow:'0 0 6px var(--horizon-green)', animation:'pulse 1.5s infinite'}}/>
-                                        <span style={{textTransform:'uppercase'}}>{q.name || `Q${m.id}`}</span>
-                                    </div>
-                                    {/* Label inferior: caller */}
-                                    {videoLabel && (
-                                        <div style={{position:'absolute', bottom:0, left:0, right:0, padding:'3px 6px',
-                                                     background:'linear-gradient(0deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)',
-                                                     fontSize:9, color:'#fff', fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                                            {videoLabel}
+
+                                    {/* TOP overlay: LIVE badge + nombre de la cola */}
+                                    <div style={{position:'absolute', top:0, left:0, right:0, padding:'5px 8px',
+                                                 background:'linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0) 100%)',
+                                                 fontSize:10, color:'#fff', fontWeight:800, letterSpacing:'.04em',
+                                                 display:'flex', alignItems:'center', justifyContent:'space-between', gap:4, pointerEvents:'none'}}>
+                                        <div className="flex items-center gap-1">
+                                            <span style={{width:6, height:6, borderRadius:'50%', background:'#ef4444', boxShadow:'0 0 8px #ef4444', animation:'pulse 1s infinite'}}/>
+                                            <span style={{textTransform:'uppercase', textShadow:'0 1px 2px rgba(0,0,0,0.8)'}}>LIVE</span>
                                         </div>
-                                    )}
+                                        <span style={{textTransform:'uppercase', textShadow:'0 1px 3px rgba(0,0,0,0.9)', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{q.name || `Q${m.id}`}</span>
+                                    </div>
+
+                                    {/* BOTTOM overlay: caller info (siempre visible) */}
+                                    <div style={{position:'absolute', bottom:0, left:0, right:0, padding:'5px 8px',
+                                                 background:'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
+                                                 fontSize:10, color:'#fff', pointerEvents:'none'}}>
+                                        <div style={{fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 3px rgba(0,0,0,0.9)'}}
+                                             title={`${videoLabel || videoExt} → ${q.name || ('Q'+m.id)}`}>
+                                            <span style={{opacity:0.85}}>📞</span> {videoLabel || `Ext ${videoExt}`}
+                                        </div>
+                                        <div style={{fontFamily:'monospace', fontSize:9, opacity:0.85, marginTop:1}}>
+                                            #{videoExt} → {q.name || ('Q'+m.id)}
+                                        </div>
+                                    </div>
+
+                                    {/* HOVER overlay: controles Asignar/Escuchar al centro */}
+                                    <div className="opacity-0 group-hover/video:opacity-100 transition-opacity duration-200"
+                                         style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                                                 background:'rgba(0,0,0,0.45)', backdropFilter:'blur(2px)'}}>
+                                        <button type="button"
+                                                onClick={(e)=>{ e.stopPropagation(); window.dispatchEvent(new CustomEvent('tf-assign-call', {detail: videoCall})); }}
+                                                className="px-2.5 py-1.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition-all hover:scale-105"
+                                                style={{background:'var(--horizon-green)', color:'#0a2a12', boxShadow:'0 2px 8px rgba(17,179,40,0.4)'}}>
+                                            <span className="material-icons-round" style={{fontSize:13}}>person_add</span>
+                                            Asignar
+                                        </button>
+                                        <button type="button"
+                                                onClick={(e)=>{ e.stopPropagation(); window.dispatchEvent(new CustomEvent('tf-spy-call', {detail: videoCall})); }}
+                                                className="px-2.5 py-1.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition-all hover:scale-105"
+                                                style={{background:'rgba(255,255,255,0.18)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', backdropFilter:'blur(4px)'}}>
+                                            <span className="material-icons-round" style={{fontSize:13}}>headset_mic</span>
+                                            Escuchar
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -3305,101 +3378,11 @@ function ViewDashboard({ data, toast }) {
                 <FloorMap data={data}/>
             </div>
 
-            {/* ─── Row 2: Llamadas activas | Últimas Grabaciones ─── */}
+            {/* ─── Row 2: Disuasión | Últimas Grabaciones ─── */}
             <div className="grid gap-4 lg:grid-cols-2">
-                {/* Llamadas activas */}
-                <Card>
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:18,color:'var(--horizon-green)'}}>sensors</span>
-                            Llamadas activas
-                        </CardTitle>
-                        <Badge variant="secondary" className="font-mono text-[10px]">{liveCalls.length} canales · {upCalls} up · {ringingCalls} ring</Badge>
-                    </CardHeader>
-                    <CardContent>
-                        {liveCalls.length === 0 ? (
-                            <div className="py-8 text-center" style={{color:'var(--muted-foreground)'}}>
-                                <span className="material-icons-round mb-1.5 block" style={{fontSize:36, opacity:0.4}}>phone_disabled</span>
-                                <p className="text-xs">Sin llamadas en curso</p>
-                            </div>
-                        ) : (
-                            <div className="flex gap-2.5 overflow-x-auto pb-1 tf-scroll-x"
-                                 style={{
-                                     scrollSnapType:'x mandatory',
-                                     scrollbarWidth:'thin'
-                                 }}>
-                                {liveCalls.map((c, i) => {
-                                    const isUp = c.state === 'Up';
-                                    const isRing = /Ring/.test(c.state || '');
-                                    const sc = isUp ? 'var(--horizon-green)' : (isRing ? 'var(--warning)' : 'var(--muted-foreground)');
-                                    // Resolver rtsp_url para mostrar mini video si el origen tiene cámara
-                                    const meta = (window._tfExtMeta || {});
-                                    const fromExt = String(c.ext || '').replace(/^\D+/, '');
-                                    const destExt = String(c.dest || '').replace(/^\D+/, '');
-                                    const rtspExt = (meta[fromExt]?.rtsp_url ? fromExt : (meta[destExt]?.rtsp_url ? destExt : null));
-                                    const rtspUrl = rtspExt ? meta[rtspExt].rtsp_url : null;
-                                    // Anchos: 3 cards visibles. flex-basis con calc para que se ajuste al contenedor
-                                    // Card full-bleed: si hay RTSP el video es el fondo entero; sino gradient con el color del estado.
-                                    return (
-                                        <div key={c.channel || i}
-                                             className="rounded-lg border shrink-0 overflow-hidden relative transition-all hover:shadow-lg"
-                                             style={{
-                                                 flex:'0 0 calc((100% - 20px) / 3)',
-                                                 minWidth: 220,
-                                                 aspectRatio: '16 / 10',
-                                                 scrollSnapAlign:'start',
-                                                 borderColor:'color-mix(in srgb, ' + sc + ' 40%, var(--border))',
-                                                 background: rtspUrl ? '#0a0a0d' : `linear-gradient(135deg, color-mix(in srgb, ${sc} 22%, var(--card)) 0%, var(--card) 100%)`,
-                                             }}>
-                                            {/* Layer 0: Video full-bleed o icono central cuando no hay video */}
-                                            {rtspUrl ? (
-                                                <div className="absolute inset-0">
-                                                    <RtspMiniLiveFill ext={rtspExt} url={rtspUrl}/>
-                                                </div>
-                                            ) : (
-                                                <div className="absolute inset-0 flex items-center justify-center" style={{opacity:0.10}}>
-                                                    <span className="material-icons-round" style={{fontSize:80, color:sc}}>{isUp ? 'phone_in_talk' : 'phone'}</span>
-                                                </div>
-                                            )}
+                {/* Disuasión (movido desde Row 2.5) */}
+                <DisuasionBlock data={data} toast={toast}/>
 
-                                            {/* Layer 1: Gradient para legibilidad de overlays */}
-                                            <div className="absolute inset-0 pointer-events-none"
-                                                 style={{background:'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.78) 100%)'}}/>
-
-                                            {/* Layer 2: TOP overlay — status + duración */}
-                                            <div className="absolute top-1.5 left-2 right-2 flex items-center gap-1.5">
-                                                <span className="rounded-full shrink-0"
-                                                      style={{width:7,height:7,background:sc,animation:isRing?'pulse 1s infinite':'none',boxShadow:'0 0 8px ' + sc}}/>
-                                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.7)'}}>
-                                                    {isUp ? 'En curso' : (isRing ? 'Timbrando' : (c.state || 'Activa'))}
-                                                </span>
-                                                <span className="ml-auto font-mono text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded backdrop-blur-sm"
-                                                      style={{color:'#fff', background:'rgba(0,0,0,0.45)'}}>{c.duration || '00:00'}</span>
-                                            </div>
-
-                                            {/* Layer 3: BOTTOM overlay — ext → dest + callerid + acciones */}
-                                            <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 flex items-end gap-1.5">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-mono text-xs font-bold truncate" style={{color:'#fff', textShadow:'0 1px 3px rgba(0,0,0,0.8)'}} title={`${c.ext||'?'} → ${c.dest||'?'}`}>
-                                                        {c.ext || c.callerid || '?'} <span style={{color:'rgba(255,255,255,0.7)', margin:'0 4px'}}>→</span> {c.dest || '?'}
-                                                    </div>
-                                                    {c.callerid && c.callerid !== c.ext && (
-                                                        <div className="text-[9px] truncate font-mono" style={{color:'rgba(255,255,255,0.7)', textShadow:'0 1px 2px rgba(0,0,0,0.7)'}} title={c.callerid}>
-                                                            {c.callerid}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="shrink-0">
-                                                    <DashCallActions call={c} disabled={!isUp}/>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
                 {/* Últimas Grabaciones (redesign + audio player) */}
                 <Card>
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
@@ -3478,93 +3461,8 @@ function ViewDashboard({ data, toast }) {
                 </Card>
             </div>
 
-            {/* ─── Row 2.5: Disuasión ─── */}
-            <DisuasionBlock data={data} toast={toast}/>
-
-            {/* ─── Row 3: Salud del PBX + Signos Vitales en 1 fila ─── */}
-            <div className="grid gap-4 lg:grid-cols-2">
-                {/* Salud del PBX */}
-                <Card>
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:18,color:'#06b6d4'}}>monitor_heart</span>
-                            Salud del PBX
-                        </CardTitle>
-                        <Badge variant="secondary" className="font-mono text-[10px]">
-                            <span className="material-icons-round mr-1" style={{fontSize:11}}>schedule</span>
-                            {uptime}
-                        </Badge>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-2">
-                            {[
-                                { l:'CPU',        v:cpu,  u:'%', c: healthColor(cpu),  i:'memory' },
-                                { l:'RAM',        v:ram,  u:'%', c: healthColor(ram),  i:'sd_storage' },
-                                { l:'Disco',      v:disk, u:'%', c: healthColor(disk), i:'storage' },
-                                { l:'Conexiones', v:conn, u:'',  c:'#06b6d4',          i:'lan' }
-                            ].map(m => (
-                                <div key={m.l} className="rounded-md border p-2.5"
-                                     style={{borderColor:'var(--border)', background:'var(--card)'}}>
-                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                        <span className="material-icons-round" style={{fontSize:14,color:m.c}}>{m.i}</span>
-                                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{m.l}</span>
-                                    </div>
-                                    <div className="font-mono text-lg font-black tabular-nums" style={{color:m.c}}>
-                                        {m.v}{m.u}
-                                    </div>
-                                    {m.u === '%' && (
-                                        <div className="h-1 rounded-full overflow-hidden mt-1.5" style={{background:'color-mix(in srgb, var(--muted) 50%, transparent)'}}>
-                                            <div className="h-full rounded-full transition-all duration-500" style={{width:`${m.v}%`, background:m.c}}/>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Signos Vitales del Servidor PBX */}
-                <Card>
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:18,color:'#3b82f6'}}>dns</span>
-                            Signos Vitales del Servidor
-                        </CardTitle>
-                        <Badge variant="secondary" className="font-mono text-[10px]">PBX Asterisk</Badge>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-2">
-                            {[
-                                { label:'Canales activos',    val: liveCalls.length,             icon:'phone_in_talk', color:'var(--primary)' },
-                                { label:'Canales en up',      val: upCalls,                      icon:'sensors',       color:'var(--horizon-green)' },
-                                { label:'En espera (queues)', val: totalWaiting,                 icon:'hourglass_top', color: totalWaiting > 0 ? 'var(--warning)' : 'var(--muted-foreground)' },
-                                { label:'Extensiones online', val: exts.filter(e=>e.status==='ONLINE').length + '/' + exts.length, icon:'dialpad', color:'var(--horizon-green)' }
-                            ].map(s => (
-                                <div key={s.label} className="rounded-md border p-2.5 flex items-center gap-2.5"
-                                     style={{borderColor:'var(--border)', background:'var(--card)'}}>
-                                    <div className="rounded-md flex items-center justify-center shrink-0"
-                                         style={{
-                                             width:34, height:34,
-                                             background:`color-mix(in srgb, ${s.color} 12%, transparent)`,
-                                             border:`1px solid color-mix(in srgb, ${s.color} 25%, transparent)`
-                                         }}>
-                                        <span className="material-icons-round" style={{fontSize:18, color:s.color}}>{s.icon}</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-[10px] font-bold uppercase tracking-wider truncate" style={{color:'var(--muted-foreground)'}}>{s.label}</div>
-                                        <div className="font-mono text-base font-black tabular-nums" style={{color:s.color}}>{s.val}</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-        </div>
     );
 }
-
 // ─────────────────────────────────────────────
 // VISTA: EXTENSIONES (CRUD + grid/tabla)
 // ─────────────────────────────────────────────

@@ -47,15 +47,29 @@ $current = $exists ? json_decode($resp, true) : null;
 $needs_update = !$exists || ($current['source'] ?? null) !== $rtsp_url;
 
 if ($needs_update) {
-    $endpoint = $exists ? "/v3/config/paths/patch/$path_name" : "/v3/config/paths/add/$path_name";
+    // FIX: si ya existe, BORRARLO antes de añadir.
+    // El endpoint `paths/patch/<name>` requiere PATCH method, no POST,
+    // y siempre devolvía 404 con CURLOPT_CUSTOMREQUEST='POST'.
+    // delete+add es atómico para nuestro caso y evita el problema del method.
+    if ($exists) {
+        $chDel = curl_init("$mtx_api/v3/config/paths/delete/$path_name");
+        curl_setopt_array($chDel, [
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_TIMEOUT => 3,
+            CURLOPT_CUSTOMREQUEST => 'DELETE',
+        ]);
+        curl_exec($chDel);
+        curl_close($chDel);
+    }
+
     $payload = json_encode([
         'source' => $rtsp_url,
         'sourceOnDemand' => true,
         'sourceOnDemandStartTimeout' => '10s',
         'sourceOnDemandCloseAfter' => '30s',
-        'rtspTransport' => 'tcp',  // HORIZON: forzar TCP — UDP/automatic falla con muchas cámaras
+        'rtspTransport' => 'tcp',  // forzar TCP — UDP/automatic falla con muchas cámaras
     ]);
-    $ch = curl_init("$mtx_api$endpoint");
+    $ch = curl_init("$mtx_api/v3/config/paths/add/$path_name");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => 1,
         CURLOPT_TIMEOUT => 5,
