@@ -3064,17 +3064,29 @@ function FloorMap({ data, toast }) {
                     const isUp = incomingCalls.some(c => c.state === 'Up');
                     const inCall = waiting > 0 || isRinging || isUp;
 
-                    // ── Si hay llamada Up Y el caller tiene rtsp_url → acoplar video al marker ──
-                    const callsWithVideo = incomingCalls.filter(c => {
-                        if (c.state !== 'Up') return false;
-                        const callerExt = String(c.ext||'').replace(/^\D+/, '');
-                        return !!(window._tfExtMeta||{})[callerExt]?.rtsp_url;
-                    });
-                    // Tomamos la primera (lo normal es 1 a la vez en una cola con un único atendido visible).
-                    const videoCall = callsWithVideo[0];
-                    const videoExt = videoCall ? String(videoCall.ext||'').replace(/^\D+/, '') : null;
-                    const videoUrl = videoExt ? (window._tfExtMeta||{})[videoExt]?.rtsp_url : null;
-                    const videoLabel = videoExt ? ((window._tfExtMeta||{})[videoExt]?.name || `Ext ${videoExt}`) : null;
+                    // ── Si hay llamada activa (Up/Ring) Y alguno de los extremos tiene rtsp_url → acoplar video.
+                    //    Funciona tanto en llamadas entrantes (caller=videoportero) como salientes (dest=videoportero).
+                    const _meta = window._tfExtMeta || {};
+                    const _findVideoSide = (c) => {
+                        const fromExt = String(c.ext  || '').replace(/^\D+/, '').replace(/\D+$/, '');
+                        const destExt = String(c.dest || '').replace(/^\D+/, '').replace(/\D+$/, '');
+                        if (_meta[fromExt]?.rtsp_url) return { ext: fromExt, url: _meta[fromExt].rtsp_url, name: _meta[fromExt].name || _meta[fromExt].rtsp_label || ('Ext '+fromExt), other: destExt, dir: 'in'  };
+                        if (_meta[destExt]?.rtsp_url) return { ext: destExt, url: _meta[destExt].rtsp_url, name: _meta[destExt].name || _meta[destExt].rtsp_label || ('Ext '+destExt), other: fromExt, dir: 'out' };
+                        return null;
+                    };
+                    const callsWithVideo = incomingCalls.map(c => {
+                        // Aceptar Up (atendida) y también Ring/Ringing (mientras suena)
+                        if (!/^(Up|Ring|Ringing|Dialing)/i.test(c.state||'')) return null;
+                        const vs = _findVideoSide(c);
+                        return vs ? { call: c, ...vs } : null;
+                    }).filter(Boolean);
+                    const videoBundle = callsWithVideo[0];
+                    const videoCall  = videoBundle?.call || null;
+                    const videoExt   = videoBundle?.ext || null;
+                    const videoUrl   = videoBundle?.url || null;
+                    const videoLabel = videoBundle?.name || null;
+                    const videoOther = videoBundle?.other || null;
+                    const videoDir   = videoBundle?.dir || null;
 
                     const secAgo = lastCalls.queues[q.name] ?? lastCalls.queues[q.extension] ?? lastCalls.queues[m.id] ?? null;
                     const ago = formatAgo(secAgo);
@@ -3131,16 +3143,17 @@ function FloorMap({ data, toast }) {
                                         <span style={{textTransform:'uppercase', textShadow:'0 1px 3px rgba(0,0,0,0.9)', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{q.name || `Q${m.id}`}</span>
                                     </div>
 
-                                    {/* BOTTOM overlay: caller info (siempre visible) */}
+                                    {/* BOTTOM overlay: info de la llamada (entrante: portero → cola, saliente: cola → portero) */}
                                     <div style={{position:'absolute', bottom:0, left:0, right:0, padding:'5px 8px',
                                                  background:'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
                                                  fontSize:10, color:'#fff', pointerEvents:'none'}}>
                                         <div style={{fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textShadow:'0 1px 3px rgba(0,0,0,0.9)'}}
-                                             title={`${videoLabel || videoExt} → ${q.name || ('Q'+m.id)}`}>
-                                            <span style={{opacity:0.85}}>📞</span> {videoLabel || `Ext ${videoExt}`}
+                                             title={`${videoLabel || videoExt} ${videoDir==='out' ? '←' : '→'} ${q.name || ('Q'+m.id)}`}>
+                                            <span style={{opacity:0.85}}>{videoDir==='out' ? '📤' : '📞'}</span> {videoLabel || `Ext ${videoExt}`}
                                         </div>
                                         <div style={{fontFamily:'monospace', fontSize:9, opacity:0.85, marginTop:1}}>
-                                            #{videoExt} → {q.name || ('Q'+m.id)}
+                                            #{videoExt} {videoDir==='out' ? '←' : '→'} {videoOther || q.name || ('Q'+m.id)}
+                                            {videoDir && <span style={{marginLeft:6, padding:'0 4px', borderRadius:3, background:videoDir==='out'?'rgba(59,130,246,0.45)':'rgba(34,197,94,0.45)', fontSize:8, fontWeight:900, textTransform:'uppercase'}}>{videoDir==='out'?'SALIENTE':'ENTRANTE'}</span>}
                                         </div>
                                     </div>
 
@@ -15826,6 +15839,10 @@ function App() {
                     { label: 'Ignorar' }
                 ];
 
+                // ── Dirección: si el RTSP es del CALLER → entrante; si es del DEST → saliente ──
+                const isOutgoing = rtspExt && rtspExt === destExtNorm;
+                const dirLabel = isOutgoing ? 'Llamada saliente' : 'Llamada entrante';
+
                 // ── UNIFICADO: si hay RTSP, popup ÚNICO = video con acciones overlay (no toast separado). ──
                 if (rtspUrl) {
                     window.dispatchEvent(new CustomEvent('tf-rtsp-preview-open', {
@@ -15833,17 +15850,17 @@ function App() {
                             id: c.channel || dedupKey,
                             ext: rtspExt,
                             url: rtspUrl,
-                            label: rtspLabel || (tipoLabel ? `Llamada · ${tipoLabel}` : `Llamada entrante`),
+                            label: rtspLabel || (tipoLabel ? `${dirLabel} · ${tipoLabel}` : dirLabel),
                             channel: c.channel,
-                            callerLine: `${callerLabel} → ${destLabel}`,
+                            callerLine: isOutgoing ? `${callerLabel} → ${destLabel}` : `${callerLabel} → ${destLabel}`,
                             actions: actions
                         }
                     }));
                 } else {
                     window.sileo.push({
                         kind: 'call',
-                        icon: 'phone_in_talk',
-                        title: tipoLabel ? `Llamada · ${tipoLabel}` : 'Llamada entrante',
+                        icon: isOutgoing ? 'phone_forwarded' : 'phone_in_talk',
+                        title: tipoLabel ? `${dirLabel} · ${tipoLabel}` : dirLabel,
                         msg: `${callerLabel} → ${destLabel}`,
                         previewId: c.channel || dedupKey,
                         actions: actions,
