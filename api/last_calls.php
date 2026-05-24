@@ -40,21 +40,22 @@ function write_cache(array $data): void {
 
 function compute_last_calls(): array {
     global $DB_HOST, $DB_USER, $DB_PASS, $CDR_DB_NAME, $PBX_DB_NAME, $TF_DB_NAME;
+    // IMPORTANTE: devolvemos sec_ago (delta) calculado DENTRO de MySQL con TIMESTAMPDIFF,
+    // no epochs. Esto evita drift entre MySQL/PHP/browser y resuelve el bug de timers
+    // negativos visto en producción (MySQL del PBX tenía offset de TZ respecto al clock real).
     $exts = []; $queues = [];
 
-    // ── 1. Extensiones: max(calldate) en CDR con disposition='ANSWERED', src O dst ──
     try {
         $cdr = new PDO("mysql:host=$DB_HOST;dbname=$CDR_DB_NAME;charset=utf8", $DB_USER, $DB_PASS,
                        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        // Limitar a últimos 30 días por performance (calldate tiene índice)
-        $sql = "SELECT ext, MAX(ts) AS last_ts FROM (
-                    SELECT src AS ext, UNIX_TIMESTAMP(calldate) AS ts
+        $sql = "SELECT ext, MIN(sec_ago) AS sec_ago FROM (
+                    SELECT src AS ext, TIMESTAMPDIFF(SECOND, calldate, NOW()) AS sec_ago
                     FROM cdr
                     WHERE disposition='ANSWERED'
                       AND calldate > DATE_SUB(NOW(), INTERVAL 30 DAY)
                       AND src REGEXP '^[0-9]{3,7}$'
                     UNION ALL
-                    SELECT dst AS ext, UNIX_TIMESTAMP(calldate) AS ts
+                    SELECT dst AS ext, TIMESTAMPDIFF(SECOND, calldate, NOW()) AS sec_ago
                     FROM cdr
                     WHERE disposition='ANSWERED'
                       AND calldate > DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -62,23 +63,22 @@ function compute_last_calls(): array {
                 ) u
                 GROUP BY ext";
         foreach ($cdr->query($sql) as $row) {
-            $exts[$row['ext']] = (int)$row['last_ts'];
+            $sec = (int)$row['sec_ago'];
+            $exts[$row['ext']] = $sec < 0 ? 0 : $sec;
         }
-    } catch (Exception $e) {
-        // Silencio — devolvemos lo que tengamos
-    }
+    } catch (Exception $e) { /* silencio */ }
 
-    // ── 2. Colas: usar queue_log (last_call por colas es el último evento COMPLETE*) ──
     try {
         $cc = new PDO("mysql:host=$DB_HOST;dbname=asteriskcdrdb;charset=utf8", $DB_USER, $DB_PASS,
                       [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $sql = "SELECT queuename, MAX(UNIX_TIMESTAMP(time)) AS last_ts
+        $sql = "SELECT queuename, MIN(TIMESTAMPDIFF(SECOND, time, NOW())) AS sec_ago
                 FROM queue_log
                 WHERE event IN ('COMPLETEAGENT','COMPLETECALLER')
                   AND time > DATE_SUB(NOW(), INTERVAL 30 DAY)
                 GROUP BY queuename";
         foreach ($cc->query($sql) as $row) {
-            $queues[$row['queuename']] = (int)$row['last_ts'];
+            $sec = (int)$row['sec_ago'];
+            $queues[$row['queuename']] = $sec < 0 ? 0 : $sec;
         }
     } catch (Exception $e) { /* ignore */ }
 
@@ -86,8 +86,9 @@ function compute_last_calls(): array {
         'success'      => true,
         'generated_at' => time(),
         'ttl'          => CACHE_TTL,
-        'exts'         => $exts,
-        'queues'       => $queues,
+        'exts'         => $exts,        // ahora son sec_ago (segundos desde la última llamada)
+        'queues'       => $queues,      // idem
+        'format'       => 'sec_ago',    // discriminador para clientes nuevos
     ];
 }
 

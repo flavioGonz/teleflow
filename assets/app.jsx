@@ -2059,7 +2059,9 @@ function FloorMap({ data, toast }) {
     const [uploading, setUploading] = useState(false);
     const [picker, setPicker] = useState(null);     // {x_pct, y_pct} cuando se va a colocar nuevo
     const [drag, setDrag] = useState(null);         // {kind, id} en drag activo
-    const [lastCalls, setLastCalls] = useState({ exts:{}, queues:{}, generated_at: 0 });
+    // exts/queues son ahora sec_ago (segundos desde la última call) según el backend.
+    // loadedAt = Date.now()/1000 del browser cuando llegó la data — para ir sumando elapsed.
+    const [lastCalls, setLastCalls] = useState({ exts:{}, queues:{}, loadedAt: 0 });
     const [nowTick, setNowTick] = useState(Math.floor(Date.now()/1000));
     const containerRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -2107,7 +2109,7 @@ function FloorMap({ data, toast }) {
         try {
             const r = await fetch('api/last_calls.php?action=summary', { credentials:'include' });
             const d = await r.json();
-            if (d.success) setLastCalls({ exts: d.exts || {}, queues: d.queues || {}, generated_at: d.generated_at || 0 });
+            if (d.success) setLastCalls({ exts: d.exts || {}, queues: d.queues || {}, loadedAt: Math.floor(Date.now()/1000) });
         } catch(e) {}
     };
     useEffect(() => { load(); loadLast(); }, []);
@@ -2202,17 +2204,25 @@ function FloorMap({ data, toast }) {
         return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
     }, [drag, mapData.markers]);
 
-    // Formato "hace X" relativo desde un timestamp Unix
-    const formatAgo = (ts) => {
-        if (!ts) return null;
-        const delta = nowTick - ts;
+    // Formato "hace X" — recibe sec_ago del backend; suma lo que pasó desde el load
+    // y clamp a 0 si MySQL devolvió un futuro por drift.
+    const computeDelta = (secAgo) => {
+        if (secAgo == null) return null;
+        const elapsed = lastCalls.loadedAt ? (nowTick - lastCalls.loadedAt) : 0;
+        const d = secAgo + Math.max(0, elapsed);
+        return d < 0 ? 0 : d;
+    };
+    const formatAgo = (secAgo) => {
+        const delta = computeDelta(secAgo);
+        if (delta == null) return null;
         if (delta < 60) return `${delta}s`;
         if (delta < 3600) return `${Math.floor(delta/60)}m`;
         if (delta < 86400) return `${Math.floor(delta/3600)}h`;
         if (delta < 30*86400) return `${Math.floor(delta/86400)}d`;
         return '+30d';
     };
-    const ageColor = (delta) => {
+    const ageColor = (secAgo) => {
+        const delta = computeDelta(secAgo);
         if (delta == null) return '#6b7280';
         if (delta < 5*60) return '#22c55e';
         if (delta < 30*60) return '#f59e0b';
@@ -2267,9 +2277,8 @@ function FloorMap({ data, toast }) {
                     const q = queueByKey[String(m.id)] || { name: m.id, extension: m.id, calls_waiting: 0 };
                     const waiting = q.calls_waiting || 0;
                     const inCall = waiting > 0;
-                    const lastTs = lastCalls.queues[q.name] || lastCalls.queues[q.extension] || lastCalls.queues[m.id] || null;
-                    const delta = lastTs ? (nowTick - lastTs) : null;
-                    const ago = formatAgo(lastTs);
+                    const secAgo = lastCalls.queues[q.name] ?? lastCalls.queues[q.extension] ?? lastCalls.queues[m.id] ?? null;
+                    const ago = formatAgo(secAgo);
                     return (
                         <div key={placedKey(m)} data-marker
                              onMouseDown={(e)=>onMarkerMouseDown(m.kind, m.id, e)}
@@ -2301,8 +2310,8 @@ function FloorMap({ data, toast }) {
                                 </div>
                                 {ago && (
                                     <div className="flex items-center gap-1 mt-1" title={`Última llamada contestada hace ${ago}`}>
-                                        <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(delta)}}/>
-                                        <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(delta)}}>{ago}</span>
+                                        <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(secAgo)}}/>
+                                        <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(secAgo)}}>{ago}</span>
                                         <span className="text-[8px]" style={{color:'var(--muted-foreground)'}}>sin call</span>
                                     </div>
                                 )}
@@ -2325,9 +2334,8 @@ function FloorMap({ data, toast }) {
                 const statusColor = inCall ? 'var(--horizon-green)' : (ext.status === 'ONLINE' ? '#22c55e' : (ext.status === 'OFFLINE' ? '#9ca3af' : 'var(--muted-foreground)'));
                 const ini = (ext.name||ext.ext||'?').split(/[\s\-_]+/).map(p=>p[0]||'').join('').substring(0,2).toUpperCase();
                 const extQueues = ext.queues || ext.queue_memberships || [];
-                const lastTs = lastCalls.exts[String(m.id)] || null;
-                const delta = lastTs ? (nowTick - lastTs) : null;
-                const ago = formatAgo(lastTs);
+                const secAgo = lastCalls.exts[String(m.id)] ?? null;
+                const ago = formatAgo(secAgo);
                 return (
                     <div key={placedKey(m)} data-marker
                          onMouseDown={(e)=>onMarkerMouseDown(m.kind, m.id, e)}
@@ -2373,8 +2381,8 @@ function FloorMap({ data, toast }) {
                             )}
                             {ago && (
                                 <div className="flex items-center gap-1 mt-1" title={`Última llamada contestada hace ${ago}`}>
-                                    <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(delta)}}/>
-                                    <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(delta)}}>{ago}</span>
+                                    <span style={{width:5, height:5, borderRadius:'50%', background: ageColor(secAgo)}}/>
+                                    <span className="font-mono text-[8.5px] font-bold" style={{color: ageColor(secAgo)}}>{ago}</span>
                                     <span className="text-[8px]" style={{color:'var(--muted-foreground)'}}>sin call</span>
                                 </div>
                             )}
