@@ -5,3 +5,14 @@ realtime/.env
 *.bak
 *.bak.*
 vendor/
+
+# SQLite ACL local (v1) — generated on first PHP run, not for git
+db/
+
+# v2 — env files con secrets (los .example sí van al repo)
+v2/.env
+v2/.env.prod
+v2/backend/.env
+v2/realtime/.env
+v2/**/dist/
+v2/**/*.log

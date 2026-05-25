@@ -1,0 +1,220 @@
+// HznFlow — schema unificado (auth + app data)
+// PostgreSQL local. Las tablas de Asterisk (extensiones, queues, ringgroups, CDR)
+// se quedan en MySQL remoto y se acceden con mysql2 directo, NO acá.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  supervisor
+  operator
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(admin)
+  fullName      String?   @map("full_name")
+  email         String?
+  active        Boolean   @default(true)
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  avatar        UserAvatar?
+
+  @@map("users")
+}
+
+model UserAvatar {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique @map("user_id")
+  mimeType   String   @map("mime_type")
+  data       Bytes
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_avatars")
+}
+
+// ─── AGENTES (metadata propia, no SIP) ────────────────────────────────
+
+model Agent {
+  id             Int       @id @default(autoincrement())
+  number         String    @unique // ej. "200" — matchea con extension SIP. Autogenerado, no editable.
+  name           String
+  email          String?
+  phone          String?
+  avatarUrl      String?   @map("avatar_url")
+  password       String?   // password para login del agente (hash)
+  active         Boolean   @default(true)
+  sector         String?   // ej. "Operaciones", "Monitoreo Hik", "España"
+  /// Turno laboral. Estructura: { start: "HH:MM", end: "HH:MM", days: ["MON",...,"SUN"] }
+  shift          Json?
+  hireDate       DateTime? @map("hire_date") @db.Date
+  status         String?   // ONLINE, OFFLINE, ACW, PAUSED — sincroniza con AMI
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  sessions       AgentSession[]
+  pauses         AgentPause[]
+  queuePrefs     AgentQueuePref[]
+
+  @@map("agents")
+}
+
+model AgentSession {
+  id              Int       @id @default(autoincrement())
+  agentId         Int       @map("agent_id")
+  sessionId       String?   @map("session_id") // ID externo (UUID)
+  extension       String    // ej. "9001"
+  loginTime       DateTime  @default(now()) @map("login_time")
+  logoutTime      DateTime? @map("logout_time")
+  shiftDate       DateTime? @map("shift_date") @db.Date
+  status          String?
+  totalCalls      Int       @default(0) @map("total_calls")
+  totalTalkTime   Int       @default(0) @map("total_talk_time")
+  totalAcwTime    Int       @default(0) @map("total_acw_time")
+  totalPauseTime  Int       @default(0) @map("total_pause_time")
+  moodFlags       String?   @map("mood_flags")
+  ip              String?
+  userAgent       String?   @map("user_agent")
+  queues          String?   // CSV de queue IDs en las que se logueó
+
+  agent           Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, logoutTime])
+  @@index([extension])
+  @@index([sessionId])
+  @@map("agent_sessions")
+}
+
+model PauseType {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique // ej. "BREAK", "LUNCH"
+  label        String
+  color        String?
+  billable     Boolean   @default(false)
+
+  pauses       AgentPause[]
+
+  @@map("pause_types")
+}
+
+model AgentPause {
+  id              Int        @id @default(autoincrement())
+  agentId         Int        @map("agent_id")
+  pauseTypeId     Int?       @map("pause_type_id")
+  sessionId       String?    @map("session_id")
+  startTime       DateTime   @default(now()) @map("pause_start")
+  endTime         DateTime?  @map("pause_end")
+  durationSeconds Int?       @map("duration_seconds")
+  reason          String?
+
+  agent           Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  pauseType       PauseType? @relation(fields: [pauseTypeId], references: [id])
+
+  @@index([agentId, endTime])
+  @@map("agent_pauses")
+}
+
+model AgentQueuePref {
+  id           Int      @id @default(autoincrement())
+  agentId      Int      @map("agent_id")
+  queueId      String   @map("queue") // ID de la queue en Asterisk
+  penalty      Int      @default(0)
+
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, queueId])
+  @@map("agent_queue_pref")
+}
+
+// ─── QUEUE EVENTS (tracking en tiempo real) ───────────────────────────
+
+model QueueEvent {
+  id           Int      @id @default(autoincrement())
+  queueId      String   @map("queue_id")
+  eventType    String   @map("event_type") // join, leave, abandon, connect, complete
+  callerId     String?  @map("caller_id")
+  agentExt     String?  @map("agent_ext")
+  uniqueId     String?  @map("unique_id")
+  waitTime     Int?     @map("wait_time_sec")
+  talkTime     Int?     @map("talk_time_sec")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([queueId, createdAt])
+  @@index([uniqueId])
+  @@map("queue_events")
+}
+
+model QueueCallEntry {
+  id           Int      @id @default(autoincrement())
+  queueId      String   @map("queue_id")
+  uniqueId     String   @unique @map("unique_id")
+  callerId     String?  @map("caller_id")
+  enteredAt    DateTime @default(now()) @map("entered_at")
+  answeredAt   DateTime? @map("answered_at")
+  endedAt      DateTime? @map("ended_at")
+  answeredBy   String?  @map("answered_by") // extensión del agente
+  abandoned    Boolean  @default(false)
+  waitTime     Int?     @map("wait_time_sec")
+  talkTime     Int?     @map("talk_time_sec")
+
+  @@index([queueId, enteredAt])
+  @@map("queue_call_entry")
+}
+
+// ─── EXTENSION METADATA (info propia, NO datos SIP) ───────────────────
+// La data SIP (extensión, password, codec) vive en MySQL Asterisk.
+// Acá solo guardamos lo que la app necesita extra.
+
+model ExtMeta {
+  ext           String    @id // ej. "2005"
+  avatarUrl     String?   @map("avatar_url")
+  tipo          String?   // "cliente", "horizon", "interno"
+  rtspUrl       String?   @map("rtsp_url") @db.VarChar(500)
+  rtspLabel     String?   @map("rtsp_label")
+  rtspUrlSource String?   @map("rtsp_url_source") // "manual" | "auto"
+  rtspAutoTriedAt DateTime? @map("rtsp_auto_tried_at")
+  isBocina      Boolean   @default(false) @map("is_bocina")
+  doorDtmfCode  String?   @map("door_dtmf_code")
+  location      String?
+  notes         String?
+  customFields  Json?     @map("custom_fields")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("ext_meta")
+}
+
+// ─── SETTINGS (key-value de la app) ───────────────────────────────────
+
+model AppSetting {
+  key          String   @id
+  value        String   @db.Text
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+// ─── PBX CONFIG (overrides del FreePBX que controla la app) ───────────
+
+model PbxConfig {
+  key          String   @id
+  value        String   @db.Text
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("pbx_config")
+}

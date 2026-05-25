@@ -1,0 +1,87 @@
+# Override para PRODUCCIÓN.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# (o `make prod-deploy`)
+#
+# Diferencias con dev:
+#  - SIN servicio postgres (usar Postgres managed externo via DATABASE_URL)
+#  - Sin volúmenes de código (todo se buildea en imagen)
+#  - Sin puertos expuestos innecesariamente
+#  - Healthchecks estrictos en backend
+#  - JSON logging para agregadores
+#  - Restart policies y resource limits
+
+services:
+  # Postgres NO se levanta en prod — usar managed externo.
+  # Si igual queremos selfhosted, descomentar abajo:
+  postgres:
+    profiles: ['_disabled']   # ← se queda fuera del grupo default
+    # (sigue heredando del docker-compose.yml base por si activás el profile)
+
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CORS_ORIGIN: "${CORS_ORIGIN}"
+      DATABASE_URL: "${DATABASE_URL}"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-8h}"
+      ASTERISK_DB_HOST: "${ASTERISK_DB_HOST}"
+      ASTERISK_DB_PORT: "${ASTERISK_DB_PORT}"
+      ASTERISK_DB_USER: "${ASTERISK_DB_USER}"
+      ASTERISK_DB_PASS: "${ASTERISK_DB_PASS}"
+      ASTERISK_DB_NAME: "${ASTERISK_DB_NAME}"
+      CDR_DB_NAME: "${CDR_DB_NAME}"
+      AMI_HOST: "${AMI_HOST}"
+      AMI_PORT: "${AMI_PORT}"
+      AMI_USER: "${AMI_USER}"
+      AMI_PASS: "${AMI_PASS}"
+    # Quitamos depends_on de postgres (ya no existe)
+    depends_on: !reset []
+    # Sólo expuesto si el frontend está en otro host; si está atrás de nginx mismo host, no hace falta.
+    ports:
+      - "${BACKEND_PUBLIC_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+
+  frontend:
+    restart: always
+    ports:
+      - "${FRONTEND_PUBLIC_PORT:-80}:80"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    deploy:
+      resources:
+        limits: { cpus: '0.5', memory: 128M }
+
+  realtime:
+    restart: always
+    environment:
+      AMI_HOST: "${AMI_HOST}"
+      AMI_PORT: "${AMI_PORT}"
+      AMI_USER: "${AMI_USER}"
+      AMI_PASS: "${AMI_PASS}"
+      WS_PORT: "3001"
+      DB_HOST: "${ASTERISK_DB_HOST}"
+      DB_USER: "${ASTERISK_DB_USER}"
+      DB_PASS: "${ASTERISK_DB_PASS}"
+      DB_NAME: "teleflow"
+    ports:
+      - "${REALTIME_PUBLIC_PORT:-3001}:3001"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    deploy:
+      resources:
+        limits: { cpus: '0.5', memory: 256M }

@@ -1,0 +1,31 @@
+# Override para desarrollo — hot reload en backend y frontend.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# (o `make dev` desde la raíz de v2/)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: sh -c "npx prisma db push --skip-generate --accept-data-loss && npx tsx watch src/index.ts"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_PROXY_TARGET: "http://backend:4000"
+    command: npm run dev -- --host 0.0.0.0

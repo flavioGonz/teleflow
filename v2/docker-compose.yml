@@ -1,0 +1,90 @@
+# HznFlow v2 — stack completo para dev/staging.
+# Levantar: docker compose up -d --build
+# Acceso:   http://localhost:3000  (frontend)  ·  http://localhost:4000  (backend)
+#
+# Para prod: cada servicio se puede deployar por separado.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hznflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hznflow
+      POSTGRES_USER: hznflow
+      POSTGRES_PASSWORD: hznflow_dev_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - hznflow-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hznflow -d hznflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hznflow-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CORS_ORIGIN: "http://localhost:3000"
+      DATABASE_URL: "postgresql://hznflow:hznflow_dev_pass@postgres:5432/hznflow?schema=public"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-prod-please}"
+      JWT_EXPIRES_IN: "24h"
+      ASTERISK_DB_HOST: "${ASTERISK_DB_HOST:-10.1.1.7}"
+      ASTERISK_DB_PORT: "${ASTERISK_DB_PORT:-3306}"
+      ASTERISK_DB_USER: "${ASTERISK_DB_USER:-tfremote}"
+      ASTERISK_DB_PASS: "${ASTERISK_DB_PASS:-}"
+      ASTERISK_DB_NAME: "${ASTERISK_DB_NAME:-asterisk}"
+      CDR_DB_NAME: "${CDR_DB_NAME:-asteriskcdrdb}"
+      AMI_HOST: "${AMI_HOST:-10.1.1.7}"
+      AMI_PORT: "${AMI_PORT:-5038}"
+      AMI_USER: "${AMI_USER:-teleflow}"
+      AMI_PASS: "${AMI_PASS:-}"
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hznflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+  realtime:
+    build:
+      context: ./realtime
+      dockerfile: Dockerfile
+    container_name: hznflow-realtime
+    restart: unless-stopped
+    environment:
+      AMI_HOST: "${AMI_HOST:-10.1.1.7}"
+      AMI_PORT: "${AMI_PORT:-5038}"
+      AMI_USER: "${AMI_USER:-teleflow}"
+      AMI_PASS: "${AMI_PASS:-}"
+      WS_PORT: "3001"
+      DB_HOST: "${ASTERISK_DB_HOST:-10.1.1.7}"
+      DB_USER: "${ASTERISK_DB_USER:-tfremote}"
+      DB_PASS: "${ASTERISK_DB_PASS:-}"
+      DB_NAME: "teleflow"
+    ports:
+      - "3001:3001"
+
+# Mensaje útil al ejecutar `docker compose config`
+name: hznflow
+
+volumes:
+  hznflow-pgdata:
+    name: hznflow-pgdata
