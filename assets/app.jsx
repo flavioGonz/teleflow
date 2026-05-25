@@ -2117,14 +2117,12 @@ function DashRecordingsBlock({ recs, data }) {
                                             <span className="material-icons-round" style={{fontSize:18}}>{isOpen ? 'pause' : 'play_arrow'}</span>
                                         </button>
 
-                                        {/* Mini snapshot/preview RTSP (si la ext tiene RTSP) */}
+                                        {/* Indicador de cámara disponible (live stream aparece al expandir) */}
                                         {rtspExt ? (
-                                            <div className="shrink-0 rounded-md overflow-hidden border" style={{width:48, height:36, background:'#0a0a0d', borderColor:'var(--border)', position:'relative'}}>
-                                                <img src={`uploads/rtsp_snapshots/${rtspExt}/latest.jpg?v=${(r.calldate||'').replace(/\D+/g,'')}`}
-                                                     alt="" loading="lazy"
-                                                     style={{width:'100%', height:'100%', objectFit:'cover'}}
-                                                     onError={(e)=>{ e.target.style.display='none'; }}/>
-                                                <span className="material-icons-round" style={{position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', fontSize:18, color:'rgba(255,255,255,0.35)', pointerEvents:'none'}}>videocam</span>
+                                            <div className="shrink-0 rounded-md overflow-hidden border flex items-center justify-center" style={{width:48, height:36, background:'linear-gradient(135deg, #0a0a0d, #1a1a20)', borderColor:'var(--border)', position:'relative'}}
+                                                 title={`Cámara RTSP disponible (ext ${rtspExt})`}>
+                                                <span className="material-icons-round" style={{fontSize:18, color:'rgba(34,197,94,0.7)'}}>videocam</span>
+                                                <span style={{position:'absolute', top:3, right:3, width:5, height:5, borderRadius:'50%', background:'#22c55e', boxShadow:'0 0 4px #22c55e'}}/>
                                             </div>
                                         ) : null}
 
@@ -2367,8 +2365,8 @@ function DisuasionBlock({ data, toast }) {
 }
 
 // ─────────────────────────────────────────────
-// ViewClientes — Operaciones / Clientes (rediseño profesional)
-// Tabs: Resumen · Extensiones · Parlantes · Colas · NVR · Notas
+// VIEW: Operaciones · Clientes (v2 PROFESIONAL)
+// Layout: hero header + search prominente + filter chips + sidebar pro + tabs
 // ─────────────────────────────────────────────
 function ViewClientes({ toast, data }) {
     const [clients, setClients] = useState([]);
@@ -2380,6 +2378,8 @@ function ViewClientes({ toast, data }) {
     const [bootPreview, setBootPreview] = useState(null);
     const [tab, setTab] = useState('resumen');
     const [search, setSearch] = useState('');
+    const [filter, setFilter] = useState(null);       // null | 'nvr' | 'paging' | 'queue' | 'empty'
+    const [sortBy, setSortBy] = useState('name');     // 'name' | 'ext' | 'recent'
     const [loading, setLoading] = useState(true);
     const exts = data?.pbx?.extensions || [];
     const queues = data?.pbx?.queues || [];
@@ -2434,12 +2434,10 @@ function ViewClientes({ toast, data }) {
             const r = await fetch(url, { method:'POST', credentials:'include' });
             const d = await r.json();
             if (!d.success) { toast?.(d.error || 'Error bootstrap', 'error'); return; }
-            if (dryRun) {
-                setBootPreview(d);
-            } else {
+            if (dryRun) { setBootPreview(d); }
+            else {
                 toast?.(`Bootstrap: ${d.stats.created} clientes nuevos, ${d.stats.reused} existentes, ${d.stats.assoc} asociaciones`, 'success');
-                setBootPreview(null);
-                loadClients();
+                setBootPreview(null); loadClients();
             }
         } catch (e) { toast?.('Error de red', 'error'); }
     };
@@ -2448,90 +2446,166 @@ function ViewClientes({ toast, data }) {
         clientes: clients.length,
         ext: clients.reduce((s,c)=>s+(c.n_ext||0),0),
         paging: clients.reduce((s,c)=>s+(c.n_paging||0),0),
+        queue: clients.reduce((s,c)=>s+(c.n_queue||0),0),
         nvr: nvrs.length,
         cams: nvrs.reduce((s,n)=>s+(n.channels_total||0),0),
         diskFail: nvrs.reduce((s,n)=>s+(n.n_fail||0),0),
+        empty: clients.filter(c => !c.n_ext && !c.n_paging && !c.n_queue && !c.n_nvr).length,
     }), [clients, nvrs]);
 
-    const filteredClients = clients.filter(c =>
-        !search || (c.name||'').toLowerCase().includes(search.toLowerCase()) ||
-                   (c.address||'').toLowerCase().includes(search.toLowerCase()) ||
-                   (c.contact||'').toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredClients = useMemo(() => {
+        let list = clients;
+        if (search) {
+            const q = search.toLowerCase();
+            list = list.filter(c => (c.name||'').toLowerCase().includes(q) ||
+                                    (c.address||'').toLowerCase().includes(q) ||
+                                    (c.contact||'').toLowerCase().includes(q));
+        }
+        if (filter === 'nvr')    list = list.filter(c => c.n_nvr > 0);
+        if (filter === 'paging') list = list.filter(c => c.n_paging > 0);
+        if (filter === 'queue')  list = list.filter(c => c.n_queue > 0);
+        if (filter === 'empty')  list = list.filter(c => !c.n_ext && !c.n_paging && !c.n_queue && !c.n_nvr);
+        if (sortBy === 'name')   list = [...list].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+        if (sortBy === 'ext')    list = [...list].sort((a,b)=>(b.n_ext||0)-(a.n_ext||0));
+        if (sortBy === 'recent') list = [...list].sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''));
+        return list;
+    }, [clients, search, filter, sortBy]);
 
-    if (loading) return <div className="content-area view-enter"><div className="py-10 text-center text-sm" style={{color:'var(--muted-foreground)'}}><span className="material-icons-round animate-spin mb-2 block" style={{fontSize:32}}>autorenew</span>Cargando clientes…</div></div>;
+    if (loading) return (
+        <div className="content-area view-enter">
+            <div className="py-16 text-center" style={{color:'var(--muted-foreground)'}}>
+                <span className="material-icons-round animate-spin block mb-3" style={{fontSize:38}}>autorenew</span>
+                <p className="text-sm">Cargando clientes…</p>
+            </div>
+        </div>
+    );
 
     return (
         <div className="content-area view-enter">
-            {/* ── Hero header con stats globales ── */}
-            <div className="rounded-xl border p-4 mb-4 flex items-center justify-between gap-4 flex-wrap"
-                 style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--card)) 0%, var(--card) 100%)'}}>
-                <div>
-                    <h2 className="text-xl font-black tracking-tight flex items-center gap-2" style={{color:'var(--foreground)'}}>
-                        <span className="material-icons-round" style={{fontSize:22, color:'var(--primary)'}}>apartment</span>
-                        Operaciones · Clientes
-                    </h2>
-                    <p className="text-xs mt-1" style={{color:'var(--muted-foreground)'}}>Gestión de extensiones, parlantes, colas y NVR agrupados por cliente.</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <StatPill icon="apartment"   label="Clientes"  value={totalsGlobal.clientes}  color="var(--primary)"/>
-                    <StatPill icon="phone"       label="Ext"       value={totalsGlobal.ext}       color="#22c55e"/>
-                    <StatPill icon="campaign"    label="Parlantes" value={totalsGlobal.paging}    color="#f59e0b"/>
-                    <StatPill icon="videocam"    label="NVR"       value={totalsGlobal.nvr}       color="#3b82f6"/>
-                    <StatPill icon="camera_alt"  label="Cámaras"   value={totalsGlobal.cams}      color="#8b5cf6"/>
-                    {totalsGlobal.diskFail > 0 && <StatPill icon="warning"  label="Discos fail" value={totalsGlobal.diskFail} color="var(--destructive)"/>}
+            {/* ═══ HERO HEADER pro ═══ */}
+            <div className="relative rounded-2xl overflow-hidden mb-4"
+                 style={{
+                     background: 'linear-gradient(135deg, color-mix(in srgb, var(--primary) 22%, var(--card)) 0%, color-mix(in srgb, var(--primary) 8%, var(--card)) 60%, var(--card) 100%)',
+                     border: '1px solid color-mix(in srgb, var(--primary) 18%, var(--border))'
+                 }}>
+                {/* Decoración fondo */}
+                <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{
+                    backgroundImage: 'radial-gradient(circle at 10% 20%, var(--primary) 0%, transparent 35%), radial-gradient(circle at 85% 80%, var(--primary) 0%, transparent 35%)'
+                }}/>
+                <div className="relative p-5">
+                    <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="rounded-2xl flex items-center justify-center shadow-lg"
+                                 style={{width:52, height:52,
+                                         background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #000))',
+                                         color:'#fff', boxShadow:'0 8px 24px color-mix(in srgb, var(--primary) 30%, transparent)'}}>
+                                <span className="material-icons-round" style={{fontSize:28}}>apartment</span>
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black tracking-tight leading-tight" style={{color:'var(--foreground)'}}>Clientes</h1>
+                                <p className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>Gestión de extensiones, parlantes, colas y NVR por cliente</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={()=>doBootstrap(true)}>
+                                <span className="material-icons-round mr-1" style={{fontSize:14}}>auto_awesome</span>
+                                Bootstrap auto
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={()=>setNvrEdit({})}>
+                                <span className="material-icons-round mr-1" style={{fontSize:14}}>add_a_photo</span>
+                                Nuevo NVR
+                            </Button>
+                            <Button size="sm" onClick={()=>setEditing({})}>
+                                <span className="material-icons-round mr-1" style={{fontSize:14}}>add_business</span>
+                                Nuevo cliente
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* SEARCH BAR PROMINENTE */}
+                    <div className="relative max-w-3xl mb-3">
+                        <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2" style={{fontSize:20,color:'var(--muted-foreground)'}}>search</span>
+                        <input type="text" placeholder="Buscar cliente, dirección, contacto o equipo…"
+                               value={search} onChange={e=>setSearch(e.target.value)} autoFocus
+                               className="w-full rounded-xl border h-12 pl-12 pr-12 text-sm font-medium outline-none transition-all focus:shadow-md"
+                               style={{borderColor:'var(--border)', background:'var(--card)', color:'var(--foreground)'}}/>
+                        {search && (
+                            <button onClick={()=>setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-accent">
+                                <span className="material-icons-round" style={{fontSize:16,color:'var(--muted-foreground)'}}>close</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {/* CHIPS de filtro + stats */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <FilterChip active={!filter} onClick={()=>setFilter(null)}    icon="grid_view" label="Todos"      count={totalsGlobal.clientes} color="var(--primary)"/>
+                        <FilterChip active={filter==='nvr'}    onClick={()=>setFilter('nvr')}    icon="videocam"  label="Con NVR"      count={clients.filter(c=>c.n_nvr>0).length} color="#8b5cf6"/>
+                        <FilterChip active={filter==='paging'} onClick={()=>setFilter('paging')} icon="campaign"  label="Con parlantes" count={clients.filter(c=>c.n_paging>0).length} color="#f59e0b"/>
+                        <FilterChip active={filter==='queue'}  onClick={()=>setFilter('queue')}  icon="queue"     label="Con colas"    count={clients.filter(c=>c.n_queue>0).length} color="#3b82f6"/>
+                        {totalsGlobal.empty > 0 && (
+                            <FilterChip active={filter==='empty'} onClick={()=>setFilter('empty')} icon="hourglass_empty" label="Sin recursos" count={totalsGlobal.empty} color="var(--muted-foreground)"/>
+                        )}
+                        <div className="flex-1"/>
+                        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>
+                            <span>Ordenar:</span>
+                            {[{id:'name',l:'A-Z'},{id:'ext',l:'+ Ext'},{id:'recent',l:'Recientes'}].map(s=>(
+                                <button key={s.id} onClick={()=>setSortBy(s.id)} className="px-2 py-0.5 rounded transition-colors" style={{background: sortBy===s.id ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent', color: sortBy===s.id ? 'var(--primary)' : 'var(--muted-foreground)'}}>{s.l}</button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* ── Toolbar ── */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <div className="relative flex-1 min-w-[240px] max-w-md">
-                    <span className="material-icons-round absolute left-2.5 top-1/2 -translate-y-1/2" style={{fontSize:16,color:'var(--muted-foreground)'}}>search</span>
-                    <Input placeholder="Buscar cliente, dirección, contacto…" value={search} onChange={e=>setSearch(e.target.value)} className="pl-8 h-9"/>
-                </div>
-                <div className="flex-1"/>
-                <Button variant="outline" size="sm" onClick={()=>doBootstrap(true)}>
-                    <span className="material-icons-round mr-1" style={{fontSize:14}}>auto_awesome</span>
-                    Bootstrap auto
-                </Button>
-                <Button variant="outline" size="sm" onClick={()=>setNvrEdit({})}>
-                    <span className="material-icons-round mr-1" style={{fontSize:14}}>videocam</span>
-                    Nuevo NVR
-                </Button>
-                <Button size="sm" onClick={()=>setEditing({})}>
-                    <span className="material-icons-round mr-1" style={{fontSize:14}}>add</span>
-                    Nuevo cliente
-                </Button>
+            {/* ═══ STATS BAR superior ═══ */}
+            <div className="grid gap-2 mb-4" style={{gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
+                <KpiCard icon="phone"      label="Extensiones" value={totalsGlobal.ext}    color="#22c55e"/>
+                <KpiCard icon="campaign"   label="Parlantes"   value={totalsGlobal.paging} color="#f59e0b"/>
+                <KpiCard icon="queue"      label="Colas"       value={totalsGlobal.queue}  color="#3b82f6"/>
+                <KpiCard icon="videocam"   label="NVR"         value={totalsGlobal.nvr}    color="#8b5cf6"/>
+                <KpiCard icon="camera_alt" label="Cámaras"     value={totalsGlobal.cams}   color="#06b6d4"/>
+                {totalsGlobal.diskFail > 0 && (
+                    <KpiCard icon="warning" label="Discos fail" value={totalsGlobal.diskFail} color="var(--destructive)" pulse/>
+                )}
             </div>
 
-            {/* ── Body: sidebar + detalle ── */}
-            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(260px, 320px) 1fr'}}>
-                {/* Sidebar */}
-                <div className="space-y-1.5">
+            {/* ═══ BODY: sidebar + detail ═══ */}
+            <div className="grid gap-4" style={{gridTemplateColumns:'minmax(280px, 340px) 1fr'}}>
+                {/* Sidebar pro */}
+                <div className="space-y-1.5 sticky" style={{top:14, maxHeight:'calc(100vh - 200px)', overflow:'auto'}}>
+                    <div className="px-2 pt-1 pb-2 text-[10px] font-black uppercase tracking-widest flex items-center justify-between" style={{color:'var(--muted-foreground)'}}>
+                        <span>{filteredClients.length} cliente{filteredClients.length!==1?'s':''}</span>
+                        {filter && <button onClick={()=>setFilter(null)} className="text-[9px] font-bold" style={{color:'var(--primary)'}}>quitar filtro</button>}
+                    </div>
                     {filteredClients.length === 0 ? (
-                        <Card><CardContent className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                            <span className="material-icons-round block mb-2" style={{fontSize:32, opacity:0.4}}>apartment</span>
-                            {search ? 'Sin coincidencias' : 'Sin clientes aún. Usá "Bootstrap auto" para crearlos desde las extensiones.'}
-                        </CardContent></Card>
+                        <div className="rounded-xl border p-6 text-center text-xs" style={{borderColor:'var(--border)', background:'var(--card)', color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round block mb-2" style={{fontSize:36, opacity:0.35}}>{search ? 'search_off' : 'apartment'}</span>
+                            {search ? `Sin coincidencias para "${search}"` : 'Sin clientes aún.'}
+                            {!search && <div className="mt-3"><Button size="sm" onClick={()=>doBootstrap(true)}><span className="material-icons-round mr-1" style={{fontSize:14}}>auto_awesome</span>Bootstrap auto</Button></div>}
+                        </div>
                     ) : filteredClients.map(c => (
-                        <ClientCard key={c.id} client={c} selected={selected === c.id} onClick={()=>setSelected(c.id)}/>
+                        <ClientCardPro key={c.id} client={c} selected={selected === c.id} onClick={()=>setSelected(c.id)}/>
                     ))}
                 </div>
 
                 {/* Detail */}
                 <div className="min-w-0">
                     {!selected ? (
-                        <Card><CardContent className="py-16 text-center" style={{color:'var(--muted-foreground)'}}>
-                            <span className="material-icons-round block mb-3" style={{fontSize:48, opacity:0.3}}>arrow_back</span>
-                            <p className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Seleccioná un cliente</p>
-                            <p className="text-xs">Sus extensiones, parlantes, colas, NVRs y cámaras aparecerán aquí.</p>
-                        </CardContent></Card>
+                        <div className="rounded-2xl border p-12 text-center" style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, var(--muted) 12%, var(--card)), var(--card))', color:'var(--muted-foreground)'}}>
+                            <div className="rounded-full inline-flex items-center justify-center mb-4 shadow-sm" style={{width:72, height:72, background:'color-mix(in srgb, var(--primary) 15%, var(--card))', color:'var(--primary)'}}>
+                                <span className="material-icons-round" style={{fontSize:36}}>touch_app</span>
+                            </div>
+                            <p className="text-base font-bold mb-1" style={{color:'var(--foreground)'}}>Seleccioná un cliente</p>
+                            <p className="text-xs max-w-md mx-auto">Sus extensiones, parlantes, colas, NVRs y cámaras aparecerán aquí. Usá la búsqueda o los chips de arriba para filtrar.</p>
+                        </div>
                     ) : detail ? (
                         <ClientDetailV2 client={detail} exts={exts} queues={queues} nvrs={nvrs} tab={tab} setTab={setTab}
                                         onEdit={()=>setEditing(detail)} onDelete={()=>delClient(detail.id)}
                                         onSaveAssoc={saveAssoc} onEditNvr={(n)=>setNvrEdit(n)} onNewNvr={()=>setNvrEdit({client_id: detail.id})}/>
                     ) : (
-                        <Card><CardContent className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Cargando detalle…</CardContent></Card>
+                        <div className="rounded-xl border p-8 text-center text-xs" style={{borderColor:'var(--border)', background:'var(--card)', color:'var(--muted-foreground)'}}>
+                            <span className="material-icons-round animate-spin block mb-2" style={{fontSize:24}}>autorenew</span>
+                            Cargando detalle…
+                        </div>
                     )}
                 </div>
             </div>
@@ -2543,45 +2617,74 @@ function ViewClientes({ toast, data }) {
     );
 }
 
-function StatPill({ icon, label, value, color }) {
+function FilterChip({ active, onClick, icon, label, count, color }) {
     return (
-        <div className="rounded-md border px-2.5 py-1.5 flex items-center gap-2"
-             style={{borderColor:`color-mix(in srgb, ${color} 35%, transparent)`, background:`color-mix(in srgb, ${color} 10%, var(--card))`}}>
-            <span className="material-icons-round" style={{fontSize:16, color}}>{icon}</span>
-            <div>
-                <div className="text-xs font-black tabular-nums leading-none" style={{color}}>{value}</div>
-                <div className="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style={{color:'var(--muted-foreground)'}}>{label}</div>
+        <button onClick={onClick}
+                className="rounded-full border px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold transition-all hover:shadow-sm"
+                style={{
+                    borderColor: active ? color : 'var(--border)',
+                    background: active ? `color-mix(in srgb, ${color} 18%, var(--card))` : 'var(--card)',
+                    color: active ? color : 'var(--muted-foreground)'
+                }}>
+            <span className="material-icons-round" style={{fontSize:13}}>{icon}</span>
+            {label}
+            <span className="font-mono px-1.5 py-0 rounded-full text-[9px] font-black" style={{background: active ? color : 'color-mix(in srgb, var(--muted) 50%, transparent)', color: active ? '#fff' : 'var(--muted-foreground)'}}>{count}</span>
+        </button>
+    );
+}
+
+function KpiCard({ icon, label, value, color, pulse }) {
+    return (
+        <div className="rounded-xl border p-3 flex items-center gap-3 transition-all hover:shadow-md"
+             style={{borderColor:`color-mix(in srgb, ${color} 25%, var(--border))`, background:`linear-gradient(135deg, color-mix(in srgb, ${color} 8%, var(--card)) 0%, var(--card) 80%)`}}>
+            <div className="rounded-lg flex items-center justify-center shrink-0"
+                 style={{width:36, height:36,
+                         background:`linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #000))`,
+                         color:'#fff',
+                         animation: pulse ? 'pulse 1.5s infinite' : 'none'}}>
+                <span className="material-icons-round" style={{fontSize:18}}>{icon}</span>
+            </div>
+            <div className="min-w-0">
+                <div className="text-xl font-black tabular-nums leading-none" style={{color:'var(--foreground)'}}>{value}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{color:'var(--muted-foreground)'}}>{label}</div>
             </div>
         </div>
     );
 }
 
-function ClientCard({ client, selected, onClick }) {
+function ClientCardPro({ client, selected, onClick }) {
     const ini = (client.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
     const total = (client.n_ext||0) + (client.n_paging||0) + (client.n_queue||0) + (client.n_nvr||0);
     return (
         <button onClick={onClick}
-                className="w-full text-left rounded-lg border p-2.5 flex items-center gap-2.5 transition-all hover:shadow-sm"
+                className="group w-full text-left rounded-xl border p-3 flex items-center gap-3 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden"
                 style={{
                     borderColor: selected ? 'var(--primary)' : 'var(--border)',
-                    background: selected ? 'color-mix(in srgb, var(--primary) 10%, var(--card))' : 'var(--card)',
+                    background: selected ? 'linear-gradient(135deg, color-mix(in srgb, var(--primary) 14%, var(--card)) 0%, var(--card) 100%)' : 'var(--card)',
                     color:'var(--foreground)'
                 }}>
-            <div className="rounded-md flex items-center justify-center shrink-0 font-black"
-                 style={{width:38, height:38, fontSize:12,
-                         background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #000))',
+            {selected && <span style={{position:'absolute', left:0, top:0, bottom:0, width:3, background:'var(--primary)'}}/>}
+            <div className="rounded-xl flex items-center justify-center shrink-0 font-black shadow-sm"
+                 style={{width:42, height:42, fontSize:13,
+                         background: selected ? 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #000))' : 'linear-gradient(135deg, color-mix(in srgb, var(--primary) 75%, var(--muted)), color-mix(in srgb, var(--primary) 30%, #000))',
                          color:'#fff'}}>{ini}</div>
             <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold truncate">{client.name}</div>
-                {client.contact && <div className="text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{client.contact}</div>}
-                <div className="flex gap-1 mt-1 text-[9px] font-bold">
-                    {client.n_ext > 0    && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #22c55e 14%, transparent)', color:'#22c55e'}}>{client.n_ext} ext</span>}
-                    {client.n_paging > 0 && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #f59e0b 14%, transparent)', color:'#f59e0b'}}>{client.n_paging} pag</span>}
-                    {client.n_queue > 0  && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #3b82f6 14%, transparent)', color:'#3b82f6'}}>{client.n_queue} cola</span>}
-                    {client.n_nvr > 0    && <span className="px-1 rounded" style={{background:'color-mix(in srgb, #8b5cf6 14%, transparent)', color:'#8b5cf6'}}>{client.n_nvr} NVR</span>}
+                <div className="text-sm font-black truncate" style={{color:'var(--foreground)'}}>{client.name}</div>
+                {(client.contact || client.address) && (
+                    <div className="text-[10px] truncate flex items-center gap-1 mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                        {client.address && <><span className="material-icons-round" style={{fontSize:10}}>place</span>{client.address}</>}
+                        {client.contact && !client.address && <><span className="material-icons-round" style={{fontSize:10}}>person</span>{client.contact}</>}
+                    </div>
+                )}
+                <div className="flex gap-1 mt-1.5 text-[9px] font-bold">
+                    {client.n_ext > 0    && <span className="px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{background:'color-mix(in srgb, #22c55e 14%, transparent)', color:'#22c55e'}}><span className="material-icons-round" style={{fontSize:10}}>phone</span>{client.n_ext}</span>}
+                    {client.n_paging > 0 && <span className="px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{background:'color-mix(in srgb, #f59e0b 14%, transparent)', color:'#f59e0b'}}><span className="material-icons-round" style={{fontSize:10}}>campaign</span>{client.n_paging}</span>}
+                    {client.n_queue > 0  && <span className="px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{background:'color-mix(in srgb, #3b82f6 14%, transparent)', color:'#3b82f6'}}><span className="material-icons-round" style={{fontSize:10}}>queue</span>{client.n_queue}</span>}
+                    {client.n_nvr > 0    && <span className="px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{background:'color-mix(in srgb, #8b5cf6 14%, transparent)', color:'#8b5cf6'}}><span className="material-icons-round" style={{fontSize:10}}>videocam</span>{client.n_nvr}</span>}
                     {total === 0 && <span className="text-[9px] italic" style={{color:'var(--muted-foreground)'}}>sin recursos</span>}
                 </div>
             </div>
+            <span className="material-icons-round opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{fontSize:18, color: selected ? 'var(--primary)' : 'var(--muted-foreground)'}}>chevron_right</span>
         </button>
     );
 }
@@ -2594,68 +2697,80 @@ function ClientDetailV2({ client, exts, queues, nvrs, tab, setTab, onEdit, onDel
     const myNvrs   = (client.assoc?.nvr    || []).map(String);
 
     const tabs = [
-        { id:'resumen',    icon:'dashboard',   label:'Resumen',     count: null },
-        { id:'ext',        icon:'phone',       label:'Extensiones', count: myExts.length,   color:'#22c55e' },
-        { id:'paging',     icon:'campaign',    label:'Parlantes',   count: myPaging.length, color:'#f59e0b' },
-        { id:'queue',      icon:'queue',       label:'Colas',       count: myQueues.length, color:'#3b82f6' },
-        { id:'nvr',        icon:'videocam',    label:'NVR',         count: myNvrs.length,   color:'#8b5cf6' },
-        { id:'notas',      icon:'sticky_note_2', label:'Notas',     count: null },
+        { id:'resumen',  icon:'dashboard',       label:'Resumen',     count: null,            color:'var(--primary)' },
+        { id:'ext',      icon:'phone',           label:'Extensiones', count: myExts.length,   color:'#22c55e' },
+        { id:'paging',   icon:'campaign',        label:'Parlantes',   count: myPaging.length, color:'#f59e0b' },
+        { id:'queue',    icon:'queue',           label:'Colas',       count: myQueues.length, color:'#3b82f6' },
+        { id:'nvr',      icon:'videocam',        label:'NVR',         count: myNvrs.length,   color:'#8b5cf6' },
+        { id:'notas',    icon:'sticky_note_2',   label:'Notas',       count: null,            color:'var(--muted-foreground)' },
     ];
 
     return (
-        <Card className="overflow-hidden">
-            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3 space-y-0"
-                        style={{background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, transparent) 0%, transparent 100%)'}}>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="rounded-xl flex items-center justify-center shrink-0 font-black shadow-md"
-                         style={{width:56, height:56, fontSize:18,
-                                 background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #000))',
-                                 color:'#fff'}}>{ini}</div>
-                    <div className="min-w-0">
-                        <CardTitle className="text-lg">{client.name}</CardTitle>
-                        <CardDescription className="text-xs mt-0.5 flex items-center gap-2 flex-wrap">
-                            {client.address && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>place</span>{client.address}</span>}
-                            {client.contact && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>person</span>{client.contact}</span>}
-                        </CardDescription>
+        <div className="rounded-2xl border overflow-hidden" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+            {/* Header pro */}
+            <div className="relative px-5 py-4" style={{background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--card)) 0%, color-mix(in srgb, var(--primary) 4%, var(--card)) 60%, var(--card) 100%)'}}>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="rounded-2xl flex items-center justify-center shrink-0 font-black shadow-lg"
+                             style={{width:64, height:64, fontSize:20,
+                                     background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 45%, #000))',
+                                     color:'#fff'}}>{ini}</div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="text-xl font-black tracking-tight" style={{color:'var(--foreground)'}}>{client.name}</h2>
+                                {(myExts.length + myPaging.length + myQueues.length + myNvrs.length) === 0 && (
+                                    <Badge variant="secondary" className="text-[9px]">sin recursos</Badge>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-3 text-[11px] mt-1" style={{color:'var(--muted-foreground)'}}>
+                                {client.address && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>place</span>{client.address}</span>}
+                                {client.contact && <span className="flex items-center gap-1"><span className="material-icons-round" style={{fontSize:12}}>person</span>{client.contact}</span>}
+                                {!client.address && !client.contact && <span className="italic">sin dirección ni contacto</span>}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <ActionIconButton icon="edit" label="Editar cliente" onClick={onEdit} tone="primary" size={34}/>
+                        <ActionIconButton icon="delete_outline" label="Eliminar cliente" onClick={onDelete} tone="destructive" size={34}/>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                    <ActionIconButton icon="edit" label="Editar cliente" onClick={onEdit} tone="primary" size={32}/>
-                    <ActionIconButton icon="delete_outline" label="Eliminar cliente" onClick={onDelete} tone="destructive" size={32}/>
-                </div>
-            </CardHeader>
-
-            <div className="border-y flex items-center gap-0 overflow-x-auto" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))'}}>
-                {tabs.map(t => (
-                    <button key={t.id} onClick={()=>setTab(t.id)}
-                            className="px-4 py-2.5 -mb-px flex items-center gap-1.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap"
-                            style={{
-                                borderBottomColor: tab===t.id ? (t.color || 'var(--primary)') : 'transparent',
-                                color: tab===t.id ? (t.color || 'var(--primary)') : 'var(--muted-foreground)'
-                            }}>
-                        <span className="material-icons-round" style={{fontSize:14}}>{t.icon}</span>
-                        {t.label}
-                        {t.count != null && <span className="font-mono px-1 rounded text-[9px]" style={{background: tab===t.id ? `color-mix(in srgb, ${t.color||'var(--primary)'} 18%, transparent)` : 'color-mix(in srgb, var(--muted) 40%, transparent)'}}>{t.count}</span>}
-                    </button>
-                ))}
             </div>
 
-            <CardContent className="pt-4">
-                {tab === 'resumen'  && <TabResumen client={client} exts={exts} queues={queues} nvrs={nvrs} myExts={myExts} myPaging={myPaging} myQueues={myQueues} myNvrs={myNvrs}/>}
-                {tab === 'ext'      && <TabAssoc title="Extensiones" icon="phone" color="#22c55e" kind="ext" value={myExts} onSave={onSaveAssoc}
-                                                 fetchItems={async()=>exts.map(e=>({id:String(e.ext), label:`${e.ext} · ${e.name||''}`, sub: e.status}))}/>}
-                {tab === 'paging'   && <TabAssoc title="Parlantes (paging groups)" icon="campaign" color="#f59e0b" kind="paging" value={myPaging} onSave={onSaveAssoc}
-                                                 fetchItems={async()=>{
-                                                     const r = await fetch('api/disuasion.php?action=list',{credentials:'include'});
-                                                     const d = await r.json();
-                                                     return (d.groups||[]).map(g=>({id:String(g.page_code), label:g.name, sub:`*${g.page_code} · ${g.members?.length||0} miembros`}));
-                                                 }}/>}
-                {tab === 'queue'    && <TabAssoc title="Colas" icon="queue" color="#3b82f6" kind="queue" value={myQueues} onSave={onSaveAssoc}
-                                                 fetchItems={async()=>queues.map(q=>({id:String(q.id||q.extension), label:q.name||q.id, sub:`Q${q.id||q.extension}${q.calls_waiting>0 ? ' · '+q.calls_waiting+' espera' : ''}`}))}/>}
-                {tab === 'nvr'      && <TabNvrs nvrs={nvrs} value={myNvrs} onSave={(refs)=>onSaveAssoc('nvr', refs)} onEditNvr={onEditNvr} onNewNvr={onNewNvr}/>}
-                {tab === 'notas'    && <TabNotas notes={client.notes}/>}
-            </CardContent>
-        </Card>
+            {/* Tabs */}
+            <div className="border-y flex items-center gap-0 overflow-x-auto" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 16%, var(--card))'}}>
+                {tabs.map(t => {
+                    const active = tab===t.id;
+                    return (
+                        <button key={t.id} onClick={()=>setTab(t.id)}
+                                className="px-4 py-2.5 -mb-px flex items-center gap-1.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap"
+                                style={{
+                                    borderBottomColor: active ? t.color : 'transparent',
+                                    color: active ? t.color : 'var(--muted-foreground)',
+                                    background: active ? `color-mix(in srgb, ${t.color} 8%, transparent)` : 'transparent'
+                                }}>
+                            <span className="material-icons-round" style={{fontSize:14}}>{t.icon}</span>
+                            {t.label}
+                            {t.count != null && (
+                                <span className="font-mono px-1.5 rounded text-[9px] font-black" style={{background: active ? `color-mix(in srgb, ${t.color} 22%, transparent)` : 'color-mix(in srgb, var(--muted) 40%, transparent)', color: active ? t.color : 'var(--muted-foreground)'}}>{t.count}</span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="p-5">
+                {tab === 'resumen' && <TabResumen client={client} exts={exts} queues={queues} nvrs={nvrs} myExts={myExts} myPaging={myPaging} myQueues={myQueues} myNvrs={myNvrs}/>}
+                {tab === 'ext'     && <TabAssoc title="Extensiones" icon="phone" color="#22c55e" kind="ext" value={myExts} onSave={onSaveAssoc} fetchItems={async()=>exts.map(e=>({id:String(e.ext), label:`${e.ext} · ${e.name||''}`, sub: e.status}))}/>}
+                {tab === 'paging'  && <TabAssoc title="Parlantes (paging groups)" icon="campaign" color="#f59e0b" kind="paging" value={myPaging} onSave={onSaveAssoc} fetchItems={async()=>{
+                                            const r = await fetch('api/disuasion.php?action=list',{credentials:'include'});
+                                            const d = await r.json();
+                                            return (d.groups||[]).map(g=>({id:String(g.page_code), label:g.name, sub:`*${g.page_code} · ${g.members?.length||0} miembros`}));
+                                        }}/>}
+                {tab === 'queue'   && <TabAssoc title="Colas" icon="queue" color="#3b82f6" kind="queue" value={myQueues} onSave={onSaveAssoc} fetchItems={async()=>queues.map(q=>({id:String(q.id||q.extension), label:q.name||q.id, sub:`Q${q.id||q.extension}${q.calls_waiting>0 ? ' · '+q.calls_waiting+' espera' : ''}`}))}/>}
+                {tab === 'nvr'     && <TabNvrs nvrs={nvrs} value={myNvrs} onSave={(refs)=>onSaveAssoc('nvr', refs)} onEditNvr={onEditNvr} onNewNvr={onNewNvr}/>}
+                {tab === 'notas'   && <TabNotas notes={client.notes}/>}
+            </div>
+        </div>
     );
 }
 
@@ -2668,39 +2783,65 @@ function TabResumen({ client, exts, queues, nvrs, myExts, myPaging, myQueues, my
     const totalCams = nvrObjs.reduce((s,n)=>s+(n.channels_total||0),0);
     const failDisks = nvrObjs.reduce((s,n)=>s+(n.n_fail||0),0);
     return (
-        <div className="space-y-4">
-            <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))'}}>
-                <StatCard label="Extensiones"  value={myExts.length}    sub={`${onlineExt} ON · ${busyExt} BUSY · ${offExt} OFF`} color="#22c55e"/>
-                <StatCard label="Parlantes"    value={myPaging.length}  sub="paging groups" color="#f59e0b"/>
-                <StatCard label="Colas"        value={myQueues.length}  sub="callcenter" color="#3b82f6"/>
-                <StatCard label="NVR"          value={myNvrs.length}    sub={`${totalCams} cámaras`} color="#8b5cf6"/>
-                {failDisks > 0 && <StatCard label="Discos en falla" value={failDisks} color="var(--destructive)"/>}
+        <div className="space-y-5">
+            {/* Mini KPIs del cliente */}
+            <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
+                <StatCardV2 label="Extensiones" value={myExts.length}   icon="phone"     color="#22c55e" sub={`${onlineExt} ON · ${busyExt} BUSY · ${offExt} OFF`}/>
+                <StatCardV2 label="Parlantes"   value={myPaging.length} icon="campaign"  color="#f59e0b" sub="paging groups"/>
+                <StatCardV2 label="Colas"       value={myQueues.length} icon="queue"     color="#3b82f6" sub="callcenter"/>
+                <StatCardV2 label="NVR"         value={myNvrs.length}   icon="videocam"  color="#8b5cf6" sub={`${totalCams} cámaras`}/>
+                {failDisks > 0 && <StatCardV2 label="Discos en falla" value={failDisks} icon="warning" color="var(--destructive)" sub="atender"/>}
             </div>
-            {nvrObjs.length > 0 && (
+
+            {/* Equipos NVR */}
+            {nvrObjs.length > 0 ? (
                 <div>
                     <div className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
                         <span className="material-icons-round" style={{fontSize:14, color:'#8b5cf6'}}>videocam</span>
-                        Equipos NVR detectados
+                        Equipos NVR
                     </div>
                     <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))'}}>
                         {nvrObjs.map(n => (
-                            <div key={n.id} className="rounded-md border p-2.5"
+                            <div key={n.id} className="rounded-lg border p-3"
                                  style={{borderColor: n.n_fail > 0 ? 'var(--destructive)' : 'var(--border)', background:'var(--card)'}}>
                                 <div className="flex items-center gap-2">
-                                    <span className="material-icons-round" style={{fontSize:18, color: n.n_fail > 0 ? 'var(--destructive)' : '#8b5cf6'}}>videocam</span>
+                                    <div className="rounded-md flex items-center justify-center shrink-0" style={{width:30, height:30, background:'linear-gradient(135deg, #8b5cf6, #6d28d9)', color:'#fff'}}>
+                                        <span className="material-icons-round" style={{fontSize:16}}>videocam</span>
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-xs font-bold truncate">{n.name}</div>
                                         <div className="font-mono text-[10px]" style={{color:'var(--muted-foreground)'}}>{n.ip}</div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 mt-1.5 text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                                    <span>{n.channels_total} cámaras</span>·<span style={{color: n.n_fail>0 ? 'var(--destructive)' : 'inherit'}}>{n.n_disks} discos</span>
+                                <div className="flex items-center gap-2 mt-2 text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                    <span><strong>{n.channels_total}</strong> cám</span>
+                                    <span>·</span>
+                                    <span style={{color: n.n_fail>0 ? 'var(--destructive)' : 'inherit'}}><strong>{n.n_disks}</strong> discos{n.n_fail>0?` (${n.n_fail} fail)`:''}</span>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
+            ) : (
+                <div className="rounded-lg border-2 border-dashed p-6 text-center" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
+                    <span className="material-icons-round block mb-2" style={{fontSize:32, opacity:0.4}}>videocam_off</span>
+                    <p className="text-xs font-bold mb-1" style={{color:'var(--foreground)'}}>Sin NVRs asociados</p>
+                    <p className="text-[11px]">Ir a la pestaña <strong>NVR</strong> para asociar uno existente o crear uno nuevo.</p>
+                </div>
             )}
+        </div>
+    );
+}
+
+function StatCardV2({ label, value, sub, color, icon }) {
+    return (
+        <div className="rounded-lg border p-3 transition-all hover:shadow-sm" style={{borderColor:'var(--border)', background:`linear-gradient(135deg, color-mix(in srgb, ${color} 6%, var(--card)), var(--card))`}}>
+            <div className="flex items-center gap-2 mb-1">
+                {icon && <span className="material-icons-round" style={{fontSize:14, color}}>{icon}</span>}
+                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</span>
+            </div>
+            <div className="text-2xl font-black tabular-nums leading-tight" style={{color: color || 'var(--foreground)'}}>{value}</div>
+            {sub && <div className="text-[10px] font-mono mt-0.5" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
         </div>
     );
 }
@@ -2723,28 +2864,31 @@ function TabAssoc({ title, icon, color, kind, value, onSave, fetchItems }) {
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                    <span className="material-icons-round" style={{fontSize:18, color}}>{icon}</span>
-                    <span className="text-sm font-bold" style={{color:'var(--foreground)'}}>{title}</span>
+                    <span className="material-icons-round" style={{fontSize:20, color}}>{icon}</span>
+                    <span className="text-base font-bold" style={{color:'var(--foreground)'}}>{title}</span>
                     <Badge variant="secondary" className="font-mono text-[10px]">{sel.length} seleccionados</Badge>
+                    {dirty && <Badge className="text-[9px]" style={{background:'color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent)', color:'var(--warning, #f59e0b)'}}>cambios pendientes</Badge>}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Input placeholder="Filtrar…" value={q} onChange={e=>setQ(e.target.value)} className="h-8 w-44"/>
+                    <div className="relative">
+                        <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2" style={{fontSize:14,color:'var(--muted-foreground)'}}>search</span>
+                        <Input placeholder="Filtrar…" value={q} onChange={e=>setQ(e.target.value)} className="h-9 pl-7 w-52"/>
+                    </div>
                     <Button size="sm" disabled={!dirty} onClick={()=>onSave(kind, sel)}>
-                        <span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>
-                        Guardar
+                        <span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar
                     </Button>
                 </div>
             </div>
-            {loading ? <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>Cargando…</div> :
+            {loading ? <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}><span className="material-icons-round animate-spin block mb-1">autorenew</span>Cargando…</div> :
               filtered.length === 0 ? <div className="py-8 text-center text-xs" style={{color:'var(--muted-foreground)'}}>{items.length === 0 ? 'Sin elementos disponibles' : 'Sin coincidencias'}</div> :
-              <div className="grid gap-1.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', maxHeight:380, overflow:'auto'}}>
+              <div className="grid gap-1.5" style={{gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', maxHeight:420, overflow:'auto'}}>
                 {filtered.map(it => {
                     const selFlag = sel.includes(String(it.id));
                     return (
                         <button key={it.id} onClick={()=>toggle(it.id)}
-                                className="rounded-md border p-2 text-left transition-all hover:shadow-sm flex items-center gap-2"
-                                style={{borderColor: selFlag ? color : 'var(--border)', background: selFlag ? `color-mix(in srgb, ${color} 10%, var(--card))` : 'var(--card)'}}>
-                            <span className="material-icons-round" style={{fontSize:14, color: selFlag ? color : 'var(--muted-foreground)'}}>
+                                className="rounded-lg border p-2.5 text-left transition-all hover:shadow-sm flex items-center gap-2.5"
+                                style={{borderColor: selFlag ? color : 'var(--border)', background: selFlag ? `color-mix(in srgb, ${color} 8%, var(--card))` : 'var(--card)'}}>
+                            <span className="material-icons-round" style={{fontSize:18, color: selFlag ? color : 'var(--muted-foreground)'}}>
                                 {selFlag ? 'check_circle' : 'radio_button_unchecked'}
                             </span>
                             <div className="flex-1 min-w-0">
@@ -2773,9 +2917,10 @@ function TabNvrs({ nvrs, value, onSave, onEditNvr, onNewNvr }) {
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                    <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>videocam</span>
-                    <span className="text-sm font-bold">NVRs asociados</span>
+                    <span className="material-icons-round" style={{fontSize:20, color:'#8b5cf6'}}>videocam</span>
+                    <span className="text-base font-bold">NVRs asociados</span>
                     <Badge variant="secondary" className="font-mono text-[10px]">{sel.length}/{nvrs.length}</Badge>
+                    {dirty && <Badge className="text-[9px]" style={{background:'color-mix(in srgb, var(--warning, #f59e0b) 18%, transparent)', color:'var(--warning, #f59e0b)'}}>cambios pendientes</Badge>}
                 </div>
                 <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={onNewNvr}>
@@ -2787,36 +2932,37 @@ function TabNvrs({ nvrs, value, onSave, onEditNvr, onNewNvr }) {
                 </div>
             </div>
             {nvrs.length === 0 ? (
-                <div className="py-12 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                <div className="rounded-lg border-2 border-dashed p-10 text-center text-xs" style={{borderColor:'var(--border)', color:'var(--muted-foreground)'}}>
                     <span className="material-icons-round block mb-2" style={{fontSize:42, opacity:0.4}}>videocam_off</span>
-                    Aún no hay NVRs registrados. Tocá <strong>Nuevo NVR</strong> para agregar uno.
+                    <p className="text-sm font-bold mb-1" style={{color:'var(--foreground)'}}>Aún no hay NVRs registrados</p>
+                    <p className="mb-3">Tocá <strong>Nuevo NVR</strong> arriba para agregar uno.</p>
                 </div>
             ) : (
-                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))'}}>
+                <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))'}}>
                     {nvrs.map(n => {
                         const selFlag = sel.includes(String(n.id));
                         return (
-                            <div key={n.id} className="rounded-md border p-2.5 transition-all"
+                            <div key={n.id} className="rounded-lg border p-3 transition-all hover:shadow-sm"
                                  style={{borderColor: selFlag ? '#8b5cf6' : (n.n_fail>0 ? 'var(--destructive)' : 'var(--border)'),
-                                         background: selFlag ? 'color-mix(in srgb, #8b5cf6 8%, var(--card))' : 'var(--card)'}}>
+                                         background: selFlag ? 'color-mix(in srgb, #8b5cf6 6%, var(--card))' : 'var(--card)'}}>
                                 <div className="flex items-start gap-2">
-                                    <button onClick={()=>toggle(n.id)}>
-                                        <span className="material-icons-round" style={{fontSize:18, color: selFlag ? '#8b5cf6' : 'var(--muted-foreground)'}}>
+                                    <button onClick={()=>toggle(n.id)} className="shrink-0 pt-0.5">
+                                        <span className="material-icons-round" style={{fontSize:20, color: selFlag ? '#8b5cf6' : 'var(--muted-foreground)'}}>
                                             {selFlag ? 'check_circle' : 'radio_button_unchecked'}
                                         </span>
                                     </button>
+                                    <div className="rounded-md flex items-center justify-center shrink-0" style={{width:30, height:30, background:'linear-gradient(135deg, #8b5cf6, #6d28d9)', color:'#fff'}}>
+                                        <span className="material-icons-round" style={{fontSize:16}}>videocam</span>
+                                    </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1">
-                                            <span className="material-icons-round" style={{fontSize:14, color:'#8b5cf6'}}>videocam</span>
-                                            <span className="text-xs font-bold truncate">{n.name}</span>
-                                        </div>
+                                        <div className="text-xs font-bold truncate">{n.name}</div>
                                         <div className="font-mono text-[10px] truncate" style={{color:'var(--muted-foreground)'}}>{n.ip} · {n.model||'—'}</div>
                                         <div className="text-[10px] mt-1" style={{color:'var(--muted-foreground)'}}>
-                                            {n.channels_total} cámaras · {n.n_disks} discos
+                                            <strong>{n.channels_total}</strong> cámaras · <strong>{n.n_disks}</strong> discos
                                             {n.n_fail > 0 && <span style={{color:'var(--destructive)'}}> · {n.n_fail} fail</span>}
                                         </div>
                                     </div>
-                                    <ActionIconButton icon="edit" label="Editar NVR" onClick={()=>onEditNvr(n)} tone="primary" size={26}/>
+                                    <ActionIconButton icon="edit" label="Editar NVR" onClick={()=>onEditNvr(n)} tone="primary" size={28}/>
                                 </div>
                             </div>
                         );
@@ -2829,18 +2975,15 @@ function TabNvrs({ nvrs, value, onSave, onEditNvr, onNewNvr }) {
 
 function TabNotas({ notes }) {
     return (
-        <div className="rounded-md border p-3 text-xs whitespace-pre-wrap" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))', color: notes ? 'var(--foreground)' : 'var(--muted-foreground)', minHeight:80}}>
-            {notes || 'Sin notas. Editá el cliente para agregar notas.'}
-        </div>
-    );
-}
-
-function StatCard({ label, value, sub, color }) {
-    return (
-        <div className="rounded-md border p-2.5" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 20%, var(--card))'}}>
-            <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</div>
-            <div className="text-lg font-black tabular-nums" style={{color: color || 'var(--foreground)'}}>{value}</div>
-            {sub && <div className="text-[9px] font-mono" style={{color:'var(--muted-foreground)'}}>{sub}</div>}
+        <div className="space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{color:'var(--muted-foreground)'}}>
+                <span className="material-icons-round" style={{fontSize:14}}>sticky_note_2</span>Notas
+            </div>
+            <div className="rounded-lg border p-4 text-sm whitespace-pre-wrap" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 15%, var(--card))', color: notes ? 'var(--foreground)' : 'var(--muted-foreground)', minHeight:120}}>
+                {notes || (
+                    <span className="italic text-xs">Sin notas. Editá el cliente para agregar notas.</span>
+                )}
+            </div>
         </div>
     );
 }
@@ -2849,18 +2992,23 @@ function ClientEditModal({ client, onSave, onCancel }) {
     const [f, setF] = useState({ id: client.id || '', name: client.name || '', address: client.address || '', contact: client.contact || '', notes: client.notes || '' });
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
-            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-md" style={{background:'var(--card)', borderColor:'var(--border)'}}>
-                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
-                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>{f.id ? 'edit' : 'add_business'}</span>
-                    <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} cliente</span>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-2xl border shadow-2xl w-full max-w-md overflow-hidden" style={{background:'var(--card)', borderColor:'var(--border)'}}>
+                <div className="p-4 border-b flex items-center gap-3" style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent)'}}>
+                    <div className="rounded-xl flex items-center justify-center" style={{width:40, height:40, background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #000))', color:'#fff'}}>
+                        <span className="material-icons-round" style={{fontSize:20}}>{f.id ? 'edit' : 'add_business'}</span>
+                    </div>
+                    <div>
+                        <div className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} cliente</div>
+                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Datos básicos del cliente</div>
+                    </div>
                 </div>
-                <div className="p-4 space-y-3">
+                <div className="p-5 space-y-3">
                     <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="Fit26, UrbanVII…" autoFocus/></div>
                     <div><Label>Dirección</Label><Input value={f.address} onChange={e=>setF({...f,address:e.target.value})}/></div>
                     <div><Label>Contacto</Label><Input value={f.contact} onChange={e=>setF({...f,contact:e.target.value})} placeholder="Nombre · Teléfono · Email"/></div>
                     <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={3} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
                 </div>
-                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 15%, transparent)'}}>
                     <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
                     <Button size="sm" onClick={()=>onSave(f)}><span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar</Button>
                 </div>
@@ -2880,18 +3028,23 @@ function NvrEditModal({ nvr, clients, onSave, onCancel }) {
     });
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
-            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-lg" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'90vh', overflow:'auto'}}>
-                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
-                    <span className="material-icons-round" style={{fontSize:18, color:'#8b5cf6'}}>videocam</span>
-                    <span className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} NVR</span>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-2xl border shadow-2xl w-full max-w-2xl overflow-hidden" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'90vh', display:'flex', flexDirection:'column'}}>
+                <div className="p-4 border-b flex items-center gap-3 shrink-0" style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, #8b5cf6 10%, transparent), transparent)'}}>
+                    <div className="rounded-xl flex items-center justify-center" style={{width:40, height:40, background:'linear-gradient(135deg, #8b5cf6, #6d28d9)', color:'#fff'}}>
+                        <span className="material-icons-round" style={{fontSize:20}}>videocam</span>
+                    </div>
+                    <div>
+                        <div className="font-bold text-sm">{f.id ? 'Editar' : 'Nuevo'} NVR</div>
+                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Datos del equipo + credenciales SNMP</div>
+                    </div>
                 </div>
-                <div className="p-4 space-y-3">
+                <div className="p-5 space-y-3 overflow-auto">
                     <div className="grid grid-cols-2 gap-3">
                         <div><Label>Nombre</Label><Input value={f.name} onChange={e=>setF({...f,name:e.target.value})} autoFocus/></div>
                         <div><Label>Modelo</Label><Input value={f.model} onChange={e=>setF({...f,model:e.target.value})} placeholder="DS-7616NI / NVR4216"/></div>
                         <div><Label>IP</Label><Input value={f.ip} onChange={e=>setF({...f,ip:e.target.value})} placeholder="10.20.x.x"/></div>
                         <div><Label>Cliente</Label>
-                            <select value={f.client_id || ''} onChange={e=>setF({...f,client_id:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm h-9" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
+                            <select value={f.client_id || ''} onChange={e=>setF({...f,client_id:e.target.value})} className="w-full rounded-md border px-2 text-sm h-9" style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}>
                                 <option value="">— sin cliente —</option>
                                 {(clients||[]).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
@@ -2905,7 +3058,7 @@ function NvrEditModal({ nvr, clients, onSave, onCancel }) {
                     </div>
                     <div><Label>Notas</Label><textarea value={f.notes} onChange={e=>setF({...f,notes:e.target.value})} className="w-full rounded-md border px-2 py-1 text-sm" rows={2} style={{borderColor:'var(--border)', background:'var(--input)', color:'var(--foreground)'}}/></div>
                 </div>
-                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                <div className="p-3 border-t flex items-center justify-end gap-2 shrink-0" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 15%, transparent)'}}>
                     <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
                     <Button size="sm" onClick={()=>onSave(f)}><span className="material-icons-round mr-1" style={{fontSize:14}}>save</span>Guardar</Button>
                 </div>
@@ -2919,14 +3072,19 @@ function BootstrapPreviewModal({ data, onConfirm, onCancel }) {
     const entries = Object.entries(preview);
     return (
         <div onClick={onCancel} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)'}}>
-            <div onClick={(e)=>e.stopPropagation()} className="rounded-lg border shadow-2xl w-full max-w-2xl flex flex-col" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'85vh'}}>
-                <div className="p-4 border-b flex items-center gap-2" style={{borderColor:'var(--border)'}}>
-                    <span className="material-icons-round" style={{fontSize:18, color:'var(--primary)'}}>auto_awesome</span>
-                    <span className="font-bold text-sm">Bootstrap automático de clientes</span>
+            <div onClick={(e)=>e.stopPropagation()} className="rounded-2xl border shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" style={{background:'var(--card)', borderColor:'var(--border)', maxHeight:'85vh'}}>
+                <div className="p-4 border-b flex items-center gap-3 shrink-0" style={{borderColor:'var(--border)', background:'linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent)'}}>
+                    <div className="rounded-xl flex items-center justify-center" style={{width:40, height:40, background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #000))', color:'#fff'}}>
+                        <span className="material-icons-round" style={{fontSize:20}}>auto_awesome</span>
+                    </div>
+                    <div>
+                        <div className="font-bold text-sm">Bootstrap automático de clientes</div>
+                        <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Vista previa antes de aplicar</div>
+                    </div>
                 </div>
-                <div className="p-4 text-xs" style={{color:'var(--muted-foreground)'}}>
-                    Voy a crear <strong style={{color:'var(--foreground)'}}>{entries.length} clientes</strong> agrupando las extensiones por raíz común del nombre.
-                    Los clientes con ese nombre que ya existan se reutilizan (no se duplican).
+                <div className="px-5 pt-3 pb-1 text-xs" style={{color:'var(--muted-foreground)'}}>
+                    Voy a crear <strong style={{color:'var(--foreground)'}}>{entries.length} clientes</strong> agrupando las extensiones por raíz común de nombre.
+                    Los clientes con ese nombre que ya existan se reutilizan.
                 </div>
                 <div className="overflow-auto px-4 pb-2 flex-1">
                     <table className="tf-table">
@@ -2941,7 +3099,7 @@ function BootstrapPreviewModal({ data, onConfirm, onCancel }) {
                         </tbody>
                     </table>
                 </div>
-                <div className="p-3 border-t flex items-center justify-end gap-2" style={{borderColor:'var(--border)'}}>
+                <div className="p-3 border-t flex items-center justify-end gap-2 shrink-0" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 15%, transparent)'}}>
                     <Button variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
                     <Button size="sm" onClick={onConfirm}><span className="material-icons-round mr-1" style={{fontSize:14}}>play_arrow</span>Aplicar</Button>
                 </div>
