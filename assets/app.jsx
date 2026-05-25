@@ -2556,18 +2556,6 @@ function ViewClientes({ toast, data }) {
                 </div>
             </div>
 
-            {/* ═══ STATS BAR superior ═══ */}
-            <div className="grid gap-2 mb-4" style={{gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))'}}>
-                <KpiCard icon="phone"      label="Extensiones" value={totalsGlobal.ext}    color="#22c55e"/>
-                <KpiCard icon="campaign"   label="Parlantes"   value={totalsGlobal.paging} color="#f59e0b"/>
-                <KpiCard icon="queue"      label="Colas"       value={totalsGlobal.queue}  color="#3b82f6"/>
-                <KpiCard icon="videocam"   label="NVR"         value={totalsGlobal.nvr}    color="#8b5cf6"/>
-                <KpiCard icon="camera_alt" label="Cámaras"     value={totalsGlobal.cams}   color="#06b6d4"/>
-                {totalsGlobal.diskFail > 0 && (
-                    <KpiCard icon="warning" label="Discos fail" value={totalsGlobal.diskFail} color="var(--destructive)" pulse/>
-                )}
-            </div>
-
             {/* ═══ BODY: sidebar + detail ═══ */}
             <div className="grid gap-4" style={{gridTemplateColumns:'minmax(280px, 340px) 1fr'}}>
                 {/* Sidebar pro */}
