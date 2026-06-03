@@ -10655,7 +10655,16 @@ function pauseSeverity(secs) {
 }
 
 function ReportTabPauses({ data, from, to }) {
-    const pauses = data.pauses || [];
+    // HOTFIX #177: defender contra collision de shape (action=summary devuelve pauses como object)
+    const pauses = Array.isArray(data?.pauses) ? data.pauses : [];
+    if (!pauses.length) {
+        return (
+            <div className="rounded-lg border bg-card text-card-foreground p-12 text-center" style={{borderColor:'var(--border)'}}>
+                <span className="material-icons-round" style={{fontSize:36, color:'var(--muted-foreground)'}}>pause_circle</span>
+                <div className="mt-2 text-sm font-medium" style={{color:'var(--muted-foreground)'}}>No hay pausas en el período seleccionado.</div>
+            </div>
+        );
+    }
     const [search, setSearch] = useState('');
     const byMotive = {};
     pauses.forEach(p => {
