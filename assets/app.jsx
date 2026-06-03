@@ -10551,6 +10551,7 @@ function ReportTabCalls({ data, filters, setFilters }) {
                                 <ShTH>Destino</ShTH>
                                 <ShTH>CallerID</ShTH>
                                 <ShTH>Estado</ShTH>
+                                <ShTH>Atendió</ShTH>
                                 <ShTH align="right">Dur.</ShTH>
                                 <ShTH align="right">Hablado</ShTH>
                                 <ShTH align="center">Grab.</ShTH>
@@ -10566,6 +10567,19 @@ function ReportTabCalls({ data, filters, setFilters }) {
                                         <ShTD mono>{c.dst}</ShTD>
                                         <ShTD className="max-w-[200px] truncate text-muted-foreground">{c.clid}</ShTD>
                                         <ShTD><Badge variant={variant}>{c.disposition}</Badge></ShTD>
+                                        <ShTD>
+                                            {c.answered_by_agent_number ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                                                      style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)', border:'1px solid color-mix(in srgb, var(--horizon-green) 28%, transparent)'}}
+                                                      title={`Agente #${c.answered_by_agent_number} (${c.answered_by_agent_name || ''}) en ext ${c.answered_by_ext}`}>
+                                                    <span className="material-icons-round" style={{fontSize:11}}>support_agent</span>
+                                                    <span className="font-mono">{c.answered_by_agent_number}</span>
+                                                    {c.answered_by_agent_name && <span style={{fontWeight:600, opacity:0.85}}>· {c.answered_by_agent_name}</span>}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-muted-foreground italic">—</span>
+                                            )}
+                                        </ShTD>
                                         <ShTD align="right" mono>{c.duration}s</ShTD>
                                         <ShTD align="right" mono>{c.billsec}s</ShTD>
                                         <ShTD align="center">

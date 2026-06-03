@@ -198,7 +198,27 @@ try {
         if ($ext && preg_match('/^[0-9]+$/', $ext)) { $where .= " AND (src = ? OR dst = ?)"; $params[] = $ext; $params[] = $ext; }
         if ($min_dur > 0) { $where .= " AND billsec >= ?"; $params[] = $min_dur; }
         $cdr = pbx_db();
-        $st = $cdr->prepare("SELECT calldate, UNIX_TIMESTAMP(calldate) AS call_epoch, src, dst, clid, disposition, duration, billsec, recordingfile, uniqueid, linkedid, did FROM cdr WHERE $where ORDER BY calldate DESC LIMIT $limit");
+        // Cross-db join: resolver qué AGENTE estaba logueado en el ext de destino al momento de la llamada.
+        // Esto es clave para reportes con failover entre colas: el dst es el ext que atendió,
+        // pero queremos saber qué agent_number/name estaba en ese ext en ese instante.
+        // Tabla teleflow.agent_sessions (login_time, logout_time, agent_ext, agent_number).
+        $st = $cdr->prepare("SELECT
+                cdr.calldate, UNIX_TIMESTAMP(cdr.calldate) AS call_epoch,
+                cdr.src, cdr.dst, cdr.clid, cdr.disposition, cdr.duration, cdr.billsec,
+                cdr.recordingfile, cdr.uniqueid, cdr.linkedid, cdr.did,
+                asess.agent_number AS answered_by_agent_number,
+                asess.agent_ext    AS answered_by_ext,
+                a.name             AS answered_by_agent_name
+            FROM cdr
+            LEFT JOIN teleflow.agent_sessions asess
+                ON asess.agent_ext = cdr.dst
+                AND cdr.calldate >= asess.login_time
+                AND (asess.logout_time IS NULL OR cdr.calldate <= asess.logout_time)
+            LEFT JOIN call_center.agent a
+                ON a.number = asess.agent_number
+            WHERE $where
+            ORDER BY cdr.calldate DESC
+            LIMIT $limit");
         $st->execute($params);
         echo json_encode(['status' => 'ok', 'calls' => $st->fetchAll(PDO::FETCH_ASSOC), 'period' => ['from' => $from, 'to' => $to]]);
         exit;
