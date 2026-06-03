@@ -10604,8 +10604,59 @@ function ReportTabCalls({ data, filters, setFilters }) {
     );
 }
 
+function PieDonut({ data, size = 180, thickness = 32 }) {
+    // data: [{label, value, color}]
+    const total = data.reduce((s, d) => s + (d.value || 0), 0);
+    if (total === 0) return null;
+    const cx = size/2, cy = size/2, r = (size - thickness) / 2;
+    let acc = 0;
+    const segs = data.map((d, i) => {
+        const a0 = (acc / total) * 2 * Math.PI - Math.PI/2;
+        acc += d.value;
+        const a1 = (acc / total) * 2 * Math.PI - Math.PI/2;
+        const large = (a1 - a0) > Math.PI ? 1 : 0;
+        const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+        const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+        const path = `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+        return { ...d, path, pct: ((d.value/total)*100).toFixed(1) };
+    });
+    return (
+        <div className="flex items-center gap-4 flex-wrap">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--muted)" strokeWidth={thickness} opacity={0.15}/>
+                {segs.map((s, i) => (
+                    <path key={i} d={s.path} fill="none" stroke={s.color} strokeWidth={thickness} strokeLinecap="butt"/>
+                ))}
+                <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="900" fill="var(--foreground)">{segs.length}</text>
+                <text x={cx} y={cy + 14} textAnchor="middle" fontSize="10" fill="var(--muted-foreground)" letterSpacing=".08em">MOTIVOS</text>
+            </svg>
+            <div className="grid gap-1 flex-1 min-w-[160px]">
+                {segs.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                        <span style={{width:10, height:10, borderRadius:2, background: s.color}}/>
+                        <span className="flex-1 truncate font-semibold">{s.label}</span>
+                        <span className="font-mono font-bold" style={{color: s.color}}>{s.pct}%</span>
+                        <span className="font-mono text-muted-foreground w-14 text-right">{fmtDurationCompact(s.value)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// Umbrales de alerta por duración de pausa (segundos)
+const PAUSE_WARN_SEC = 30 * 60;   // > 30 min → ámbar
+const PAUSE_CRIT_SEC = 60 * 60;   // > 60 min → rojo
+function pauseSeverity(secs) {
+    if (secs == null) return null;
+    if (secs >= PAUSE_CRIT_SEC) return 'crit';
+    if (secs >= PAUSE_WARN_SEC) return 'warn';
+    return null;
+}
+
 function ReportTabPauses({ data, from, to }) {
     const pauses = data.pauses || [];
+    const [search, setSearch] = useState('');
     const byMotive = {};
     pauses.forEach(p => {
         const k = p.pause_label || p.pause_type_code || 'sin_motivo';
@@ -10614,73 +10665,124 @@ function ReportTabPauses({ data, from, to }) {
         byMotive[k].total += parseInt(p.duration_seconds || 0);
     });
     const motives = Object.values(byMotive).sort((a, b) => b.total - a.total);
-    const maxTotal = Math.max(1, ...motives.map(m => m.total));
+
+    const totalSec = motives.reduce((s, m) => s + m.total, 0);
+    const longestPause = pauses.reduce((max, p) => Math.max(max, parseInt(p.duration_seconds || 0)), 0);
+    const overWarn = pauses.filter(p => pauseSeverity(parseInt(p.duration_seconds || 0)) === 'warn').length;
+    const overCrit = pauses.filter(p => pauseSeverity(parseInt(p.duration_seconds || 0)) === 'crit').length;
+
+    const filteredPauses = pauses.filter(p => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return String(p.agent_number||'').includes(q) || String(p.agent_ext||'').includes(q) || (p.pause_label||'').toLowerCase().includes(q);
+    });
+
+    const pieData = motives.map(m => ({ label: m.label, value: m.total, color: m.color }));
 
     return (
-        <div className="space-y-4">
-            <Card>
-                <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                        <span className="material-icons-round text-amber-500 text-base">pie_chart</span>
-                        Distribución por motivo
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-2 space-y-2">
-                    {motives.map((m) => {
-                        const pct = (m.total / maxTotal) * 100;
-                        return (
-                            <div key={m.label} className="grid grid-cols-[140px_1fr_80px_60px] gap-3 items-center">
-                                <span className="text-xs font-semibold truncate">{m.label}</span>
-                                <div className="h-3.5 bg-muted rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all duration-300" style={{width: `${pct}%`, background: `linear-gradient(90deg, ${m.color||'#f59e0b'}aa, ${m.color||'#f59e0b'})`}}/>
-                                </div>
-                                <span className="text-xs font-mono font-bold text-right" style={{color: m.color || '#f59e0b'}}>{fmtDurationCompact(m.total)}</span>
-                                <span className="text-xs text-muted-foreground font-semibold text-right">{m.count}x</span>
-                            </div>
-                        );
-                    })}
-                    {motives.length === 0 && <EmptyState icon="pause_circle" title="Sin pausas" subtitle="No hay pausas en este rango"/>}
-                </CardContent>
-            </Card>
+        <div className="space-y-3">
+            {/* Top: 3 mini KPIs + pie donut */}
+            <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
+                <Card>
+                    <CardHeader className="p-3 pb-2 flex-row items-center justify-between space-y-0">
+                        <CardTitle className="text-sm flex items-center gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:16, color:'#f59e0b'}}>donut_large</span>
+                            Distribución por motivo
+                        </CardTitle>
+                        <span className="text-[10px] font-mono text-muted-foreground">{fmtDurationCompact(totalSec)} totales</span>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-1">
+                        {motives.length === 0 ? <EmptyState icon="pause_circle" title="Sin pausas" subtitle="No hay pausas en este rango"/> :
+                            <PieDonut data={pieData}/>}
+                    </CardContent>
+                </Card>
 
+                <div className="grid gap-2 content-start">
+                    <MiniKpi icon="schedule"      label="Pausas totales"   value={pauses.length}                                       color="#3b82f6"/>
+                    <MiniKpi icon="warning"       label="Pausas > 30 min"  value={overWarn}                                            color="#f59e0b" pulse={overWarn > 0}/>
+                    <MiniKpi icon="report"        label="Pausas > 60 min"  value={overCrit}                                            color="#ef4444" pulse={overCrit > 0}/>
+                    <MiniKpi icon="hourglass_top" label="Pausa más larga"  value={fmtDurationCompact(longestPause)}                    color="#8b5cf6"/>
+                </div>
+            </div>
+
+            {/* Tabla compacta con alertas visuales */}
             <Card>
-                <CardHeader className="p-4 pb-2 flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-sm">Detalle de pausas</CardTitle>
-                    <span className="text-xs text-muted-foreground">{pauses.length} registradas</span>
+                <CardHeader className="p-3 pb-2 flex-row items-center justify-between space-y-0 gap-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                        Detalle de pausas
+                        <Badge variant="secondary" className="text-[10px]">{filteredPauses.length}{search ? ` / ${pauses.length}`: ''}</Badge>
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2" style={{fontSize:14, color:'var(--muted-foreground)'}}>search</span>
+                            <Input placeholder="Filtrar agente/ext/motivo…" value={search} onChange={e=>setSearch(e.target.value)} className="h-7 pl-7 text-xs w-56"/>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-auto max-h-[50vh]">
-                        <ShTable>
-                            <ShTHead>
-                                <ShTR>
-                                    <ShTH>Agente</ShTH>
-                                    <ShTH>Ext</ShTH>
-                                    <ShTH>Motivo</ShTH>
-                                    <ShTH>Inicio</ShTH>
-                                    <ShTH>Fin</ShTH>
-                                    <ShTH align="right">Duración</ShTH>
-                                </ShTR>
-                            </ShTHead>
-                            <ShTBody>
-                                {pauses.map((p) => (
-                                    <ShTR key={p.id}>
-                                        <ShTD><span className="text-primary">{p.agent_number||'—'}</span></ShTD>
-                                        <ShTD mono>{p.agent_ext}</ShTD>
-                                        <ShTD>
-                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>
-                                                {p.pause_label||p.pause_type_code}
-                                            </span>
-                                        </ShTD>
-                                        <ShTD mono>{p.pause_start}</ShTD>
-                                        <ShTD mono>{p.pause_end || <span className="text-green-500 font-semibold">(activa)</span>}</ShTD>
-                                        <ShTD align="right" mono><span className="font-bold" style={{color: p.pause_color||'#f59e0b'}}>{fmtDurationCompact(p.duration_seconds)}</span></ShTD>
-                                    </ShTR>
-                                ))}
-                            </ShTBody>
-                        </ShTable>
+                        <table className="tf-table" style={{fontSize:11}}>
+                            <thead>
+                                <tr>
+                                    <th style={{padding:'5px 8px'}}>Agente</th>
+                                    <th style={{padding:'5px 8px'}}>Ext</th>
+                                    <th style={{padding:'5px 8px'}}>Motivo</th>
+                                    <th style={{padding:'5px 8px'}}>Inicio</th>
+                                    <th style={{padding:'5px 8px'}}>Fin</th>
+                                    <th style={{padding:'5px 8px', textAlign:'right'}}>Duración</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredPauses.map((p) => {
+                                    const dur = parseInt(p.duration_seconds || 0);
+                                    const sev = pauseSeverity(dur);
+                                    const rowBg = sev === 'crit' ? 'color-mix(in srgb, #ef4444 12%, transparent)' :
+                                                  sev === 'warn' ? 'color-mix(in srgb, #f59e0b 10%, transparent)' : undefined;
+                                    const rowBorder = sev === 'crit' ? '#ef4444' : sev === 'warn' ? '#f59e0b' : undefined;
+                                    return (
+                                        <tr key={p.id} style={{background: rowBg, borderLeft: rowBorder ? `3px solid ${rowBorder}` : '3px solid transparent'}}>
+                                            <td style={{padding:'4px 8px'}}><span className="text-primary font-bold">{p.agent_number||'—'}</span></td>
+                                            <td style={{padding:'4px 8px', fontFamily:'monospace'}}>{p.agent_ext}</td>
+                                            <td style={{padding:'4px 8px'}}>
+                                                <span className="inline-flex items-center rounded px-1.5 py-0 text-[10px] font-bold" style={{background: (p.pause_color||'#f59e0b')+'22', color: p.pause_color||'#f59e0b'}}>
+                                                    {p.pause_label||p.pause_type_code}
+                                                </span>
+                                            </td>
+                                            <td style={{padding:'4px 8px', fontFamily:'monospace', fontSize:10, color:'var(--muted-foreground)'}}>{p.pause_start}</td>
+                                            <td style={{padding:'4px 8px', fontFamily:'monospace', fontSize:10}}>
+                                                {p.pause_end || <span style={{color:'#22c55e', fontWeight:600}}>● activa</span>}
+                                            </td>
+                                            <td style={{padding:'4px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700}}>
+                                                <span style={{color: sev === 'crit' ? '#ef4444' : sev === 'warn' ? '#f59e0b' : (p.pause_color || 'var(--foreground)')}}>
+                                                    {sev && <span className="material-icons-round" style={{fontSize:11, verticalAlign:'middle', marginRight:2, animation: sev==='crit' ? 'pulse 1.4s infinite' : 'none'}}>{sev === 'crit' ? 'report' : 'warning'}</span>}
+                                                    {fmtDurationCompact(dur)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {filteredPauses.length === 0 && (
+                                    <tr><td colSpan={6} style={{padding:'20px', textAlign:'center', color:'var(--muted-foreground)', fontSize:11}}>Sin pausas en este filtro</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </CardContent>
             </Card>
+        </div>
+    );
+}
+
+function MiniKpi({ icon, label, value, color, pulse }) {
+    return (
+        <div className="rounded-lg border p-2.5 flex items-center gap-2.5" style={{borderColor:`color-mix(in srgb, ${color} 22%, var(--border))`, background:`linear-gradient(135deg, color-mix(in srgb, ${color} 8%, var(--card)) 0%, var(--card) 80%)`}}>
+            <div className="rounded-md flex items-center justify-center shrink-0" style={{width:30, height:30, background:`linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #000))`, color:'#fff', animation: pulse ? 'pulse 1.6s infinite' : 'none'}}>
+                <span className="material-icons-round" style={{fontSize:16}}>{icon}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+                <div className="text-base font-black tabular-nums leading-tight" style={{color:'var(--foreground)'}}>{value}</div>
+                <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</div>
+            </div>
         </div>
     );
 }
