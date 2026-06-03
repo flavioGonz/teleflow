@@ -8123,104 +8123,282 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
     );
 }
 
-function QueueDrawer({ queue, onClose, onSaved, toast }) {
+function QueueDrawer({ queue, onClose, onSaved, toast, extensions }) {
     const isNew = !queue;
+    const allExts = Array.isArray(extensions) ? extensions : [];
+    const staticMembers = (queue?.static_members || queue?.members || []).filter(m => m.kind !== 'dynamic');
+    const dynamicMembers = (queue?.dynamic_members || []);
+
     const [form, setForm] = useState({
-        extension: queue?.id||'',
-        descr: queue?.name||'',
-        strategy: queue?.strategy||'ringall',
-        timeout: queue?.timeout||15,
-        wrapuptime: queue?.wrapuptime||5,
-        members: (queue?.members||[]).map(m=>m.ext).join(','),
+        extension: queue?.id || '',
+        descr: queue?.name || '',
+        strategy: queue?.strategy || 'ringall',
+        timeout: queue?.timeout || 15,
+        wrapuptime: queue?.wrapuptime || 5,
+        dest: queue?.dest || '',
+        destcontinue: queue?.destcontinue || '',
     });
+    const [members, setMembers] = useState(staticMembers); // [{ext, penalty, kind:'static'}]
+    const [addExt, setAddExt] = useState('');
+    const [addPenalty, setAddPenalty] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [busy, setBusy] = useState(false);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+    // === Acciones members ===
+    const callApi = async (action, fd) => {
+        setBusy(true);
+        try {
+            const r = await fetch(`api/index.php?action=${action}`, { method: 'POST', body: fd, credentials: 'include' });
+            return await r.json();
+        } finally { setBusy(false); }
+    };
+
+    const addMember = async () => {
+        const ext = String(addExt || '').trim();
+        if (!ext) { toast?.('Seleccioná un interno', 'error'); return; }
+        if (members.some(m => String(m.ext) === ext)) { toast?.('Ya está en la cola', 'error'); return; }
+        if (isNew) {
+            // Modo creación: solo acumulamos local, se persiste al crear la cola
+            setMembers(arr => [...arr, { ext, penalty: parseInt(addPenalty)||0, kind:'static' }]);
+            setAddExt(''); setAddPenalty(0);
+            return;
+        }
+        const fd = new FormData();
+        fd.append('queue', queue.id); fd.append('ext', ext); fd.append('penalty', addPenalty);
+        const d = await callApi('add_queue_member', fd);
+        if (d.success) { setMembers(arr => [...arr, { ext, penalty: parseInt(addPenalty)||0, kind:'static' }]); toast?.(d.message,'success'); setAddExt(''); setAddPenalty(0); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+
+    const removeMember = async (ext) => {
+        if (isNew) { setMembers(arr => arr.filter(m => String(m.ext) !== String(ext))); return; }
+        if (!confirm(`¿Quitar interno ${ext} de la cola ${queue.id}?`)) return;
+        const fd = new FormData();
+        fd.append('queue', queue.id); fd.append('ext', ext);
+        const d = await callApi('remove_queue_member', fd);
+        if (d.success) { setMembers(arr => arr.filter(m => String(m.ext) !== String(ext))); toast?.(d.message,'success'); }
+        else toast?.(d.error || 'Error', 'error');
+    };
+
+    // === Save ===
     const save = async () => {
         setSaving(true);
-        const fd=new FormData(); Object.entries(form).forEach(([k,v])=>fd.append(k,v));
+        const fd = new FormData();
+        fd.append('extension', form.extension);
+        fd.append('descr', form.descr);
+        fd.append('strategy', form.strategy);
+        fd.append('timeout', form.timeout);
+        fd.append('wrapuptime', form.wrapuptime);
+        fd.append('dest', form.dest);
+        fd.append('destcontinue', form.destcontinue);
+        if (isNew) {
+            // En creación, mandamos members explícitos (incluido vacío)
+            fd.append('members', members.map(m => m.ext).join(','));
+        }
+        // En update NO mandamos members aquí — ya se manejaron por add/remove granular
         const action = isNew ? 'create_queue' : 'update_queue';
-        const d = await (await fetch(`api/index.php?action=${action}`,{method:'POST',body:fd})).json();
+        const d = await callApi(action, fd);
         setSaving(false);
-        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+        if (d.success) { toast?.(d.message,'success'); onSaved?.(); }
+        else toast?.(d.error || 'Error', 'error');
     };
+
     const del = async () => {
-        if(!confirm(`¿Eliminar cola ${queue?.id}?`)) return;
-        const fd=new FormData();fd.append('extension',queue.id);
-        const d=await(await fetch('api/index.php?action=delete_queue',{method:'POST',body:fd})).json();
-        if(d.success){toast(d.message,'success');onSaved();}else toast(d.error||'Error','error');
+        if (!confirm(`¿Eliminar cola ${queue?.id}?`)) return;
+        const fd = new FormData(); fd.append('extension', queue.id);
+        const d = await callApi('delete_queue', fd);
+        if (d.success) { toast?.(d.message,'success'); onSaved?.(); }
+        else toast?.(d.error || 'Error', 'error');
     };
-    const FI = ({label,k,type='text',ph='',readOnly=false}) => (
-        <div className="mb-5">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">{label}</label>
-            <input 
-                className={`input-tf p-3.5 rounded-2xl text-sm transition-all ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/40'}`} 
-                type={type} 
-                placeholder={ph} 
-                value={form[k]} 
-                onChange={e=>set(k,e.target.value)} 
-                readOnly={readOnly} 
+
+    // Internos NO miembros aún (para el dropdown)
+    const memberExts = new Set(members.map(m => String(m.ext)));
+    const availableExts = allExts.filter(e => !memberExts.has(String(e.ext || e.id || e.extension)));
+
+    const Field = ({label, k, type='text', ph='', help='', readOnly=false}) => (
+        <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{label}</label>
+            <input
+                className="w-full h-10 px-3 rounded-md text-sm bg-background border focus:outline-none focus:ring-2 focus:ring-ring"
+                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                type={type} placeholder={ph} readOnly={readOnly}
+                value={form[k]} onChange={e=>set(k,e.target.value)}
             />
+            {help && <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>{help}</div>}
         </div>
     );
-    return(
+
+    return (
         <>
             <div className="drawer-backdrop" onClick={onClose}/>
-            <div className="drawer theme-transition">
+            <div className="drawer theme-transition" style={{maxWidth: 720, width: 'min(95vw, 720px)'}}>
                 <div className="drawer-header">
                     <div>
-                        <div style={{fontSize:18,fontWeight:900,letterSpacing:'-0.5px',color:'var(--text)'}}>{isNew?'Nueva Cola':`Cola: ${queue.name}`}</div>
-                        <div style={{fontSize:11,color:'#6b7280',marginTop:2,fontWeight:600}}>ID de Cola: #{isNew?'por asignar':queue.id}</div>
+                        <div style={{fontSize:18, fontWeight:800, letterSpacing:'-0.5px', color:'var(--foreground)'}}>
+                            {isNew ? 'Nueva Cola' : `Cola: ${queue.name || queue.id}`}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                            ID: <span className="font-mono font-semibold">{isNew ? 'por asignar' : queue.id}</span>
+                        </div>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-gray-500 hover:text-white">
-                        <span className="material-icons-round" style={{fontSize:24}}>close</span>
+                    <button onClick={onClose} className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-secondary transition-colors" style={{color:'var(--muted-foreground)'}}>
+                        <span className="material-icons-round" style={{fontSize:20}}>close</span>
                     </button>
                 </div>
-                <div className="drawer-body">
-                    <FI label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew} />
-                    <FI label="Nombre descriptivo" k="descr" ph="Soporte Técnico" />
-                    
-                    <div className="mb-5">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Estrategia de Distribución</label>
-                        <select className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" value={form.strategy} onChange={e=>set('strategy',e.target.value)}>
-                            {[
-                                {v:'ringall',     l:'Simultáneo (ringall)'},
-                                {v:'rrmemory',    l:'Round Robin con memoria'},
-                                {v:'leastrecent', l:'Menos reciente'},
-                                {v:'fewestcalls', l:'Menos llamadas'},
-                                {v:'random',      l:'Aleatorio'},
-                                {v:'linear',      l:'Lineal (orden de la lista)'},
-                            ].map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-                        </select>
+
+                <div className="drawer-body space-y-5">
+                    {/* === General === */}
+                    <div className="rounded-lg border p-4 space-y-3" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="material-icons-round" style={{fontSize:16, color:'var(--primary)'}}>tune</span>
+                            <h3 className="text-sm font-bold" style={{color:'var(--foreground)'}}>General</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Número de Cola" k="extension" ph="Ej: 8001" readOnly={!isNew}/>
+                            <Field label="Nombre" k="descr" ph="Soporte Técnico"/>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Estrategia de distribución</label>
+                            <select className="w-full h-10 px-3 rounded-md text-sm bg-background border focus:outline-none focus:ring-2 focus:ring-ring"
+                                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                                value={form.strategy} onChange={e=>set('strategy', e.target.value)}>
+                                <option value="ringall">Simultáneo (ringall)</option>
+                                <option value="rrmemory">Round Robin con memoria</option>
+                                <option value="leastrecent">Menos reciente</option>
+                                <option value="fewestcalls">Menos llamadas</option>
+                                <option value="random">Aleatorio</option>
+                                <option value="linear">Lineal (orden de la lista)</option>
+                            </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label="Timeout (seg)" k="timeout" type="number" ph="15"/>
+                            <Field label="Wrapup (seg)" k="wrapuptime" type="number" ph="5"/>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-5">
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Timeout (seg)</label>
-                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" type="number" value={form.timeout} onChange={e=>set('timeout',e.target.value)} />
+                    {/* === Failover === */}
+                    <div className="rounded-lg border p-4 space-y-3" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="material-icons-round" style={{fontSize:16, color:'var(--primary)'}}>swap_calls</span>
+                            <h3 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Failover (destino si nadie atiende)</h3>
                         </div>
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Wrapup (seg)</label>
-                            <input className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40" type="number" value={form.wrapuptime} onChange={e=>set('wrapuptime',e.target.value)} />
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Destino (dest)</label>
+                            <input className="w-full h-10 px-3 rounded-md text-sm bg-background border font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                                placeholder="ext-queues,8010,1   o   app-blackhole,hangup,1"
+                                value={form.dest} onChange={e=>set('dest', e.target.value)}/>
+                            <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>
+                                Ejemplos: <code className="px-1 rounded" style={{background:'var(--secondary)'}}>app-blackhole,hangup,1</code> · <code className="px-1 rounded" style={{background:'var(--secondary)'}}>ext-queues,8010,1</code> (otra cola) · <code className="px-1 rounded" style={{background:'var(--secondary)'}}>from-did-direct,1000,1</code> (ext directa)
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Continue (destcontinue, opcional)</label>
+                            <input className="w-full h-10 px-3 rounded-md text-sm bg-background border font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                                placeholder="(vacío)"
+                                value={form.destcontinue} onChange={e=>set('destcontinue', e.target.value)}/>
                         </div>
                     </div>
 
-                    <div className="mb-6">
-                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Internos miembros (separar con comas)</label>
-                        <textarea 
-                            className="input-tf p-3.5 rounded-2xl text-sm hover:border-primary/40 min-h-[100px] leading-relaxed" 
-                            placeholder="Ej: 1001, 1002, 1005" 
-                            value={form.members} 
-                            onChange={e=>set('members',e.target.value)}
-                        />
-                        <div style={{fontSize:10,color:'#6b7280',marginTop:6,fontWeight:500}}>Miembros estáticos que recibirán llamadas de esta cola.</div>
+                    {/* === Static members === */}
+                    <div className="rounded-lg border p-4 space-y-3" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:16, color:'var(--primary)'}}>group</span>
+                                <h3 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Internos estáticos</h3>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{background:'var(--secondary)', color:'var(--muted-foreground)'}}>{members.length}</span>
+                            </div>
+                            <span className="text-[10px]" style={{color:'var(--muted-foreground)'}}>Fijos: reciben siempre llamadas de esta cola</span>
+                        </div>
+
+                        {/* Add row */}
+                        <div className="flex items-center gap-2 p-2 rounded-md" style={{background:'var(--secondary)'}}>
+                            <select className="flex-1 h-9 px-2 rounded text-sm bg-background border focus:outline-none focus:ring-2 focus:ring-ring"
+                                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                                value={addExt} onChange={e=>setAddExt(e.target.value)}>
+                                <option value="">— Seleccionar interno —</option>
+                                {availableExts.map(e => {
+                                    const ext = e.ext || e.id || e.extension;
+                                    const name = e.name || e.description || '';
+                                    return <option key={ext} value={ext}>{ext}{name?` — ${name}`:''}</option>;
+                                })}
+                            </select>
+                            <input className="w-20 h-9 px-2 rounded text-sm bg-background border text-center focus:outline-none focus:ring-2 focus:ring-ring"
+                                style={{borderColor:'var(--border)', color:'var(--foreground)'}}
+                                type="number" placeholder="penalty" value={addPenalty} onChange={e=>setAddPenalty(e.target.value)} title="Penalty (0 = primario)"/>
+                            <button onClick={addMember} disabled={busy || !addExt}
+                                className="h-9 px-3 rounded text-xs font-bold transition-all disabled:opacity-40"
+                                style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>
+                                <span className="material-icons-round align-middle" style={{fontSize:14}}>add</span> Agregar
+                            </button>
+                        </div>
+
+                        {/* List */}
+                        {members.length === 0 ? (
+                            <div className="text-center text-xs py-6 rounded-md" style={{background:'var(--secondary)', color:'var(--muted-foreground)'}}>
+                                Sin internos estáticos. Solo recibirá llamadas si hay agentes dinámicos (Hotdesking) o si la cola tiene members agregados desde Issabel.
+                            </div>
+                        ) : (
+                            <div className="space-y-1.5">
+                                {members.map(m => {
+                                    const ext = String(m.ext);
+                                    const extInfo = allExts.find(e => String(e.ext || e.id || e.extension) === ext);
+                                    const name = extInfo?.name || extInfo?.description || '';
+                                    return (
+                                        <div key={ext} className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-secondary" style={{background:'var(--background)', border:'1px solid var(--border)'}}>
+                                            <span className="material-icons-round" style={{fontSize:18, color:'var(--muted-foreground)'}}>phone</span>
+                                            <span className="text-sm font-mono font-bold" style={{color:'var(--foreground)'}}>{ext}</span>
+                                            {name && <span className="text-xs flex-1 truncate" style={{color:'var(--muted-foreground)'}}>{name}</span>}
+                                            {!name && <span className="flex-1"/>}
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{background:'var(--secondary)', color:'var(--muted-foreground)'}}>penalty {m.penalty || 0}</span>
+                                            <button onClick={()=>removeMember(ext)} disabled={busy}
+                                                className="w-7 h-7 rounded flex items-center justify-center hover:bg-red-500/10 transition-colors disabled:opacity-40" title="Quitar de la cola">
+                                                <span className="material-icons-round text-red-500" style={{fontSize:16}}>delete_outline</span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
+
+                    {/* === Dynamic members (hotdesking) === */}
+                    {dynamicMembers.length > 0 && (
+                        <div className="rounded-lg border p-4 space-y-2" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                            <div className="flex items-center gap-2">
+                                <span className="material-icons-round" style={{fontSize:16, color:'#10b981'}}>support_agent</span>
+                                <h3 className="text-sm font-bold" style={{color:'var(--foreground)'}}>Agentes Hotdesking (dinámicos)</h3>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{background:'#10b98122', color:'#10b981'}}>{dynamicMembers.length}</span>
+                                <span className="text-[10px] flex-1 text-right" style={{color:'var(--muted-foreground)'}}>Loguean vía *7700 — no se editan acá</span>
+                            </div>
+                            <div className="space-y-1">
+                                {dynamicMembers.map(m => (
+                                    <div key={m.ext} className="flex items-center gap-2 px-3 py-2 rounded-md" style={{background:'var(--background)', border:'1px solid var(--border)'}}>
+                                        <span className="material-icons-round" style={{fontSize:18, color:'#10b981'}}>radio_button_checked</span>
+                                        <span className="text-sm font-mono font-bold" style={{color:'var(--foreground)'}}>{m.ext}</span>
+                                        <span className="flex-1"/>
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{background:'#10b98122', color:'#10b981'}}>Hotdesking</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="drawer-footer" style={{display:'flex', gap:10}}>
-                    {!isNew && <button onClick={del} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5">
-                        <span className="material-icons-round">delete_outline</span>
-                    </button>}
-                    <button onClick={onClose} className="flex-1 p-3 rounded-2xl bg-white/5 border border-white/5 text-gray-400 font-bold text-sm hover:bg-white/10 transition-all">Cancelar</button>
-                    <button onClick={save} disabled={saving} className="flex-[2] btn-primary p-3 rounded-2xl text-sm shadow-xl">{saving?'Procesando...':isNew?'Crear Cola':'Guardar Cambios'}</button>
+
+                <div className="drawer-footer" style={{display:'flex', gap:8}}>
+                    {!isNew && (
+                        <button onClick={del} disabled={busy} className="h-10 px-3 rounded-md flex items-center gap-1 text-xs font-bold transition-all disabled:opacity-40"
+                            style={{background:'#ef444415', color:'#ef4444', border:'1px solid #ef444430'}}>
+                            <span className="material-icons-round" style={{fontSize:16}}>delete_outline</span> Eliminar
+                        </button>
+                    )}
+                    <button onClick={onClose} className="flex-1 h-10 rounded-md text-xs font-bold transition-all" style={{background:'var(--secondary)', color:'var(--foreground)'}}>Cancelar</button>
+                    <button onClick={save} disabled={saving || busy} className="flex-[2] h-10 rounded-md text-xs font-bold transition-all disabled:opacity-40"
+                        style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>
+                        {saving ? 'Guardando…' : isNew ? 'Crear Cola' : 'Guardar Cambios'}
+                    </button>
                 </div>
             </div>
         </>
@@ -8753,7 +8931,7 @@ function ViewColas({ toast, onReport, data }) {
                     </div>);
                 })}
             </div>}
-            {drawer&&<QueueDrawer queue={drawer==='new'?null:drawer} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);toast?.('Cola actualizada','success');}} toast={toast||((m,t)=>alert(m))} />}
+            {drawer&&<QueueDrawer queue={drawer==='new'?null:drawer} extensions={extensions} onClose={()=>setDrawer(null)} onSaved={()=>{setDrawer(null);toast?.('Cola actualizada','success');}} toast={toast||((m,t)=>alert(m))} />}
             <AgentLoginModal open={!!loginModalQ} onClose={()=>setLoginModalQ(null)} onDone={()=>{setLoginModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queueDefault={loginModalQ} toast={toast} />
             <AgentLogoutModal open={!!logoutModalQ} onClose={()=>setLogoutModalQ(null)} onDone={()=>{setLogoutModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={logoutModalQ} toast={toast} />
             <QueueAgentsModal open={!!queueAgentsModalQ} onClose={()=>setQueueAgentsModalQ(null)} onDone={()=>{setQueueAgentsModalQ(null); window.dispatchEvent(new CustomEvent('tf-queues-refresh'));}} queue={queueAgentsModalQ?.id} queueName={queueAgentsModalQ?.name} toast={toast} />

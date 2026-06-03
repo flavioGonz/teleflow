@@ -1118,7 +1118,7 @@ if ($action === 'get_queues') {
     $queues = [];
     try {
         $db = mysql_pbx();
-        $q_rows = $db->query("SELECT extension, descr FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
+        $q_rows = $db->query("SELECT extension, descr, IFNULL(dest,'') AS dest, IFNULL(destcontinue,'') AS destcontinue FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($q_rows as $q) {
             $qid   = $q['extension'];
             $det   = $db->prepare("SELECT keyword, data FROM queues_details WHERE id=? ORDER BY keyword");
@@ -1130,7 +1130,19 @@ if ($action === 'get_queues') {
             foreach (($details['member']??[]) as $m) {
                 $parts = explode(',', $m);
                 $ch = explode('/', $parts[0]);
-                $members[] = ['tech'=>$ch[0]??'PJSIP','ext'=>$ch[1]??$m,'name'=>$parts[2]??'','status'=>'idle'];
+                $rawExt = $ch[1] ?? $m;
+                // Strip @from-queue suffix (Local/1001@from-queue/n → ext = 1001)
+                $cleanExt = preg_replace('/@from-queue.*$/', '', $rawExt);
+                $penalty = isset($parts[1]) ? intval($parts[1]) : 0;
+                $members[] = [
+                    'tech'    => $ch[0] ?? 'Local',
+                    'ext'     => $cleanExt,
+                    'raw'     => $m,
+                    'penalty' => $penalty,
+                    'kind'    => 'static',
+                    'name'    => $parts[2] ?? '',
+                    'status'  => 'idle',
+                ];
             }
 
             // Live status from AMI
@@ -1150,16 +1162,42 @@ if ($action === 'get_queues') {
                 }
             }
 
+            // Parse dynamic members from AMI `queue show` (members NOT in DB = hotdesking)
+            $dynamic_members = [];
+            $static_exts = array_column($members, 'ext');
+            if (preg_match_all('/^\s+(\S+)\s+\(.*?\)\s+\(.*?\).*?has taken/m', $qa, $am, PREG_SET_ORDER)) {
+                foreach ($am as $row) {
+                    $chan = $row[1];
+                    $ce = explode('/', $chan);
+                    $rawE = $ce[1] ?? $chan;
+                    $cleanE = preg_replace('/@from-queue.*$/', '', $rawE);
+                    if (!in_array($cleanE, $static_exts, true)) {
+                        $dynamic_members[] = [
+                            'tech'    => $ce[0] ?? 'Local',
+                            'ext'     => $cleanE,
+                            'raw'     => $chan,
+                            'penalty' => 0,
+                            'kind'    => 'dynamic',
+                            'name'    => '',
+                            'status'  => 'idle',
+                        ];
+                    }
+                }
+            }
             $queues[] = [
-                'id'            => $qid,
-                'name'          => $q['descr'],
-                'strategy'      => $details['strategy'][0] ?? 'ringall',
-                'timeout'       => $details['timeout'][0]  ?? 15,
-                'wrapuptime'    => $details['wrapuptime'][0] ?? 0,
-                'calls_waiting' => $waiting,
+                'id'              => $qid,
+                'name'            => $q['descr'],
+                'strategy'        => $details['strategy'][0] ?? 'ringall',
+                'timeout'         => $details['timeout'][0]  ?? 15,
+                'wrapuptime'      => $details['wrapuptime'][0] ?? 0,
+                'dest'            => $q['dest'] ?? '',
+                'destcontinue'    => $q['destcontinue'] ?? '',
+                'calls_waiting'   => $waiting,
                 'calls_processed' => $processed,
-                'max_wait'      => $max_wait,
-                'members'       => $members,
+                'max_wait'        => $max_wait,
+                'members'         => $members,           // legacy alias = static
+                'static_members'  => $members,
+                'dynamic_members' => $dynamic_members,
             ];
         }
 
@@ -1329,91 +1367,195 @@ if ($action === 'list_extensions_db') {
 }
 
 // ─── QUEUE CRUD ──────────────────────────────────────────────────────────────
+// Helper: aplica cambios en runtime (sin retrieve_conf — el Local/N@from-queue/n acepta queue reload directo)
+function _queue_reload($qid) {
+    ami_cmd("queue reload all");
+    // Si hay handler dedicado en api/index.php usar reload_dialplan(); si no, AMI alcanza para chan_local
+    return true;
+}
+
 if ($action === 'create_queue') {
-    $id = $_POST['extension'] ?? '';
-    $descr = $_POST['descr'] ?? '';
-    $strategy = $_POST['strategy'] ?? 'ringall';
-    $timeout = $_POST['timeout'] ?? 15;
-    $wrapuptime = $_POST['wrapuptime'] ?? 5;
-    $members = explode(',', $_POST['members'] ?? '');
-    
+    $id          = preg_replace('/[^0-9]/', '', $_POST['extension'] ?? '');
+    $descr       = trim($_POST['descr'] ?? '');
+    $strategy    = $_POST['strategy'] ?? 'ringall';
+    $timeout     = intval($_POST['timeout'] ?? 15);
+    $wrapuptime  = intval($_POST['wrapuptime'] ?? 5);
+    $dest        = trim($_POST['dest'] ?? '');
+    $destcont    = trim($_POST['destcontinue'] ?? '');
+    $members_raw = trim($_POST['members'] ?? ''); // OPT: si viene vacío, NO inserta ningún member
+    if (!$id) { echo json_encode(['success'=>false,'error'=>'extension requerido']); exit; }
+
     try {
         $db = mysql_pbx();
         $db->beginTransaction();
-        $db->query("INSERT IGNORE INTO queues_config (extension, descr) VALUES ('$id', '$descr')");
-        $db->query("DELETE FROM queues_details WHERE id = '$id'");
+        $st = $db->prepare("INSERT IGNORE INTO queues_config (extension, descr, dest, destcontinue) VALUES (?, ?, ?, ?)");
+        $st->execute([$id, $descr, $dest, $destcont]);
+        // Actualizar campos si la fila ya existía
+        $st = $db->prepare("UPDATE queues_config SET descr=?, dest=?, destcontinue=? WHERE extension=?");
+        $st->execute([$descr, $dest, $destcont, $id]);
+
+        $db->prepare("DELETE FROM queues_details WHERE id = ?")->execute([$id]);
         $details = [
-            ['timeout', $timeout, 0],
-            ['wrapuptime', $wrapuptime, 0],
-            ['strategy', $strategy, 0],
-            ['joinempty', 'yes', 0],
-            ['leavewhenempty', 'no', 0],
-            ['ringinuse', 'no', 0],
+            ['timeout', $timeout],
+            ['wrapuptime', $wrapuptime],
+            ['strategy', $strategy],
+            ['joinempty', 'yes'],
+            ['leavewhenempty', 'no'],
+            ['ringinuse', 'no'],
         ];
-        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, ?)");
-        foreach($details as $d) $stmt->execute([$id, $d[0], $d[1], $d[2]]);
-        foreach($members as $m) {
-            $m = trim($m);
-            if(empty($m)) continue;
-            $db->query("INSERT INTO queues_details (id, keyword, data, flags) VALUES ('$id', 'member', 'Local/$m@from-queue/n,0', 0)");
+        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, 0)");
+        foreach ($details as $d) $stmt->execute([$id, $d[0], $d[1]]);
+
+        // Solo insertar members si el caller los manda explícitamente
+        if ($members_raw !== '') {
+            foreach (explode(',', $members_raw) as $m) {
+                $m = trim($m);
+                if ($m === '') continue;
+                // Strip @from-queue if user pasted full member string
+                $m = preg_replace('/@from-queue.*$/', '', $m);
+                $stmt->execute([$id, 'member', "Local/{$m}@from-queue/n,0"]);
+            }
         }
         $db->commit();
         reload_dialplan();
         echo json_encode(['success'=>true,'message'=>"Cola $id creada"]);
     } catch(Exception $e) {
-        if ($db->inTransaction()) $db->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
     }
     exit;
 }
 
 if ($action === 'update_queue') {
-    $id = $_POST['extension'] ?? '';
-    $descr = $_POST['descr'] ?? '';
-    $strategy = $_POST['strategy'] ?? 'ringall';
-    $timeout = $_POST['timeout'] ?? 15;
-    $wrapuptime = $_POST['wrapuptime'] ?? 5;
-    $members = explode(',', $_POST['members'] ?? '');
-    
+    $id          = preg_replace('/[^0-9]/', '', $_POST['extension'] ?? '');
+    $descr       = trim($_POST['descr'] ?? '');
+    $strategy    = $_POST['strategy'] ?? 'ringall';
+    $timeout     = intval($_POST['timeout'] ?? 15);
+    $wrapuptime  = intval($_POST['wrapuptime'] ?? 5);
+    $dest        = $_POST['dest'] ?? null;          // si NO viene (null), NO se toca
+    $destcont    = $_POST['destcontinue'] ?? null;
+    $members_raw = $_POST['members'] ?? null;       // si NO viene, NO se tocan members
+    if (!$id) { echo json_encode(['success'=>false,'error'=>'extension requerido']); exit; }
+
     try {
         $db = mysql_pbx();
         $db->beginTransaction();
-        $db->query("UPDATE queues_config SET descr='$descr' WHERE extension='$id'");
-        $db->query("DELETE FROM queues_details WHERE id = '$id'");
-        $details = [
-            ['timeout', $timeout, 0],
-            ['wrapuptime', $wrapuptime, 0],
-            ['strategy', $strategy, 0],
-            ['joinempty', 'yes', 0],
-            ['leavewhenempty', 'no', 0],
-            ['ringinuse', 'no', 0],
-        ];
-        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, ?)");
-        foreach($details as $d) $stmt->execute([$id, $d[0], $d[1], $d[2]]);
-        foreach($members as $m) {
-            $m = trim($m);
-            if(empty($m)) continue;
-            // Also accept direct extension format depending on system, but Local/... is typical for FreePBX
-            $db->query("INSERT INTO queues_details (id, keyword, data, flags) VALUES ('$id', 'member', 'Local/$m@from-queue/n,0', 0)");
+
+        // Solo actualizar dest/destcontinue si vienen explícitamente
+        if ($dest !== null && $destcont !== null) {
+            $db->prepare("UPDATE queues_config SET descr=?, dest=?, destcontinue=? WHERE extension=?")
+               ->execute([$descr, $dest, $destcont, $id]);
+        } else if ($dest !== null) {
+            $db->prepare("UPDATE queues_config SET descr=?, dest=? WHERE extension=?")
+               ->execute([$descr, $dest, $id]);
+        } else {
+            $db->prepare("UPDATE queues_config SET descr=? WHERE extension=?")
+               ->execute([$descr, $id]);
         }
+
+        // Actualizar settings (strategy/timeout/wrapuptime) — no tocar members
+        foreach ([
+            ['strategy', $strategy],
+            ['timeout', $timeout],
+            ['wrapuptime', $wrapuptime],
+        ] as $kv) {
+            $db->prepare("DELETE FROM queues_details WHERE id=? AND keyword=?")->execute([$id, $kv[0]]);
+            $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, ?, ?, 0)")
+               ->execute([$id, $kv[0], $kv[1]]);
+        }
+
+        // Solo tocar members si vinieron explícitamente
+        if ($members_raw !== null) {
+            $db->prepare("DELETE FROM queues_details WHERE id=? AND keyword=?")->execute([$id, 'member']);
+            $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, 'member', ?, 0)");
+            if ($members_raw !== '') {
+                foreach (explode(',', $members_raw) as $m) {
+                    $m = trim($m);
+                    if ($m === '') continue;
+                    $m = preg_replace('/@from-queue.*$/', '', $m);
+                    $stmt->execute([$id, "Local/{$m}@from-queue/n,0"]);
+                }
+            }
+        }
+
         $db->commit();
         reload_dialplan();
         echo json_encode(['success'=>true,'message'=>"Cola $id actualizada"]);
     } catch(Exception $e) {
-        if ($db->inTransaction()) $db->rollBack();
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
     }
     exit;
 }
 
 if ($action === 'delete_queue') {
-    $id = $_POST['extension'] ?? '';
+    $id = preg_replace('/[^0-9]/', '', $_POST['extension'] ?? '');
+    if (!$id) { echo json_encode(['success'=>false,'error'=>'extension requerido']); exit; }
     try {
         $db = mysql_pbx();
-        $db->query("DELETE FROM queues_config WHERE extension='$id'");
-        $db->query("DELETE FROM queues_details WHERE id='$id'");
+        $db->prepare("DELETE FROM queues_config WHERE extension=?")->execute([$id]);
+        $db->prepare("DELETE FROM queues_details WHERE id=?")->execute([$id]);
         reload_dialplan();
         echo json_encode(['success'=>true,'message'=>"Cola $id eliminada"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+// ─── QUEUE MEMBERS — CRUD granular ─────────────────────────────────────────
+if ($action === 'add_queue_member') {
+    $qid     = preg_replace('/[^0-9]/', '', $_POST['queue'] ?? '');
+    $ext     = preg_replace('/[^0-9]/', '', $_POST['ext'] ?? '');
+    $penalty = intval($_POST['penalty'] ?? 0);
+    if (!$qid || !$ext) { echo json_encode(['success'=>false,'error'=>'queue y ext requeridos']); exit; }
+    try {
+        $db = mysql_pbx();
+        // Evitar duplicados: borrar existente con misma ext (cualquier penalty/tech)
+        $stmt = $db->prepare("DELETE FROM queues_details WHERE id=? AND keyword='member' AND data LIKE ?");
+        $stmt->execute([$qid, "Local/{$ext}@from-queue%"]);
+        // Insertar
+        $stmt = $db->prepare("INSERT INTO queues_details (id, keyword, data, flags) VALUES (?, 'member', ?, 0)");
+        $stmt->execute([$qid, "Local/{$ext}@from-queue/n,{$penalty}"]);
+        reload_dialplan();
+        // Live add via AMI (no requiere reload de toda la cola)
+        ami_cmd("queue add member Local/{$ext}@from-queue/n to {$qid} penalty {$penalty}");
+        echo json_encode(['success'=>true,'message'=>"Interno {$ext} agregado a cola {$qid}"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'remove_queue_member') {
+    $qid = preg_replace('/[^0-9]/', '', $_POST['queue'] ?? '');
+    $ext = preg_replace('/[^0-9]/', '', $_POST['ext'] ?? '');
+    if (!$qid || !$ext) { echo json_encode(['success'=>false,'error'=>'queue y ext requeridos']); exit; }
+    try {
+        $db = mysql_pbx();
+        $stmt = $db->prepare("DELETE FROM queues_details WHERE id=? AND keyword='member' AND data LIKE ?");
+        $stmt->execute([$qid, "Local/{$ext}@from-queue%"]);
+        reload_dialplan();
+        // Live remove via AMI
+        ami_cmd("queue remove Local/{$ext}@from-queue/n from {$qid}");
+        echo json_encode(['success'=>true,'message'=>"Interno {$ext} retirado de cola {$qid}"]);
+    } catch(Exception $e) {
+        echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'update_queue_dest') {
+    $qid      = preg_replace('/[^0-9]/', '', $_POST['queue'] ?? '');
+    $dest     = trim($_POST['dest'] ?? '');
+    $destcont = trim($_POST['destcontinue'] ?? '');
+    if (!$qid) { echo json_encode(['success'=>false,'error'=>'queue requerido']); exit; }
+    try {
+        $db = mysql_pbx();
+        $db->prepare("UPDATE queues_config SET dest=?, destcontinue=? WHERE extension=?")
+           ->execute([$dest, $destcont, $qid]);
+        reload_dialplan();
+        echo json_encode(['success'=>true,'message'=>"Failover de {$qid} actualizado"]);
     } catch(Exception $e) {
         echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
     }
