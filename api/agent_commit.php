@@ -60,21 +60,43 @@ if ($queue_raw !== '') {
     tflog("queue_raw='$queue_raw' resolved=[" . implode(',', $resolved) . "]");
 }
 
-// Si no vino queue o no se pudo resolver nada → fallback a prefs guardadas
+// Si no vino queue o no se pudo resolver nada → fallback en cascada:
+//   1. agent_queue_pref (prefs guardadas en Teleflow por agent)
+//   2. queue_call_entry (campañas activas en Issabel call_center)
+//   3. queues_config (TODAS las colas activas de FreePBX — última red de seguridad)
 if (empty($queues)) {
+    $source = 'shortcut';
     try {
         $st = $tf->prepare("SELECT queue, penalty FROM agent_queue_pref WHERE agent_number = ?");
         $st->execute([$agent_number]);
         $queues = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {}
+        if ($queues) $source = 'agent_queue_pref';
+    } catch (Exception $e) { tflog('pref_fail: '.$e->getMessage()); }
+
     if (empty($queues)) {
         try {
             $rows = $cc->query("SELECT DISTINCT queue FROM queue_call_entry WHERE estatus='A'")->fetchAll(PDO::FETCH_COLUMN);
             foreach ($rows as $q) $queues[] = ['queue'=>$q,'penalty'=>0];
-        } catch (Exception $e) {}
+            if ($queues) $source = 'queue_call_entry';
+        } catch (Exception $e) { tflog('qce_fail: '.$e->getMessage()); }
     }
+
+    if (empty($queues)) {
+        // ÚLTIMO recurso: todas las colas configuradas en FreePBX
+        try {
+            $pbxdb = new PDO("mysql:host=$DB_HOST;dbname=asterisk;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            $rows = $pbxdb->query("SELECT extension FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($rows as $q) $queues[] = ['queue'=>$q,'penalty'=>0];
+            if ($queues) $source = 'queues_config_fallback';
+        } catch (Exception $e) { tflog('qcfg_fail: '.$e->getMessage()); }
+    }
+    tflog("fallback source=$source queues_count=".count($queues));
 }
-if (empty($queues)) { tflog('no_queues'); echo '{"ok":false}'; exit; }
+if (empty($queues)) {
+    tflog('no_queues_anywhere');
+    echo json_encode(['ok'=>false, 'error'=>'no_queues', 'msg'=>'No se encontraron colas disponibles para asignar al agente. Configurar agent_queue_pref o queues en FreePBX.']);
+    exit;
+}
 
 $ami = @fsockopen($AMI_HOST, $AMI_PORT, $en, $es, 3);
 if (!$ami) { tflog('ami_fail'); echo '{"ok":false}'; exit; }
@@ -114,6 +136,9 @@ fwrite($ami, "Action: Logoff\r\n\r\n"); fclose($ami);
 
 try {
     $sid = uniqid('s_',true); $today = date('Y-m-d');
+    // Antes de insertar nueva sesión, cerrar zombies del mismo ext (no debería haber, pero defensive)
+    $tf->prepare("UPDATE agent_sessions SET logout_time = NOW(), status = 'AUTO_CLOSED' WHERE agent_ext = ? AND logout_time IS NULL AND status = 'ACTIVE'")
+       ->execute([$callback_ext]);
     $tf->prepare("INSERT INTO agent_sessions (session_id, agent_ext, agent_number, login_time, shift_date, status) VALUES (?, ?, ?, NOW(), ?, 'ACTIVE')")
        ->execute([$sid, $callback_ext, $agent_number, $today]);
 } catch (Exception $e) { tflog("session insert fail: ".$e->getMessage()); }
@@ -122,5 +147,13 @@ try {
 @unlink('/tmp/teleflow_queue_status.json');
 @file_get_contents('http://127.0.0.1/api/notify.php?event=agent_login&agent='.urlencode($agent_number).'&ext='.urlencode($callback_ext).'&queues='.urlencode(implode(',',$added)));
 
-tflog("commit OK agent=$agent_number ext=$callback_ext queues=".implode(',',$added));
+tflog("commit OK agent=$agent_number ext=$callback_ext queues_requested=".count($queues)." queues_added=[".implode(',',$added)."]");
+echo json_encode([
+    'ok' => true,
+    'agent_number' => $agent_number,
+    'ext' => $callback_ext,
+    'queues_requested' => array_map(fn($q)=>$q['queue'], $queues),
+    'queues_added' => $added,
+    'previous_removed' => array_unique($previous_queues),
+]);
 echo json_encode(['ok'=>true,'queues'=>$added]);
