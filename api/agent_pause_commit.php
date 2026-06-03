@@ -6,8 +6,18 @@ $ext = preg_replace('/\D/', '', $_GET['ext'] ?? '');
 $reason_code = preg_replace('/\D/', '', $_GET['reason'] ?? '');
 if (!$ext) { http_response_code(400); echo '{"ok":false}'; exit; }
 
-$reason_map = ['1'=>'DESCANSO','2'=>'BATHROOM','3'=>'MEETING','4'=>'TRAINING','0'=>'PERSONAL'];
-$reason_label = $reason_map[$reason_code] ?? 'PERSONAL';
+// Mapping dynamic desde pause_types.code ORDER BY id (dígito 1 → primer activo, etc.)
+$reason_label = 'PERSONAL';
+try {
+    require_once __DIR__ . '/../config.php';
+    $_tf_tmp = new PDO("mysql:host=$DB_HOST;dbname=teleflow;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $rows = $_tf_tmp->query("SELECT id, code FROM pause_types WHERE active=1 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    if ($reason_code === '0' || $reason_code === '') {
+        $reason_label = 'PERSONAL';
+    } else if (is_numeric($reason_code) && intval($reason_code) >= 1 && intval($reason_code) <= count($rows)) {
+        $reason_label = $rows[intval($reason_code)-1]['code'];
+    }
+} catch (Exception $_e) { /* fallback queda en PERSONAL */ }
 
 require __DIR__ . '/../config.php';
 $logf = '/tmp/teleflow_agent_commit.log';
