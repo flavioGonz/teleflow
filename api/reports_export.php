@@ -506,18 +506,25 @@ if ($format === 'pdf') {
     $pdf->SetMargins(10, 20, 10); $pdf->SetAutoPageBreak(true, 15);
     $pdf->AddPage();
 
-    // Header morado
-    $pdf->SetFillColor(139, 92, 246);
-    $pdf->Rect(0, 0, 297, 22, 'F');
-    $pdf->SetTextColor(255, 255, 255);
-    $pdf->SetFont('helvetica', 'B', 18);
-    $pdf->SetXY(10, 5);
-    $pdf->Cell(0, 8, 'TeleFlow', 0, 1);
-    $pdf->SetFont('helvetica', '', 9);
+    // Encabezado sobrio gris
+    $titulos_rep = ['summary'=>'Resumen general','by_agent'=>'Por agente','by_queue'=>'Por cola','calls'=>'Llamadas','pauses'=>'Pausas','failover_calls'=>'Llamadas con failover','agent_detail'=>'Detalle de agente'];
+    $titulo_legible = $titulos_rep[$type] ?? ucfirst($type);
+    // Linea verde fina (4mm)
+    $pdf->SetFillColor(17, 179, 40);
+    $pdf->Rect(0, 0, 297, 3, 'F');
+    // Bloque info gris claro
+    $pdf->SetTextColor(40, 40, 40);
+    $pdf->SetXY(10, 8);
+    $pdf->SetFont('helvetica', 'B', 14);
+    $pdf->Cell(0, 6, $titulo_legible, 0, 1);
     $pdf->SetX(10);
-    $pdf->Cell(0, 5, 'Reporte ' . strtoupper($type) . '  ·  ' . $from_d . ' → ' . $to_d . '  ·  Generado ' . date('Y-m-d H:i'), 0, 1);
-
-    $pdf->SetTextColor(20, 20, 20); $pdf->Ln(8);
+    $pdf->SetTextColor(120, 120, 120);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(0, 4, $from_d . '  →  ' . $to_d . '   ·   Generado: ' . date('Y-m-d H:i'), 0, 1);
+    // Separador gris
+    $pdf->SetDrawColor(220, 220, 220);
+    $pdf->Line(10, 22, 287, 22);
+    $pdf->SetTextColor(40, 40, 40); $pdf->Ln(6);
     $pdf->SetFont('helvetica', '', 9);
 
     if ($type === 'summary') {
@@ -562,7 +569,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'by_agent') {
         $headers = [['Ext',12],['Agente',14],['Nombre',45],['Ses.',10],['Login',18],['Pausas',12],['T.Pausa',18],['Prod.%',12],['Llam.',12],['Contest',14],['AHT',10],['Talk',16]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -576,7 +583,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'by_queue') {
         $headers = [['Cola',16],['Descripción',58],['Ofrec.',14],['Contest.',16],['Aband.',14],['Aband.%',14],['SL%',12],['Esp.prom.',18],['Máx.',14],['AHT',14]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -589,7 +596,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'calls') {
         $headers = [['Fecha/Hora',32],['Origen',20],['Destino',20],['CallerID',58],['Estado',24],['Dur.',16],['Hablado',18],['Grabación',8]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -607,7 +614,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'pauses') {
         $headers = [['Agente',16],['Ext',16],['Motivo',32],['Inicio',38],['Fin',38],['Duración',24]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -649,7 +656,7 @@ if ($format === 'pdf') {
         // Tabla de sesiones
         $pdf->SetFont('helvetica','B',10); $pdf->Cell(0, 6, 'Sesiones', 0, 1);
         $hs = [['Login',38],['Logout',38],['Ext',16],['Estado',22],['Duración',24],['Llam.',20],['Talk',24]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($hs as $h) $pdf->Cell($h[1], 6, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8); $alt = false;
@@ -663,7 +670,7 @@ if ($format === 'pdf') {
         $pdf->Ln(4);
         $pdf->SetFont('helvetica','B',10); $pdf->Cell(0, 6, 'Pausas', 0, 1);
         $hp = [['Motivo',32],['Inicio',38],['Fin',38],['Duración',24]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($hp as $h) $pdf->Cell($h[1], 6, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8); $alt = false;
@@ -678,7 +685,7 @@ if ($format === 'pdf') {
         $pdf->Cell(0, 8, 'Llamadas con failover', 0, 1);
         $pdf->SetFont('helvetica','',8);
         $headers = [['Inicio',32],['Llamante',20],['Origen',16],['Failover',16],['Motivo',38],['Agente',26],['Ext',12],['Espera',16],['Convers.',20],['Estado',22]];
-        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',7);
