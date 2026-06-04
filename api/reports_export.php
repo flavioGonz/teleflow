@@ -61,7 +61,7 @@ class TeleflowPDF extends \TCPDF {
         $this->SetX(10);
         $this->Cell(80, 6, 'TeleFlow Horizon  ·  PBX Control', 0, 0, 'L');
         $this->SetXY($pageW - 50, $pageH - 12);
-        $this->Cell(40, 6, 'Página ' . $this->getAliasNumPage() . ' / ' . $this->getAliasNbPages(), 0, 0, 'R');
+        $this->Cell(40, 6, 'Página ' . $this->PageNo() . ' / ' . $this->getAliasNbPages(), 0, 0, 'R');
     }
 }
 
@@ -551,7 +551,7 @@ if ($format === 'pdf') {
     $pdf->isCoverPage = false;
     $pdf->setPrintHeader(true); $pdf->setPrintFooter(true);
     $pdf->SetMargins(10, 24, 10); $pdf->SetAutoPageBreak(true, 18);
-    $pdf->AddPage();
+    $pdf->AddPage('L', 'A4');   // FORZAR landscape — sino hereda portrait de la portada
 
     // (Header/Footer impreso automaticamente por clase TeleflowPDF)
     $pdf->SetTextColor(40, 40, 40);
