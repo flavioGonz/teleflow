@@ -247,8 +247,8 @@ if ($format === 'xlsx') {
     $ss = new Spreadsheet();
     $sh = $ss->getActiveSheet();
 
-    $headStyle = ['font'=>['bold'=>true,'color'=>['rgb'=>'FFFFFF'],'size'=>11], 'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'8B5CF6']], 'alignment'=>['vertical'=>Alignment::VERTICAL_CENTER,'horizontal'=>Alignment::HORIZONTAL_CENTER], 'borders'=>['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'6D28D9']]]];
-    $titleStyle = ['font'=>['bold'=>true,'size'=>16,'color'=>['rgb'=>'8B5CF6']]];
+    $headStyle = ['font'=>['bold'=>true,'color'=>['rgb'=>'FFFFFF'],'size'=>11], 'fill'=>['fillType'=>Fill::FILL_SOLID,'startColor'=>['rgb'=>'11B328']], 'alignment'=>['vertical'=>Alignment::VERTICAL_CENTER,'horizontal'=>Alignment::HORIZONTAL_CENTER], 'borders'=>['allBorders'=>['borderStyle'=>Border::BORDER_THIN,'color'=>['rgb'=>'0E8F20']]]];
+    $titleStyle = ['font'=>['bold'=>true,'size'=>16,'color'=>['rgb'=>'11B328']]];
     $subTitleStyle = ['font'=>['italic'=>true,'size'=>10,'color'=>['rgb'=>'6B7280']]];
 
     $sh->setCellValue('A1', 'TeleFlow — Reporte ' . strtoupper($type));
@@ -403,11 +403,107 @@ if ($format === 'xlsx') {
 if ($format === 'pdf') {
     // Usar TCPDF
     $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
-    $pdf->SetCreator('TeleFlow'); $pdf->SetAuthor('TeleFlow Horizon');
-    $pdf->SetTitle("TeleFlow Report — $type");
+    $pdf->SetCreator('TeleFlow Horizon'); $pdf->SetAuthor('TeleFlow Horizon');
+    $pdf->SetTitle("TeleFlow Horizon — $type");
+    // Header/Footer custom con paleta Horizon
+    $pdf->SetHeaderData('', 0, 'TeleFlow Horizon', (['summary'=>'Resumen general','by_agent'=>'Por agente','by_queue'=>'Por cola','calls'=>'Llamadas','pauses'=>'Pausas','failover_calls'=>'Llamadas con failover','agent_detail'=>'Detalle de agente'][$type] ?? ucfirst($type)) ?? ucfirst($type) . "  ·  $from_d → $to_d", [17, 179, 40], [17, 179, 40]);
+    $pdf->setHeaderFont(['helvetica', 'B', 10]);
+    $pdf->setHeaderMargin(8);
+    $pdf->SetFooterData([17, 179, 40], [17, 179, 40]);
+    $pdf->setFooterFont(['helvetica', '', 8]);
     $pdf->setPrintHeader(false); $pdf->setPrintFooter(false);
     $pdf->SetMargins(10, 10, 10);
     $pdf->SetAutoPageBreak(true, 15);
+    // ─── PÁGINA DE PORTADA (branding Horizon) ────────────────────────
+    $pdf->setPrintHeader(false); $pdf->setPrintFooter(false);
+    $pdf->SetMargins(0, 0, 0); $pdf->SetAutoPageBreak(false);
+    $pdf->AddPage('P', 'A4'); // Portada en portrait
+    // Fondo: blanco. Banner verde top.
+    $pageW = $pdf->getPageWidth(); $pageH = $pdf->getPageHeight();
+    // Banner verde Horizon (top)
+    $pdf->SetFillColor(17, 179, 40);
+    $pdf->Rect(0, 0, $pageW, 90, 'F');
+    // Banner negro Horizon (bottom thin)
+    $pdf->SetFillColor(26, 26, 26);
+    $pdf->Rect(0, $pageH - 14, $pageW, 14, 'F');
+
+    // Logo circular en blanco con TF
+    $logoCx = $pageW / 2; $logoCy = 50; $logoR = 22;
+    $pdf->SetFillColor(255, 255, 255);
+    $pdf->Circle($logoCx, $logoCy, $logoR, 0, 360, 'F');
+    $pdf->SetTextColor(17, 179, 40);
+    $pdf->SetFont('helvetica', 'B', 28);
+    $pdf->SetXY($logoCx - 25, $logoCy - 7);
+    $pdf->Cell(50, 14, 'TF', 0, 0, 'C');
+
+    // Titulo
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetFont('helvetica', 'B', 32);
+    $pdf->SetXY(0, 88);
+    $pdf->Cell($pageW, 14, 'TeleFlow', 0, 0, 'C');
+
+    // Subtitulo
+    $pdf->SetTextColor(220, 220, 220);
+    $pdf->SetFont('helvetica', '', 12);
+    $pdf->SetXY(0, 105);
+    $pdf->Cell($pageW, 8, 'Horizon  ·  PBX Control', 0, 0, 'C');
+
+    // Card central
+    $cardW = 140; $cardX = ($pageW - $cardW) / 2; $cardY = 135; $cardH = 90;
+    $pdf->SetFillColor(248, 248, 248);
+    $pdf->SetDrawColor(220, 220, 220);
+    $pdf->RoundedRect($cardX, $cardY, $cardW, $cardH, 4, '1111', 'DF');
+
+    // Tipo reporte
+    $titles = [
+        'summary'        => 'Resumen general',
+        'by_agent'       => 'Por agente',
+        'by_queue'       => 'Por cola',
+        'calls'          => 'Llamadas',
+        'pauses'         => 'Pausas',
+        'failover_calls' => 'Llamadas con failover',
+        'agent_detail'   => 'Detalle de agente',
+    ];
+    $titleLabel = $titles[$type] ?? ucfirst($type);
+
+    $pdf->SetTextColor(17, 179, 40);
+    $pdf->SetFont('helvetica', 'B', 18);
+    $pdf->SetXY($cardX, $cardY + 8);
+    $pdf->Cell($cardW, 10, 'REPORTE', 0, 0, 'C');
+    $pdf->SetTextColor(20, 20, 20);
+    $pdf->SetFont('helvetica', 'B', 22);
+    $pdf->SetXY($cardX, $cardY + 22);
+    $pdf->Cell($cardW, 12, $titleLabel, 0, 0, 'C');
+
+    // Separator line
+    $pdf->SetDrawColor(17, 179, 40);
+    $pdf->Line($cardX + 30, $cardY + 42, $cardX + $cardW - 30, $cardY + 42);
+
+    // Periodo
+    $pdf->SetTextColor(100, 100, 100);
+    $pdf->SetFont('helvetica', '', 10);
+    $pdf->SetXY($cardX, $cardY + 50);
+    $pdf->Cell($cardW, 6, 'PERÍODO', 0, 0, 'C');
+    $pdf->SetTextColor(20, 20, 20);
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->SetXY($cardX, $cardY + 58);
+    $pdf->Cell($cardW, 7, $from_d . '   →   ' . $to_d, 0, 0, 'C');
+
+    // Generado
+    $pdf->SetTextColor(100, 100, 100);
+    $pdf->SetFont('helvetica', '', 9);
+    $pdf->SetXY($cardX, $cardY + 72);
+    $pdf->Cell($cardW, 6, 'Generado: ' . date('Y-m-d H:i'), 0, 0, 'C');
+
+    // Footer
+    $pdf->SetTextColor(180, 180, 180);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->SetXY(0, $pageH - 10);
+    $pdf->Cell($pageW, 6, 'Horizon Seguridad  ·  TeleFlow PBX Control', 0, 0, 'C');
+
+    // Restaurar margenes para el contenido
+    $pdf->setPrintHeader(true); $pdf->setPrintFooter(true);
+    $pdf->SetMargins(10, 20, 10); $pdf->SetAutoPageBreak(true, 15);
     $pdf->AddPage();
 
     // Header morado
@@ -428,7 +524,7 @@ if ($format === 'pdf') {
         $k = $data['kpis']; $sess = $data['sessions']; $p = $data['pauses'];
         // KPI cards
         $cards = [
-            ['Total', number_format((int)$k['total']), [139,92,246]],
+            ['Total', number_format((int)$k['total']), [17,179,40]],
             ['Contestadas', number_format((int)$k['answered']) . ' ('.$k['answer_rate'].'%)', [34,197,94]],
             ['Abandono', $k['abandon_rate'].'%', [239,68,68]],
             ['AHT', $k['avg_billsec'].'s', [59,130,246]],
@@ -466,7 +562,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'by_agent') {
         $headers = [['Ext',12],['Agente',14],['Nombre',45],['Ses.',10],['Login',18],['Pausas',12],['T.Pausa',18],['Prod.%',12],['Llam.',12],['Contest',14],['AHT',10],['Talk',16]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -480,7 +576,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'by_queue') {
         $headers = [['Cola',16],['Descripción',58],['Ofrec.',14],['Contest.',16],['Aband.',14],['Aband.%',14],['SL%',12],['Esp.prom.',18],['Máx.',14],['AHT',14]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -493,7 +589,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'calls') {
         $headers = [['Fecha/Hora',32],['Origen',20],['Destino',20],['CallerID',58],['Estado',24],['Dur.',16],['Hablado',18],['Grabación',8]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -511,7 +607,7 @@ if ($format === 'pdf') {
         }
     } elseif ($type === 'pauses') {
         $headers = [['Agente',16],['Ext',16],['Motivo',32],['Inicio',38],['Fin',38],['Duración',24]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8);
@@ -530,7 +626,7 @@ if ($format === 'pdf') {
 
         $pmins = $k['total_login_sec'] > 0 ? round(max(0, $k['total_login_sec']-$k['total_pause_sec']) * 100.0 / $k['total_login_sec'], 1) : null;
         $cards = [
-            ['Sesiones', $k['sessions_count'], [139,92,246]],
+            ['Sesiones', $k['sessions_count'], [17,179,40]],
             ['Login total', fmt_secs($k['total_login_sec']), [59,130,246]],
             ['Pausas', $k['pauses_count'], [245,158,11]],
             ['T. Pausa', fmt_secs($k['total_pause_sec']), [239,68,68]],
@@ -553,7 +649,7 @@ if ($format === 'pdf') {
         // Tabla de sesiones
         $pdf->SetFont('helvetica','B',10); $pdf->Cell(0, 6, 'Sesiones', 0, 1);
         $hs = [['Login',38],['Logout',38],['Ext',16],['Estado',22],['Duración',24],['Llam.',20],['Talk',24]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($hs as $h) $pdf->Cell($h[1], 6, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8); $alt = false;
@@ -567,7 +663,7 @@ if ($format === 'pdf') {
         $pdf->Ln(4);
         $pdf->SetFont('helvetica','B',10); $pdf->Cell(0, 6, 'Pausas', 0, 1);
         $hp = [['Motivo',32],['Inicio',38],['Fin',38],['Duración',24]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($hp as $h) $pdf->Cell($h[1], 6, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',8); $alt = false;
@@ -582,7 +678,7 @@ if ($format === 'pdf') {
         $pdf->Cell(0, 8, 'Llamadas con failover', 0, 1);
         $pdf->SetFont('helvetica','',8);
         $headers = [['Inicio',32],['Llamante',20],['Origen',16],['Failover',16],['Motivo',38],['Agente',26],['Ext',12],['Espera',16],['Convers.',20],['Estado',22]];
-        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $pdf->SetFillColor(17,179,40); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
         $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',7);
