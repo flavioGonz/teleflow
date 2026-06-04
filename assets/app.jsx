@@ -10366,6 +10366,7 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [callFilters, setCallFilters] = useState({ disposition: '', src: '', dst: '', min_dur: 0 });
+    const [foFilters, setFoFilters] = useState({ main_queue: '', agent: '' });
     const [agentDetail, setAgentDetail] = useState(null);
 
     const presets = [
@@ -10385,6 +10386,10 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
             if (callFilters.min_dur > 0) p.set('min_dur', callFilters.min_dur);
             p.set('limit', '500');
         }
+        if (tab === 'failover_calls') {
+            if (foFilters.main_queue) p.set('main_queue', foFilters.main_queue);
+            if (foFilters.agent) p.set('agent', foFilters.agent);
+        }
         return p.toString();
     };
 
@@ -10403,7 +10408,7 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
             .catch(() => { if (!cancelled) toast?.('Error de red', 'error'); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur]);
+    }, [tab, from, to, callFilters.disposition, callFilters.src, callFilters.dst, callFilters.min_dur, foFilters.main_queue, foFilters.agent]);
 
     const exportUrl = (format, type = tab, extra = {}) => {
         const p = new URLSearchParams({ type, format, from, to, ...extra });
@@ -10458,6 +10463,9 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
                         <TabsTrigger value="pauses" className="h-8 px-4 gap-1.5">
                             <span className="material-icons-round" style={{fontSize:15}}>pause_circle</span>Pausas
                         </TabsTrigger>
+                        <TabsTrigger value="failover_calls" className="h-8 px-4 gap-1.5">
+                            <span className="material-icons-round" style={{fontSize:15}}>swap_calls</span>Failover
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Período pill — mismo tamaño que TabsList */}
@@ -10497,6 +10505,7 @@ function ViewReportes({ toast, queue, onClearQueue, agentReport, onClearAgent })
                 {!loading && data && tab === 'by_queue' && <TabsContent value="by_queue"><ReportTabByQueue data={data}/></TabsContent>}
                 {!loading && data && tab === 'calls' && <TabsContent value="calls"><ReportTabCalls data={data} filters={callFilters} setFilters={setCallFilters}/></TabsContent>}
                 {!loading && data && tab === 'pauses' && <TabsContent value="pauses"><ReportTabPauses data={data} from={from} to={to}/></TabsContent>}
+                {!loading && data && tab === 'failover_calls' && <TabsContent value="failover_calls"><ReportTabFailover data={data} foFilters={foFilters} setFoFilters={setFoFilters}/></TabsContent>}
             </Tabs>
 
             {agentDetail && <AgentDetailDrawer agent={agentDetail} from={from} to={to} onClose={() => setAgentDetail(null)} toast={toast}/>}
@@ -10830,6 +10839,138 @@ function pauseSeverity(secs) {
     if (secs >= PAUSE_CRIT_SEC) return 'crit';
     if (secs >= PAUSE_WARN_SEC) return 'warn';
     return null;
+}
+
+function ReportTabFailover({ data, foFilters, setFoFilters }) {
+    const failovers = Array.isArray(data?.failovers) ? data.failovers : [];
+    const queues = Array.from(new Set(failovers.map(f => f.source_queue))).sort();
+    const total = failovers.length;
+    const answered = failovers.filter(f => f.status === 'answered').length;
+    const unanswered = total - answered;
+    const reasonGroups = {};
+    failovers.forEach(f => { reasonGroups[f.reason_label] = (reasonGroups[f.reason_label]||0) + 1; });
+    const fmtSec = s => { s = parseInt(s)||0; const m = Math.floor(s/60); const r = s%60; return m>0 ? `${m}m ${r}s` : `${r}s`; };
+    const fmtTime = ts => ts ? new Date(ts.replace(' ', 'T')).toLocaleString('es-AR', {dateStyle:'short', timeStyle:'medium'}) : '';
+
+    return (
+        <div className="space-y-3">
+            {/* KPIs */}
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                <div className="rounded-lg border bg-card p-3" style={{borderColor:'var(--border)'}}>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold" style={{color:'var(--muted-foreground)'}}>Total failover</div>
+                    <div className="text-2xl font-black tracking-tight mt-1" style={{color:'var(--foreground)'}}>{total}</div>
+                </div>
+                <div className="rounded-lg border bg-card p-3" style={{borderColor:'var(--border)'}}>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold" style={{color:'var(--muted-foreground)'}}>Atendidas</div>
+                    <div className="text-2xl font-black tracking-tight mt-1" style={{color:'#10b981'}}>{answered}</div>
+                </div>
+                <div className="rounded-lg border bg-card p-3" style={{borderColor:'var(--border)'}}>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold" style={{color:'var(--muted-foreground)'}}>No atendidas</div>
+                    <div className="text-2xl font-black tracking-tight mt-1" style={{color:'#ef4444'}}>{unanswered}</div>
+                </div>
+                <div className="rounded-lg border bg-card p-3" style={{borderColor:'var(--border)'}}>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold" style={{color:'var(--muted-foreground)'}}>% atendidas</div>
+                    <div className="text-2xl font-black tracking-tight mt-1" style={{color:'var(--primary)'}}>{total > 0 ? Math.round(answered/total*100) : 0}%</div>
+                </div>
+            </div>
+
+            {/* Filtros */}
+            <div className="rounded-lg border bg-card p-3 flex items-center gap-3 flex-wrap" style={{borderColor:'var(--border)'}}>
+                <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>filter_list</span>
+                <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold" style={{color:'var(--muted-foreground)'}}>Cola principal:</label>
+                    <select value={foFilters.main_queue} onChange={e=>setFoFilters(f=>({...f, main_queue: e.target.value}))}
+                        className="h-8 px-2 rounded-md text-sm bg-background border focus:outline-none focus:ring-2 focus:ring-ring"
+                        style={{borderColor:'var(--border)', color:'var(--foreground)'}}>
+                        <option value="">Todas</option>
+                        {queues.map(q => <option key={q} value={q}>{q}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold" style={{color:'var(--muted-foreground)'}}>Agente n°:</label>
+                    <input type="text" value={foFilters.agent} onChange={e=>setFoFilters(f=>({...f, agent: e.target.value.replace(/[^0-9]/g,'')}))}
+                        placeholder="Ej: 200"
+                        className="h-8 w-24 px-2 rounded-md text-sm bg-background border focus:outline-none focus:ring-2 focus:ring-ring"
+                        style={{borderColor:'var(--border)', color:'var(--foreground)'}}/>
+                </div>
+                {(foFilters.main_queue || foFilters.agent) && (
+                    <button onClick={()=>setFoFilters({main_queue:'', agent:''})} className="h-8 px-3 rounded-md text-xs font-semibold transition-all"
+                        style={{background:'var(--secondary)', color:'var(--foreground)'}}>Limpiar</button>
+                )}
+            </div>
+
+            {/* Tabla */}
+            {failovers.length === 0 ? (
+                <div className="rounded-lg border bg-card text-card-foreground p-12 text-center" style={{borderColor:'var(--border)'}}>
+                    <span className="material-icons-round" style={{fontSize:36, color:'var(--muted-foreground)'}}>swap_calls</span>
+                    <div className="mt-2 text-sm font-medium" style={{color:'var(--muted-foreground)'}}>No hay llamadas con failover en el período.</div>
+                </div>
+            ) : (
+                <div className="rounded-lg border bg-card overflow-hidden" style={{borderColor:'var(--border)'}}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr style={{background:'var(--secondary)'}}>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Inicio</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Llamante</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Trayectoria</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Motivo</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Atendió</th>
+                                    <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Espera</th>
+                                    <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Conversación</th>
+                                    <th className="text-center px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {failovers.map((f, i) => (
+                                    <tr key={i} className="border-t hover:bg-secondary/50" style={{borderColor:'var(--border)'}}>
+                                        <td className="px-3 py-2 font-mono text-xs whitespace-nowrap" style={{color:'var(--foreground)'}}>{fmtTime(f.journey_start)}</td>
+                                        <td className="px-3 py-2 font-mono font-semibold" style={{color:'var(--foreground)'}}>{f.caller_id || '—'}</td>
+                                        <td className="px-3 py-2">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="px-2 py-0.5 rounded font-mono text-xs font-bold" style={{background:'#ef444415', color:'#ef4444'}}>{f.source_queue}</span>
+                                                <span className="material-icons-round" style={{fontSize:14, color:'var(--muted-foreground)'}}>arrow_forward</span>
+                                                <span className="px-2 py-0.5 rounded font-mono text-xs font-bold" style={{background:'#10b98115', color:'#10b981'}}>{f.failover_queue}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <span className="text-xs" style={{color: f.reason_code==='AGENT_PAUSE' ? '#f59e0b' : 'var(--foreground)'}}>{f.reason_label}</span>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            {f.agent_number ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="px-1.5 py-0.5 rounded font-mono text-[11px] font-bold" style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>#{f.agent_number}</span>
+                                                    {f.agent_name && <span className="text-xs truncate max-w-[140px]" style={{color:'var(--muted-foreground)'}}>{f.agent_name}</span>}
+                                                    <span className="text-[10px]" style={{color:'var(--muted-foreground)'}}>(ext {f.answered_ext})</span>
+                                                </div>
+                                            ) : f.answered_ext ? (
+                                                <span className="text-xs font-mono" style={{color:'var(--foreground)'}}>ext {f.answered_ext}</span>
+                                            ) : (
+                                                <span className="text-xs italic" style={{color:'var(--muted-foreground)'}}>—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-mono text-xs" style={{color:'var(--foreground)'}}>{f.wait_sec > 0 ? fmtSec(f.wait_sec) : '—'}</td>
+                                        <td className="px-3 py-2 text-right font-mono text-xs" style={{color:'var(--foreground)'}}>{f.talk_sec > 0 ? fmtSec(f.talk_sec) : '—'}</td>
+                                        <td className="px-3 py-2 text-center">
+                                            {f.status === 'answered' ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:'#10b98115', color:'#10b981'}}>
+                                                    <span className="material-icons-round" style={{fontSize:11}}>check_circle</span>Atendida
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:'#ef444415', color:'#ef4444'}}>
+                                                    <span className="material-icons-round" style={{fontSize:11}}>cancel</span>No atendida
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function ReportTabPauses({ data, from, to }) {
