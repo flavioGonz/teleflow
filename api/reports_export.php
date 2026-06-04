@@ -137,6 +137,105 @@ function fetch_data($type, $from, $to) {
         $kpi = ['sessions_count' => count($sessions), 'total_login_sec' => array_sum(array_column($sessions, 'duration_sec')), 'total_calls' => array_sum(array_column($sessions, 'total_calls')), 'pauses_count' => count($pauses), 'total_pause_sec' => array_sum(array_column($pauses, 'duration_seconds'))];
         return ['info' => $info, 'kpi' => $kpi, 'sessions' => $sessions, 'pauses' => $pauses];
     }
+    if ($type === 'failover_calls') {
+        $main_queue = preg_replace('/[^0-9]/', '', $_GET['main_queue'] ?? '');
+        $agent_filter = preg_replace('/[^0-9]/', '', $_GET['agent'] ?? '');
+        $window_sec = 300;
+        $where_main = $main_queue ? "AND q1.queue_name = ?" : "";
+        $params = [$from, $to]; if ($main_queue) $params[] = $main_queue;
+        $sql = "
+            SELECT q1.event_timestamp AS journey_start, q1.caller_id, q1.queue_name AS source_queue,
+                   q2.queue_name AS failover_queue, q2.event_timestamp AS failover_at,
+                   qc.event_timestamp AS connect_at, qc.agent_ext AS answered_ext, qc.wait_time AS wait_sec,
+                   qcomp.talk_time AS talk_sec, qexit.event_type AS exit_reason
+            FROM queue_events q1
+            INNER JOIN queue_events q2 ON q1.caller_id=q2.caller_id AND q1.queue_name<>q2.queue_name
+              AND q1.event_type='JOIN' AND q2.event_type='JOIN'
+              AND q2.event_timestamp>q1.event_timestamp
+              AND q2.event_timestamp<=DATE_ADD(q1.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qc ON qc.caller_id=q1.caller_id AND qc.queue_name=q2.queue_name
+              AND qc.event_type='CONNECT' AND qc.event_timestamp>=q2.event_timestamp
+              AND qc.event_timestamp<=DATE_ADD(q2.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qcomp ON qcomp.caller_id=q1.caller_id AND qcomp.queue_name=q2.queue_name
+              AND qcomp.event_type='COMPLETE' AND qcomp.event_timestamp>=q2.event_timestamp
+              AND qcomp.event_timestamp<=DATE_ADD(q2.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qexit ON qexit.caller_id=q1.caller_id AND qexit.queue_name=q1.queue_name
+              AND qexit.event_timestamp>=q1.event_timestamp AND qexit.event_timestamp<=q2.event_timestamp
+              AND qexit.event_type IN ('ABANDON','EXITWITHTIMEOUT','EXITEMPTY')
+            WHERE q1.event_timestamp BETWEEN ? AND ? $where_main
+            ORDER BY q1.event_timestamp DESC LIMIT 5000
+        ";
+        $st = $tf->prepare($sql); $st->execute($params);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        // Dedup
+        $dedup = [];
+        foreach ($rows as $r) {
+            $key = $r['caller_id'].'|'.$r['source_queue'].'|'.$r['failover_queue'].'|'.substr($r['journey_start'],0,16);
+            if (!isset($dedup[$key])) { $dedup[$key] = $r; continue; }
+            $cur = (int)!empty($r['connect_at'])+(int)!empty($r['answered_ext'])+(int)!empty($r['talk_sec']);
+            $prv = (int)!empty($dedup[$key]['connect_at'])+(int)!empty($dedup[$key]['answered_ext'])+(int)!empty($dedup[$key]['talk_sec']);
+            if ($cur > $prv) $dedup[$key] = $r;
+        }
+        $rows = array_values($dedup);
+        // Batch agent_sessions
+        $exts = array_values(array_unique(array_filter(array_column($rows, 'answered_ext'))));
+        $session_map = [];
+        if (!empty($exts)) {
+            $ph = implode(',', array_fill(0, count($exts), '?'));
+            $st2 = $tf->prepare("SELECT agent_number, agent_ext, login_time, logout_time FROM agent_sessions WHERE agent_ext IN ($ph) AND login_time<=? AND (logout_time IS NULL OR logout_time>=?)");
+            $st2->execute(array_merge($exts, [$to, $from]));
+            $sess_idx = [];
+            foreach ($st2->fetchAll(PDO::FETCH_ASSOC) as $s) $sess_idx[$s['agent_ext']][] = $s;
+            foreach ($rows as $r) {
+                if (empty($r['answered_ext']) || empty($r['connect_at'])) continue;
+                $at = $r['connect_at'];
+                foreach (($sess_idx[$r['answered_ext']] ?? []) as $s) {
+                    if ($s['login_time'] <= $at && ($s['logout_time'] === null || $s['logout_time'] >= $at)) {
+                        $session_map[$r['answered_ext'].'|'.$at] = $s['agent_number']; break;
+                    }
+                }
+            }
+        }
+        // Pauses for reason detection
+        $pauses_win = [];
+        try {
+            $stp = $tf->prepare("SELECT pause_start, IFNULL(pause_end, NOW()) AS pause_end FROM agent_pauses WHERE pause_start<=? AND (pause_end IS NULL OR pause_end>=?)");
+            $stp->execute([$to, $from]); $pauses_win = $stp->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {}
+        // Agent names
+        $agent_names = [];
+        $nums = array_values(array_unique(array_filter($session_map)));
+        if (!empty($nums)) {
+            try {
+                $cc = pbx_db('call_center');
+                $ph = implode(',', array_fill(0, count($nums), '?'));
+                $st3 = $cc->prepare("SELECT number, name FROM agent WHERE number IN ($ph)");
+                $st3->execute($nums);
+                foreach ($st3->fetchAll(PDO::FETCH_ASSOC) as $a) $agent_names[$a['number']] = $a['name'];
+            } catch (Exception $e) {}
+        }
+        // Compose
+        $result = [];
+        foreach ($rows as $r) {
+            $skey = ($r['answered_ext'] ?? '').'|'.($r['connect_at'] ?? '');
+            $agent_num = $session_map[$skey] ?? null;
+            if ($agent_filter && $agent_num != $agent_filter) continue;
+            $reason = 'Timeout / nadie atendió';
+            if ($r['exit_reason'] === 'ABANDON') $reason = 'Abandono en cola origen';
+            foreach ($pauses_win as $pw) {
+                if ($pw['pause_start'] <= $r['journey_start'] && $pw['pause_end'] >= $r['journey_start']) { $reason = 'Agente en pausa'; break; }
+            }
+            $result[] = [
+                'journey_start'=>$r['journey_start'], 'caller_id'=>$r['caller_id'],
+                'source_queue'=>$r['source_queue'], 'failover_queue'=>$r['failover_queue'],
+                'connect_at'=>$r['connect_at'], 'answered_ext'=>$r['answered_ext'],
+                'agent_number'=>$agent_num, 'agent_name'=>($agent_num && isset($agent_names[$agent_num])) ? $agent_names[$agent_num] : null,
+                'wait_sec'=>intval($r['wait_sec'] ?? 0), 'talk_sec'=>intval($r['talk_sec'] ?? 0),
+                'reason'=>$reason, 'status'=>$r['connect_at'] ? 'Atendida' : 'No atendida',
+            ];
+        }
+        return ['failovers' => $result];
+    }
     return null;
 }
 
@@ -271,6 +370,24 @@ if ($format === 'xlsx') {
         }
         foreach (range('A','D') as $c) $sheet3->getColumnDimension($c)->setWidth(20);
         $ss->setActiveSheetIndex(0); $sh->setTitle('Resumen');
+    } elseif ($type === 'failover_calls') {
+        $headers = ['Inicio','Llamante','Cola origen','Cola failover','Motivo','Agente #','Agente nombre','Ext','Espera','Conversación','Estado'];
+        foreach ($headers as $i => $h) $sh->setCellValue(col_letter($i+1) . 4, $h);
+        $sh->getStyle('A4:K4')->applyFromArray($headStyle);
+        $row = 5;
+        foreach ($data['failovers'] as $f) {
+            $cells = [
+                $f['journey_start'], $f['caller_id'] ?: '—',
+                $f['source_queue'], $f['failover_queue'], $f['reason'],
+                $f['agent_number'] ?: '—', $f['agent_name'] ?: '—', $f['answered_ext'] ?: '—',
+                fmt_secs($f['wait_sec']), fmt_secs($f['talk_sec']), $f['status'],
+            ];
+            foreach ($cells as $i => $v) $sh->setCellValue(col_letter($i+1) . $row, $v);
+            $row++;
+        }
+        $widths = [18, 12, 12, 12, 24, 10, 22, 8, 12, 14, 14];
+        foreach ($widths as $i => $w) $sh->getColumnDimension(col_letter($i+1))->setWidth($w);
+        $ss->getActiveSheet()->setTitle('Failover');
     }
 
     $fname = "teleflow_{$type}_{$from_d}_{$to_d}.xlsx";
@@ -458,6 +575,29 @@ if ($format === 'pdf') {
             $alt = !$alt;
             $vals = [$p['pause_label'], $p['pause_start'], $p['pause_end'] ?: '(activa)', fmt_secs($p['duration_seconds'])];
             foreach ($vals as $i => $v) $pdf->Cell($hp[$i][1], 5, (string)$v, 1, 0, 'C', $alt);
+            $pdf->Ln();
+        }
+    } elseif ($type === 'failover_calls') {
+        $pdf->SetFont('helvetica','B',12);
+        $pdf->Cell(0, 8, 'Llamadas con failover', 0, 1);
+        $pdf->SetFont('helvetica','',8);
+        $headers = [['Inicio',32],['Llamante',20],['Origen',16],['Failover',16],['Motivo',38],['Agente',26],['Ext',12],['Espera',16],['Convers.',20],['Estado',22]];
+        $pdf->SetFillColor(139,92,246); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
+        $pdf->Ln();
+        $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',7);
+        $alt = false;
+        foreach (array_slice($data['failovers'], 0, 2000) as $f) {
+            $alt = !$alt;
+            $ag = $f['agent_number'] ? ('#'.$f['agent_number'].' '.($f['agent_name'] ?? '')) : '—';
+            $vals = [
+                substr($f['journey_start'], 0, 19),
+                $f['caller_id'] ?: '—',
+                $f['source_queue'], $f['failover_queue'], $f['reason'],
+                $ag, $f['answered_ext'] ?: '—',
+                fmt_secs($f['wait_sec']), fmt_secs($f['talk_sec']), $f['status'],
+            ];
+            foreach ($vals as $i => $v) $pdf->Cell($headers[$i][1], 6, (string)$v, 1, 0, 'C', $alt);
             $pdf->Ln();
         }
     }

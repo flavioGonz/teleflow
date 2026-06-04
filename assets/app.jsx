@@ -10915,7 +10915,8 @@ function ReportTabFailover({ data, foFilters, setFoFilters }) {
                                     <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Llamante</th>
                                     <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Trayectoria</th>
                                     <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Motivo</th>
-                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Atendió</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Agente</th>
+                                    <th className="text-left px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Ext</th>
                                     <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Espera</th>
                                     <th className="text-right px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Conversación</th>
                                     <th className="text-center px-3 py-2 text-[10px] uppercase tracking-wider font-bold" style={{color:'var(--muted-foreground)'}}>Estado</th>
@@ -10940,14 +10941,14 @@ function ReportTabFailover({ data, foFilters, setFoFilters }) {
                                             {f.agent_number ? (
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="px-1.5 py-0.5 rounded font-mono text-[11px] font-bold" style={{background:'var(--primary)', color:'var(--primary-foreground)'}}>#{f.agent_number}</span>
-                                                    {f.agent_name && <span className="text-xs truncate max-w-[140px]" style={{color:'var(--muted-foreground)'}}>{f.agent_name}</span>}
-                                                    <span className="text-[10px]" style={{color:'var(--muted-foreground)'}}>(ext {f.answered_ext})</span>
+                                                    {f.agent_name && <span className="text-xs truncate max-w-[160px]" style={{color:'var(--foreground)'}}>{f.agent_name}</span>}
                                                 </div>
-                                            ) : f.answered_ext ? (
-                                                <span className="text-xs font-mono" style={{color:'var(--foreground)'}}>ext {f.answered_ext}</span>
                                             ) : (
                                                 <span className="text-xs italic" style={{color:'var(--muted-foreground)'}}>—</span>
                                             )}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-xs" style={{color:'var(--foreground)'}}>
+                                            {f.answered_ext || <span className="italic" style={{color:'var(--muted-foreground)'}}>—</span>}
                                         </td>
                                         <td className="px-3 py-2 text-right font-mono text-xs" style={{color:'var(--foreground)'}}>{f.wait_sec > 0 ? fmtSec(f.wait_sec) : '—'}</td>
                                         <td className="px-3 py-2 text-right font-mono text-xs" style={{color:'var(--foreground)'}}>{f.talk_sec > 0 ? fmtSec(f.talk_sec) : '—'}</td>
