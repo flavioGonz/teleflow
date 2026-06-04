@@ -22,6 +22,50 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 
+// ─── PDF wrapper con Header/Footer Horizon + Paginacion ──────────────
+function teleflow_pdf_titles() {
+    return ['summary'=>'Resumen general','by_agent'=>'Por agente','by_queue'=>'Por cola','calls'=>'Llamadas','pauses'=>'Pausas','failover_calls'=>'Llamadas con failover','agent_detail'=>'Detalle de agente'];
+}
+class TeleflowPDF extends \TCPDF {
+    public $reportType = '';
+    public $periodFrom = '';
+    public $periodTo = '';
+    public $isCoverPage = true;
+    public function Header() {
+        if ($this->isCoverPage) return;
+        $tt = teleflow_pdf_titles();
+        $titulo = $tt[$this->reportType] ?? ucfirst($this->reportType);
+        $pageW = $this->getPageWidth();
+        $this->SetFillColor(17, 179, 40);
+        $this->Rect(0, 0, $pageW, 2.5, 'F');
+        $this->SetTextColor(40, 40, 40);
+        $this->SetXY(10, 6);
+        $this->SetFont('helvetica', 'B', 12);
+        $this->Cell(0, 5, $titulo, 0, 1, 'L');
+        $this->SetX(10);
+        $this->SetTextColor(120, 120, 120);
+        $this->SetFont('helvetica', '', 8);
+        $this->Cell(0, 4, $this->periodFrom . '  →  ' . $this->periodTo . '   ·   Generado: ' . date('Y-m-d H:i'), 0, 1, 'L');
+        $this->SetDrawColor(220, 220, 220);
+        $this->Line(10, 19, $pageW - 10, 19);
+    }
+    public function Footer() {
+        if ($this->isCoverPage) return;
+        $pageW = $this->getPageWidth();
+        $pageH = $this->getPageHeight();
+        $this->SetFillColor(17, 179, 40);
+        $this->Rect(0, $pageH - 4, $pageW, 2.5, 'F');
+        $this->SetY($pageH - 12);
+        $this->SetTextColor(120, 120, 120);
+        $this->SetFont('helvetica', '', 8);
+        $this->SetX(10);
+        $this->Cell(80, 6, 'TeleFlow Horizon  ·  PBX Control', 0, 0, 'L');
+        $this->SetXY($pageW - 50, $pageH - 12);
+        $this->Cell(40, 6, 'Página ' . $this->getAliasNumPage() . ' / ' . $this->getAliasNbPages(), 0, 0, 'R');
+    }
+}
+
+
 function pbx_db($db = 'asteriskcdrdb') {
     global $PBX_DB_HOST, $PBX_DB_USER, $PBX_DB_PASS;
     return new PDO("mysql:host=$PBX_DB_HOST;dbname=$db;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5]);
@@ -402,7 +446,9 @@ if ($format === 'xlsx') {
 // ─── PDF ───────────────────────────────────────────────────────────────
 if ($format === 'pdf') {
     // Usar TCPDF
-    $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf = new TeleflowPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->reportType = $type; $pdf->periodFrom = $from_d; $pdf->periodTo = $to_d;
+    $pdf->isCoverPage = true;
     $pdf->SetCreator('TeleFlow Horizon'); $pdf->SetAuthor('TeleFlow Horizon');
     $pdf->SetTitle("TeleFlow Horizon — $type");
     // Header/Footer custom con paleta Horizon
@@ -501,30 +547,14 @@ if ($format === 'pdf') {
     $pdf->SetXY(0, $pageH - 10);
     $pdf->Cell($pageW, 6, 'Horizon Seguridad  ·  TeleFlow PBX Control', 0, 0, 'C');
 
-    // Restaurar margenes para el contenido
+    // Salir de modo portada
+    $pdf->isCoverPage = false;
     $pdf->setPrintHeader(true); $pdf->setPrintFooter(true);
-    $pdf->SetMargins(10, 20, 10); $pdf->SetAutoPageBreak(true, 15);
+    $pdf->SetMargins(10, 24, 10); $pdf->SetAutoPageBreak(true, 18);
     $pdf->AddPage();
 
-    // Encabezado sobrio gris
-    $titulos_rep = ['summary'=>'Resumen general','by_agent'=>'Por agente','by_queue'=>'Por cola','calls'=>'Llamadas','pauses'=>'Pausas','failover_calls'=>'Llamadas con failover','agent_detail'=>'Detalle de agente'];
-    $titulo_legible = $titulos_rep[$type] ?? ucfirst($type);
-    // Linea verde fina (4mm)
-    $pdf->SetFillColor(17, 179, 40);
-    $pdf->Rect(0, 0, 297, 3, 'F');
-    // Bloque info gris claro
+    // (Header/Footer impreso automaticamente por clase TeleflowPDF)
     $pdf->SetTextColor(40, 40, 40);
-    $pdf->SetXY(10, 8);
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 6, $titulo_legible, 0, 1);
-    $pdf->SetX(10);
-    $pdf->SetTextColor(120, 120, 120);
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell(0, 4, $from_d . '  →  ' . $to_d . '   ·   Generado: ' . date('Y-m-d H:i'), 0, 1);
-    // Separador gris
-    $pdf->SetDrawColor(220, 220, 220);
-    $pdf->Line(10, 22, 287, 22);
-    $pdf->SetTextColor(40, 40, 40); $pdf->Ln(6);
     $pdf->SetFont('helvetica', '', 9);
 
     if ($type === 'summary') {
@@ -681,17 +711,29 @@ if ($format === 'pdf') {
             $pdf->Ln();
         }
     } elseif ($type === 'failover_calls') {
-        $pdf->SetFont('helvetica','B',12);
-        $pdf->Cell(0, 8, 'Llamadas con failover', 0, 1);
         $pdf->SetFont('helvetica','',8);
-        $headers = [['Inicio',32],['Llamante',20],['Origen',16],['Failover',16],['Motivo',38],['Agente',26],['Ext',12],['Espera',16],['Convers.',20],['Estado',22]];
-        $pdf->SetFillColor(55, 65, 81); $pdf->SetTextColor(255,255,255); $pdf->SetFont('helvetica','B',8);
+        $headers = [['Inicio',32],['Llamante',20],['Origen',16],['Failover',16],['Motivo',40],['Agente',28],['Ext',12],['Espera',16],['Convers.',20],['Estado',22]];
+        // Centrar la tabla en la pagina
+        $totalW = 0; foreach ($headers as $h) $totalW += $h[1];
+        $pageW = $pdf->getPageWidth();
+        $tableX = ($pageW - $totalW) / 2;
+        // Header de tabla — gris oscuro
+        $pdf->SetX($tableX);
+        $pdf->SetFillColor(55, 65, 81);
+        $pdf->SetTextColor(255,255,255);
+        $pdf->SetFont('helvetica','B',8);
+        $pdf->SetDrawColor(190, 190, 190);
         foreach ($headers as $h) $pdf->Cell($h[1], 7, $h[0], 1, 0, 'C', true);
         $pdf->Ln();
-        $pdf->SetTextColor(20,20,20); $pdf->SetFont('helvetica','',7);
+        // Filas — fondo CLARO alternado + texto OSCURO
+        $pdf->SetTextColor(40,40,40);
+        $pdf->SetFont('helvetica','',7);
         $alt = false;
         foreach (array_slice($data['failovers'], 0, 2000) as $f) {
             $alt = !$alt;
+            // Alterna blanco / gris muy claro
+            if ($alt) { $pdf->SetFillColor(245, 247, 250); } else { $pdf->SetFillColor(255, 255, 255); }
+            $pdf->SetX($tableX);
             $ag = $f['agent_number'] ? ('#'.$f['agent_number'].' '.($f['agent_name'] ?? '')) : '—';
             $vals = [
                 substr($f['journey_start'], 0, 19),
@@ -700,7 +742,7 @@ if ($format === 'pdf') {
                 $ag, $f['answered_ext'] ?: '—',
                 fmt_secs($f['wait_sec']), fmt_secs($f['talk_sec']), $f['status'],
             ];
-            foreach ($vals as $i => $v) $pdf->Cell($headers[$i][1], 6, (string)$v, 1, 0, 'C', $alt);
+            foreach ($vals as $i => $v) $pdf->Cell($headers[$i][1], 6, (string)$v, 1, 0, 'C', true);
             $pdf->Ln();
         }
     }
