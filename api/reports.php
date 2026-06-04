@@ -275,7 +275,7 @@ try {
         $sql = "SELECT ap.id, ap.agent_ext, ap.agent_number, ap.pause_type_code, ap.pause_start, ap.pause_end, IFNULL(ap.duration_seconds, TIMESTAMPDIFF(SECOND, ap.pause_start, NOW())) AS duration_seconds, pt.label AS pause_label, pt.color AS pause_color FROM agent_pauses ap LEFT JOIN pause_types pt ON pt.code = ap.pause_type_code WHERE ap.pause_start BETWEEN ? AND ?";
         $params = [$from, $to];
         if ($agent) { $sql .= " AND (ap.agent_number = ? OR ap.agent_ext = ?)"; $params[] = $agent; $params[] = $agent; }
-        $sql .= " ORDER BY ap.pause_start DESC LIMIT 2000";
+        $sql .= " ORDER BY ap.pause_start DESC LIMIT 500";
         $st = $tf->prepare($sql); $st->execute($params);
         echo json_encode(['status' => 'ok', 'pauses' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
@@ -287,7 +287,7 @@ try {
         $sql = "SELECT session_id, agent_ext, agent_number, login_time, UNIX_TIMESTAMP(login_time) AS login_epoch, logout_time, status, TIMESTAMPDIFF(SECOND, login_time, IFNULL(logout_time, NOW())) AS duration_sec, total_calls, total_talk_time, total_pause_time FROM agent_sessions WHERE login_time BETWEEN ? AND ?";
         $params = [$from, $to];
         if ($agent) { $sql .= " AND (agent_number = ? OR agent_ext = ?)"; $params[] = $agent; $params[] = $agent; }
-        $sql .= " ORDER BY login_time DESC LIMIT 2000";
+        $sql .= " ORDER BY login_time DESC LIMIT 500";
         $st = $tf->prepare($sql); $st->execute($params);
         echo json_encode(['status' => 'ok', 'sessions' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
@@ -319,7 +319,7 @@ try {
         $sql = "SELECT * FROM queue_events WHERE event_timestamp BETWEEN ? AND ?";
         $params = [$from, $to];
         if ($queue) { $sql .= " AND queue_name = ?"; $params[] = $queue; }
-        $sql .= " ORDER BY event_timestamp DESC LIMIT 2000";
+        $sql .= " ORDER BY event_timestamp DESC LIMIT 500";
         $st = $tf->prepare($sql); $st->execute($params);
         echo json_encode(['status' => 'ok', 'events' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
@@ -350,16 +350,15 @@ try {
     }
 
     http_response_code(400);
-    // ─── FAILOVER CALLS ─────────────────────────────────────────────────
-    // Detecta llamadas que pasaron por 2+ colas (cola principal → failover)
-    // Cruza el ext que atendio con teleflow.agent_sessions para el agent_number real
+    // ─── FAILOVER CALLS (optimizada) ─────────────────────────────────
     if ($action === 'failover_calls') {
         $main_queue = preg_replace('/[^0-9]/', '', $_GET['main_queue'] ?? '');
         $agent_filter = preg_replace('/[^0-9]/', '', $_GET['agent'] ?? '');
-        $window_sec = intval($_GET['window'] ?? 300);    // ventana max entre JOINs
+        $window_sec = intval($_GET['window'] ?? 300);
         $tf = tf_db();
 
-        // SELF JOIN para encontrar pares (cola origen JOIN, cola failover JOIN) por caller dentro de ventana
+        // 1) Self-join principal SOLO con info básica del journey + LEFT JOIN para CONNECT/COMPLETE/EXIT
+        //    Mucho mas eficiente que subqueries correlacionadas
         $where_main = $main_queue ? "AND q1.queue_name = ?" : "";
         $params = [$from, $to];
         if ($main_queue) $params[] = $main_queue;
@@ -371,28 +370,11 @@ try {
                 q1.queue_name AS source_queue,
                 q2.queue_name AS failover_queue,
                 q2.event_timestamp AS failover_at,
-                (SELECT event_timestamp FROM queue_events
-                 WHERE event_type='CONNECT' AND queue_name=q2.queue_name AND caller_id=q1.caller_id
-                   AND event_timestamp >= q2.event_timestamp
-                 ORDER BY event_timestamp LIMIT 1) AS connect_at,
-                (SELECT agent_ext FROM queue_events
-                 WHERE event_type='CONNECT' AND queue_name=q2.queue_name AND caller_id=q1.caller_id
-                   AND event_timestamp >= q2.event_timestamp
-                 ORDER BY event_timestamp LIMIT 1) AS answered_ext,
-                (SELECT wait_time FROM queue_events
-                 WHERE event_type='CONNECT' AND queue_name=q2.queue_name AND caller_id=q1.caller_id
-                   AND event_timestamp >= q2.event_timestamp
-                 ORDER BY event_timestamp LIMIT 1) AS wait_sec,
-                (SELECT talk_time FROM queue_events
-                 WHERE event_type='COMPLETE' AND queue_name=q2.queue_name AND caller_id=q1.caller_id
-                   AND event_timestamp >= q2.event_timestamp
-                 ORDER BY event_timestamp LIMIT 1) AS talk_sec,
-                (SELECT event_type FROM queue_events
-                 WHERE queue_name=q1.queue_name AND caller_id=q1.caller_id
-                   AND event_timestamp >= q1.event_timestamp
-                   AND event_timestamp <= q2.event_timestamp
-                   AND event_type IN ('ABANDON','EXITWITHTIMEOUT','EXITEMPTY')
-                 ORDER BY event_timestamp LIMIT 1) AS exit_reason
+                qc.event_timestamp AS connect_at,
+                qc.agent_ext AS answered_ext,
+                qc.wait_time AS wait_sec,
+                qcomp.talk_time AS talk_sec,
+                qexit.event_type AS exit_reason
             FROM queue_events q1
             INNER JOIN queue_events q2
               ON q1.caller_id = q2.caller_id
@@ -401,79 +383,113 @@ try {
               AND q2.event_type = 'JOIN'
               AND q2.event_timestamp > q1.event_timestamp
               AND q2.event_timestamp <= DATE_ADD(q1.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qc
+              ON qc.caller_id = q1.caller_id
+              AND qc.queue_name = q2.queue_name
+              AND qc.event_type = 'CONNECT'
+              AND qc.event_timestamp >= q2.event_timestamp
+              AND qc.event_timestamp <= DATE_ADD(q2.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qcomp
+              ON qcomp.caller_id = q1.caller_id
+              AND qcomp.queue_name = q2.queue_name
+              AND qcomp.event_type = 'COMPLETE'
+              AND qcomp.event_timestamp >= q2.event_timestamp
+              AND qcomp.event_timestamp <= DATE_ADD(q2.event_timestamp, INTERVAL $window_sec SECOND)
+            LEFT JOIN queue_events qexit
+              ON qexit.caller_id = q1.caller_id
+              AND qexit.queue_name = q1.queue_name
+              AND qexit.event_timestamp >= q1.event_timestamp
+              AND qexit.event_timestamp <= q2.event_timestamp
+              AND qexit.event_type IN ('ABANDON','EXITWITHTIMEOUT','EXITEMPTY')
             WHERE q1.event_timestamp BETWEEN ? AND ?
               $where_main
             ORDER BY q1.event_timestamp DESC
-            LIMIT 1000
+            LIMIT 500
         ";
         $st = $tf->prepare($sql);
         $st->execute($params);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-        // De-dupe: para el mismo caller+source+failover, quedarnos con el journey con connect_at no nulo (atendido)
-        // Si hay multiples, mantener el mas reciente
+        // 2) Dedup: misma journey (caller+src+failover+minuto) → quedarnos con la fila con info mas completa
         $dedup = [];
         foreach ($rows as $r) {
-            $key = $r['caller_id'] . '|' . $r['source_queue'] . '|' . $r['failover_queue'] . '|' . substr($r['journey_start'], 0, 16);
+            $key = $r['caller_id'].'|'.$r['source_queue'].'|'.$r['failover_queue'].'|'.substr($r['journey_start'], 0, 16);
             if (!isset($dedup[$key])) { $dedup[$key] = $r; continue; }
-            // Preferir el que tenga connect_at no nulo
-            if (!$dedup[$key]['connect_at'] && $r['connect_at']) $dedup[$key] = $r;
+            $prev = $dedup[$key];
+            $cur_score = (int)!empty($r['connect_at']) + (int)!empty($r['answered_ext']) + (int)!empty($r['talk_sec']);
+            $prev_score = (int)!empty($prev['connect_at']) + (int)!empty($prev['answered_ext']) + (int)!empty($prev['talk_sec']);
+            if ($cur_score > $prev_score) $dedup[$key] = $r;
         }
         $rows = array_values($dedup);
 
-        // Cross-DB resolve: para cada row, el agent_number REAL via agent_sessions
-        $exts_to_resolve = [];
-        foreach ($rows as $r) {
-            if ($r['answered_ext'] && $r['connect_at']) {
-                $exts_to_resolve[] = ['ext' => $r['answered_ext'], 'at' => $r['connect_at']];
-            }
-        }
-        $session_map = [];
-        if (!empty($exts_to_resolve)) {
-            $st2 = $tf->prepare("SELECT agent_number, agent_ext, login_time, logout_time FROM agent_sessions WHERE agent_ext = ? AND login_time <= ? AND (logout_time IS NULL OR logout_time >= ?) ORDER BY login_time DESC LIMIT 1");
-            foreach ($exts_to_resolve as $row) {
-                $st2->execute([$row['ext'], $row['at'], $row['at']]);
-                $r2 = $st2->fetch(PDO::FETCH_ASSOC);
-                if ($r2) $session_map[$row['ext'] . '|' . $row['at']] = $r2['agent_number'];
+        // 3) BATCH lookup de agent_sessions: una sola query con WHERE agent_ext IN (...)
+        $exts = array_values(array_unique(array_filter(array_column($rows, 'answered_ext'))));
+        $session_map = []; // key: ext|journey_start_minute → agent_number
+        if (!empty($exts)) {
+            $ph = implode(',', array_fill(0, count($exts), '?'));
+            $st2 = $tf->prepare("SELECT agent_number, agent_ext, login_time, logout_time FROM agent_sessions WHERE agent_ext IN ($ph) AND login_time <= ? AND (logout_time IS NULL OR logout_time >= ?)");
+            $params2 = array_merge($exts, [$to, $from]);
+            $st2->execute($params2);
+            $sessions = $st2->fetchAll(PDO::FETCH_ASSOC);
+            // Index por ext, dentro guarda lista de (login, logout, agent_number)
+            $sess_idx = [];
+            foreach ($sessions as $s) $sess_idx[$s['agent_ext']][] = $s;
+            // Para cada row, encontrar sesion que cubra el connect_at
+            foreach ($rows as $r) {
+                if (empty($r['answered_ext']) || empty($r['connect_at'])) continue;
+                $ext = $r['answered_ext']; $at = $r['connect_at'];
+                if (!isset($sess_idx[$ext])) continue;
+                foreach ($sess_idx[$ext] as $s) {
+                    if ($s['login_time'] <= $at && ($s['logout_time'] === null || $s['logout_time'] >= $at)) {
+                        $session_map[$ext.'|'.$at] = $s['agent_number'];
+                        break;
+                    }
+                }
             }
         }
 
-        // Agent names from call_center
-        $agent_names = [];
+        // 4) BATCH agent_pauses: una query sobre el período
+        $pause_windows = []; // list de [start, end]
         try {
-            $cc = new PDO("mysql:host=$DB_HOST;dbname=call_center;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-            $nums = array_unique(array_filter(array_values($session_map)));
-            if (!empty($nums)) {
-                $placeholders = implode(',', array_fill(0, count($nums), '?'));
-                $st3 = $cc->prepare("SELECT number, name FROM agent WHERE number IN ($placeholders)");
-                $st3->execute($nums);
-                foreach ($st3->fetchAll(PDO::FETCH_ASSOC) as $a) $agent_names[$a['number']] = $a['name'];
-            }
+            $stp = $tf->prepare("SELECT pause_start, IFNULL(pause_end, NOW()) AS pause_end FROM agent_pauses WHERE pause_start <= ? AND (pause_end IS NULL OR pause_end >= ?)");
+            $stp->execute([$to, $from]);
+            $pause_windows = $stp->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {}
 
-        // Si hay filtro de agente, filtrar localmente
+        // 5) Agent names batch
+        $agent_names = [];
+        $nums = array_values(array_unique(array_filter($session_map)));
+        if (!empty($nums)) {
+            try {
+                $cc = new PDO("mysql:host=$DB_HOST;dbname=call_center;charset=utf8mb4", $DB_USER, $DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+                $ph = implode(',', array_fill(0, count($nums), '?'));
+                $st3 = $cc->prepare("SELECT number, name FROM agent WHERE number IN ($ph)");
+                $st3->execute($nums);
+                foreach ($st3->fetchAll(PDO::FETCH_ASSOC) as $a) $agent_names[$a['number']] = $a['name'];
+            } catch (Exception $e) {}
+        }
+
+        // 6) Assemble result + filtros agente
         $result = [];
         foreach ($rows as $r) {
-            $session_key = ($r['answered_ext'] ?? '') . '|' . ($r['connect_at'] ?? '');
+            $session_key = ($r['answered_ext'] ?? '').'|'.($r['connect_at'] ?? '');
             $agent_num = $session_map[$session_key] ?? null;
             if ($agent_filter && $agent_num != $agent_filter) continue;
 
-            // Motivo
             $reason_code = 'TIMEOUT';
             $reason_label = 'Timeout / nadie atendió';
             if ($r['exit_reason'] === 'ABANDON') {
                 $reason_code = 'ABANDON_SRC';
                 $reason_label = 'Abandono en cola origen';
             }
-            // Detectar pausa: cualquier agent_pauses activa en ese instante de algún ext miembro de la cola origen
-            try {
-                $st_pause = $tf->prepare("SELECT agent_ext FROM agent_pauses WHERE pause_start <= ? AND (pause_end IS NULL OR pause_end >= ?) LIMIT 1");
-                $st_pause->execute([$r['journey_start'], $r['journey_start']]);
-                if ($st_pause->fetch()) {
+            // Check si hubo pausa activa en el momento del journey_start
+            foreach ($pause_windows as $pw) {
+                if ($pw['pause_start'] <= $r['journey_start'] && $pw['pause_end'] >= $r['journey_start']) {
                     $reason_code = 'AGENT_PAUSE';
                     $reason_label = 'Agente en pausa';
+                    break;
                 }
-            } catch (Exception $e) {}
+            }
 
             $result[] = [
                 'journey_start'  => $r['journey_start'],
@@ -484,7 +500,7 @@ try {
                 'connect_at'     => $r['connect_at'],
                 'answered_ext'   => $r['answered_ext'],
                 'agent_number'   => $agent_num,
-                'agent_name'     => $agent_num && isset($agent_names[$agent_num]) ? $agent_names[$agent_num] : null,
+                'agent_name'     => ($agent_num && isset($agent_names[$agent_num])) ? $agent_names[$agent_num] : null,
                 'wait_sec'       => intval($r['wait_sec'] ?? 0),
                 'talk_sec'       => intval($r['talk_sec'] ?? 0),
                 'reason_code'    => $reason_code,
@@ -501,6 +517,7 @@ try {
         ]);
         exit;
     }
+
 
 
     echo json_encode(['status' => 'error', 'message' => 'Acción desconocida: ' . $action]);
