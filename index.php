@@ -72,7 +72,7 @@ header('Expires: 0');
     </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
@@ -1426,7 +1426,7 @@ header('Expires: 0');
 <div id="root"></div>
 <div id="tf-modal-root" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;"></div>
 <script src="sw.js"></script>
-<script type="text/babel" data-presets="env,react" src="assets/app.jsx?v=<?php echo @file_get_contents(__DIR__.'/sw.js') ? preg_replace('/.*teleflow-cache-(v\d+).*/s', '$1', file_get_contents(__DIR__.'/sw.js')) : time(); ?>"></script>
+<script type="text/babel" data-presets="react" src="assets/app.jsx?v=<?php echo @file_get_contents(__DIR__.'/sw.js') ? preg_replace('/.*teleflow-cache-(v\d+).*/s', '$1', file_get_contents(__DIR__.'/sw.js')) : time(); ?>"></script>
 
 </body>
 </html>
