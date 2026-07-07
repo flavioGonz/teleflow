@@ -14730,6 +14730,7 @@ function ViewCallCenter({ user, onLogout, data }) {
                     </Button>
                 </DialogFooter>
             </Dialog>
+                            <TeleflowSoftphone user={user}/>
             </>)}
 
         </div>
@@ -15870,6 +15871,309 @@ function SpyExtToggle({ spyExt, setSpyExt }) {
     );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TeleflowSoftphone: WebRTC softphone floating widget (SIP.js 0.20)
+// Usa wss://pbx-prod.horizonseguridad.com:8089/ws
+// ═══════════════════════════════════════════════════════════════════════════
+function TeleflowSoftphone({ user, onStatusChange }) {
+    const [creds, setCreds] = useState(null);
+    const [state, setState] = useState('idle');
+    const [warning, setWarning] = useState(null);
+    const [error, setError] = useState(null);
+    const [minimized, setMinimized] = useState(true);
+    const [dialpadTarget, setDialpadTarget] = useState('');
+    const [callSession, setCallSession] = useState(null);
+    const [callDuration, setCallDuration] = useState(0);
+    const [muted, setMuted] = useState(false);
+    const [callerId, setCallerId] = useState(null);
+    const uaRef = useRef(null);
+    const audioRef = useRef(null);
+    const durationTimerRef = useRef(null);
+
+    // 1) Fetch credenciales
+    useEffect(() => {
+        if (user?.role !== 'agent') return;
+        fetch('api/agent.php?action=softphone_creds', { credentials: 'include' })
+            .then(r => r.json())
+            .then(j => {
+                if (j.status === 'ok') {
+                    setCreds(j);
+                    if (j.warning) setWarning(j.warning);
+                } else {
+                    setError(j.message || 'Sin credenciales SIP');
+                }
+            })
+            .catch(e => setError('Error de red al obtener creds'));
+    }, [user?.role]);
+
+    // 2) Inicializar SIP.UserAgent al obtener creds
+    useEffect(() => {
+        if (!creds || !creds.ws_ready) return;
+        if (!window.SIP) { setError('SIP.js no cargado'); return; }
+
+        setState('registering');
+        try {
+            const ua = new window.SIP.UserAgent({
+                uri: window.SIP.UserAgent.makeURI(`sip:${creds.ext}@${creds.domain}`),
+                transportOptions: { server: creds.wss_url },
+                authorizationUsername: creds.ext,
+                authorizationPassword: creds.secret,
+                displayName: user?.name || `Agente ${creds.ext}`,
+                logBuiltinEnabled: false,
+                sessionDescriptionHandlerFactoryOptions: {
+                    peerConnectionOptions: {
+                        rtcConfiguration: {
+                            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                        }
+                    }
+                }
+            });
+
+            // Registerer
+            const registerer = new window.SIP.Registerer(ua, { expires: 300 });
+            registerer.stateChange.addListener(s => {
+                if (s === window.SIP.RegistererState.Registered) {
+                    setState('registered');
+                    onStatusChange?.('registered');
+                } else if (s === window.SIP.RegistererState.Unregistered) {
+                    setState('idle');
+                } else if (s === window.SIP.RegistererState.Terminated) {
+                    setState('failed');
+                    setError('Registro terminado');
+                }
+            });
+
+            // Handler incoming
+            ua.delegate = {
+                onInvite: (session) => {
+                    const from = session.remoteIdentity?.uri?.user || '?';
+                    const displayName = session.remoteIdentity?.displayName || from;
+                    setCallerId({ number: from, name: displayName });
+                    setState('ringing_in');
+                    setCallSession(session);
+                    setMinimized(false);
+                    session.stateChange.addListener(handleSessionStateChange);
+                }
+            };
+
+            const handleSessionStateChange = (newState) => {
+                if (newState === window.SIP.SessionState.Established) {
+                    setState('in_call');
+                    attachRemoteAudio(callSession);
+                    startDurationTimer();
+                } else if (newState === window.SIP.SessionState.Terminated) {
+                    setState('registered');
+                    setCallSession(null);
+                    setCallerId(null);
+                    stopDurationTimer();
+                }
+            };
+
+            ua.start().then(() => registerer.register()).catch(e => {
+                setState('failed');
+                setError('Error conectando: ' + e.message);
+            });
+
+            uaRef.current = { ua, registerer };
+        } catch (e) {
+            setState('failed');
+            setError('Init failed: ' + e.message);
+        }
+
+        return () => {
+            try {
+                uaRef.current?.registerer?.unregister();
+                uaRef.current?.ua?.stop();
+            } catch(e) {}
+            stopDurationTimer();
+        };
+    }, [creds?.ws_ready, creds?.ext]);
+
+    const attachRemoteAudio = (session) => {
+        try {
+            const pc = session?.sessionDescriptionHandler?.peerConnection;
+            if (!pc || !audioRef.current) return;
+            const remoteStream = new MediaStream();
+            pc.getReceivers().forEach(r => { if (r.track && r.track.kind === 'audio') remoteStream.addTrack(r.track); });
+            audioRef.current.srcObject = remoteStream;
+            audioRef.current.play().catch(()=>{});
+        } catch(e) {}
+    };
+
+    const startDurationTimer = () => {
+        const t0 = Date.now();
+        setCallDuration(0);
+        durationTimerRef.current = setInterval(() => setCallDuration(Math.floor((Date.now() - t0) / 1000)), 1000);
+    };
+    const stopDurationTimer = () => { if (durationTimerRef.current) clearInterval(durationTimerRef.current); durationTimerRef.current = null; };
+    const fmtDur = s => { const m = Math.floor(s/60); const r = s%60; return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`; };
+
+    const accept = () => {
+        if (!callSession) return;
+        callSession.accept({ sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } });
+    };
+    const reject = () => { try { callSession?.reject(); } catch(e){} };
+    const hangup = () => { try { callSession?.bye(); } catch(e){} };
+    const call = async () => {
+        if (!uaRef.current?.ua || !dialpadTarget || state !== 'registered') return;
+        const target = window.SIP.UserAgent.makeURI(`sip:${dialpadTarget}@${creds.domain}`);
+        const inviter = new window.SIP.Inviter(uaRef.current.ua, target, {
+            sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } }
+        });
+        setCallerId({ number: dialpadTarget, name: dialpadTarget });
+        setCallSession(inviter);
+        setState('ringing_out');
+        inviter.stateChange.addListener(s => {
+            if (s === window.SIP.SessionState.Established) { setState('in_call'); attachRemoteAudio(inviter); startDurationTimer(); }
+            else if (s === window.SIP.SessionState.Terminated) { setState('registered'); setCallSession(null); setCallerId(null); stopDurationTimer(); }
+        });
+        try { await inviter.invite(); } catch(e) { setError('Llamada fallo: ' + e.message); setState('registered'); }
+    };
+    const toggleMute = () => {
+        try {
+            const pc = callSession?.sessionDescriptionHandler?.peerConnection;
+            const audioSender = pc?.getSenders?.().find(s => s.track?.kind === 'audio');
+            if (audioSender) { audioSender.track.enabled = muted; setMuted(!muted); }
+        } catch(e) {}
+    };
+    const sendDtmf = (digit) => {
+        try {
+            callSession?.sessionDescriptionHandler?.sendDtmf(digit);
+        } catch(e) {}
+    };
+
+    if (user?.role !== 'agent') return null;
+    if (error && !creds) return null; // Silent fail si no hay creds
+
+    const stateColor = state === 'in_call' ? '#ef4444' : state === 'ringing_in' ? '#f59e0b' : state === 'registered' ? '#22c55e' : state === 'failed' ? '#ef4444' : '#6b7280';
+    const stateLabel = { idle:'Off', registering:'Conectando', registered:'Listo', failed:'Error', ringing_in:'Entrante', in_call:'En llamada', ringing_out:'Llamando' }[state];
+
+    return (
+        <div style={{
+            position: 'fixed', right: 24, bottom: 24, zIndex: 9998,
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: 14,
+            boxShadow: '0 20px 50px rgba(0,0,0,0.25), 0 0 0 1px color-mix(in srgb, ' + stateColor + ' 30%, transparent)',
+            width: minimized ? 200 : 320,
+            transition: 'width 0.2s',
+            overflow: 'hidden'
+        }}>
+            <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
+
+            {/* Header */}
+            <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', background: `linear-gradient(135deg, color-mix(in srgb, ${stateColor} 15%, var(--card)), var(--card))`, cursor: 'pointer' }}
+                 onClick={() => setMinimized(m => !m)}>
+                <span className="material-icons-round" style={{ fontSize: 18, color: stateColor, animation: state === 'ringing_in' ? 'pulse 0.7s infinite' : 'none' }}>
+                    {state === 'in_call' ? 'phone_in_talk' : state === 'ringing_in' ? 'ring_volume' : state === 'ringing_out' ? 'phone_forwarded' : 'headset_mic'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--foreground)' }}>Softphone</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: stateColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {stateLabel}{creds?.ext ? ` · ext ${creds.ext}` : ''}
+                        {state === 'in_call' ? ` · ${fmtDur(callDuration)}` : ''}
+                    </div>
+                </div>
+                <span className="material-icons-round" style={{ fontSize: 16, color: 'var(--muted-foreground)' }}>{minimized ? 'expand_less' : 'expand_more'}</span>
+            </div>
+
+            {!minimized && (
+                <div style={{ padding: 12 }}>
+                    {warning && (
+                        <div style={{ background: 'color-mix(in srgb, var(--warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', color: 'var(--warning)', padding: 8, borderRadius: 8, fontSize: 10, marginBottom: 10 }}>
+                            <strong style={{ display: 'block', marginBottom: 4 }}>⚠ Config Issabel</strong>
+                            {warning}
+                        </div>
+                    )}
+                    {error && !warning && (
+                        <div style={{ background: 'color-mix(in srgb, var(--destructive) 12%, transparent)', color: 'var(--destructive)', padding: 8, borderRadius: 8, fontSize: 10, marginBottom: 10 }}>{error}</div>
+                    )}
+
+                    {/* Incoming ringing */}
+                    {state === 'ringing_in' && callerId && (
+                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--foreground)', marginBottom: 4 }}>{callerId.name || callerId.number}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 12 }}>Llamada entrante</div>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                                <button onClick={accept} style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none', background: '#22c55e', color: '#fff', fontWeight: 900, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                    <span className="material-icons-round" style={{ fontSize: 18 }}>call</span> Aceptar
+                                </button>
+                                <button onClick={reject} style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 900, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                    <span className="material-icons-round" style={{ fontSize: 18 }}>call_end</span> Rechazar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* In call */}
+                    {state === 'in_call' && callerId && (
+                        <div style={{ textAlign: 'center', padding: '4px 0' }}>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--foreground)' }}>{callerId.name || callerId.number}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--horizon-green)', fontFamily: 'monospace' }}>{fmtDur(callDuration)}</div>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
+                                <button onClick={toggleMute} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: muted ? 'var(--warning)' : 'var(--card)', color: muted ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}>
+                                    <span className="material-icons-round" style={{ fontSize: 18 }}>{muted ? 'mic_off' : 'mic'}</span>
+                                </button>
+                                <button onClick={hangup} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span className="material-icons-round" style={{ fontSize: 18 }}>call_end</span> Colgar
+                                </button>
+                            </div>
+                            {/* DTMF pad mini */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginTop: 12 }}>
+                                {['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => (
+                                    <button key={d} onClick={() => sendDtmf(d)} style={{ padding: '8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontWeight: 700, cursor: 'pointer' }}>{d}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Ringing out */}
+                    {state === 'ringing_out' && (
+                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--foreground)', marginBottom: 4 }}>Llamando…</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', fontFamily: 'monospace', marginBottom: 12 }}>{callerId?.number}</div>
+                            <button onClick={hangup} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>Cancelar</button>
+                        </div>
+                    )}
+
+                    {/* Idle: dialer */}
+                    {state === 'registered' && (
+                        <div>
+                            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                                <input type="text" value={dialpadTarget} onChange={e => setDialpadTarget(e.target.value.replace(/[^0-9*#]/g, ''))}
+                                    placeholder="Marcar interno..."
+                                    onKeyDown={e => { if (e.key === 'Enter') call(); }}
+                                    style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontFamily: 'monospace', fontSize: 14, fontWeight: 700, textAlign: 'center' }} />
+                                <button onClick={call} disabled={!dialpadTarget} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: dialpadTarget ? '#22c55e' : 'var(--muted)', color: '#fff', fontWeight: 900, cursor: dialpadTarget ? 'pointer' : 'not-allowed' }}>
+                                    <span className="material-icons-round" style={{ fontSize: 18 }}>call</span>
+                                </button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                                {['1','2','3','4','5','6','7','8','9','*','0','#'].map(d => (
+                                    <button key={d} onClick={() => setDialpadTarget(t => t + d)} style={{ padding: '10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{d}</button>
+                                ))}
+                            </div>
+                            {dialpadTarget && (
+                                <button onClick={() => setDialpadTarget('')} style={{ width: '100%', marginTop: 6, padding: 6, borderRadius: 6, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--muted-foreground)', fontSize: 10, cursor: 'pointer' }}>Borrar</button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Waiting states */}
+                    {(state === 'registering' || state === 'idle') && (
+                        <div style={{ textAlign: 'center', padding: 8, color: 'var(--muted-foreground)', fontSize: 11 }}>
+                            {state === 'registering' ? 'Registrando softphone…' : 'Softphone inactivo'}
+                        </div>
+                    )}
+                    {state === 'failed' && (
+                        <div style={{ textAlign: 'center', padding: 8, color: 'var(--destructive)', fontSize: 11 }}>Registro fallido. Verificá config de la ext.</div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data, activeCalls, setVivoFilter }) {
     const [openMenu, setOpenMenu] = useState(null);
     const [menuAnchor, setMenuAnchor] = useState(null);
@@ -16066,10 +16370,12 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
                                 </span>
                             </div>
                         </div>
-                        <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
-                            <span className="material-icons-round">tune</span>
-                            <div className="tfbar-drop-text"><div>Configuración</div></div>
-                        </button>
+                        {!isAgent && (
+                            <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setView('configuracion'); setShowUserMenu(false); }}>
+                                <span className="material-icons-round">tune</span>
+                                <div className="tfbar-drop-text"><div>Configuración</div></div>
+                            </button>
+                        )}
                         <button className="tfbar-drop-item w-full text-left" onClick={()=>{ setDarkMode(!darkMode); }}>
                             <span className="material-icons-round">{darkMode?'light_mode':'dark_mode'}</span>
                             <div className="tfbar-drop-text"><div>Modo {darkMode?'Claro':'Oscuro'}</div></div>

@@ -316,6 +316,34 @@ try {
         exit;
     }
 
+    if ($action === 'softphone_creds') {
+        $a = $_SESSION['agent_user'] ?? null;
+        if (!$a) { echo json_encode(['status'=>'error','message'=>'sin_sesion']); exit; }
+        $ext = preg_replace('/^\w+\//', '', $a['callback'] ?? '');
+        if (!$ext) { echo json_encode(['status'=>'error','message'=>'sin_callback']); exit; }
+        try {
+            require_once __DIR__ . '/../config.php';
+            $db = new PDO("mysql:host=$PBX_DB_HOST;dbname=asterisk;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            $stmt = $db->prepare("SELECT keyword, data FROM sip WHERE id=?");
+            $stmt->execute([$ext]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $creds = ['ext' => $ext, 'secret' => null, 'transport' => 'udp', 'has_ws' => false];
+            foreach ($rows as $r) {
+                if ($r['keyword'] === 'secret') $creds['secret'] = $r['data'];
+                if ($r['keyword'] === 'transport') { $creds['transport'] = $r['data']; $creds['has_ws'] = strpos($r['data'], 'ws') !== false; }
+            }
+            $creds['status'] = 'ok';
+            $creds['wss_url'] = 'wss://pbx-prod.horizonseguridad.com:8089/ws';
+            $creds['domain'] = 'pbx-prod.horizonseguridad.com';
+            $creds['ws_ready'] = $creds['has_ws'] && !empty($creds['secret']);
+            $creds['warning'] = $creds['ws_ready'] ? null : 'La extension no tiene transport=ws configurado. Editar en Issabel: Extensiones -> ' . $ext . ' -> transport=ws,udp + encryption=yes + avpf=yes';
+            echo json_encode($creds);
+        } catch (Exception $e) {
+            echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
+        }
+        exit;
+    }
+
     if ($action === 'pause_types') {
         $rows = $tf->query("SELECT code, label, is_paid, max_duration_min, color FROM pause_types WHERE active=1 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['status' => 'ok', 'types' => $rows]);
