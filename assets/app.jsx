@@ -15991,7 +15991,7 @@ function TopBarMenu({ view, setView, user, onLogout, darkMode, setDarkMode, data
     return (
         <>
         <div className="tfbar">
-            <div className="tfbar-logo" onClick={()=>setView('dashboard')}>
+            <div className="tfbar-logo" onClick={()=>setView(isAgent ? "callcenter" : "dashboard")}>
                 <div className="tfbar-logo-mark"><span className="material-icons-round" style={{fontSize:16,color:'#fff'}}>sensors</span></div>
                 <div>
                     <div className="tfbar-logo-text">TeleFlow</div>
