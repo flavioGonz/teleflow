@@ -343,12 +343,12 @@ try {
         $ext = null; $secretFromMap = null;
         try {
             $stW = $tf->prepare("SELECT webrtc_ext, webrtc_secret FROM agent_webrtc WHERE agent_number = ?");
-            $stW->execute([$a['number'] ?? '']);
+            $stW->execute([$a['agent_number'] ?? '']);
             $wRow = $stW->fetch(PDO::FETCH_ASSOC);
             if ($wRow) { $ext = $wRow['webrtc_ext']; $secretFromMap = $wRow['webrtc_secret']; }
         } catch (Exception $e) {}
         if (!$ext) {
-            $ext = preg_replace('/^\w+\//', '', $a['callback'] ?? '');
+            $ext = preg_replace('/^\w+\//', '', $a['callback_ext'] ?? '');
         }
         if (!$ext) { echo json_encode(['status'=>'error','message'=>'sin_ext_webrtc_ni_callback']); exit; }
         try {
