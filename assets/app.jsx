@@ -14227,6 +14227,7 @@ function ViewCallCenter({ user, onLogout, data }) {
     const [status, setStatus] = useState(null);
     const [pauseTypes, setPauseTypes] = useState([]);
     const [showPauseModal, setShowPauseModal] = useState(false);
+    const [showOnboardLogin, setShowOnboardLogin] = useState(false);
     const [confirmLogout, setConfirmLogout] = useState(false);
     const [callHistory, setCallHistory] = useState([]);
     const [tick, setTick] = useState(0);
@@ -14371,6 +14372,50 @@ function ViewCallCenter({ user, onLogout, data }) {
     const talkSec = status?.session?.total_talk_time || 0;
     const totalPauseSec = status?.session?.total_pause_time || 0;
     const aht = totalCalls > 0 ? Math.round(talkSec / totalCalls) : 0;
+
+    // Empty state: agente sin sesión activa (cerró el modal sin elegir colas o nunca se logueó)
+    const hasSession = !!(status?.session?.login_time && !status?.session?.logout_time);
+    if (status !== null && !hasSession) {
+        return (
+            <div className="content-area view-enter flex items-center justify-center" style={{minHeight:'70vh'}}>
+                <Card className="max-w-lg w-full">
+                    <CardHeader className="items-center text-center pb-3">
+                        <div className="rounded-full flex items-center justify-center mb-3"
+                             style={{
+                                 width:72, height:72,
+                                 background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))',
+                                 boxShadow:'0 8px 24px color-mix(in srgb, var(--horizon-green) 35%, transparent)'
+                             }}>
+                            <span className="material-icons-round text-white" style={{fontSize:36}}>login</span>
+                        </div>
+                        <CardTitle className="text-lg">Hola {user?.name?.split(' ')[0] || 'Agente'}</CardTitle>
+                        <CardDescription className="text-sm leading-relaxed mt-1">
+                            Para arrancar tu turno, elegí a qué <strong>colas</strong> querés atender.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2.5 items-center">
+                        <Button variant="success" size="lg" onClick={()=>setShowOnboardLogin(true)}
+                                className="gap-2 w-full">
+                            <span className="material-icons-round">queue</span>
+                            Elegir colas y entrar
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={onLogout} className="w-full">
+                            Cerrar sesión
+                        </Button>
+                    </CardContent>
+                </Card>
+                {showOnboardLogin && user?.agent && (
+                    <AgentLoginModal
+                        open={true}
+                        onClose={()=>setShowOnboardLogin(false)}
+                        onDone={()=>{ setShowOnboardLogin(false); loadStatus(); loadHistory(); }}
+                        toast={(m,t)=>window.shToast?.({msg:m, variant: t==='error'?'destructive':(t==='success'?'success':'default')})}
+                        preselectAgent={user.agent}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="content-area view-enter space-y-4">
@@ -14519,14 +14564,14 @@ function ViewCallCenter({ user, onLogout, data }) {
                                   background:'linear-gradient(135deg, color-mix(in srgb, var(--warning) 8%, var(--card)), var(--card))',
                                   cursor: isInCall ? 'not-allowed' : 'pointer'
                               }}>
-                            <CardContent className="p-4 flex items-center gap-3">
-                                <div className="rounded-xl flex items-center justify-center shrink-0"
+                            <CardContent className="p-3 flex items-center gap-2.5">
+                                <div className="rounded-lg flex items-center justify-center shrink-0"
                                      style={{
-                                         width:44, height:44,
+                                         width:38, height:38,
                                          background:'linear-gradient(135deg, var(--warning), color-mix(in srgb, var(--warning) 60%, #000))',
-                                         boxShadow:'0 4px 12px color-mix(in srgb, var(--warning) 28%, transparent)'
+                                         boxShadow:'0 3px 10px color-mix(in srgb, var(--warning) 28%, transparent)'
                                      }}>
-                                    <span className="material-icons-round text-white" style={{fontSize:22}}>pause_circle</span>
+                                    <span className="material-icons-round text-white" style={{fontSize:19}}>pause_circle</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm font-black" style={{color:'var(--warning)'}}>Iniciar pausa</div>
