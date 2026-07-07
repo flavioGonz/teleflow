@@ -75,9 +75,28 @@ try {
         $agentNum = trim($_POST['agent_number'] ?? '');
         $pass = trim($_POST['password'] ?? '');
         $callbackExt = trim($_POST['callback_extension'] ?? '');
-        if (!$agentNum || !$pass || !$callbackExt) {
+        $useFallback = !empty($_POST['use_fallback']) && $_POST['use_fallback'] !== 'false';
+        if (!$agentNum || !$pass) {
             http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Falta agent_number, password o callback_extension']);
+            echo json_encode(['status' => 'error', 'message' => 'Falta agent_number o password']);
+            exit;
+        }
+
+        // Si NO se usa fallback fisico, buscar la ext WebRTC 1:1 asignada al agente
+        if (!$useFallback || !$callbackExt) {
+            try {
+                $stW = $tf->prepare("SELECT webrtc_ext FROM agent_webrtc WHERE agent_number = ?");
+                $stW->execute([$agentNum]);
+                $webrtcExt = $stW->fetchColumn();
+                if ($webrtcExt) {
+                    $callbackExt = $webrtcExt;  // usar WebRTC como callback interno
+                }
+            } catch (Exception $e) {}
+        }
+
+        if (!$callbackExt) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Este agente no tiene interno WebRTC asignado. Debe activar el fallback físico o pedirle al admin que le asigne un interno WebRTC.']);
             exit;
         }
 
@@ -319,15 +338,26 @@ try {
     if ($action === 'softphone_creds') {
         $a = $_SESSION['agent_user'] ?? null;
         if (!$a) { echo json_encode(['status'=>'error','message'=>'sin_sesion']); exit; }
-        $ext = preg_replace('/^\w+\//', '', $a['callback'] ?? '');
-        if (!$ext) { echo json_encode(['status'=>'error','message'=>'sin_callback']); exit; }
+        // 1) PRIORIDAD: si el agente tiene webrtc_ext asignado en teleflow.agent_webrtc, usar ese
+        // 2) Fallback: extension del callback (config vieja)
+        $ext = null; $secretFromMap = null;
+        try {
+            $stW = $tf->prepare("SELECT webrtc_ext, webrtc_secret FROM agent_webrtc WHERE agent_number = ?");
+            $stW->execute([$a['number'] ?? '']);
+            $wRow = $stW->fetch(PDO::FETCH_ASSOC);
+            if ($wRow) { $ext = $wRow['webrtc_ext']; $secretFromMap = $wRow['webrtc_secret']; }
+        } catch (Exception $e) {}
+        if (!$ext) {
+            $ext = preg_replace('/^\w+\//', '', $a['callback'] ?? '');
+        }
+        if (!$ext) { echo json_encode(['status'=>'error','message'=>'sin_ext_webrtc_ni_callback']); exit; }
         try {
             require_once __DIR__ . '/../config.php';
             $db = new PDO("mysql:host=$PBX_DB_HOST;dbname=asterisk;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
             $stmt = $db->prepare("SELECT keyword, data FROM sip WHERE id=?");
             $stmt->execute([$ext]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $creds = ['ext' => $ext, 'secret' => null, 'transport' => 'udp', 'has_ws' => false];
+            $creds = ['ext' => $ext, 'secret' => $secretFromMap, 'transport' => 'udp', 'has_ws' => false];
             foreach ($rows as $r) {
                 if ($r['keyword'] === 'secret') $creds['secret'] = $r['data'];
                 if ($r['keyword'] === 'transport') { $creds['transport'] = $r['data']; $creds['has_ws'] = strpos($r['data'], 'ws') !== false; }

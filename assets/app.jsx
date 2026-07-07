@@ -7859,8 +7859,21 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
     const [allQueues, setAllQueues] = useState([]);
     const [mode, setMode] = useState('login');
     const [busy, setBusy] = useState(false);
+    const [useFallback, setUseFallback] = useState(false);
+    const [agentWebrtcExt, setAgentWebrtcExt] = useState(null);
 
     useEffect(() => { if (preselectAgent) setSelAgent(preselectAgent); }, [preselectAgent]);
+    // Cargar WebRTC ext asignada al agente seleccionado
+    useEffect(() => {
+        if (!selAgent?.number) { setAgentWebrtcExt(null); return; }
+        fetch('api/hotdesking.php?action=get_webrtc&agent_number=' + selAgent.number, {credentials:'include'})
+            .then(r=>r.json()).then(j => {
+                setAgentWebrtcExt(j?.webrtc_ext || null);
+                // Si el agente NO tiene webrtc_ext, forzar useFallback=true
+                if (!j?.webrtc_ext) setUseFallback(true);
+            })
+            .catch(()=>{});
+    }, [selAgent?.number]);
     useEffect(() => {
         if (!open) return;
         fetch('api/hotdesking.php?action=list', {credentials:'include'})
@@ -7899,13 +7912,14 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
 
     const submit = async () => {
         if (!selAgent) { toast?.('Seleccioná un agente','error'); return; }
-        if (mode==='login' && !extension) { toast?.('Ingresá la extensión','error'); return; }
+        if (mode==='login' && useFallback && !extension) { toast?.('Ingresá la extensión fisica de fallback','error'); return; }
         if (mode==='login' && selectedQueues.length === 0) { toast?.('Marcá al menos una cola','error'); return; }
         setBusy(true);
         const fd = new FormData();
         fd.append('agent_number', selAgent.number);
         if (mode==='login') {
-            fd.append('extension', extension);
+            if (useFallback) fd.append('extension', extension);
+            fd.append('use_fallback', useFallback ? 'true' : 'false');
             fd.append('queues', selectedQueues.join(','));
         } else if (selAgent.extension) fd.append('extension', selAgent.extension);
         const action = mode==='login' ? 'login_agent' : 'logout_agent';
@@ -8037,12 +8051,43 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
                     {/* ─── Columna der: Datos de login ─── */}
                     {mode === 'login' && (
                         <div className="flex flex-col overflow-hidden p-5" style={{minHeight:0}}>
-                            <Label htmlFor="agent-ext" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:'var(--muted-foreground)'}}>
+                            {/* Info interno WebRTC + checkbox usar fallback fisico */}
+                            <div style={{marginBottom:12, padding:'12px 14px', borderRadius:10, border:'1px solid var(--border)', background:'color-mix(in srgb, var(--primary) 4%, transparent)'}}>
+                                {agentWebrtcExt ? (
+                                    <>
+                                        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+                                            <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)'}}>headset_mic</span>
+                                            <div style={{fontSize:11, fontWeight:800, color:'var(--foreground)'}}>Interno WebRTC asignado: <span style={{fontFamily:'monospace', color:'var(--horizon-green)'}}>ext {agentWebrtcExt}</span></div>
+                                        </div>
+                                        <label style={{display:'flex', alignItems:'flex-start', gap:8, cursor:'pointer'}}>
+                                            <input type="checkbox" checked={useFallback} onChange={e=>setUseFallback(e.target.checked)}
+                                                style={{marginTop:2, width:14, height:14, cursor:'pointer'}}/>
+                                            <div style={{flex:1, minWidth:0}}>
+                                                <div style={{fontSize:11, fontWeight:700, color:'var(--foreground)'}}>Usar interno fisico como fallback</div>
+                                                <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>
+                                                    {useFallback ? 'Ingresa el interno fisico abajo.' : `Recibiras llamadas por el softphone WebRTC del navegador.`}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </>
+                                ) : (
+                                    <div style={{display:'flex', alignItems:'flex-start', gap:8}}>
+                                        <span className="material-icons-round" style={{fontSize:16, color:'var(--warning)', marginTop:2}}>warning</span>
+                                        <div>
+                                            <div style={{fontSize:11, fontWeight:800, color:'var(--warning)'}}>Sin interno WebRTC asignado</div>
+                                            <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>El fallback fisico es obligatorio. Pedile al admin que le asigne un interno WebRTC en Hotdesking.</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <Label htmlFor="agent-ext" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color: useFallback ? 'var(--muted-foreground)' : 'var(--muted)', opacity: useFallback ? 1 : 0.5}}>
                                 <span className="material-icons-round" style={{fontSize:13, color:'#3b82f6'}}>dialpad</span>
-                                Extensión donde se sienta
+                                Extensión fisica (fallback)
                             </Label>
                             <Input id="agent-ext" placeholder="Ej: 9006" value={extension} onChange={e=>setExtension(e.target.value)}
-                                   className="font-mono font-bold mb-4"/>
+                                   disabled={!useFallback}
+                                   className="font-mono font-bold mb-4"
+                                   style={{opacity: useFallback ? 1 : 0.4, cursor: useFallback ? 'text' : 'not-allowed'}}/>
 
                             <Label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:'var(--muted-foreground)'}}>
                                 <span className="material-icons-round" style={{fontSize:13, color:'var(--horizon-green)'}}>queue</span>
@@ -15355,6 +15400,23 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
     const [errors, setErrors] = useState({});
     const [showPass, setShowPass] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    // WebRTC 1:1
+    const [webrtcExtList, setWebrtcExtList] = useState([]);
+    const [selectedWebrtcExt, setSelectedWebrtcExt] = useState('');
+    const [webrtcLoading, setWebrtcLoading] = useState(false);
+    useEffect(() => {
+        // Cargar lista + asignacion actual del agente al abrir
+        setWebrtcLoading(true);
+        fetch('api/hotdesking.php?action=list_webrtc_extensions', {credentials:'include'})
+            .then(r=>r.json()).then(j => { if (j.status === 'ok') setWebrtcExtList(j.extensions || []); })
+            .catch(()=>{})
+            .finally(()=>setWebrtcLoading(false));
+        if (agent?.number) {
+            fetch('api/hotdesking.php?action=get_webrtc&agent_number=' + agent.number, {credentials:'include'})
+                .then(r=>r.json()).then(j => { if (j.status === 'ok' && j.webrtc_ext) setSelectedWebrtcExt(j.webrtc_ext); })
+                .catch(()=>{});
+        }
+    }, [agent?.number]);
     const set = (k,v) => { setForm(f => ({...f, [k]: v})); setErrors(e => ({...e, [k]: undefined})); };
 
     const validate = () => {
@@ -15375,6 +15437,13 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
         else if (!data.eccp_password) data.eccp_password = data.password;
         if (!data.id) delete data.id;
         await onSave(data);
+        // Guardar WebRTC assignment (usar el agent_number del form)
+        if (form.number) {
+            const wfd = new FormData();
+            wfd.append('agent_number', form.number);
+            wfd.append('webrtc_ext', selectedWebrtcExt || '');
+            try { await fetch('api/hotdesking.php?action=set_webrtc', {method:'POST', body:wfd, credentials:'include'}); } catch(e){}
+        }
         setSubmitting(false);
     };
 
@@ -15467,6 +15536,30 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
                                     <div style={{fontSize:11,fontWeight:800,color:form.type===o.v?'color-mix(in srgb, var(--primary) 65%, white)':'var(--text)'}}>{o.l}</div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Interno WebRTC 1:1 */}
+                    <div style={{marginBottom:14}}>
+                        <label style={{fontSize:10,fontWeight:800,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                            <span className="material-icons-round" style={{fontSize:14,color:'#3b82f6'}}>videocam</span>
+                            Interno WebRTC (softphone del navegador)
+                        </label>
+                        <select value={selectedWebrtcExt} onChange={e=>setSelectedWebrtcExt(e.target.value)}
+                                disabled={webrtcLoading}
+                                style={{width:'100%',padding:'11px 14px',borderRadius:10,fontSize:13,border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',cursor:'pointer'}}>
+                            <option value="">— Sin asignar (usará fallback físico) —</option>
+                            {webrtcExtList.map(e => {
+                                const takenByOther = e.assigned_to && String(e.assigned_to) !== String(form.number);
+                                return (
+                                    <option key={e.ext} value={e.ext} disabled={takenByOther}>
+                                        {e.ext} {e.name ? `- ${e.name}` : ''} {takenByOther ? `(asignada a ${e.assigned_to})` : ''}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
+                            {webrtcExtList.length === 0 ? 'No hay internos con transport=ws configurados en Issabel.' : 'Solo se listan internos SIP con transport=ws en Issabel.'}
                         </div>
                     </div>
 
