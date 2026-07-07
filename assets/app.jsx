@@ -729,8 +729,10 @@ function RtspPreviewLayer() {
             position:'fixed',
             bottom: bottomOffset, right:18,
             zIndex:10001,
-            display:'flex', flexDirection:'column-reverse', gap:6,
+            display:'flex', flexDirection:'row-reverse', gap:10,
             pointerEvents:'auto',
+            maxWidth: 'calc(100vw - 40px)',
+            flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'flex-end',
             transition: 'bottom 0.18s ease-out'
         }}>
             {previews.map(p => (
@@ -813,19 +815,21 @@ function RtspPreviewCard({ preview, onClose }) {
 
     return (
         <div style={{
-            width: 340,
-            background: '#0a0a0d',
-            borderRadius: 12,
+            width: 320,
+            background: '#000',
+            borderRadius: 10,
             overflow: 'hidden',
-            border: '1px solid var(--border)',
-            boxShadow: '0 20px 50px -10px rgba(0,0,0,0.6), 0 0 0 2px var(--horizon-green), 0 0 30px rgba(17,179,40,0.35)',
+            border: 'none',
+            position: 'relative',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.55)',
             animation: 'slide-in-right 0.3s ease-out'
         }}>
-            {/* Header */}
+            {/* Header ABSOLUTE overlay top */}
             <div style={{
-                padding: '8px 12px',
-                background: 'linear-gradient(135deg, rgba(17,179,40,0.22), rgba(17,179,40,0.05))',
-                borderBottom: '1px solid rgba(17,179,40,0.35)',
+                position: 'absolute', top: 0, left: 0, right: 0,
+                zIndex: 3,
+                padding: '6px 10px',
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0))',
                 display: 'flex', alignItems: 'center', gap: 8
             }}>
                 <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)', animation:'pulse 1.5s infinite'}}>videocam</span>
@@ -7861,8 +7865,16 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
         if (!open) return;
         fetch('api/hotdesking.php?action=list', {credentials:'include'})
             .then(r=>r.json()).then(j=>{ if(j.status==='ok') setAgents(j.agents||[]); });
-        fetch('api/index.php?action=get_full_data', {credentials:'include'})
-            .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
+        fetch('api/index.php?action=get_queues', {credentials:'include'})
+            .then(r=>r.json()).then(j=>{
+                // Preferir get_queues (siempre trae todas); si falla, fallback a get_full_data
+                if (j?.success && Array.isArray(j.queues)) setAllQueues(j.queues);
+                else fetch('api/index.php?action=get_full_data', {credentials:'include'})
+                    .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
+            }).catch(()=>{
+                fetch('api/index.php?action=get_full_data', {credentials:'include'})
+                    .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
+            });
     }, [open]);
 
     useEffect(() => {
