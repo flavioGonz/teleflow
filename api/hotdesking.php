@@ -659,6 +659,73 @@ try {
             break;
         }
 
+        case 'list_webrtc_extensions': {
+            // Devuelve extensiones SIP con transport que incluya "ws" (candidatas para WebRTC)
+            try {
+                $pbx = db_pbx('asterisk');
+                $stmt = $pbx->query("SELECT DISTINCT s.id FROM sip s WHERE s.id IN (SELECT id FROM sip WHERE keyword='transport' AND data LIKE '%ws%') ORDER BY CAST(s.id AS UNSIGNED)");
+                $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                $result = [];
+                if (!empty($ids)) {
+                    $ph = implode(',', array_fill(0, count($ids), '?'));
+                    $stmt2 = $pbx->prepare("SELECT id, description FROM devices WHERE id IN ($ph)");
+                    $stmt2->execute($ids);
+                    $names = [];
+                    foreach ($stmt2->fetchAll(PDO::FETCH_ASSOC) as $r) $names[$r['id']] = $r['description'];
+                    foreach ($ids as $id) $result[] = ['ext' => $id, 'name' => $names[$id] ?? ''];
+                }
+                // Cuáles ya están asignados
+                $tf = db_pbx('teleflow');
+                $assigned = $tf->query("SELECT webrtc_ext, agent_number FROM agent_webrtc")->fetchAll(PDO::FETCH_KEY_PAIR);
+                foreach ($result as &$r) $r['assigned_to'] = $assigned[$r['ext']] ?? null;
+                echo json_encode(['status'=>'ok', 'extensions'=>$result]);
+            } catch (Exception $e) {
+                echo json_encode(['status'=>'error', 'message'=>$e->getMessage()]);
+            }
+            break;
+        }
+
+        case 'set_webrtc': {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['status'=>'error','message'=>'POST requerido']); break; }
+            $agent = preg_replace('/[^0-9]/', '', $_POST['agent_number'] ?? '');
+            $ext = preg_replace('/[^0-9]/', '', $_POST['webrtc_ext'] ?? '');
+            if (!$agent) { echo json_encode(['status'=>'error','message'=>'agent_number requerido']); break; }
+            try {
+                $tf = db_pbx('teleflow');
+                if (!$ext) {
+                    $tf->prepare("DELETE FROM agent_webrtc WHERE agent_number=?")->execute([$agent]);
+                    echo json_encode(['status'=>'ok', 'removed'=>true]);
+                    break;
+                }
+                $pbx = db_pbx('asterisk');
+                $stmt = $pbx->prepare("SELECT data FROM sip WHERE id=? AND keyword='secret'");
+                $stmt->execute([$ext]);
+                $secret = $stmt->fetchColumn();
+                if (!$secret) { echo json_encode(['status'=>'error','message'=>'La ext '.$ext.' no existe o no tiene secret']); break; }
+                $tf->prepare("INSERT INTO agent_webrtc (agent_number, webrtc_ext, webrtc_secret) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE webrtc_ext=VALUES(webrtc_ext), webrtc_secret=VALUES(webrtc_secret)")
+                   ->execute([$agent, $ext, $secret]);
+                echo json_encode(['status'=>'ok', 'ext'=>$ext]);
+            } catch (Exception $e) {
+                echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
+            }
+            break;
+        }
+
+        case 'get_webrtc': {
+            $agent = preg_replace('/[^0-9]/', '', $_GET['agent_number'] ?? '');
+            if (!$agent) { echo json_encode(['status'=>'error','message'=>'agent_number requerido']); break; }
+            try {
+                $tf = db_pbx('teleflow');
+                $stmt = $tf->prepare("SELECT webrtc_ext FROM agent_webrtc WHERE agent_number=?");
+                $stmt->execute([$agent]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                echo json_encode(['status'=>'ok', 'webrtc_ext' => $row['webrtc_ext'] ?? null]);
+            } catch (Exception $e) {
+                echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
+            }
+            break;
+        }
+
         default:
             echo json_encode(['status'=>'error','message'=>'Acción desconocida']);
     }
@@ -666,81 +733,3 @@ try {
     http_response_code(500);
     echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
 }
-
-// ─── WEBRTC 1:1 assignment ─────────────────────────────────────
-if ($action === 'list_webrtc_extensions') {
-    // Devuelve extensiones SIP con transport=ws (candidatas para asignar a agentes)
-    try {
-        require_once __DIR__ . '/../config.php';
-        $db = new PDO("mysql:host=$PBX_DB_HOST;dbname=asterisk;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-        // Encontrar IDs con transport que incluya ws
-        $stmt = $db->query("SELECT DISTINCT s.id FROM sip s WHERE s.id IN (SELECT id FROM sip WHERE keyword='transport' AND data LIKE '%ws%') ORDER BY CAST(s.id AS UNSIGNED)");
-        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        // Enriquecer con nombre desde devices
-        $result = [];
-        if (!empty($ids)) {
-            $ph = implode(',', array_fill(0, count($ids), '?'));
-            $stmt2 = $db->prepare("SELECT id, description FROM devices WHERE id IN ($ph)");
-            $stmt2->execute($ids);
-            $names = [];
-            foreach ($stmt2->fetchAll(PDO::FETCH_ASSOC) as $r) $names[$r['id']] = $r['description'];
-            foreach ($ids as $id) $result[] = ['ext' => $id, 'name' => $names[$id] ?? ''];
-        }
-        // Cuáles ya están asignados a un agente
-        $tf = tf_db();
-        $assigned = $tf->query("SELECT webrtc_ext, agent_number FROM agent_webrtc")->fetchAll(PDO::FETCH_KEY_PAIR);
-        foreach ($result as &$r) {
-            $r['assigned_to'] = $assigned[$r['ext']] ?? null;
-        }
-        echo json_encode(['status'=>'ok', 'extensions'=>$result]);
-    } catch (Exception $e) {
-        echo json_encode(['status'=>'error', 'message'=>$e->getMessage()]);
-    }
-    exit;
-}
-
-if ($action === 'set_webrtc' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $agent = preg_replace('/[^0-9]/', '', $_POST['agent_number'] ?? '');
-    $ext = preg_replace('/[^0-9]/', '', $_POST['webrtc_ext'] ?? '');
-    if (!$agent) { echo json_encode(['status'=>'error','message'=>'agent_number requerido']); exit; }
-    try {
-        $tf = tf_db();
-        if (!$ext) {
-            // Borrar asignación
-            $tf->prepare("DELETE FROM agent_webrtc WHERE agent_number=?")->execute([$agent]);
-            echo json_encode(['status'=>'ok', 'removed'=>true]);
-            exit;
-        }
-        // Leer secret de asterisk.sip
-        require_once __DIR__ . '/../config.php';
-        $pbx = new PDO("mysql:host=$PBX_DB_HOST;dbname=asterisk;charset=utf8mb4", $PBX_DB_USER, $PBX_DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-        $stmt = $pbx->prepare("SELECT data FROM sip WHERE id=? AND keyword='secret'");
-        $stmt->execute([$ext]);
-        $secret = $stmt->fetchColumn();
-        if (!$secret) { echo json_encode(['status'=>'error','message'=>'La ext '.$ext.' no existe o no tiene secret']); exit; }
-        // Upsert
-        $tf->prepare("INSERT INTO agent_webrtc (agent_number, webrtc_ext, webrtc_secret) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE webrtc_ext=VALUES(webrtc_ext), webrtc_secret=VALUES(webrtc_secret)")
-           ->execute([$agent, $ext, $secret]);
-        echo json_encode(['status'=>'ok', 'ext'=>$ext]);
-    } catch (Exception $e) {
-        echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
-    }
-    exit;
-}
-
-if ($action === 'get_webrtc') {
-    $agent = preg_replace('/[^0-9]/', '', $_GET['agent_number'] ?? '');
-    if (!$agent) { echo json_encode(['status'=>'error','message'=>'agent_number requerido']); exit; }
-    try {
-        $tf = tf_db();
-        $stmt = $tf->prepare("SELECT webrtc_ext, webrtc_secret FROM agent_webrtc WHERE agent_number=?");
-        $stmt->execute([$agent]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) echo json_encode(['status'=>'ok', 'webrtc_ext'=>$row['webrtc_ext']]);
-        else echo json_encode(['status'=>'ok', 'webrtc_ext'=>null]);
-    } catch (Exception $e) {
-        echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
-    }
-    exit;
-}
-
