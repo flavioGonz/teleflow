@@ -14373,52 +14373,52 @@ function ViewCallCenter({ user, onLogout, data }) {
     const totalPauseSec = status?.session?.total_pause_time || 0;
     const aht = totalCalls > 0 ? Math.round(talkSec / totalCalls) : 0;
 
-    // Empty state: agente sin sesión activa (cerró el modal sin elegir colas o nunca se logueó)
+    // Empty state flag: agente sin sesión activa (cerró el modal sin elegir colas o nunca se logueó)
     const hasSession = !!(status?.session?.login_time && !status?.session?.logout_time);
-    if (status !== null && !hasSession) {
-        return (
-            <div className="content-area view-enter flex items-center justify-center" style={{minHeight:'70vh'}}>
-                <Card className="max-w-lg w-full">
-                    <CardHeader className="items-center text-center pb-3">
-                        <div className="rounded-full flex items-center justify-center mb-3"
-                             style={{
-                                 width:72, height:72,
-                                 background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))',
-                                 boxShadow:'0 8px 24px color-mix(in srgb, var(--horizon-green) 35%, transparent)'
-                             }}>
-                            <span className="material-icons-round text-white" style={{fontSize:36}}>login</span>
-                        </div>
-                        <CardTitle className="text-lg">Hola {user?.name?.split(' ')[0] || 'Agente'}</CardTitle>
-                        <CardDescription className="text-sm leading-relaxed mt-1">
-                            Para arrancar tu turno, elegí a qué <strong>colas</strong> querés atender.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2.5 items-center">
-                        <Button variant="success" size="lg" onClick={()=>setShowOnboardLogin(true)}
-                                className="gap-2 w-full">
-                            <span className="material-icons-round">queue</span>
-                            Elegir colas y entrar
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={onLogout} className="w-full">
-                            Cerrar sesión
-                        </Button>
-                    </CardContent>
-                </Card>
-                {showOnboardLogin && user?.agent && (
-                    <AgentLoginModal
-                        open={true}
-                        onClose={()=>setShowOnboardLogin(false)}
-                        onDone={()=>{ setShowOnboardLogin(false); loadStatus(); loadHistory(); }}
-                        toast={(m,t)=>window.shToast?.({msg:m, variant: t==='error'?'destructive':(t==='success'?'success':'default')})}
-                        preselectAgent={user.agent}
-                    />
-                )}
-            </div>
-        );
-    }
+    const showEmptyState = status !== null && !hasSession;
 
     return (
         <div className="content-area view-enter space-y-4">
+
+            {showEmptyState ? (
+                <div className="flex items-center justify-center" style={{minHeight:'70vh'}}>
+                    <Card className="max-w-lg w-full">
+                        <CardHeader className="items-center text-center pb-3">
+                            <div className="rounded-full flex items-center justify-center mb-3"
+                                 style={{
+                                     width:72, height:72,
+                                     background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))',
+                                     boxShadow:'0 8px 24px color-mix(in srgb, var(--horizon-green) 35%, transparent)'
+                                 }}>
+                                <span className="material-icons-round text-white" style={{fontSize:36}}>login</span>
+                            </div>
+                            <CardTitle className="text-lg">Hola {user?.name?.split(' ')[0] || 'Agente'}</CardTitle>
+                            <CardDescription className="text-sm leading-relaxed mt-1">
+                                Para arrancar tu turno, elegí a qué <strong>colas</strong> querés atender.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-2.5 items-center">
+                            <Button variant="success" size="lg" onClick={()=>setShowOnboardLogin(true)}
+                                    className="gap-2 w-full">
+                                <span className="material-icons-round">queue</span>
+                                Elegir colas y entrar
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={onLogout} className="w-full">
+                                Cerrar sesión
+                            </Button>
+                        </CardContent>
+                    </Card>
+                    {showOnboardLogin && user?.agent && (
+                        <AgentLoginModal
+                            open={true}
+                            onClose={()=>setShowOnboardLogin(false)}
+                            onDone={()=>{ setShowOnboardLogin(false); loadStatus(); loadHistory(); }}
+                            toast={(m,t)=>window.shToast?.({msg:m, variant: t==='error'?'destructive':(t==='success'?'success':'default')})}
+                            preselectAgent={user.agent}
+                        />
+                    )}
+                </div>
+            ) : (<>
 
             {/* ═══ HERO: identidad + estado en una línea horizontal ═══ */}
             <Card className="overflow-hidden">
@@ -14812,6 +14812,8 @@ function ViewCallCenter({ user, onLogout, data }) {
                     </Button>
                 </DialogFooter>
             </Dialog>
+            </>)}
+
         </div>
     );
 }
