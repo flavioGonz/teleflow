@@ -1265,6 +1265,28 @@ function Login({ onLogin }) {
     const [err, setErr] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
+    const [useFallback, setUseFallback] = useState(false);
+    const [agentWebrtcExt, setAgentWebrtcExt] = useState(null);
+    const [webrtcChecking, setWebrtcChecking] = useState(false);
+    // Al escribir numero de agente, buscar si tiene webrtc asignado (con debounce)
+    useEffect(() => {
+        if (role !== 'agent' || !user || !/^\d+$/.test(user)) { setAgentWebrtcExt(null); return; }
+        const t = setTimeout(() => {
+            setWebrtcChecking(true);
+            fetch('api/hotdesking.php?action=get_webrtc&agent_number=' + encodeURIComponent(user), {credentials:'include'})
+                .then(r=>r.json()).then(j => {
+                    if (j?.status === 'ok') {
+                        setAgentWebrtcExt(j.webrtc_ext || null);
+                        // Si no tiene WebRTC, forzar fallback
+                        if (!j.webrtc_ext) setUseFallback(true);
+                        else setUseFallback(false); // por default off si tiene WebRTC
+                    }
+                })
+                .catch(()=>{})
+                .finally(()=>setWebrtcChecking(false));
+        }, 400);
+        return () => clearTimeout(t);
+    }, [user, role]);
 
     // pendingAgent: data del login del agente esperando que elija colas
     const [pendingAgent, setPendingAgent] = useState(null);
@@ -1283,7 +1305,8 @@ function Login({ onLogin }) {
                 const fd = new FormData();
                 fd.append('agent_number', user);
                 fd.append('password', pass);
-                fd.append('callback_extension', callbackExt);
+                if (useFallback) fd.append('callback_extension', callbackExt);
+                fd.append('use_fallback', useFallback ? 'true' : 'false');
                 const r = await fetch('api/agent.php?action=login', { method:'POST', body:fd, credentials:'include' });
                 const d = await r.json();
                 if (d.status === 'success') {
@@ -1440,21 +1463,57 @@ function Login({ onLogin }) {
                         </label>
 
                         {role === 'agent' && (
-                            <label className="hzn-field">
-                                <span className="hzn-label">Extensión de callback</span>
-                                <div className="hzn-input-wrap">
-                                    <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
-                                    <input
-                                        className="hzn-input"
-                                        type="text"
-                                        placeholder="ej. 9006"
-                                        value={callbackExt}
-                                        onChange={e=>setCallbackExt(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <div className="hzn-field-help">El teléfono donde recibirás las llamadas hoy</div>
-                            </label>
+                            <>
+                                {/* Bloque info WebRTC + checkbox usar fallback */}
+                                {user && /^\d+$/.test(user) && (
+                                    <div style={{padding:'12px 14px', borderRadius:10, border:'1px solid var(--border)', background:'color-mix(in srgb, var(--primary) 3%, transparent)', marginBottom:14}}>
+                                        {webrtcChecking ? (
+                                            <div style={{fontSize:11, color:'var(--muted-foreground)'}}>Verificando asignacion WebRTC...</div>
+                                        ) : agentWebrtcExt ? (
+                                            <>
+                                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                                                    <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)'}}>headset_mic</span>
+                                                    <div style={{fontSize:12, fontWeight:800, color:'var(--foreground)'}}>Interno WebRTC: <span style={{fontFamily:'monospace', color:'var(--horizon-green)'}}>ext {agentWebrtcExt}</span></div>
+                                                </div>
+                                                <label style={{display:'flex', alignItems:'flex-start', gap:8, cursor:'pointer'}}>
+                                                    <input type="checkbox" checked={useFallback} onChange={e=>setUseFallback(e.target.checked)} style={{marginTop:2, width:14, height:14, cursor:'pointer'}}/>
+                                                    <div style={{flex:1, minWidth:0}}>
+                                                        <div style={{fontSize:11, fontWeight:700, color:'var(--foreground)'}}>Usar interno fisico como fallback</div>
+                                                        <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>
+                                                            {useFallback ? 'Ingresa el interno fisico abajo.' : 'Recibiras llamadas por el softphone WebRTC del navegador.'}
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </>
+                                        ) : (
+                                            <div style={{display:'flex', alignItems:'flex-start', gap:8}}>
+                                                <span className="material-icons-round" style={{fontSize:16, color:'var(--warning)', marginTop:2}}>warning</span>
+                                                <div>
+                                                    <div style={{fontSize:11, fontWeight:800, color:'var(--warning)'}}>Sin interno WebRTC asignado</div>
+                                                    <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>Ingresa un interno fisico abajo. Para tener softphone en el navegador, pedile al admin que te asigne un interno WebRTC en Hotdesking.</div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {useFallback && (
+                                    <label className="hzn-field">
+                                        <span className="hzn-label">Extension fisica (fallback)</span>
+                                        <div className="hzn-input-wrap">
+                                            <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
+                                            <input
+                                                className="hzn-input"
+                                                type="text"
+                                                placeholder="ej. 9006"
+                                                value={callbackExt}
+                                                onChange={e=>setCallbackExt(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="hzn-field-help">El telefono donde recibiras las llamadas hoy</div>
+                                    </label>
+                                )}
+                            </>
                         )}
 
                         {err && (
