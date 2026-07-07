@@ -6763,7 +6763,7 @@ function AgentDetailModal({ agent, onClose, onEdit }) {
     const inits = (agent.name||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase();
     return (
 
-        <LegacyDialogShell onClose={onClose} maxWidth={560}>
+        <LegacyDialogShell onClose={onClose} maxWidth={780}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 22px',background:`linear-gradient(135deg, ${sc}22, transparent 70%)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:54,height:54,borderRadius:14,background:`linear-gradient(135deg,${sc},${sc}aa)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:18,boxShadow:`0 6px 18px ${sc}55`,position:'relative',flexShrink:0}}>
@@ -15511,7 +15511,7 @@ function HotdeskingEditModal({ agent, onClose, onSave, queues }) {
     return (
 
 
-        <LegacyDialogShell onClose={onClose} maxWidth={560}>
+        <LegacyDialogShell onClose={onClose} maxWidth={780}>
                 {/* Header con gradient */}
                 <div style={{padding:'18px 24px',background:`linear-gradient(135deg, ${isNew?'rgba(34,197,94,0.18)':'color-mix(in srgb, var(--primary) 18%, transparent)'}, transparent)`,borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14}}>
                     <div style={{width:48,height:48,borderRadius:14,background:`linear-gradient(135deg, ${isNew?'#22c55e,#16a34a':'var(--primary),color-mix(in srgb, var(--primary) 75%, #000)'})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 6px 18px ${isNew?'rgba(34,197,94,0.4)':'color-mix(in srgb, var(--primary) 40%, transparent)'}`}}>
@@ -16804,7 +16804,15 @@ function App() {
     const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem("tf_dark") === "1"); // DEFAULT LIGHT: dark solo si el user lo eligio
+    const [darkMode, setDarkMode] = useState(() => {
+        // DEFAULT LIGHT para todos. Solo dark si el user lo eligio explicitamente (tf_dark_user_choice=1)
+        try {
+            const userChose = localStorage.getItem("tf_dark_user_choice");
+            if (userChose === "1") return true;   // eligio dark
+            if (userChose === "0") return false;  // eligio light
+            return false;                          // default LIGHT
+        } catch(e) { return false; }
+    });
     const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
     const [reportQueue, setReportQueue] = useState(null);
@@ -16813,7 +16821,12 @@ function App() {
     useEffect(() => { if (user) localStorage.setItem('tf_user', user); else localStorage.removeItem('tf_user'); }, [user]);
     useEffect(() => { localStorage.setItem('tf_view', view); }, [view]);
     useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
-    useEffect(() => { localStorage.setItem('tf_dark', darkMode ? '1' : '0'); }, [darkMode]);
+    useEffect(() => {
+        try {
+            localStorage.setItem('tf_dark', darkMode ? '1' : '0');
+            localStorage.setItem('tf_dark_user_choice', darkMode ? '1' : '0');
+        } catch(e){}
+    }, [darkMode]);
 
     // Dark/light toggle — sincroniza ambos sistemas: legacy (body) + shadcn (html)
     useEffect(()=>{
