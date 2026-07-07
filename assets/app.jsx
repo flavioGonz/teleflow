@@ -1464,55 +1464,51 @@ function Login({ onLogin }) {
 
                         {role === 'agent' && (
                             <>
-                                {/* Bloque info WebRTC + checkbox usar fallback */}
+                                {/* Bloque info WebRTC (solo cuando escribió número) */}
                                 {user && /^\d+$/.test(user) && (
-                                    <div style={{padding:'12px 14px', borderRadius:10, border:'1px solid var(--border)', background:'color-mix(in srgb, var(--primary) 3%, transparent)', marginBottom:14}}>
+                                    <div style={{padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'color-mix(in srgb, var(--primary) 3%, transparent)', marginBottom:12}}>
                                         {webrtcChecking ? (
-                                            <div style={{fontSize:11, color:'var(--muted-foreground)'}}>Verificando asignacion WebRTC...</div>
+                                            <div style={{fontSize:11, color:'var(--muted-foreground)'}}>Verificando WebRTC…</div>
                                         ) : agentWebrtcExt ? (
-                                            <>
-                                                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-                                                    <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)'}}>headset_mic</span>
-                                                    <div style={{fontSize:12, fontWeight:800, color:'var(--foreground)'}}>Interno WebRTC: <span style={{fontFamily:'monospace', color:'var(--horizon-green)'}}>ext {agentWebrtcExt}</span></div>
-                                                </div>
-                                                <label style={{display:'flex', alignItems:'flex-start', gap:8, cursor:'pointer'}}>
-                                                    <input type="checkbox" checked={useFallback} onChange={e=>setUseFallback(e.target.checked)} style={{marginTop:2, width:14, height:14, cursor:'pointer'}}/>
-                                                    <div style={{flex:1, minWidth:0}}>
-                                                        <div style={{fontSize:11, fontWeight:700, color:'var(--foreground)'}}>Usar interno fisico como fallback</div>
-                                                        <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>
-                                                            {useFallback ? 'Ingresa el interno fisico abajo.' : 'Recibiras llamadas por el softphone WebRTC del navegador.'}
-                                                        </div>
-                                                    </div>
-                                                </label>
-                                            </>
+                                            <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                                <span className="material-icons-round" style={{fontSize:15, color:'var(--horizon-green)'}}>headset_mic</span>
+                                                <div style={{fontSize:11, fontWeight:700, color:'var(--foreground)'}}>Softphone WebRTC listo: <span style={{fontFamily:'monospace', color:'var(--horizon-green)'}}>ext {agentWebrtcExt}</span></div>
+                                            </div>
                                         ) : (
-                                            <div style={{display:'flex', alignItems:'flex-start', gap:8}}>
-                                                <span className="material-icons-round" style={{fontSize:16, color:'var(--warning)', marginTop:2}}>warning</span>
-                                                <div>
-                                                    <div style={{fontSize:11, fontWeight:800, color:'var(--warning)'}}>Sin interno WebRTC asignado</div>
-                                                    <div style={{fontSize:9, color:'var(--muted-foreground)', marginTop:2, lineHeight:1.4}}>Ingresa un interno fisico abajo. Para tener softphone en el navegador, pedile al admin que te asigne un interno WebRTC en Hotdesking.</div>
-                                                </div>
+                                            <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                                <span className="material-icons-round" style={{fontSize:15, color:'var(--warning)'}}>warning</span>
+                                                <div style={{fontSize:11, fontWeight:700, color:'var(--warning)'}}>Sin WebRTC asignado — usá fallback físico</div>
                                             </div>
                                         )}
                                     </div>
                                 )}
-                                {useFallback && (
-                                    <label className="hzn-field">
-                                        <span className="hzn-label">Extension fisica (fallback)</span>
-                                        <div className="hzn-input-wrap">
-                                            <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
-                                            <input
-                                                className="hzn-input"
-                                                type="text"
-                                                placeholder="ej. 9006"
-                                                value={callbackExt}
-                                                onChange={e=>setCallbackExt(e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="hzn-field-help">El telefono donde recibiras las llamadas hoy</div>
-                                    </label>
-                                )}
+
+                                {/* Input Callback: siempre visible, con checkbox para activarlo */}
+                                <label className="hzn-field">
+                                    <span className="hzn-label" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10}}>
+                                        <span>Extensión de callback (fallback físico)</span>
+                                        <label style={{display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer', fontSize:10, fontWeight:700, color: useFallback ? 'var(--horizon-green)' : 'var(--muted-foreground)', textTransform:'none'}} onClick={e=>e.stopPropagation()}>
+                                            <input type="checkbox" checked={useFallback} onChange={e=>setUseFallback(e.target.checked)} style={{width:14, height:14, cursor:'pointer', accentColor:'var(--horizon-green)'}}/>
+                                            <span>Activar</span>
+                                        </label>
+                                    </span>
+                                    <div className="hzn-input-wrap" style={{opacity: useFallback ? 1 : 0.5}}>
+                                        <span className="material-icons-round hzn-input-icon">phone_in_talk</span>
+                                        <input
+                                            className="hzn-input"
+                                            type="text"
+                                            placeholder={useFallback ? "ej. 9006" : "(desactivado — usará WebRTC)"}
+                                            value={callbackExt}
+                                            onChange={e=>setCallbackExt(e.target.value)}
+                                            disabled={!useFallback}
+                                            required={useFallback}
+                                            style={{cursor: useFallback ? 'text' : 'not-allowed'}}
+                                        />
+                                    </div>
+                                    <div className="hzn-field-help">
+                                        {useFallback ? 'Recibirás las llamadas en este interno físico.' : 'Recibirás las llamadas por el softphone WebRTC del navegador. Activá el checkbox para usar un interno físico.'}
+                                    </div>
+                                </label>
                             </>
                         )}
 

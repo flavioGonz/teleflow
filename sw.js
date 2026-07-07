@@ -1,5 +1,5 @@
 // TeleFlow — Service Worker v8 con strategies diferenciadas
-const CACHE_NAME = 'teleflow-cache-v202607080015';
+const CACHE_NAME = 'teleflow-cache-v202607081615';
 const APP_SHELL = [
   '/',
   '/index.php',
