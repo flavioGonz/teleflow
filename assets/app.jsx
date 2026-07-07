@@ -16039,6 +16039,9 @@ function TeleflowSoftphone({ user, onStatusChange }) {
     const audioRef = useRef(null);
     const durationTimerRef = useRef(null);
 
+    // Detección: WebRTC requiere HTTPS o localhost
+    const isSecureCtx = typeof window !== 'undefined' && (window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
     // 1) Fetch credenciales
     useEffect(() => {
         if (user?.role !== 'agent') return;
@@ -16227,6 +16230,12 @@ function TeleflowSoftphone({ user, onStatusChange }) {
 
             {!minimized && (
                 <div style={{ padding: 12 }}>
+                    {!isSecureCtx && (
+                        <div style={{ background: 'color-mix(in srgb, var(--destructive) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--destructive) 40%, transparent)', color: 'var(--destructive)', padding: 10, borderRadius: 8, fontSize: 11, marginBottom: 10 }}>
+                            <div style={{fontWeight:900, marginBottom:4}}>⚠ Contexto inseguro</div>
+                            <div style={{fontSize:10, lineHeight:1.4}}>WebRTC requiere HTTPS. Accedé por <a href={'https://hzn-flow.horizonseguridad.com' + (typeof window!=='undefined' ? window.location.pathname + window.location.search : '/')} style={{color:'var(--destructive)', fontWeight:900, textDecoration:'underline'}}>hzn-flow.horizonseguridad.com</a> para que el softphone funcione.</div>
+                        </div>
+                    )}
                     {warning && (
                         <div style={{ background: 'color-mix(in srgb, var(--warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', color: 'var(--warning)', padding: 8, borderRadius: 8, fontSize: 10, marginBottom: 10 }}>
                             <strong style={{ display: 'block', marginBottom: 4 }}>⚠ Config Issabel</strong>
