@@ -15881,7 +15881,7 @@ function TeleflowSoftphone({ user, onStatusChange }) {
     const [state, setState] = useState('idle');
     const [warning, setWarning] = useState(null);
     const [error, setError] = useState(null);
-    const [minimized, setMinimized] = useState(true);
+    const [minimized, setMinimized] = useState(false);  // arranca expandido para que el user vea el estado inicial
     const [dialpadTarget, setDialpadTarget] = useState('');
     const [callSession, setCallSession] = useState(null);
     const [callDuration, setCallDuration] = useState(0);
@@ -16044,7 +16044,7 @@ function TeleflowSoftphone({ user, onStatusChange }) {
     };
 
     if (user?.role !== 'agent') return null;
-    if (error && !creds) return null; // Silent fail si no hay creds
+    // Siempre mostrar el widget para dar feedback del estado (aunque falle)
 
     const stateColor = state === 'in_call' ? '#ef4444' : state === 'ringing_in' ? '#f59e0b' : state === 'registered' ? '#22c55e' : state === 'failed' ? '#ef4444' : '#6b7280';
     const stateLabel = { idle:'Off', registering:'Conectando', registered:'Listo', failed:'Error', ringing_in:'Entrante', in_call:'En llamada', ringing_out:'Llamando' }[state];
