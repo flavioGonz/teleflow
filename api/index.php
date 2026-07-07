@@ -1113,6 +1113,18 @@ if ($action === 'get_cdr') {
     exit;
 }
 
+// ─── LIST_QUEUES_BASIC (solo MySQL, sin AMI - rapido y robusto para modals) ──
+if ($action === 'list_queues_basic') {
+    try {
+        $db = mysql_pbx();
+        $rows = $db->query("SELECT extension AS id, descr AS name FROM queues_config ORDER BY extension")->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'queues' => $rows]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // ─── QUEUES (desde MySQL + estado en vivo AMI) ────────────────────────────────
 if ($action === 'get_queues') {
     $queues = [];

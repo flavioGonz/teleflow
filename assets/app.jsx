@@ -7865,16 +7865,19 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
         if (!open) return;
         fetch('api/hotdesking.php?action=list', {credentials:'include'})
             .then(r=>r.json()).then(j=>{ if(j.status==='ok') setAgents(j.agents||[]); });
-        fetch('api/index.php?action=get_queues', {credentials:'include'})
+        fetch('api/index.php?action=list_queues_basic', {credentials:'include'})
             .then(r=>r.json()).then(j=>{
-                // Preferir get_queues (siempre trae todas); si falla, fallback a get_full_data
-                if (j?.success && Array.isArray(j.queues)) setAllQueues(j.queues);
-                else fetch('api/index.php?action=get_full_data', {credentials:'include'})
-                    .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
-            }).catch(()=>{
-                fetch('api/index.php?action=get_full_data', {credentials:'include'})
-                    .then(r=>r.json()).then(d=>setAllQueues(d.pbx?.queues||[]));
-            });
+                // list_queues_basic: solo MySQL, sin AMI - siempre trae TODAS las colas
+                if (j?.success && Array.isArray(j.queues)) {
+                    setAllQueues(j.queues);
+                } else {
+                    // Fallback si falla por algun motivo (permisos, etc.)
+                    fetch('api/index.php?action=get_queues', {credentials:'include'})
+                        .then(r=>r.json()).then(d=>{
+                            if (d?.success && Array.isArray(d.queues)) setAllQueues(d.queues);
+                        });
+                }
+            }).catch(()=>{});
     }, [open]);
 
     useEffect(() => {
