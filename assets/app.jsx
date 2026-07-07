@@ -14522,134 +14522,103 @@ function ViewCallCenter({ user, onLogout, data }) {
                 </Card>
             )}
 
-            {/* ═══ ACCIÓN PRINCIPAL: pausar/reanudar/logout en una fila ═══ */}
-            <div className="grid gap-3" style={{gridTemplateColumns: isPaused ? '1fr' : '1.5fr 1fr 1fr'}}>
-                {/* Si está en pausa: card grande con timer y botón VOLVER */}
-                {isPaused ? (
-                    <Card className="relative overflow-hidden"
-                          style={{
-                              borderColor:`color-mix(in srgb, ${pauseColor} 45%, transparent)`,
-                              background:`linear-gradient(135deg, color-mix(in srgb, ${pauseColor} 10%, var(--card)) 0%, var(--card) 60%)`
-                          }}>
-                        <span className="material-icons-round absolute pointer-events-none" style={{
-                            fontSize:140, color:pauseColor, opacity:0.08, bottom:-18, right:-14
-                        }}>pause_circle</span>
-                        <CardContent className="p-5 relative flex items-center gap-4 flex-wrap">
-                            <div className="rounded-2xl flex items-center justify-center text-white shrink-0"
+            {/* ═══ ACCIÓN + KPIs UNIFICADOS ═══ */}
+            {isPaused ? (
+                <Card className="relative overflow-hidden"
+                      style={{
+                          borderColor:`color-mix(in srgb, ${pauseColor} 45%, transparent)`,
+                          background:`linear-gradient(135deg, color-mix(in srgb, ${pauseColor} 10%, var(--card)) 0%, var(--card) 60%)`
+                      }}>
+                    <CardContent className="p-4 flex items-center gap-4 flex-wrap">
+                        <div className="rounded-xl flex items-center justify-center text-white shrink-0"
+                             style={{
+                                 width:52, height:52,
+                                 background:`linear-gradient(135deg, ${pauseColor}, color-mix(in srgb, ${pauseColor} 60%, #000))`,
+                                 boxShadow:`0 4px 14px color-mix(in srgb, ${pauseColor} 32%, transparent)`
+                             }}>
+                            <span className="material-icons-round" style={{fontSize:26}}>pause_circle</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>En pausa por</div>
+                            <div className="text-lg font-black" style={{color:pauseColor}}>{status.pause.label||'Pausa'}</div>
+                            <div className="text-2xl font-black font-mono tabular-nums mt-0.5" style={{color:'var(--foreground)'}}>{fmtTime(pauseSec)}</div>
+                        </div>
+                        <Button onClick={doUnpause} variant="success" size="lg" className="shrink-0">
+                            <span className="material-icons-round mr-1.5" style={{fontSize:20}}>play_arrow</span>
+                            Volver a atender
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card>
+                    <CardContent className="p-3 grid gap-2 items-stretch"
+                                 style={{gridTemplateColumns: 'minmax(200px, 1.5fr) repeat(4, minmax(90px, 1fr)) auto'}}>
+                        {/* Acción: Pausa */}
+                        <button onClick={isInCall ? undefined : ()=>setShowPauseModal(true)}
+                                disabled={isInCall}
+                                className={"rounded-lg border p-2.5 flex items-center gap-2.5 transition-all text-left " + (isInCall ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer')}
+                                style={{
+                                    borderColor:'color-mix(in srgb, var(--warning) 35%, var(--border))',
+                                    background:'linear-gradient(135deg, color-mix(in srgb, var(--warning) 10%, var(--card)), var(--card))'
+                                }}>
+                            <div className="rounded-md flex items-center justify-center shrink-0"
                                  style={{
-                                     width:58, height:58,
-                                     background:`linear-gradient(135deg, ${pauseColor}, color-mix(in srgb, ${pauseColor} 60%, #000))`,
-                                     boxShadow:`0 4px 16px color-mix(in srgb, ${pauseColor} 35%, transparent)`
+                                     width:36, height:36,
+                                     background:'linear-gradient(135deg, var(--warning), color-mix(in srgb, var(--warning) 60%, #000))'
                                  }}>
-                                <span className="material-icons-round" style={{fontSize:28}}>pause_circle</span>
+                                <span className="material-icons-round text-white" style={{fontSize:19}}>pause_circle</span>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>En pausa por</div>
-                                <h3 className="text-xl font-black mt-0.5" style={{color:pauseColor}}>{status.pause.label||'Pausa'}</h3>
-                                <div className="text-3xl font-black font-mono tabular-nums mt-1.5" style={{color:'var(--foreground)'}}>{fmtTime(pauseSec)}</div>
+                                <div className="text-[11px] font-black" style={{color:'var(--warning)'}}>Iniciar pausa</div>
+                                <div className="text-[9px] font-bold" style={{color:'var(--muted-foreground)'}}>{isInCall ? 'Fin de llamada' : 'Elegí motivo'}</div>
                             </div>
-                            <Button onClick={doUnpause} variant="success" size="lg" className="shrink-0">
-                                <span className="material-icons-round mr-1.5" style={{fontSize:20}}>play_arrow</span>
-                                Volver a atender
-                            </Button>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <>
-                        {/* Acción primaria: Pausar (deshabilitada cuando in_call) */}
-                        <Card className={"transition-all " + (isInCall ? 'opacity-60' : 'hover:shadow-lg cursor-pointer')}
-                              onClick={isInCall ? undefined : ()=>setShowPauseModal(true)}
-                              style={{
-                                  borderColor:'color-mix(in srgb, var(--warning) 30%, var(--border))',
-                                  background:'linear-gradient(135deg, color-mix(in srgb, var(--warning) 8%, var(--card)), var(--card))',
-                                  cursor: isInCall ? 'not-allowed' : 'pointer'
-                              }}>
-                            <CardContent className="p-3 flex items-center gap-2.5">
-                                <div className="rounded-lg flex items-center justify-center shrink-0"
-                                     style={{
-                                         width:38, height:38,
-                                         background:'linear-gradient(135deg, var(--warning), color-mix(in srgb, var(--warning) 60%, #000))',
-                                         boxShadow:'0 3px 10px color-mix(in srgb, var(--warning) 28%, transparent)'
-                                     }}>
-                                    <span className="material-icons-round text-white" style={{fontSize:19}}>pause_circle</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-black" style={{color:'var(--warning)'}}>Iniciar pausa</div>
-                                    <div className="text-[10px] font-bold mt-0.5" style={{color:'var(--muted-foreground)'}}>
-                                        {isInCall ? 'Disponible al terminar la llamada' : 'Seleccioná un motivo'}
-                                    </div>
-                                </div>
-                                <span className="material-icons-round" style={{fontSize:18, color:'var(--muted-foreground)', opacity:0.5}}>chevron_right</span>
-                            </CardContent>
-                        </Card>
-
-                        {/* Mini KPI: total llamadas */}
-                        <Card>
-                            <CardContent className="p-4 flex items-center gap-2.5">
-                                <div className="rounded-lg flex items-center justify-center shrink-0"
-                                     style={{
-                                         width:38, height:38,
-                                         background:'color-mix(in srgb, var(--horizon-green) 15%, transparent)'
-                                     }}>
-                                    <span className="material-icons-round" style={{fontSize:18, color:'var(--horizon-green)'}}>phone</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Llamadas hoy</div>
-                                    <div className="text-xl font-black font-mono tabular-nums" style={{color:'var(--foreground)'}}>{totalCalls}</div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Cerrar sesión */}
-                        <Card className="transition-all hover:shadow-lg cursor-pointer"
-                              onClick={()=>setConfirmLogout(true)}
-                              style={{
-                                  borderColor:'color-mix(in srgb, var(--destructive) 28%, var(--border))',
-                                  background:'linear-gradient(135deg, color-mix(in srgb, var(--destructive) 7%, var(--card)), var(--card))'
-                              }}>
-                            <CardContent className="p-4 flex items-center gap-3">
-                                <div className="rounded-xl flex items-center justify-center shrink-0"
-                                     style={{
-                                         width:44, height:44,
-                                         background:'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 60%, #000))',
-                                         boxShadow:'0 4px 12px color-mix(in srgb, var(--destructive) 28%, transparent)'
-                                     }}>
-                                    <span className="material-icons-round text-white" style={{fontSize:22}}>logout</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-black" style={{color:'var(--destructive)'}}>Cerrar sesión</div>
-                                    <div className="text-[10px] font-bold mt-0.5" style={{color:'var(--muted-foreground)'}}>Sale de todas las colas</div>
-                                </div>
-                                <span className="material-icons-round" style={{fontSize:18, color:'var(--muted-foreground)', opacity:0.5}}>chevron_right</span>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
-            </div>
-
-            {/* ═══ KPI strip de sesión ═══ */}
-            <div className="grid gap-3" style={{gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))'}}>
-                {[
-                    { l:'Hablado',  v: fmtTime(talkSec),       c:'var(--horizon-green)', i:'forum',        sub: 'Total de la sesión' },
-                    { l:'Pausa',    v: fmtTime(totalPauseSec), c:'var(--warning)',       i:'pause_circle', sub: 'Acumulado pausas' },
-                    { l:'AHT',      v: aht > 0 ? fmtTime(aht) : '—', c:'#3b82f6',        i:'trending_up',  sub: 'Promedio por llamada' },
-                    { l:'Colas',    v: myQueues.length,        c:'var(--primary)',       i:'queue',        sub: 'Asignadas a vos' },
-                ].map(k => (
-                    <Card key={k.l} className="relative overflow-hidden">
-                        <span className="material-icons-round absolute pointer-events-none" style={{
-                            fontSize:80, color:k.c, opacity:0.07, top:-10, right:-8
-                        }}>{k.i}</span>
-                        <CardContent className="p-3.5 relative">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>{k.l}</span>
-                                <span className="material-icons-round" style={{fontSize:14, color:k.c}}>{k.i}</span>
+                        </button>
+                        {/* KPI 1: Hablado */}
+                        <div className="rounded-lg border p-2.5 flex flex-col justify-center" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                            <div className="flex items-center gap-1 mb-0.5">
+                                <span className="material-icons-round" style={{fontSize:11, color:'var(--horizon-green)'}}>forum</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Hablado</span>
                             </div>
-                            <div className="font-mono font-black tabular-nums leading-none" style={{color:k.c, fontSize: typeof k.v === 'number' ? 24 : 20, letterSpacing:'-1px'}}>{k.v}</div>
-                            <div className="text-[9px] mt-1.5 font-medium" style={{color:'var(--muted-foreground)'}}>{k.sub}</div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+                            <div className="font-mono font-black tabular-nums leading-none" style={{color:'var(--horizon-green)', fontSize:17, letterSpacing:'-0.5px'}}>{fmtTime(talkSec)}</div>
+                        </div>
+                        {/* KPI 2: Pausa acumulada */}
+                        <div className="rounded-lg border p-2.5 flex flex-col justify-center" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                            <div className="flex items-center gap-1 mb-0.5">
+                                <span className="material-icons-round" style={{fontSize:11, color:'var(--warning)'}}>pause_circle</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Pausa</span>
+                            </div>
+                            <div className="font-mono font-black tabular-nums leading-none" style={{color:'var(--warning)', fontSize:17, letterSpacing:'-0.5px'}}>{fmtTime(totalPauseSec)}</div>
+                        </div>
+                        {/* KPI 3: Llamadas */}
+                        <div className="rounded-lg border p-2.5 flex flex-col justify-center" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                            <div className="flex items-center gap-1 mb-0.5">
+                                <span className="material-icons-round" style={{fontSize:11, color:'#3b82f6'}}>phone</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>Llamadas</span>
+                            </div>
+                            <div className="font-mono font-black tabular-nums leading-none" style={{color:'#3b82f6', fontSize:17, letterSpacing:'-0.5px'}}>{totalCalls}</div>
+                        </div>
+                        {/* KPI 4: AHT */}
+                        <div className="rounded-lg border p-2.5 flex flex-col justify-center" style={{borderColor:'var(--border)', background:'var(--card)'}}>
+                            <div className="flex items-center gap-1 mb-0.5">
+                                <span className="material-icons-round" style={{fontSize:11, color:'var(--primary)'}}>trending_up</span>
+                                <span className="text-[9px] font-black uppercase tracking-wider" style={{color:'var(--muted-foreground)'}}>AHT</span>
+                            </div>
+                            <div className="font-mono font-black tabular-nums leading-none" style={{color:'var(--primary)', fontSize:17, letterSpacing:'-0.5px'}}>{aht > 0 ? fmtTime(aht) : '—'}</div>
+                        </div>
+                        {/* Logout icon-only */}
+                        <button onClick={()=>setConfirmLogout(true)}
+                                title="Cerrar sesión (sale de todas las colas)"
+                                className="rounded-lg border p-2.5 flex items-center justify-center transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                                style={{
+                                    borderColor:'color-mix(in srgb, var(--destructive) 40%, transparent)',
+                                    background:'linear-gradient(135deg, color-mix(in srgb, var(--destructive) 10%, var(--card)), var(--card))',
+                                    minWidth: 52
+                                }}>
+                            <span className="material-icons-round" style={{fontSize:22, color:'var(--destructive)'}}>logout</span>
+                        </button>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* ═══ Layout 2 cols: Colas asignadas + Historial hoy ═══ */}
             <div className="grid gap-4" style={{gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))'}}>
