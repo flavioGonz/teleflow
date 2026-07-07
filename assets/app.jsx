@@ -14233,35 +14233,6 @@ function ViewCallCenter({ user, onLogout, data }) {
     const [tick, setTick] = useState(0);
     const isAgent = user?.role === 'agent';
 
-    // Onboarding para admin (mismo que antes)
-    if (!isAgent) {
-        return (
-            <div className="content-area view-enter flex items-center justify-center" style={{minHeight:'70vh'}}>
-                <Card className="max-w-xl w-full text-center">
-                    <CardHeader className="items-center pb-4">
-                        <div className="rounded-full flex items-center justify-center mb-3"
-                             style={{
-                                 width:80, height:80,
-                                 background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
-                                 boxShadow:'0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent)'
-                             }}>
-                            <span className="material-icons-round text-white" style={{fontSize:40}}>headset_mic</span>
-                        </div>
-                        <CardTitle className="text-xl">Mi Consola</CardTitle>
-                        <CardDescription className="text-sm leading-relaxed mt-1">
-                            Esta es la <strong>consola del agente</strong>. Para usarla, salí y volvé a entrar seleccionando "Agente" con tu número y password.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-xs" style={{color:'var(--muted-foreground)'}}>
-                            Estás logueado como <strong style={{color:'var(--foreground)'}}>{user?.name||'admin'}</strong> ({user?.role||'admin'}). La administración está en <strong>Hotdesking</strong>.
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
     // ─── Loaders ─────────────────────────────────────────────
     const loadStatus = async () => {
         try { const r = await fetch('api/agent.php?action=status', {credentials:'include'}); setStatus(await r.json()); } catch(e) {}
@@ -14380,7 +14351,31 @@ function ViewCallCenter({ user, onLogout, data }) {
     return (
         <div className="content-area view-enter space-y-4">
 
-            {showEmptyState ? (
+            {!isAgent ? (
+                <div className="flex items-center justify-center" style={{minHeight:'70vh'}}>
+                    <Card className="max-w-xl w-full text-center">
+                        <CardHeader className="items-center pb-4">
+                            <div className="rounded-full flex items-center justify-center mb-3"
+                                 style={{
+                                     width:80, height:80,
+                                     background:'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #000))',
+                                     boxShadow:'0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent)'
+                                 }}>
+                                <span className="material-icons-round text-white" style={{fontSize:40}}>headset_mic</span>
+                            </div>
+                            <CardTitle className="text-xl">Mi Consola</CardTitle>
+                            <CardDescription className="text-sm leading-relaxed mt-1">
+                                Esta es la <strong>consola del agente</strong>. Para usarla, salí y volvé a entrar seleccionando "Agente" con tu número y password.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs" style={{color:'var(--muted-foreground)'}}>
+                                Estás logueado como <strong style={{color:'var(--foreground)'}}>{user?.name||'admin'}</strong> ({user?.role||'admin'}). La administración está en <strong>Hotdesking</strong>.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            ) : showEmptyState ? (
                 <div className="flex items-center justify-center" style={{minHeight:'70vh'}}>
                     <Card className="max-w-lg w-full">
                         <CardHeader className="items-center text-center pb-3">
@@ -16352,7 +16347,7 @@ function App() {
     const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('tf_dark') !== '0');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem("tf_dark") === "1"); // DEFAULT LIGHT: dark solo si el user lo eligio
     const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
     const [reportQueue, setReportQueue] = useState(null);
