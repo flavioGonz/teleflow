@@ -5,7 +5,11 @@ import path from "path";
 // FASE 0: build a un STAGING (dist/). Un script `deploy.sh` (con sudo) lo copia
 // como /var/www/teleflow/assets/app.build.js (NOMBRE DIFERENTE, no pisa app.jsx).
 // El bundle nuevo se activa vía feature flag ?build=1.
+//
+// base: "/assets/" — el bundle se sirve desde /assets/ pero se carga desde /agentes/
+// o desde /. Sin este base, los dynamic imports resuelven contra la URL del HTML → 404.
 export default defineConfig({
+  base: "/assets/",
   plugins: [react()],
   build: {
     outDir: "dist",
