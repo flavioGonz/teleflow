@@ -1,0 +1,22 @@
+name: teleflow-vite CI
+on:
+  push:
+    branches: [ horizon/main, main ]
+    paths: [ 'teleflow-vite/**', '.github/workflows/ci.yml' ]
+  pull_request:
+    paths: [ 'teleflow-vite/**' ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: teleflow-vite } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: teleflow-vite/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npx vitest run --reporter=default
+      - run: npm run build
