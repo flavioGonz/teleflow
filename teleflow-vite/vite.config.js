@@ -10,10 +10,8 @@ import path from "path";
 //
 // resolve.dedupe: fuerza UNA SOLA COPIA de react/react-dom en el bundle.
 //
-// manualChunks: fuerza stores/* al bundle principal. Si un store queda en un chunk
-// shared (ej: pbxData-XXX.js) y varios lazy chunks lo importan, cada vez puede
-// obtener una instancia distinta del store → useSyncExternalStore falla con #321
-// porque el subscribe/getState no matcha entre lazy chunks.
+// Los stores (zustand) se importan estaticamente desde src/main.jsx para forzarlos
+// al bundle principal. Ver comentario en src/main.jsx.
 export default defineConfig({
   base: "/assets/",
   plugins: [react()],
@@ -38,14 +36,7 @@ export default defineConfig({
       output: {
         entryFileNames: "app.build.js",
         chunkFileNames: "chunks/[name]-[hash].js",
-        assetFileNames: "chunks/[name]-[hash][extname]",
-        // Forzar stores y lib al bundle principal — evita multi-instancias
-        // en chunks lazy que romperían useSyncExternalStore (#321).
-        manualChunks(id) {
-          if (id.includes("/src/stores/") || id.includes("/src/lib/") || id.includes("node_modules/zustand")) {
-            return undefined; // → bundle principal (app.build.js)
-          }
-        }
+        assetFileNames: "chunks/[name]-[hash][extname]"
       }
     }
   }
