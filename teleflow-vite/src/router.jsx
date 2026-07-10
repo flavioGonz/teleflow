@@ -1,4 +1,4 @@
-// src/router.jsx — F2.6: agrega CDR / Clients / IVR + future flags v7.
+// src/router.jsx — F2.7: 13 rutas totales.
 import React, { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./AppShell.jsx";
@@ -13,6 +13,10 @@ const Hotdesking = lazy(() => import("./views/Hotdesking.jsx"));
 const CDR        = lazy(() => import("./views/CDR.jsx"));
 const Clients    = lazy(() => import("./views/Clients.jsx"));
 const IVR        = lazy(() => import("./views/IVR.jsx"));
+const Recordings = lazy(() => import("./views/Recordings.jsx"));
+const Live       = lazy(() => import("./views/Live.jsx"));
+const Groups     = lazy(() => import("./views/Groups.jsx"));
+const Radar      = lazy(() => import("./views/Radar.jsx"));
 
 function Loading() {
   return (
@@ -26,7 +30,6 @@ function Loading() {
   );
 }
 
-// v7 future flags para silenciar warnings y opt-in al comportamiento nuevo
 const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true };
 
 export function AppRouter() {
@@ -37,11 +40,15 @@ export function AppRouter() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard"  element={<Dashboard />} />
+            <Route path="/radar"      element={<Radar />} />
             <Route path="/callcenter" element={<CallCenter />} />
+            <Route path="/live"       element={<Live />} />
             <Route path="/extensions" element={<Extensions />} />
             <Route path="/queues"     element={<Queues />} />
+            <Route path="/groups"     element={<Groups />} />
             <Route path="/hotdesking" element={<Hotdesking />} />
             <Route path="/cdr"        element={<CDR />} />
+            <Route path="/recordings" element={<Recordings />} />
             <Route path="/clients"    element={<Clients />} />
             <Route path="/ivr"        element={<IVR />} />
             <Route path="/reports"    element={<Reports />} />
