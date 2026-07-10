@@ -1,11 +1,10 @@
 <?php
 // TeleFlow — CRUD de agentes (call_center.agent en PBX 10.1.1.7)
+// F5.3: session + JSON + auth admin via _bootstrap.
 ignore_user_abort(true); set_time_limit(15);
-header('Content-Type: application/json');
-
 require __DIR__ . '/../config.php';
-session_start();
-if (!isset($_SESSION['tf_user'])) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'auth']); exit; }
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 
 function db_cc() {
     global $PBX_DB_HOST, $PBX_DB_USER, $PBX_DB_PASS;

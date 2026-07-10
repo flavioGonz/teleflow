@@ -1,9 +1,7 @@
 <?php
-session_start();
-header('Content-Type: application/json');
-if (!isset($_SESSION['tf_user']) && !isset($_SESSION['agent_user'])) {
-    http_response_code(403); echo json_encode(['status'=>'error','message'=>'No autorizado']); exit;
-}
+// F5.3: session + JSON headers + auth via _bootstrap.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'any']);
 @session_write_close();
 
 require __DIR__ . '/../config.php';

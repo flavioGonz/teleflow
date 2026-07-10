@@ -10,36 +10,39 @@ export const useLive = create(() => ({
   lastEventAt: null,
 }));
 
-// Auto-wire eventos del hub → store. Se llama una vez al arrancar la app.
-let wired = false;
+// Auto-wire eventos del hub → store. Re-wireable — si se llama varias veces,
+// desconecta los listeners anteriores primero. Idempotente en el efecto observable.
+let unwireFns = [];
 export function wireLive() {
-  if (wired) return;
-  wired = true;
+  // Cleanup previo
+  unwireFns.forEach((fn) => { try { fn(); } catch { /* noop */ } });
+  unwireFns = [];
+
   rt.connect();
 
-  rt.on("connect", () => useLive.setState({ connected: true }));
-  rt.on("disconnect", () => useLive.setState({ connected: false }));
+  unwireFns.push(rt.on("connect",    () => useLive.setState({ connected: true })));
+  unwireFns.push(rt.on("disconnect", () => useLive.setState({ connected: false })));
 
-  rt.on("call_update", (payload) => {
+  unwireFns.push(rt.on("call_update", (payload) => {
     useLive.setState((s) => ({
       activeCalls: Array.isArray(payload?.calls) ? payload.calls : s.activeCalls,
       lastEventAt: Date.now(),
     }));
-  });
+  }));
 
-  rt.on("queue_update", (payload) => {
+  unwireFns.push(rt.on("queue_update", (payload) => {
     if (!payload) return;
     useLive.setState((s) => ({
       queues: { ...s.queues, [payload.queue_id]: { ...(s.queues[payload.queue_id] || {}), ...payload } },
       lastEventAt: Date.now(),
     }));
-  });
+  }));
 
-  rt.on("peer_update", (payload) => {
+  unwireFns.push(rt.on("peer_update", (payload) => {
     if (!payload?.ext) return;
     useLive.setState((s) => ({
       peers: { ...s.peers, [payload.ext]: { ...(s.peers[payload.ext] || {}), ...payload } },
       lastEventAt: Date.now(),
     }));
-  });
+  }));
 }

@@ -1,13 +1,10 @@
 <?php
 // TeleFlow — endpoint para aperturas remotas DTMF + auto-snapshot RTSP
+// F5.3: session + JSON + auth any (admin OR agent) via _bootstrap.
 ignore_user_abort(true); set_time_limit(15);
-header('Content-Type: application/json');
-
 require __DIR__ . '/../config.php';
-session_start();
-if (!isset($_SESSION['tf_user']) && !isset($_SESSION['agent_user'])) {
-    http_response_code(401); echo json_encode(['ok'=>false,'error'=>'auth']); exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'any']);
 
 $action = $_GET['action'] ?? '';
 $ext    = preg_replace('/\D/', '', $_POST['ext'] ?? $_GET['ext'] ?? '');
