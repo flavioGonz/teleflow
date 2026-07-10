@@ -1,8 +1,9 @@
 
 <?php
-session_start();
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+// F8: session + JSON + CORS via _bootstrap. El auth check interno (linea ~480) sigue igual
+// porque tiene lista de excepciones especifica (login, logout, get_agents_data, upload_avatar).
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['cors' => true]);
 
 $action     = $_GET['action'] ?? '';
 $avatar_dir = '../uploads/avatars/';
@@ -765,13 +766,15 @@ if ($action === 'get_full_data') {
         try { $trunks = $db2->query("SELECT trunkid as id, name FROM trunks WHERE disabled='off'")->fetchAll(PDO::FETCH_ASSOC); } catch (Exception $_e) { $trunks = []; }
     } catch(Exception $e) {}
 
-    // HORIZON: incluir user para session restore en cliente
+    // HORIZON: incluir user para session restore en cliente.
+    // agent_user tiene PRIORIDAD sobre tf_user — si el agente hizo login sobre una
+    // sesión admin previa, la UI debe reflejarlo como agente, no como admin.
     $session_user = null;
-    if (!empty($_SESSION['tf_user'])) {
-        $session_user = ['name' => $_SESSION['tf_user'], 'role' => 'admin'];
-    } elseif (!empty($_SESSION['agent_user'])) {
+    if (!empty($_SESSION['agent_user'])) {
         $au = $_SESSION['agent_user'];
         $session_user = ['name' => $au['agent_name']??'Agent', 'role' => 'agent', 'agent' => $au];
+    } elseif (!empty($_SESSION['tf_user'])) {
+        $session_user = ['name' => $_SESSION['tf_user'], 'role' => 'admin'];
     }
     $tf_payload = json_encode([
         'user'   => $session_user,
