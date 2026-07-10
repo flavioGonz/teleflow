@@ -1,4 +1,4 @@
-// src/AppShell.jsx — sidebar con secciones agrupadas (F2.7).
+// src/AppShell.jsx — F2.8: 14 rutas totales.
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useClock } from "@lib/clock.js";
@@ -30,6 +30,9 @@ const SECTIONS = [
   { title: "Datos", items: [
     { to: "/clients",    label: "Clientes",     icon: "business"   },
   ]},
+  { title: "Sistema", items: [
+    { to: "/config",     label: "Configuración", icon: "settings"  },
+  ]},
 ];
 
 export function AppShell({ children }) {
@@ -46,7 +49,7 @@ export function AppShell({ children }) {
         </div>
         <nav style={{ padding: 10 }}>
           {SECTIONS.map((sec) => (
-            <div key={sec.title} style={{ marginBottom: 14 }}>
+            <div key={sec.title} style={{ marginBottom: 12 }}>
               <div style={{ padding: "0 8px 4px 10px", fontSize: 9, color: "#64748B", textTransform: "uppercase", letterSpacing: 2, fontWeight: 700 }}>{sec.title}</div>
               {sec.items.map((n) => (
                 <NavLink key={n.to} to={n.to} style={({ isActive }) => ({
@@ -63,7 +66,7 @@ export function AppShell({ children }) {
             </div>
           ))}
         </nav>
-        <div style={{ padding: "0 14px", fontSize: 11, color: "#64748B", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, marginTop: 10 }}>
+        <div style={{ padding: "0 14px 14px", fontSize: 11, color: "#64748B", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, marginTop: 6 }}>
           <div>{clock.time} · {clock.date}</div>
           <div style={{ marginTop: 3 }}>
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: connected ? HORIZON.green : "#64748B", marginRight: 6, verticalAlign: "middle" }} />

@@ -1,6 +1,8 @@
 <?php
-session_start();
-header('Content-Type: application/json');
+// F5.2: session/JSON headers via _bootstrap. ops_auth_or_403() sigue vigente
+// (autoriza tanto admin como operarios OPS via su propia logica).
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap();
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/_ops_db.php';
 ops_auth_or_403();

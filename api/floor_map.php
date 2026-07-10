@@ -11,14 +11,10 @@
  *  - floor_map_config (k VARCHAR(64) PRIMARY KEY, v TEXT)
  *  - Imágenes en /var/www/teleflow/uploads/floor_maps/
  */
-session_start();
-header('Content-Type: application/json');
+// F5.2: auth admin + session + JSON headers via _bootstrap.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 require_once __DIR__ . '/../config.php';
-
-if (empty($_SESSION['tf_user'])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'forbidden']); exit;
-}
 
 function tf_db(): PDO {
     global $DB_HOST, $DB_USER, $DB_PASS;

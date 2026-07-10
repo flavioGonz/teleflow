@@ -14,8 +14,9 @@
  *
  * AMI Originate usa el helper ami_cmd() del api/index.php (multi-line response).
  */
-session_start();
-header('Content-Type: application/json');
+// F5.2: session/JSON headers via _bootstrap.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap();
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/_ops_db.php';
 ops_auth_or_403();

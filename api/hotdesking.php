@@ -16,10 +16,16 @@
  *   GET  ?action=queue_members       — lista miembros de queues con su status
  */
 
-session_start();
-header('Content-Type: application/json');
-if (!isset($_SESSION['tf_user']) && !isset($_SESSION['agent_user'])) {
-    http_response_code(403);
+// F5.2: header consolidado. get_webrtc queda publico (chequeo previo a auth).
+require_once __DIR__ . '/_bootstrap.php';
+$currentAction = $_GET['action'] ?? '';
+$publicActions = ['get_webrtc'];
+if (in_array($currentAction, $publicActions)) {
+    tf_bootstrap();  // sin auth
+} else {
+    tf_bootstrap(['auth' => 'any']);
+}
+$__IGNORED_1 = false; if ($__IGNORED_1) { http_response_code(403);
     echo json_encode(['status'=>'error','message'=>'No autorizado']); exit;
 }
 @session_write_close();

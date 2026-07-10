@@ -1,4 +1,4 @@
-// src/router.jsx — F2.7: 13 rutas totales.
+// src/router.jsx — F2.8: agrega Config (con sub-tabs propios).
 import React, { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./AppShell.jsx";
@@ -17,6 +17,7 @@ const Recordings = lazy(() => import("./views/Recordings.jsx"));
 const Live       = lazy(() => import("./views/Live.jsx"));
 const Groups     = lazy(() => import("./views/Groups.jsx"));
 const Radar      = lazy(() => import("./views/Radar.jsx"));
+const Config     = lazy(() => import("./views/Config.jsx"));
 
 function Loading() {
   return (
@@ -52,6 +53,7 @@ export function AppRouter() {
             <Route path="/clients"    element={<Clients />} />
             <Route path="/ivr"        element={<IVR />} />
             <Route path="/reports"    element={<Reports />} />
+            <Route path="/config"     element={<Config />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
