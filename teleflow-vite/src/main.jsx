@@ -1,12 +1,8 @@
 // main entry con router y stores.
-// IMPORTANTE: importamos todos los stores estáticamente para forzar que Vite los
-// inline en app.build.js. Si los stores quedan en un chunk shared (pbxData-XXX.js),
-// múltiples lazy chunks pueden obtener instancias distintas del store al importarlo
-// dinámicamente → useSyncExternalStore falla con #321.
+// Stores importados estaticamente para forzar inline en app.build.js.
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Force-inline stores + libs al bundle principal (no lazy)
 import "./stores/session.js";
 import "./stores/live.js";
 import "./stores/pbxData.js";
