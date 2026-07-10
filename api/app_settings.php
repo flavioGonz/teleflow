@@ -6,12 +6,9 @@
  * POST /api/app_settings.php          → body: { key1: value1, key2: value2, ... }
  *                                       Upsert masivo.
  */
-session_start();
-header('Content-Type: application/json');
-if (!isset($_SESSION['tf_user'])) {
-    http_response_code(403);
-    echo json_encode(['status'=>'error','message'=>'No autorizado']); exit;
-}
+// F5.1: auth admin + session + JSON headers via api/_bootstrap.php.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 @session_write_close();
 require_once __DIR__ . '/../config.php';
 

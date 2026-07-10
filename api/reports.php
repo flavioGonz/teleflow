@@ -8,15 +8,10 @@
  *   agent_detail, agent_pauses, agent_sessions,
  *   queue_detail, queue_events, pause_stats
  */
-session_start();
-header('Content-Type: application/json');
+// F5.1: auth admin + session + JSON headers via api/_bootstrap.php.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 header('Access-Control-Allow-Origin: *');
-
-if (!isset($_SESSION['tf_user'])) {
-    http_response_code(403);
-    echo json_encode(['status' => 'error', 'message' => 'No autorizado']);
-    exit;
-}
 @session_write_close();
 
 require_once __DIR__ . '/../config.php';
