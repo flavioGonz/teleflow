@@ -2,8 +2,9 @@
 /**
  * api/nvr.php — CRUD NVR + canales + discos (lectura)
  */
-session_start();
-header('Content-Type: application/json');
+// F5.4: session + JSON via _bootstrap. ops_auth_or_403 sigue vigente.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap();
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/_ops_db.php';
 ops_auth_or_403();

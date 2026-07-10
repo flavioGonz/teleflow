@@ -13,14 +13,10 @@
  * el MySQL del PBX en cada hover/segundo. El frontend recalcula "hace X" client-side
  * con el delta de `generated_at`.
  */
-session_start();
-header('Content-Type: application/json');
+// F5.4: session + JSON + auth admin via _bootstrap.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 require_once __DIR__ . '/../config.php';
-
-if (empty($_SESSION['tf_user'])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'forbidden']); exit;
-}
 
 const CACHE_FILE = '/tmp/tf_last_calls.json';
 const CACHE_TTL  = 30;

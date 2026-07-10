@@ -10,11 +10,15 @@
  * GET /api/recording.php?file=<basename>&format=mp3
  *   Idem pero servido como audio/mpeg (más liviano para web).
  */
-session_start();
+// F5.4: sesion via _bootstrap (SIN forzar JSON, porque este endpoint sirve audio).
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(['lifetime'=>28800,'path'=>'/','samesite'=>'Lax','httponly'=>true]);
+    session_start();
+}
 if (!isset($_SESSION['tf_user']) && !isset($_SESSION['agent_user'])) {
-    http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'unauthorized']);
+    http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok'=>false,'error'=>'auth']);
     exit;
 }
 

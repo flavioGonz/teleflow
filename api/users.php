@@ -15,14 +15,9 @@
  * HORIZON · Teleflow
  */
 require_once __DIR__ . '/../config.php';
-session_start();
-header('Content-Type: application/json');
-
-if (empty($_SESSION['tf_user'])) {
-    http_response_code(401);
-    echo json_encode(['status'=>'error','message'=>'Solo admin']);
-    exit;
-}
+// F5.4: session + JSON + auth admin via _bootstrap.
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['auth' => 'admin']);
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $acl_path = isset($ACL_DB_PATH) ? $ACL_DB_PATH : '/var/www/db/acl.db';

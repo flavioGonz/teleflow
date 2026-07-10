@@ -6,9 +6,14 @@
  *     &from=YYYY-MM-DD&to=YYYY-MM-DD
  *     [&agent=N] [&queue=Q] [&disposition=X] etc. (mismos filtros que reports.php)
  */
-session_start();
-if (!isset($_SESSION['tf_user'])) {
-    http_response_code(403);
+// F5.4: sesion via _bootstrap (SIN forzar JSON, sirve PDF/XLSX).
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(['lifetime'=>28800,'path'=>'/','samesite'=>'Lax','httponly'=>true]);
+    session_start();
+}
+if (empty($_SESSION['tf_user'])) {
+    http_response_code(401);
+    header('Content-Type: text/plain; charset=utf-8');
     echo 'No autorizado'; exit;
 }
 @session_write_close();

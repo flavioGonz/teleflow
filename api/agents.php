@@ -6,23 +6,11 @@
  * Compatible con IISABEL 5
  */
 
-session_start();
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+// F5.4: session + JSON + CORS via _bootstrap. Auth mismo comportamiento (opcional).
+require_once __DIR__ . '/_bootstrap.php';
+tf_bootstrap(['cors' => true]);
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-// Validar sesión (opcional - comentar para testing)
-// if (!isset($_SESSION['tf_user'])) {
-//     http_response_code(403);
-//     echo json_encode(['error' => 'Unauthorized']);
-//     exit;
-// }
+// Auth opcional preservada (comentada como en el original)
 
 $action = $_GET['action'] ?? '';
 
