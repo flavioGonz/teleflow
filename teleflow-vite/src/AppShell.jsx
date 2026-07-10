@@ -1,4 +1,4 @@
-// src/AppShell.jsx — sidebar con las 6 rutas de F2.4.
+// src/AppShell.jsx — sidebar con 9 items (F2.6).
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useClock } from "@lib/clock.js";
@@ -12,6 +12,9 @@ const NAV = [
   { to: "/extensions", label: "Extensiones",  icon: "call"       },
   { to: "/queues",     label: "Colas",        icon: "queue"      },
   { to: "/hotdesking", label: "Hotdesking",   icon: "groups"     },
+  { to: "/cdr",        label: "CDR",          icon: "history"    },
+  { to: "/clients",    label: "Clientes",     icon: "business"   },
+  { to: "/ivr",        label: "IVR",          icon: "hub"        },
   { to: "/reports",    label: "Reportes",     icon: "assessment" },
 ];
 
@@ -23,14 +26,14 @@ export function AppShell({ children }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", minHeight: "100vh", background: "#F8FAFC", fontFamily: "system-ui, sans-serif" }}>
       <aside style={{ background: "#0F172A", color: "#E2E8F0", padding: "16px 0" }}>
-        <div style={{ padding: "0 20px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ padding: "0 20px 16px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: 2, textTransform: "uppercase" }}>TeleFlow</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: HORIZON.green, marginTop: 2 }}>Horizon</div>
         </div>
-        <nav style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+        <nav style={{ padding: 12, display: "flex", flexDirection: "column", gap: 3 }}>
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} style={({ isActive }) => ({
-              padding: "10px 12px", borderRadius: 8, textDecoration: "none",
+              padding: "9px 12px", borderRadius: 8, textDecoration: "none",
               display: "flex", alignItems: "center", gap: 10, fontSize: 13,
               color: isActive ? "#fff" : "#94A3B8",
               background: isActive ? HORIZON.green : "transparent",
