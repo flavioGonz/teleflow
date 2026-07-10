@@ -1,8 +1,14 @@
 <?php
 // TeleFlow — Panel del Agente (bundle compartido)
-header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private');
 header('Pragma: no-cache');
 header('Expires: 0');
+// F2.7 fix: purga forzada de SW/cache cliente en modo bundle nuevo (una vez por sesion)
+$__use_build = !isset($_GET['legacy']) && is_file(__DIR__.'/../assets/app.build.js');
+if ($__use_build && !isset($_COOKIE['tf_purged_v2'])) {
+    header('Clear-Site-Data: "cache", "storage"');
+    setcookie('tf_purged_v2', '1', ['path'=>'/', 'samesite'=>'Lax', 'expires'=>time()+86400*30]);
+}
 $ver = 'v' . time();
 if (file_exists(__DIR__.'/../sw.js')) {
     $sw = @file_get_contents(__DIR__.'/../sw.js');
@@ -226,6 +232,27 @@ if (file_exists($admin_path)) {
 </head>
 <body>
 <div id="root"></div>
+    <script>
+        // F2.7 kill-switch: si el browser trajo react del CDN cacheado (window.React),
+        // significa que el HTML viejo entro por SW/cache. Purgar y recargar UNA vez.
+        (function() {
+            var reactCached = typeof window.React !== "undefined" && typeof window.ReactDOM !== "undefined";
+            if (reactCached && !location.search.includes("purged=1")) {
+                try {
+                    if ("serviceWorker" in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(function(regs){
+                            regs.forEach(function(r){ r.unregister(); });
+                            if (window.caches) return caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); });
+                        }).then(function(){
+                            location.replace(location.pathname + (location.search ? location.search + "&" : "?") + "purged=1" + location.hash);
+                        }).catch(function(){ location.reload(true); });
+                        return;
+                    }
+                } catch(e) {}
+                location.reload(true);
+            }
+        })();
+    </script>
 <div id="tf-modal-root" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;"></div>
 <?php
 // F2.5 flip: default = bundle nuevo (Vite). ?legacy=1 → shell legacy.
