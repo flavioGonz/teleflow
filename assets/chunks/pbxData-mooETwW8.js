@@ -1,0 +1,2 @@
+import{c as n,a as o}from"../app.build.js";const c=n((t,l)=>({data:null,loading:!1,error:null,lastFetchAt:null,async fetch(r=!1){const{lastFetchAt:e}=l();if(!(!r&&e&&Date.now()-e<15e3)){t({loading:!0,error:null});try{const a=await o.get("index.php",{action:"get_full_data"});t({data:a,loading:!1,lastFetchAt:Date.now()})}catch(a){t({loading:!1,error:a.message||String(a)})}}}}));export{c as u};
+//# sourceMappingURL=pbxData-mooETwW8.js.map
