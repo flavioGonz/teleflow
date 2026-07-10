@@ -266,12 +266,23 @@ function Dialog({ open, onOpenChange, children }) {
     }, [open, onOpenChange]);
     if (!open) return null;
     const content = (
-        <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9999}}>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange?.(false)}/>
-            <div className="relative grid w-full max-w-lg gap-4 border bg-card text-card-foreground p-6 rounded-lg animate-fade-in" style={{borderColor:'var(--border)', boxShadow:'0 25px 50px -12px rgba(0,0,0,0.6)'}} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:9999, animation:'tf-dlg-fade 0.18s ease-out'}}>
+            <div className="fixed inset-0" onClick={() => onOpenChange?.(false)}
+                 style={{background:'rgba(15, 23, 42, 0.55)', backdropFilter:'blur(12px) saturate(1.2)', WebkitBackdropFilter:'blur(12px) saturate(1.2)'}}/>
+            <div className="relative grid w-full max-w-lg gap-4" onClick={e => e.stopPropagation()}
+                 style={{
+                     background: 'var(--card)',
+                     color: 'var(--card-foreground)',
+                     border: '1px solid rgba(255,255,255,0.08)',
+                     borderRadius: 16,
+                     padding: 24,
+                     boxShadow: '0 30px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(148,163,184,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+                     animation: 'tf-dlg-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+                 }}>
                 {children}
-                <button onClick={() => onOpenChange?.(false)} className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity">
-                    <span className="material-icons-round text-base">close</span>
+                <button onClick={() => onOpenChange?.(false)} className="absolute rounded-full flex items-center justify-center transition-all hover:scale-110"
+                        style={{top:12, right:12, width:28, height:28, background:'rgba(148,163,184,0.15)', color:'var(--muted-foreground)', border:'1px solid rgba(148,163,184,0.15)'}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>close</span>
                 </button>
             </div>
         </div>
@@ -432,7 +443,11 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
                 interact: true,
             });
             wsRef.current = ws;
-            ws.load(playSrc);
+            // AbortError puede lanzarse si el user cierra el player antes de cargar — silenciar
+            try {
+                const p = ws.load(playSrc);
+                if (p && typeof p.catch === "function") p.catch(err => { if (err?.name !== "AbortError") console.error(err); });
+            } catch(err) { if (err?.name !== "AbortError") console.error(err); }
             ws.on('ready', () => {
                 if (cancelled) return;
                 setDur(ws.getDuration());
@@ -522,7 +537,7 @@ function WaveformPlayer({ src, filename, meta, compact = false }) {
 
     return (
         <div className="rounded-lg border" style={{
-            background:'color-mix(in srgb, var(--muted) 25%, var(--card))',
+            background:'#F8FAF8',
             borderColor:'var(--border)',
             padding: compact ? '10px 12px' : '14px 16px'
         }}>
@@ -1153,14 +1168,14 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
     const selectNone = () => setSelected([]);
 
     return ReactDOM.createPortal(
-        <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:9999}}>
-            <div className="fixed inset-0" style={{background:'rgba(0,0,0,0.78)', backdropFilter:'blur(6px)'}} onClick={busy ? undefined : onCancel}/>
-            <div className="relative w-full mx-4 flex flex-col border rounded-xl overflow-hidden animate-fade-in"
+        <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:9999, pointerEvents:"auto"}}>
+            <div className="fixed inset-0" style={{background:'rgba(15,25,20,0.35)', backdropFilter:'blur(10px) saturate(140%)', pointerEvents:"auto"}} onClick={undefined}/>
+            <div className="relative w-full mx-4 flex flex-col border rounded-2xl overflow-hidden animate-fade-in"
                  style={{
                      maxWidth: 560, maxHeight:'85vh',
-                     background:'var(--card)', color:'var(--card-foreground)',
-                     borderColor:'var(--border)',
-                     boxShadow:'0 28px 70px -14px rgba(0,0,0,0.7)'
+                     background:'#FFFFFF', color:'#1A1A1A',
+                     borderColor:'rgba(17,179,40,0.15)',
+                     boxShadow:'0 30px 80px -18px rgba(17,179,40,0.35), 0 20px 50px -20px rgba(0,0,0,0.4)'
                  }}
                  onClick={e=>e.stopPropagation()}>
                 {/* Header */}
@@ -1174,18 +1189,26 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
                         <span className="material-icons-round text-white" style={{fontSize:24}}>queue</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h2 className="text-base font-bold tracking-tight" style={{color:'var(--foreground)'}}>Hola, {agent.name}</h2>
-                        <p className="text-xs mt-0.5" style={{color:'var(--muted-foreground)'}}>
+                        <h2 className="text-base font-black tracking-tight" style={{color: "#1A1A1A"}}>Hola, {agent.name}</h2>
+                        <p className="text-xs mt-0.5" style={{color: "#525252"}}>
                             Elegí a qué colas querés atender en esta sesión. Podés cambiarlas más tarde haciendo logout y login otra vez.
                         </p>
                     </div>
                 </div>
 
                 {/* Action row: select all/none + contador */}
-                <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 35%, var(--card))'}}>
+                <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b" style={{borderColor:'var(--border)', background:'#F8FAF8'}}>
                     <div className="flex items-center gap-1.5">
-                        <Button variant="outline" size="sm" onClick={selectAll}  disabled={busy} className="h-7 px-2.5 text-[10px]">Todas</Button>
-                        <Button variant="outline" size="sm" onClick={selectNone} disabled={busy} className="h-7 px-2.5 text-[10px]">Ninguna</Button>
+                        <button type="button" onClick={selectAll} disabled={busy}
+                                className="h-8 px-3 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50"
+                                style={{background:"#F0F5F0", color:"#166534", border:"1px solid #D1E7D1"}}
+                                onMouseEnter={e=>{e.currentTarget.style.background="#DCFCE7"; e.currentTarget.style.borderColor="#11B328";}}
+                                onMouseLeave={e=>{e.currentTarget.style.background="#F0F5F0"; e.currentTarget.style.borderColor="#D1E7D1";}}>Todas</button>
+                        <button type="button" onClick={selectNone} disabled={busy}
+                                className="h-8 px-3 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50"
+                                style={{background:"#FFFFFF", color:"#525252", border:"1px solid #E4E4E7"}}
+                                onMouseEnter={e=>{e.currentTarget.style.background="#F4F4F5";}}
+                                onMouseLeave={e=>{e.currentTarget.style.background="#FFFFFF";}}>Ninguna</button>
                         {prefSet.size > 0 && (
                             <Badge variant="outline" className="text-[9px] ml-1" style={{color:'var(--muted-foreground)'}}>
                                 <span className="material-icons-round mr-1" style={{fontSize:10}}>bookmark</span>
@@ -1193,7 +1216,7 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
                             </Badge>
                         )}
                     </div>
-                    <span className="text-[10px] font-mono" style={{color: selected.length > 0 ? 'var(--horizon-green)' : 'var(--muted-foreground)'}}>
+                    <span className="text-[11px] font-mono font-bold" style={{color: selected.length > 0 ? "#166534" : "#71717A"}}>
                         {selected.length} / {available.length}
                     </span>
                 </div>
@@ -1210,26 +1233,29 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
                         const id = String(q.queue);
                         const isSel = selected.includes(id);
                         return (
-                            <button key={id} type="button" onClick={()=>toggle(id)} disabled={busy}
-                                    className="w-full rounded-md border px-3 py-2.5 flex items-center gap-3 text-left transition-all"
+                            <button key={id} type="button" onClick={()=>toggle(id)}
+                                    className="w-full rounded-lg border px-3 py-2.5 flex items-center gap-3 text-left transition-all"
                                     style={{
-                                        background: isSel ? 'color-mix(in srgb, var(--horizon-green) 14%, transparent)' : 'var(--card)',
-                                        borderColor: isSel ? 'color-mix(in srgb, var(--horizon-green) 45%, transparent)' : 'var(--border)'
-                                    }}>
-                                <span className="rounded-md flex items-center justify-center shrink-0"
+                                        background: isSel ? "#DCFCE7" : "#FFFFFF",
+                                        borderColor: isSel ? "#11B328" : "#E4E4E7",
+                                        boxShadow: isSel ? "0 2px 8px rgba(17,179,40,0.18)" : "0 1px 2px rgba(0,0,0,0.03)"
+                                    }}
+                                    onMouseEnter={e=>{ if(!isSel){e.currentTarget.style.background="#F0F5F0"; e.currentTarget.style.borderColor="#94BF9B";} }}
+                                    onMouseLeave={e=>{ if(!isSel){e.currentTarget.style.background="#FFFFFF"; e.currentTarget.style.borderColor="#E4E4E7";} }}>
+                                <span className="rounded-md flex items-center justify-center shrink-0 transition-all"
                                       style={{
-                                          width:24, height:24,
-                                          background: isSel ? 'var(--horizon-green)' : 'transparent',
-                                          border: '1px solid ' + (isSel ? 'var(--horizon-green)' : 'var(--border)')
+                                          width:22, height:22,
+                                          background: isSel ? "#11B328" : "#FFFFFF",
+                                          border: "1.5px solid " + (isSel ? "#11B328" : "#D4D4D8")
                                       }}>
                                     {isSel && <span className="material-icons-round text-white" style={{fontSize:14}}>check</span>}
                                 </span>
-                                <span className="font-mono font-bold text-xs px-2 py-1 rounded-md shrink-0"
-                                      style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)'}}>
+                                <span className="font-mono font-black text-[10px] px-2 py-1 rounded-md shrink-0"
+                                      style={{background: isSel ? "#11B328" : "#E8F5EA", color: isSel ? "#FFFFFF" : "#166534"}}>
                                     Q{q.queue}
                                 </span>
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-semibold truncate" style={{color:'var(--foreground)'}}>{q.name || `Cola ${q.queue}`}</div>
+                                    <div className="text-sm font-bold truncate" style={{color: "#1A1A1A"}}>{q.name || `Cola ${q.queue}`}</div>
                                 </div>
                             </button>
                         );
@@ -1244,12 +1270,20 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
                 )}
 
                 {/* Footer */}
-                <div className="flex items-center justify-between gap-2 px-5 py-3 border-t" style={{borderColor:'var(--border)', background:'color-mix(in srgb, var(--muted) 25%, var(--card))'}}>
-                    <Button variant="outline" onClick={onCancel} disabled={busy}>Cancelar</Button>
-                    <Button onClick={()=>onConfirm(selected)} disabled={busy || available.length === 0} variant="success">
-                        <span className="material-icons-round mr-1.5" style={{fontSize:15, animation: busy?'spin 1s linear infinite':'none'}}>{busy?'autorenew':'login'}</span>
-                        {busy ? 'Entrando…' : (selected.length === 0 ? 'Entrar sin colas' : `Entrar a ${selected.length} cola${selected.length===1?'':'s'}`)}
-                    </Button>
+                <div className="flex items-center justify-between gap-2 px-5 py-4 border-t" style={{borderColor:"#E5E7EB", background:"#F8FAF8"}}>
+                    <button type="button" onClick={onCancel} disabled={busy}
+                            className="h-10 px-5 text-sm font-bold rounded-lg transition-all disabled:opacity-50"
+                            style={{background:"#FFFFFF", color:"#525252", border:"1px solid #D4D4D8"}}
+                            onMouseEnter={e=>{ if(!busy) e.currentTarget.style.background="#F4F4F5"; }}
+                            onMouseLeave={e=>{ if(!busy) e.currentTarget.style.background="#FFFFFF"; }}>
+                        Cancelar
+                    </button>
+                    <button type="button" onClick={()=>onConfirm(selected)} disabled={busy || available.length === 0 || selected.length === 0}
+                            className="h-10 px-6 text-sm font-black rounded-lg text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                            style={{background: (selected.length>0 && !busy) ? "linear-gradient(135deg, #11B328, #0d8c1f)" : "#94A3B8", boxShadow: (selected.length>0 && !busy) ? "0 6px 18px rgba(17,179,40,0.35)" : "none"}}>
+                        <span className="material-icons-round" style={{fontSize:16, animation: busy?"spin 1s linear infinite":"none"}}>{busy?"autorenew":(selected.length===0?"info":"login")}</span>
+                        {busy ? "Entrando…" : (selected.length === 0 ? "Seleccioná al menos una cola" : `Entrar a ${selected.length} cola${selected.length===1?"":"s"}`)}
+                    </button>
                 </div>
             </div>
         </div>,
@@ -1257,8 +1291,19 @@ function AgentQueueSelectModal({ open, agent, onConfirm, onCancel, busy, err }) 
     );
 }
 
-function Login({ onLogin }) {
-    const [role, setRole] = useState('admin');
+function Login({ onLogin, agentOnly = false, adminOnly = false }) {
+    // Forzar tema LIGHT en el modal de login (mejor legibilidad + coherencia con panel agente).
+    useEffect(() => {
+        const html = document.documentElement;
+        html.classList.add('light');
+        html.classList.remove('dark');
+        html.dataset.tfLoginLightForced = '1';
+        try {
+            document.body.classList.add('light');
+            document.body.classList.remove('dark');
+        } catch(e) {}
+    }, []);
+    const [role, setRole] = useState(agentOnly ? 'agent' : 'admin');
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
     const [callbackExt, setCallbackExt] = useState('');
@@ -1302,6 +1347,10 @@ function Login({ onLogin }) {
                 if (d.status === 'success') onLogin({ name: d.user, role: 'admin' });
                 else setErr('Credenciales incorrectas.');
             } else {
+                // Limpiar sesión admin previa por las dudas (evita fallback a dashboard admin
+                // si el user cancela el modal de selección de colas).
+                try { await fetch('api/index.php?action=logout', { credentials:'include' }); } catch(e) {}
+                try { localStorage.removeItem('tf_user_cache'); } catch(e) {}
                 const fd = new FormData();
                 fd.append('agent_number', user);
                 fd.append('password', pass);
@@ -1343,8 +1392,11 @@ function Login({ onLogin }) {
     };
 
     const cancelAgentLogin = async () => {
-        // Si el agente decide no entrar todavía, cerramos su sesión PHP para no dejar ghost
+        // Si el agente decide no entrar todavía, cerramos AMBAS sesiones (admin y agente)
+        // + cache, para que quede en el LoginPanel, no en dashboard admin ghost.
         try { await fetch('api/agent.php?action=logout', { method:'POST', credentials:'include' }); } catch(e) {}
+        try { await fetch('api/index.php?action=logout', { credentials:'include' }); } catch(e) {}
+        try { localStorage.removeItem('tf_user_cache'); } catch(e) {}
         setPendingAgent(null);
         setLoading(false);
     };
@@ -1353,7 +1405,9 @@ function Login({ onLogin }) {
         <div className="hzn-login-root">
             {/* ───────── RIGHT: imagen Horizon ───────── */}
             <div className="hzn-login-hero">
-                <div className="hzn-login-hero-image" style={{backgroundImage:"url('assets/login-bg.jpg')"}}/>
+                <video className="hzn-login-hero-image" src="/HZN-back-video.mp4" autoPlay loop muted playsInline
+                       style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", zIndex:0}}
+                       onError={e=>{ e.target.style.display="none"; const bg=document.createElement("div"); bg.className="hzn-login-hero-image"; bg.style.backgroundImage="url('assets/login-bg.jpg')"; e.target.parentNode.appendChild(bg); }}/>
                 <div className="hzn-login-hero-overlay"/>
                 <div className="hzn-login-hero-content">
                     <div className="hzn-logo">
@@ -1414,6 +1468,7 @@ function Login({ onLogin }) {
                     </div>
 
                     {/* Toggle Admin / Agente */}
+                    {!(agentOnly || adminOnly) && (
                     <div className="hzn-role-tabs" role="tablist">
                         <button type="button" role="tab" aria-selected={role==='admin'} onClick={()=>setRole('admin')} className={role==='admin'?'active':''}>
                             <span className="material-icons-round">shield</span>
@@ -1424,6 +1479,7 @@ function Login({ onLogin }) {
                             <span>Agente</span>
                         </button>
                     </div>
+                    )}
 
                     <form onSubmit={submit} className="hzn-form">
                         <label className="hzn-field">
@@ -1464,8 +1520,8 @@ function Login({ onLogin }) {
 
                         {role === 'agent' && (
                             <>
-                                {/* Bloque info WebRTC (solo cuando escribió número) */}
-                                {user && /^\d+$/.test(user) && (
+                                {/* Bloque info WebRTC (solo cuando escribió número Y password mínima 4) */}
+                                {user && /^\d+$/.test(user) && pass.length >= 4 && (
                                     <div style={{padding:'10px 12px', borderRadius:10, border:'1px solid var(--border)', background:'color-mix(in srgb, var(--primary) 3%, transparent)', marginBottom:12}}>
                                         {webrtcChecking ? (
                                             <div style={{fontSize:11, color:'var(--muted-foreground)'}}>Verificando WebRTC…</div>
@@ -7906,6 +7962,8 @@ function AgentLogoutModal({ open, onClose, onDone, queue, toast }) {
 
 
 function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselectAgent }) {
+    // Guard: en modo /agentes/ este modal admin no debe correr (evita 403/get_webrtc)
+    if (typeof window !== "undefined" && window.__TF_AGENT_ONLY__ === true) return null;
     const [agents, setAgents] = useState([]);
     const [search, setSearch] = useState('');
     const [selAgent, setSelAgent] = useState(preselectAgent || null);
@@ -7921,6 +7979,7 @@ function AgentLoginModal({ open, onClose, queueDefault, onDone, toast, preselect
     // Cargar WebRTC ext asignada al agente seleccionado
     useEffect(() => {
         if (!selAgent?.number) { setAgentWebrtcExt(null); return; }
+        if (!open) return; // guard: no disparar cuando modal cerrado — role === 'agent' skip webrtc admin
         fetch('api/hotdesking.php?action=get_webrtc&agent_number=' + selAgent.number, {credentials:'include'})
             .then(r=>r.json()).then(j => {
                 setAgentWebrtcExt(j?.webrtc_ext || null);
@@ -14333,8 +14392,30 @@ function ViewCallCenter({ user, onLogout, data }) {
     const [showOnboardLogin, setShowOnboardLogin] = useState(false);
     const [confirmLogout, setConfirmLogout] = useState(false);
     const [callHistory, setCallHistory] = useState([]);
+    const [pendingCall, setPendingCall] = useState(null); // {ext, name, startedAt}
+    const [ccFilter, setCcFilter] = useState('Todas');
+    const [ccDateFilter, setCcDateFilter] = useState('hoy'); // hoy | semana | mes
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [expandedRec, setExpandedRec] = useState(null);
+    const [showCallDetail, setShowCallDetail] = useState(null);
+    const [activeCall, setActiveCall] = useState(null);
+    const [panelVisible, setPanelVisible] = useState(false);
     const [tick, setTick] = useState(0);
     const isAgent = user?.role === 'agent';
+
+    // Forzar tema LIGHT para el panel del agente (ux más limpio).
+    useEffect(() => {
+        if (user?.role !== 'agent') return;
+        const html = document.documentElement;
+        html.classList.add('light');
+        html.classList.remove('dark');
+        html.dataset.tfAgentLightForced = '1';
+        try {
+            localStorage.setItem('tf_dark_user_choice', 'light');
+            document.body.classList.add('light');
+            document.body.classList.remove('dark');
+        } catch(e) {}
+    }, [user?.role]);
 
     // ─── Loaders ─────────────────────────────────────────────
     const loadStatus = async () => {
@@ -14350,14 +14431,136 @@ function ViewCallCenter({ user, onLogout, data }) {
             const today = new Date().toISOString().slice(0,10);
             const r = await fetch(`api/index.php?action=get_cdr&from=${today}&to=${today}&src=${ext}&limit=20`, {credentials:'include'});
             const j = await r.json();
-            if (j.success) setCallHistory(j.rows || []);
+            if (j.success) {
+                const rows = j.rows || [];
+                setCallHistory(rows);
+                // Si teniamos pendingCall y aparece una nueva fila reciente, quitar skeleton
+                setPendingCall(pc => {
+                    if (!pc) return null;
+                    const hasFresh = rows.some(rr => {
+                        const t = new Date(rr.calldate || 0).getTime();
+                        return t > pc.startedAt - 30000; // ±30s
+                    });
+                    return hasFresh ? null : pc;
+                });
+            }
         } catch(e) {}
     };
 
     useEffect(() => { loadStatus(); loadPauseTypes(); loadHistory(); }, []);
+
+    // Anti-suspend Chrome: audio silencioso + Wake Lock API + notification permission
+    useEffect(() => {
+        console.log("[softphone] BUNDLE VERSION v20260708_final anti-suspend enabled");
+        // 1. Audio silencioso continuo
+        let audioCtx, osc;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0.0005;
+            osc.frequency.value = 20;
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start();
+            // Resume si Chrome lo suspende
+            const resumeCtx = () => { if (audioCtx.state === "suspended") audioCtx.resume(); };
+            document.addEventListener("click", resumeCtx);
+            document.addEventListener("visibilitychange", resumeCtx);
+            console.log("[softphone] silent audio started");
+        } catch(e) { console.warn("silent audio fail:", e); }
+        // 2. Wake Lock API — Chrome NO suspende pestañas con wake lock
+        let wakeLock = null;
+        const requestWakeLock = async () => {
+            try {
+                if ("wakeLock" in navigator) {
+                    wakeLock = await navigator.wakeLock.request("screen");
+                    console.log("[softphone] Wake Lock acquired — tab won't suspend");
+                    wakeLock.addEventListener("release", () => {
+                        console.log("[softphone] Wake Lock released — retrying");
+                        setTimeout(requestWakeLock, 1000);
+                    });
+                }
+            } catch(e) { console.warn("Wake Lock fail:", e); }
+        };
+        requestWakeLock();
+        // Re-adquirir cuando la pestaña vuelve al frente
+        const onVis = () => { if (document.visibilityState === "visible" && !wakeLock) requestWakeLock(); };
+        document.addEventListener("visibilitychange", onVis);
+        // 3. Notification permission — Chrome trata tabs con notif permisos como prioritarias
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission().catch(()=>{});
+        }
+        return () => {
+            try { osc?.stop(); audioCtx?.close(); } catch(_){}
+            try { wakeLock?.release(); } catch(_){}
+            document.removeEventListener("visibilitychange", onVis);
+        };
+    }, []);
+
+    // Publicar las colas del agente en window para que el softphone filtre eventos
+    useEffect(() => {
+        window._tfAgentQueues = user?.agent?.queues || [];
+        console.log("[ViewCallCenter] mis colas:", window._tfAgentQueues);
+    }, [user?.agent?.queues]);
     useEffect(() => { const t = setInterval(loadStatus, 3000); return () => clearInterval(t); }, []);
     useEffect(() => { const t = setInterval(() => setTick(k=>k+1), 1000); return () => clearInterval(t); }, []);
     useEffect(() => { const t = setInterval(loadHistory, 30000); return () => clearInterval(t); }, []);
+
+    // Listener para el softphone in_call ↔ idle — con fade-out 260ms
+    useEffect(() => {
+        const onCall = (e) => {
+            if (e?.detail?.state === "in_call") {
+                setActiveCall({ ext: e.detail.ext, name: e.detail.name });
+                setPanelVisible(true);
+            } else if (e?.detail?.state === "idle") {
+                // Antes de desmontar el panel, capturar los datos para la fila skeleton
+                setActiveCall(prev => {
+                    if (prev) setPendingCall({ ext: prev.ext, name: prev.name, startedAt: Date.now() });
+                    return prev;
+                });
+                setPanelVisible(false);
+                setTimeout(() => setActiveCall(null), 260);
+                setTimeout(() => { try { loadHistory(); } catch(_){} }, 900);
+                // Retirar skeleton pasado un tiempo max (por si CDR tarda)
+                setTimeout(() => setPendingCall(null), 8000);
+            }
+        };
+        window.addEventListener("tf-agent-call-state", onCall);
+        return () => window.removeEventListener("tf-agent-call-state", onCall);
+    }, []);
+
+    // ─── Realtime socket.io ─ escuchar eventos del hub (call/peer/queue update) ───
+    useEffect(() => {
+        const sock = window._tfSocket;
+        if (!sock || !sock.on) return;
+        // Al recibir un nuevo call_update (hangup): refrescar callHistory
+        const onCallUpdate = (evt) => {
+            if (evt?.type === "hangup" || evt?.type === "new") {
+                // Debounce para no spamear
+                clearTimeout(window._tfHistDeb);
+                window._tfHistDeb = setTimeout(() => { try { loadHistory(); } catch(_){} }, 1200);
+            }
+        };
+        // Al recibir peer_update: refrescar status del agente en la col Agentes
+        const onPeerUpdate = () => {
+            clearTimeout(window._tfAgentsDeb);
+            window._tfAgentsDeb = setTimeout(() => { try { load(); } catch(_){} }, 900);
+        };
+        // Queue update: refrescar status del agente (pausa, join, remove)
+        const onQueueUpdate = () => {
+            clearTimeout(window._tfStatDeb);
+            window._tfStatDeb = setTimeout(() => { try { loadStatus(); load(); } catch(_){} }, 700);
+        };
+        sock.on("call_update", onCallUpdate);
+        sock.on("peer_update", onPeerUpdate);
+        sock.on("queue_update", onQueueUpdate);
+        console.log("[realtime] listeners conectados al hub socket.io");
+        return () => {
+            sock.off?.("call_update", onCallUpdate);
+            sock.off?.("peer_update", onPeerUpdate);
+            sock.off?.("queue_update", onQueueUpdate);
+        };
+    }, []);
 
     // FIX #3: socket listener para captar logout dialplan *7701 + cambios de pausa
     // Reutilizar el socket global del proyecto (window._tfSocket); NO crear cliente propio
@@ -14373,6 +14576,21 @@ function ViewCallCenter({ user, onLogout, data }) {
         const onPauseEvt = () => loadStatus();
         sock.on('agent_logout', onLogoutEvt);
         sock.on('agent_login',  onPauseEvt);
+        // Notif Sileo cuando un compañero pausa/vuelve (solo agente ve compañeros, no propios)
+        const onCompanionPause = (msg) => {
+            if (!window.sileo || !msg) return;
+            const isSelf = String(user?.agent?.number) === String(msg.agent);
+            if (isSelf) return;
+            window.sileo.push({ kind:'warning', iconAnim:'pause', iconColor:'#f59e0b', title:'Compañero en pausa', msg: `Agente #${msg.agent||'?'} — ${msg.label||'Pausa'}`, duration: 3500 });
+        };
+        const onCompanionUnpause = (msg) => {
+            if (!window.sileo || !msg) return;
+            const isSelf = String(user?.agent?.number) === String(msg.agent);
+            if (isSelf) return;
+            window.sileo.push({ kind:'success', iconAnim:'unpause', iconColor:'#22c55e', title:'Compañero volvió', msg: `Agente #${msg.agent||'?'} atendiendo llamadas`, duration: 3000 });
+        };
+        sock.on('agent_pause',  onCompanionPause);
+        sock.on('agent_unpause', onCompanionUnpause);
         sock.on('agent_pause',  onPauseEvt);
         sock.on('agent_unpause', onPauseEvt);
         return () => {
@@ -14432,14 +14650,41 @@ function ViewCallCenter({ user, onLogout, data }) {
         MEETING:'groups', PERSONAL:'person', LUNCH:'restaurant'
     })[code] || 'pause';
 
-    // Colas del agente
-    const myQueues = (data?.pbx?.queues || []).filter(q => {
-        const members = q.members || [];
-        return members.some(m => {
-            const loc = m.location || m.ext || m.interface || '';
-            return String(loc).includes(String(myExt)) || String(loc).includes(`Agent/${user?.agent?.number}`);
-        });
+    // Colas del agente — sesión backend (status.agent.queues) es la fuente definitiva.
+    // NUNCA mostrar todas las colas del PBX. Si no hay colas asignadas, mostrar vacío.
+    const sessionQueues = status?.agent?.queues || user?.agent?.queues || [];
+    const chosenQueueIds = new Set(sessionQueues.map(String));
+    const myQueues = chosenQueueIds.size === 0
+        ? []
+        : (data?.pbx?.queues || []).filter(q => chosenQueueIds.has(String(q.id ?? q.extension ?? q.queue ?? q.name)));
+
+        // Filtro tabla Mis llamadas (Todas/Contestadas/Perdidas + fecha)
+    const filteredHistory = (callHistory || []).filter(c => {
+        // date filter
+        if (ccDateFilter && c.calldate) {
+            const d = new Date(c.calldate.replace(' ','T'));
+            const now = new Date();
+            const diffDays = Math.floor((now - d) / (1000*60*60*24));
+            if (ccDateFilter === 'hoy' && diffDays > 0) return false;
+            if (ccDateFilter === 'semana' && diffDays > 7) return false;
+            if (ccDateFilter === 'mes' && diffDays > 30) return false;
+        }
+        if (ccFilter === 'Contestadas') return c.disposition === 'ANSWERED';
+        if (ccFilter === 'Perdidas') return c.disposition === 'NO ANSWER' || c.disposition === 'FAILED' || c.disposition === 'BUSY';
+        return true;
     });
+    // Counts por tab (aplicando date filter primero)
+    const dateFilteredAll = (callHistory || []).filter(c => {
+        if (!ccDateFilter || !c.calldate) return true;
+        const d = new Date(c.calldate.replace(' ','T'));
+        const diffDays = Math.floor((new Date() - d) / (1000*60*60*24));
+        if (ccDateFilter === 'hoy' && diffDays > 0) return false;
+        if (ccDateFilter === 'semana' && diffDays > 7) return false;
+        if (ccDateFilter === 'mes' && diffDays > 30) return false;
+        return true;
+    });
+    const countAnswered = dateFilteredAll.filter(c => c.disposition === 'ANSWERED').length;
+    const countMissed = dateFilteredAll.filter(c => ['NO ANSWER','FAILED','BUSY'].includes(c.disposition)).length;
 
     // Stats sesión
     const totalCalls = status?.session?.total_calls || 0;
@@ -14518,13 +14763,25 @@ function ViewCallCenter({ user, onLogout, data }) {
                 </div>
             ) : (<>
 
-            {/* ═══ STATBAR — estado + timer + acciones. Sin card redundante (avatar ya en topbar) ═══ */}
-            <div className="rounded-xl p-3 flex items-center gap-3 flex-wrap"
+            {/* ═══ HEADER UNIFICADO: logo + estado + sesión + colas + acciones + reloj + avatar ═══ */}
+            <div className="rounded-xl px-4 py-3 flex items-center gap-4 flex-wrap relative"
                  style={{
-                     background: `linear-gradient(135deg, color-mix(in srgb, ${stateColor} 14%, var(--card)) 0%, var(--card) 55%)`,
-                     border: `1px solid color-mix(in srgb, ${stateColor} 32%, var(--border))`
+                     background: `linear-gradient(90deg, color-mix(in srgb, ${stateColor} 12%, var(--card)) 0%, var(--card) 45%)`,
+                     border: `1px solid color-mix(in srgb, ${stateColor} 35%, var(--border))`,
+                     boxShadow:'0 2px 12px color-mix(in srgb, var(--horizon-green) 6%, transparent)'
                  }}>
-                {/* Estado grande */}
+                {/* Logo */}
+                <div className="flex items-center gap-2 pr-3" style={{borderRight:'1px solid var(--border)'}}>
+                    <div className="rounded-lg flex items-center justify-center" style={{width:34, height:34, background:'linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))', boxShadow:'0 3px 10px color-mix(in srgb, var(--horizon-green) 35%, transparent)'}}>
+                        <span className="material-icons-round text-white" style={{fontSize:19}}>headset_mic</span>
+                    </div>
+                    <div>
+                        <div className="text-sm font-black leading-none" style={{color:'var(--foreground)'}}>TeleFlow</div>
+                        <div className="text-[9px] font-semibold uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>Panel del agente</div>
+                    </div>
+                </div>
+
+                {/* Estado */}
                 <div className="flex items-center gap-2 pr-3" style={{borderRight:'1px solid var(--border)'}}>
                     <span className="material-icons-round" style={{fontSize:22, color:stateColor, animation:stateAnim}}>{stateIcon}</span>
                     <div>
@@ -14532,7 +14789,7 @@ function ViewCallCenter({ user, onLogout, data }) {
                         <div className="text-sm font-black leading-none" style={{color:stateColor}}>{stateLabel}</div>
                     </div>
                 </div>
-                {/* Timer sesión */}
+                {/* Sesión */}
                 <div className="flex items-center gap-2 pr-3" style={{borderRight:'1px solid var(--border)'}}>
                     <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>schedule</span>
                     <div>
@@ -14540,298 +14797,572 @@ function ViewCallCenter({ user, onLogout, data }) {
                         <div className="text-sm font-black font-mono tabular-nums leading-none" style={{color:'var(--foreground)'}}>{fmtTime(sessionSec)}</div>
                     </div>
                 </div>
-                {/* Ext + agent# */}
+                {/* Colas */}
                 <div className="flex items-center gap-2 pr-3">
-                    <span className="material-icons-round" style={{fontSize:16, color:'var(--muted-foreground)'}}>dialpad</span>
+                    <span className="material-icons-round" style={{fontSize:16, color:'var(--horizon-green)'}}>queue</span>
                     <div>
-                        <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>Ext · #</div>
-                        <div className="text-sm font-black font-mono leading-none" style={{color:'var(--foreground)'}}>{(user?.agent?.callback||'—').replace(/^\w+\//,'')} · #{user?.agent?.number||'—'}</div>
+                        <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>Colas activas</div>
+                        <div className="text-sm font-black leading-none" style={{color:'var(--foreground)'}}>{myQueues.length}</div>
                     </div>
                 </div>
-                {/* Spacer */}
+
                 <div className="flex-1"/>
-                {/* Botones acción rápida (solo cuando NO está en pausa - la pausa se muestra abajo) */}
-                {!isPaused && (
-                    <>
-                        <button onClick={isInCall ? undefined : ()=>setShowPauseModal(true)}
-                                disabled={isInCall}
-                                title={isInCall ? 'Disponible al terminar la llamada' : 'Iniciar pausa'}
-                                className={"rounded-lg px-3 py-1.5 flex items-center gap-1.5 border transition-all " + (isInCall ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md cursor-pointer')}
-                                style={{
-                                    borderColor:'color-mix(in srgb, var(--warning) 40%, transparent)',
-                                    background:'color-mix(in srgb, var(--warning) 10%, transparent)',
-                                    color:'var(--warning)'
-                                }}>
-                            <span className="material-icons-round" style={{fontSize:16}}>pause_circle</span>
-                            <span className="text-xs font-black uppercase tracking-wider">Pausa</span>
-                        </button>
-                        <button onClick={()=>setConfirmLogout(true)}
-                                title="Cerrar sesión"
-                                className="rounded-lg px-3 py-1.5 flex items-center gap-1.5 border transition-all hover:shadow-md cursor-pointer"
-                                style={{
-                                    borderColor:'color-mix(in srgb, var(--destructive) 40%, transparent)',
-                                    background:'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                                    color:'var(--destructive)'
-                                }}>
-                            <span className="material-icons-round" style={{fontSize:16}}>logout</span>
-                            <span className="text-xs font-black uppercase tracking-wider">Salir</span>
-                        </button>
-                    </>
-                )}
-            </div>
 
-            {/* ═══ LIVE CALL CARD destacada cuando in_call ═══ */}
-            {isInCall && (
-                <Card className="relative overflow-hidden"
-                      style={{
-                          borderColor:'color-mix(in srgb, var(--destructive) 55%, transparent)',
-                          boxShadow:'0 0 28px color-mix(in srgb, var(--destructive) 22%, transparent)',
-                          background:'linear-gradient(135deg, color-mix(in srgb, var(--destructive) 8%, var(--card)) 0%, var(--card) 65%)'
-                      }}>
-                    <span className="material-icons-round absolute pointer-events-none" style={{
-                        fontSize:180, color:'var(--destructive)', opacity:0.06,
-                        bottom:-26, right:-18, animation:'tf-status-shake 0.6s ease-in-out infinite'
-                    }}>phone_in_talk</span>
-                    <CardContent className="p-5 relative">
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <div className="rounded-2xl flex items-center justify-center text-white shrink-0"
-                                 style={{
-                                     width:64, height:64,
-                                     background:'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 60%, #000))',
-                                     boxShadow:'0 4px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
-                                     animation:'tf-status-shake 0.6s ease-in-out infinite'
-                                 }}>
-                                <span className="material-icons-round" style={{fontSize:32}}>phone_in_talk</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--destructive)'}}>Llamada en curso</div>
-                                <div className="text-xl font-black mt-0.5 truncate" style={{color:'var(--foreground)'}}>
-                                    {myCall.callerid || myCall.from_ext || myCall.ext}
-                                </div>
-                                <div className="text-[11px] font-mono truncate mt-0.5" style={{color:'var(--muted-foreground)'}}>{myCall.channel || '—'}</div>
-                            </div>
-                            <div className="text-right shrink-0">
-                                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>Duración</div>
-                                <div className="text-3xl font-black font-mono tabular-nums leading-none mt-0.5" style={{color:'var(--horizon-green)', letterSpacing:'-1px'}}>
-                                    {myCall.duration || '00:00'}
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* ═══ Modo pausa: card horizontal grande ═══ */}
-            {isPaused && (
-                <div className="rounded-xl p-4 flex items-center gap-3 flex-wrap"
-                     style={{
-                         background:`linear-gradient(135deg, color-mix(in srgb, ${pauseColor} 12%, var(--card)) 0%, var(--card) 55%)`,
-                         border:`1px solid color-mix(in srgb, ${pauseColor} 40%, var(--border))`
-                     }}>
-                    <div className="rounded-lg flex items-center justify-center text-white shrink-0"
-                         style={{
-                             width:48, height:48,
-                             background:`linear-gradient(135deg, ${pauseColor}, color-mix(in srgb, ${pauseColor} 60%, #000))`
-                         }}>
-                        <span className="material-icons-round" style={{fontSize:24}}>pause_circle</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>En pausa por</div>
-                        <div className="text-base font-black" style={{color:pauseColor}}>{status.pause.label||'Pausa'}</div>
-                        <div className="text-xl font-black font-mono tabular-nums mt-0.5" style={{color:'var(--foreground)'}}>{fmtTime(pauseSec)}</div>
-                    </div>
-                    <Button onClick={doUnpause} variant="success" size="lg" className="shrink-0">
-                        <span className="material-icons-round mr-1.5" style={{fontSize:20}}>play_arrow</span>
-                        Volver a atender
-                    </Button>
+                {/* PAUSA — centrada con estilo pill destacado */}
+                <div className="absolute left-1/2 -translate-x-1/2" style={{top:"50%", transform:"translate(-50%,-50%)"}}>
+                    {isPaused ? (
+                        <button onClick={doUnpause}
+                                className="rounded-full px-5 py-2 flex items-center gap-2 text-white font-bold text-xs tracking-wide transition-all hover:scale-105"
+                                style={{background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 60%, #000))", boxShadow:"0 6px 18px color-mix(in srgb, var(--horizon-green) 40%, transparent)"}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>play_arrow</span>
+                            Volver a atender
+                        </button>
+                    ) : (
+                        <button onClick={isInCall?undefined:()=>setShowPauseModal(true)} disabled={isInCall}
+                                className="rounded-full px-5 py-2 flex items-center gap-2 font-bold text-xs tracking-wide transition-all hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{background:"linear-gradient(135deg, #FEF3C7, #FDE68A)", color:"#78350F", boxShadow:"0 4px 14px rgba(217,119,6,0.2), inset 0 0 0 1px rgba(217,119,6,0.35)"}}>
+                            <span className="material-icons-round" style={{fontSize:18}}>pause_circle</span>
+                            Pausa
+                        </button>
+                    )}
                 </div>
-            )}
 
-            {/* ═══ KPIs SLIM — sin bordes, glass sutil, texto grande limpio ═══ */}
-            <div className="grid gap-2" style={{gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))'}}>
-                {[
-                    { l:'Hablado',  v: fmtTime(talkSec),       c:'var(--horizon-green)', i:'forum' },
-                    { l:'Pausa',    v: fmtTime(totalPauseSec), c:'var(--warning)',       i:'pause_circle' },
-                    { l:'Llamadas', v: totalCalls,             c:'#3b82f6',              i:'phone' },
-                    { l:'AHT',      v: aht > 0 ? fmtTime(aht) : '—', c:'var(--primary)', i:'trending_up' },
-                ].map(k => (
-                    <div key={k.l} className="rounded-xl px-3.5 py-2.5 relative overflow-hidden"
-                         style={{
-                             background:`linear-gradient(135deg, color-mix(in srgb, ${k.c} 8%, var(--card)) 0%, var(--card) 70%)`,
-                             border:'1px solid var(--border)'
-                         }}>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="material-icons-round" style={{fontSize:13, color:k.c}}>{k.i}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest" style={{color:'var(--muted-foreground)'}}>{k.l}</span>
-                        </div>
-                        <div className="font-mono font-black tabular-nums leading-none mt-0.5" style={{color:k.c, fontSize:20, letterSpacing:'-0.5px'}}>{k.v}</div>
+                {/* Reloj + avatar con menú contextual */}
+                <div className="flex items-center gap-2 pl-3 relative" style={{borderLeft:"1px solid var(--border)"}}>
+                    <span className="material-icons-round" style={{fontSize:16, color:"var(--muted-foreground)"}}>schedule</span>
+                    <div className="text-right">
+                        <div className="text-sm font-bold font-mono tabular-nums leading-none" style={{color:"var(--foreground)"}}>{(function(){void tick; return new Date().toLocaleTimeString("es-UY",{hour12:false,timeZone:"America/Montevideo"});})()}</div>
+                        <div className="text-[9px] font-medium mt-0.5" style={{color:"var(--muted-foreground)"}}>{new Date().toLocaleDateString("es-UY",{timeZone:"America/Montevideo"})}</div>
                     </div>
-                ))}
+                    <button onClick={()=>setShowUserMenu(v=>!v)}
+                            className="rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 transition-all hover:scale-105"
+                            style={{width:38, height:38, background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))", boxShadow:"0 3px 10px color-mix(in srgb, var(--horizon-green) 35%, transparent)", cursor:"pointer"}}>
+                        {initials}
+                    </button>
+                    {showUserMenu && (
+                        <>
+                            <div className="fixed inset-0" style={{zIndex:100}} onClick={()=>setShowUserMenu(false)}/>
+                            <div className="absolute top-full right-0 mt-2 rounded-xl overflow-hidden z-[101] animate-fade-in" style={{minWidth:220, background:"var(--card)", border:"1px solid #E5E7EB", boxShadow:"0 12px 32px rgba(0,0,0,0.12)"}}>
+                                <div className="px-4 py-3 border-b" style={{borderColor:"#F1F5F9"}}>
+                                    <div className="font-bold text-sm" style={{color:"var(--foreground)"}}>{user?.name || "Agente"}</div>
+                                    <div className="text-[11px] font-mono" style={{color:"var(--muted-foreground)"}}>#{user?.agent?.number} · Ext {(user?.agent?.callback||"").replace(/^\w+\//,"")}</div>
+                                </div>
+
+                                <button onClick={()=>{ setShowUserMenu(false); setConfirmLogout(true); }}
+                                        className="w-full px-4 py-2.5 flex items-center gap-2.5 text-left text-sm font-medium border-t transition-all"
+                                        style={{color:"#ef4444", borderColor:"#F1F5F9"}}
+                                        onMouseEnter={e=>e.currentTarget.style.background="#FEF2F2"}
+                                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                    <span className="material-icons-round" style={{fontSize:18}}>logout</span>
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* ═══ Layout 2 cols: Colas asignadas + Historial hoy ═══ */}
-            <div className="grid gap-4" style={{gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))'}}>
-                {/* Colas asignadas */}
-                <Card>
-                    <CardHeader className="pb-2.5 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:17, color:'var(--horizon-green)'}}>queue</span>
-                            Colas asignadas
-                        </CardTitle>
-                        <Badge variant="secondary" className="text-[10px]">{myQueues.length}</Badge>
-                    </CardHeader>
-                    <CardContent>
-                        {myQueues.length === 0 ? (
-                            <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                                <span className="material-icons-round block mb-1.5" style={{fontSize:28, opacity:0.4}}>queue</span>
-                                Sin colas asignadas en esta sesión
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-1.5">
-                                {myQueues.map(q => (
-                                    <div key={q.id} className="rounded-md border px-2.5 py-2 flex items-center gap-2.5"
-                                         style={{borderColor:'var(--border)', background:'var(--card)'}}>
-                                        <span className="font-mono font-bold text-xs px-2 py-1 rounded-md"
-                                              style={{background:'color-mix(in srgb, var(--horizon-green) 12%, transparent)', color:'var(--horizon-green)'}}>
-                                            Q{q.id}
-                                        </span>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-semibold truncate" style={{color:'var(--foreground)'}}>{q.name || `Cola ${q.id}`}</div>
-                                            <div className="text-[10px]" style={{color:'var(--muted-foreground)'}}>
-                                                {q.calls_waiting || 0} esperando · {q.members?.length || 0} miembros
-                                            </div>
-                                        </div>
-                                        {isPaused ? (
-                                            <Badge variant="outline" className="text-[9px]" style={{color:'#f59e0b', borderColor:'color-mix(in srgb, #f59e0b 40%, transparent)'}}>
-                                                PAUSADO
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="success" className="text-[9px]">ACTIVA</Badge>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            {/* ═══ LAYOUT 3 COLUMNAS ═══ */}
+            <div className="grid gap-4" style={{gridTemplateColumns:"340px 1fr 260px 340px"}}>
 
-                {/* Historial hoy */}
-                <Card>
-                    <CardHeader className="pb-2.5 flex flex-row items-center justify-between space-y-0">
-                        <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <span className="material-icons-round" style={{fontSize:17, color:'var(--primary)'}}>history</span>
-                            Mis llamadas hoy
-                        </CardTitle>
-                        <Badge variant="secondary" className="text-[10px]">{callHistory.length}</Badge>
-                    </CardHeader>
-                    <CardContent>
-                        {callHistory.length === 0 ? (
-                            <div className="py-6 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
-                                <span className="material-icons-round block mb-1.5" style={{fontSize:28, opacity:0.4}}>phone_missed</span>
-                                Sin llamadas registradas hoy
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-1 overflow-auto" style={{maxHeight: 280}}>
-                                {callHistory.slice(0, 12).map((c, i) => {
-                                    const dispMeta = {
-                                        'ANSWERED':  { color:'var(--horizon-green)', icon:'call' },
-                                        'NO ANSWER': { color:'var(--muted-foreground)', icon:'phone_missed' },
-                                        'BUSY':      { color:'var(--warning)', icon:'phone_paused' },
-                                        'FAILED':    { color:'var(--destructive)', icon:'phone_disabled' },
-                                    }[c.disposition] || { color:'var(--muted-foreground)', icon:'call' };
+                {/* ── COL 1: Softphone inline ── */}
+                <div>
+                    <TeleflowInlineSoftphone user={user} extensions={data?.pbx?.extensions||[]}/>
+                </div>
+
+                {/* ── COL 2: Mis llamadas O Panel Cliente en llamada ── */}
+                <div className="flex flex-col gap-3 relative overflow-hidden">
+                    {activeCall && (
+                        <div className={`absolute inset-0 z-10 ${panelVisible ? "animate-slide-in" : "animate-slide-out"}`} style={{background:"var(--background)"}}>
+                            <ClientDetailPanel
+                                ext={activeCall.ext}
+                                name={activeCall.name}
+                                extensionsData={data?.pbx?.extensions || []}
+                                callHistory={callHistory || []}
+                                onBack={()=>setActiveCall(null)}
+                            />
+                        </div>
+                    )}
+                {/* Fila unica: título + tabs Todas/Contestadas/Perdidas + filtros Hoy/Semana/Mes */}
+                <div className="flex items-center justify-between px-1 gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="material-icons-round" style={{fontSize:16, color:"var(--horizon-green)"}}>call</span>
+                        <span className="text-sm font-bold" style={{color:"var(--foreground)", letterSpacing:"-0.01em"}}>Mis llamadas</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {[["Todas", dateFilteredAll.length, "#64748B", "call", "Todas las llamadas del período"],["Contestadas", countAnswered, "#22c55e", "call_received", "Llamadas atendidas exitosamente"],["Perdidas", countMissed, "#ef4444", "call_missed", "Llamadas no contestadas o falladas"]].map(([t,cnt,col,ic,tip]) => {
+                            const active = ccFilter===t;
+                            return (
+                                <button key={t} onClick={()=>setCcFilter(t)} title={tip}
+                                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1.5"
+                                        style={{
+                                            background: active ? col : "#F1F5F9",
+                                            color: active ? "#FFFFFF" : "#64748B",
+                                            boxShadow: active ? `0 3px 8px color-mix(in srgb, ${col} 30%, transparent)` : "none"
+                                        }}>
+                                    <span className="material-icons-round" style={{fontSize:13}}>{ic}</span>
+                                    {t}
+                                    <span className="px-1.5 py-0 rounded-full text-[10px] font-bold tabular-nums" style={{background: active ? "rgba(255,255,255,0.25)" : "#E2E8F0", color: active ? "#fff" : "#475569", minWidth:20, textAlign:"center"}}>{cnt}</span>
+                                </button>
+                            );
+                        })}
+                        <div className="w-px h-6" style={{background:"#E5E7EB"}}/>
+                        <div className="flex items-center gap-0 rounded-lg p-0.5" style={{background:"#F1F5F9"}}>
+                            {[["hoy","Hoy","today","Solo las llamadas de hoy"],["semana","Semana","date_range","Últimos 7 días"],["mes","Mes","calendar_month","Últimos 30 días"]].map(([k,l,ic,tip]) => (
+                                <button key={k} onClick={()=>setCcDateFilter(k)} title={tip}
+                                        className="px-2 py-1 rounded-md text-[10px] font-semibold transition-all flex items-center gap-1"
+                                        style={{
+                                            background: ccDateFilter===k ? "#FFFFFF" : "transparent",
+                                            color: ccDateFilter===k ? "var(--foreground)" : "#64748B",
+                                            boxShadow: ccDateFilter===k ? "0 1px 2px rgba(0,0,0,0.08)" : "none"
+                                        }}>
+                                    <span className="material-icons-round" style={{fontSize:11}}>{ic}</span>{l}
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={loadHistory} title="Recargar" className="rounded-md w-7 h-7 flex items-center justify-center transition-all hover:bg-slate-100" style={{color:"#64748B"}}>
+                            <span className="material-icons-round" style={{fontSize:15}}>refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl overflow-hidden flex flex-col" style={{border:"1px solid #E5E7EB", background:"var(--card)", boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <div className="overflow-auto" style={{maxHeight:640}}>
+                        <table className="w-full text-sm border-separate" style={{borderSpacing:0}}>
+                            <thead className="sticky top-0 z-10" style={{background:"var(--card)"}}>
+                                <tr style={{background:"#FFFFFF", boxShadow:"inset 0 -1px 0 #E5E7EB"}}>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>person</span>Contacto</span>
+                                    </th>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>home</span>Cliente</span>
+                                    </th>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>replay</span>Hoy</span>
+                                    </th>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>schedule</span>Cuándo</span>
+                                    </th>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>timer</span>Duración</span>
+                                    </th>
+                                    <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8", letterSpacing:"0.12em"}}>
+                                        <span className="inline-flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:13}}>info</span>Estado</span>
+                                    </th>
+                                    <th className="text-right px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{color:"#94A3B8"}}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pendingCall && (
+                                        <tr className="animate-fade-in" style={{background:"color-mix(in srgb, var(--horizon-green) 4%, transparent)", animation:"tf-shimmer-row 1.8s ease-in-out infinite"}}>
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="rounded-lg shrink-0" style={{width:32, height:32, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.2s infinite"}}/>
+                                                    <div className="flex-1">
+                                                        <div className="text-[11px] font-bold flex items-center gap-1.5" style={{color:"var(--horizon-green)"}}>
+                                                            <span className="material-icons-round" style={{fontSize:12, animation:"tf-status-breath 1.2s infinite"}}>autorenew</span>
+                                                            Registrando llamada…
+                                                        </div>
+                                                        <div className="text-[10px] font-mono" style={{color:"var(--muted-foreground)"}}>#{pendingCall.ext}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2.5"><div className="h-3 rounded" style={{width:60, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.2s infinite"}}/></td>
+                                            <td className="px-4 py-2.5"><div className="h-3 rounded" style={{width:24, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.2s infinite"}}/></td>
+                                            <td className="px-4 py-2.5"><div className="h-3 rounded" style={{width:80, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.2s infinite"}}/></td>
+                                            <td className="px-4 py-2.5"><div className="h-3 rounded" style={{width:40, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.2s infinite"}}/></td>
+                                            <td className="px-4 py-2.5"><span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide" style={{background:"color-mix(in srgb, var(--horizon-green) 15%, transparent)", color:"var(--horizon-green)"}}>Nueva</span></td>
+                                            <td className="px-4 py-2.5"/>
+                                        </tr>
+                                )}
+                                {filteredHistory.length === 0 && !pendingCall && (
+                                    <tr><td colSpan="7" className="py-16 text-center text-xs" style={{color:'var(--muted-foreground)'}}>
+                                        <span className="material-icons-round block mb-2" style={{fontSize:36, opacity:0.35}}>phone_missed</span>
+                                        Sin llamadas en este filtro.
+                                    </td></tr>
+                                )}
+                                {filteredHistory.map((c, i) => {
+                                    const isAnswered = c.disposition === "ANSWERED";
+                                    const isMissed = c.disposition === "NO ANSWER" || c.disposition === "FAILED" || c.disposition === "BUSY";
+                                    const isOutbound = c.src && String(c.src) === String(myExt);
+                                    const other = isOutbound ? c.dst : c.src;
+                                    const stMeta = isAnswered ? { bg:"color-mix(in srgb, var(--horizon-green) 18%, transparent)", color:"var(--horizon-green)", text: isOutbound?"SALIENTE":"CONTESTADA" }
+                                                 : isMissed ? { bg:"color-mix(in srgb, var(--destructive) 18%, transparent)", color:"var(--destructive)", text:"PERDIDA" }
+                                                 : { bg:"color-mix(in srgb, #a855f7 18%, transparent)", color:"#a855f7", text: isOutbound?"SALIENTE":"ENTRANTE" };
+                                    const initialsRow = String(other||"?").substring(0,2).toUpperCase();
+                                    const today = new Date().toISOString().slice(0,10);
+                                    const isToday = (c.calldate||"").startsWith(today);
+                                    const dayLabel = isToday ? new Date().toLocaleDateString("es-UY",{day:"numeric",month:"numeric"}) : (c.calldate||"").slice(5,10).replace("-","/");
+                                    const hour = (c.calldate||"").substring(11,16);
+                                    const meridian = parseInt(hour.substring(0,2)||"0",10) >= 12 ? "p. m." : "a. m.";
                                     return (
-                                        <div key={i} className="rounded-md border px-2.5 py-1.5 flex items-center gap-2 text-xs"
-                                             style={{borderColor:'var(--border)', background:'var(--card)'}}>
-                                            <span className="material-icons-round shrink-0" style={{fontSize:15, color: dispMeta.color}}>{dispMeta.icon}</span>
-                                            <span className="font-mono" style={{color:'var(--muted-foreground)', minWidth:46}}>{(c.calldate||'').substring(11,16)}</span>
-                                            <span className="font-mono truncate flex-1" style={{color:'var(--foreground)'}}>{c.src} → {c.dst}</span>
-                                            <span className="font-mono shrink-0" style={{color: c.billsec > 0 ? dispMeta.color : 'var(--muted-foreground)'}}>
-                                                {c.billsec > 0 ? `${Math.floor(c.billsec/60)}:${String(c.billsec%60).padStart(2,'0')}` : '—'}
-                                            </span>
-                                            {c.recordingfile && (
-                                                <button onClick={()=>tfPlayRecording(c.recordingfile, {src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec})}
-                                                        title="Reproducir grabación"
-                                                        className="rounded-full inline-flex items-center justify-center transition-all hover:scale-110"
-                                                        style={{width:20, height:20, background:'color-mix(in srgb, var(--primary) 15%, transparent)', color:'var(--primary)'}}>
-                                                    <span className="material-icons-round" style={{fontSize:12}}>play_arrow</span>
-                                                </button>
-                                            )}
-                                        </div>
+                                        <React.Fragment key={i}>
+                                        <tr className={`transition-colors cursor-pointer ${i===0 && Date.now() - new Date(c.calldate||0).getTime() < 20000 ? "animate-slide-in" : ""}`} onClick={e=>{ if(e.target.closest("button")) return; setShowCallDetail(c); }} style={{borderTop: i>0 ? "1px solid #F1F5F9" : "none"}} onMouseEnter={e=>e.currentTarget.style.background="#FAFBFA"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="rounded-lg flex items-center justify-center text-white font-black text-[11px] shrink-0" style={{width:32, height:32, background:"linear-gradient(135deg, #a855f7, #7e22ce)"}}>{initialsRow[0]}{initialsRow[1]||""}</div>
+                                                    <div>
+                                                        <div className="font-bold text-[13px]" style={{color:"var(--foreground)"}}>{c.cnam || other}</div>
+                                                        <div className="text-[11px] font-mono flex items-center gap-1" style={{color:"var(--muted-foreground)"}}>
+                                                            <span className="material-icons-round" style={{fontSize:11, color: isOutbound?"#a855f7":"var(--horizon-green)"}}>{isOutbound?"call_made":"call_received"}</span>
+                                                            {other}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                {c.client_name ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold" style={{background:"color-mix(in srgb, #a855f7 18%, transparent)", color:"#a855f7"}}>
+                                                        <span className="material-icons-round" style={{fontSize:11}}>home</span>{c.client_name}
+                                                    </span>
+                                                ) : <span className="text-xs" style={{color:"var(--muted-foreground)"}}>—</span>}
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                {c.today_count > 1
+                                                    ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black" style={{background:"color-mix(in srgb, var(--warning) 22%, transparent)", color:"var(--warning)"}}>{c.today_count}×</span>
+                                                    : isToday ? <span className="text-[11px] font-mono" style={{color:"var(--foreground)"}}>1</span>
+                                                    : <span className="text-xs" style={{color:"var(--muted-foreground)"}}>—</span>}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-[11px] font-mono" style={{color:"var(--muted-foreground)"}}>{dayLabel}, {hour} {meridian}</td>
+                                            <td className="px-4 py-2.5 text-[11px] font-mono" style={{color:"var(--foreground)"}}>{c.billsec>0?`${Math.floor(c.billsec/60)}:${String(c.billsec%60).padStart(2,"0")}`:"0:00"}</td>
+                                            <td className="px-4 py-2.5">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide" style={{background:stMeta.bg, color:stMeta.color}}>{stMeta.text}</span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <div className="inline-flex items-center gap-1">
+                                                    {c.recordingfile && (
+                                                        <button onClick={()=>setExpandedRec(expandedRec===i ? null : i)}
+                                                                title={expandedRec===i ? "Cerrar audio" : "Reproducir grabación"}
+                                                                className="rounded-full w-7 h-7 inline-flex items-center justify-center transition-all hover:scale-110"
+                                                                style={{background: expandedRec===i ? "#a855f7" : "color-mix(in srgb, #a855f7 15%, transparent)", color: expandedRec===i ? "#fff" : "#a855f7"}}>
+                                                            <span className="material-icons-round" style={{fontSize:13}}>{expandedRec===i ? "close" : "play_arrow"}</span>
+                                                        </button>
+                                                    )}
+                                                    <button title={`Rellamar a ${other}`}
+                                                            onClick={e=>{ e.stopPropagation(); if (other) window.dispatchEvent(new CustomEvent("tf-agent-dial", { detail:{ ext: String(other), name: c.cnam || other }})); }}
+                                                            className="rounded-full w-7 h-7 inline-flex items-center justify-center transition-all hover:scale-110"
+                                                            style={{background:"color-mix(in srgb, var(--horizon-green) 15%, transparent)", color:"var(--horizon-green)"}}>
+                                                        <span className="material-icons-round" style={{fontSize:13}}>call</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {expandedRec === i && c.recordingfile && (
+                                            <tr>
+                                                <td colSpan="7" style={{padding: 0, background:"linear-gradient(180deg, color-mix(in srgb, #a855f7 6%, var(--card)) 0%, var(--card) 100%)", borderTop:"1px solid #F1F5F9"}}>
+                                                    <div className="px-4 py-3 animate-fade-in">
+                                                        <InlineRecordingPlayer file={c.recordingfile} meta={{src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec}}/>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                     );
                                 })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </div>
+
+                {/* ── COL 3: Agentes — estado real-time de todos ── */}
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <span className="material-icons-round" style={{fontSize:16, color:"#3b82f6"}}>groups</span>
+                            <span className="text-sm font-black" style={{color:"var(--foreground)"}}>Agentes</span>
+                        </div>
+                        {(() => {
+                            const ags = data?.pbx?.agents || [];
+                            const on = ags.filter(a=>a.logged_in).length;
+                            return <span className="px-2 py-0.5 rounded-full text-[10px] font-black tabular-nums" style={{background:"color-mix(in srgb, #3b82f6 15%, transparent)", color:"#3b82f6"}}>{on}/{ags.length}</span>;
+                        })()}
+                    </div>
+                    <div className="rounded-2xl overflow-hidden flex flex-col" style={{border:"1px solid #E5E7EB", background:"var(--card)", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", maxHeight:640}}>
+                        <div className="overflow-auto flex-1">
+                            {!data?.pbx?.agents ? (
+                                // Skeleton loader mientras carga
+                                <div className="py-2 animate-fade-in">
+                                    {[1,2,3,4,5].map(i => (
+                                        <div key={i} className="flex items-center gap-2.5 px-3 py-2.5" style={{borderBottom:"1px solid #F1F5F9"}}>
+                                            <div className="rounded-full shrink-0" style={{width:32, height:32, background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.5s infinite"}}/>
+                                            <div className="flex-1">
+                                                <div className="h-3 rounded" style={{width:"70%", background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.5s infinite"}}/>
+                                                <div className="h-2 rounded mt-1.5" style={{width:"40%", background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.5s infinite"}}/>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : data.pbx.agents.length === 0 ? (
+                                <div className="py-10 text-center text-xs animate-fade-in" style={{color:"var(--muted-foreground)"}}>
+                                    <span className="material-icons-round block mb-1" style={{fontSize:26, opacity:0.4}}>groups</span>
+                                    Sin agentes
+                                </div>
+                            ) : (data.pbx.agents.map(a => {
+                                const isMe = String(a.number) === String(user?.agent?.number);
+                                const initials = String(a.name||a.number||"?").split(/\s+/).map(x=>x[0]||"").join("").substring(0,2).toUpperCase();
+                                // Estado: paused > in_call > available > offline
+                                const liveExts = new Set((data?.pbx?.live_calls||[]).flatMap(cc => [String(cc.src||""), String(cc.dst||"")].filter(Boolean)));
+                                const inCall = a.in_call || liveExts.has(String(a.number)) || liveExts.has(String(a.ext||""));
+                                const stateInfo = !a.logged_in
+                                    ? { label:"Offline", color:"#94A3B8", bg:"transparent" }
+                                    : a.paused
+                                        ? { label: a.pause_reason || "En pausa", color:"#f59e0b", bg:"color-mix(in srgb, #f59e0b 15%, transparent)" }
+                                        : inCall
+                                            ? { label:"En llamada", color:"#ef4444", bg:"color-mix(in srgb, #ef4444 15%, transparent)" }
+                                            : { label:"Disponible", color:"#22c55e", bg:"color-mix(in srgb, #22c55e 15%, transparent)" };
+                                const dot = stateInfo.color;
+                                return (
+                                    <div key={a.number} className="flex items-center gap-2.5 px-3 py-2.5 transition-colors"
+                                         style={{borderBottom:"1px solid #F1F5F9", background: isMe ? "color-mix(in srgb, var(--horizon-green) 8%, transparent)" : "transparent"}}
+                                         onMouseEnter={e=>{ if(!isMe) e.currentTarget.style.background="#FAFBFA";}}
+                                         onMouseLeave={e=>{ if(!isMe) e.currentTarget.style.background="transparent";}}>
+                                        <div className="relative rounded-full flex items-center justify-center text-white font-black text-[11px] shrink-0" style={{width:32, height:32, background: !a.logged_in ? "linear-gradient(135deg, #94A3B8, #64748B)" : a.paused ? "linear-gradient(135deg, #f59e0b, #b45309)" : inCall ? "linear-gradient(135deg, #ef4444, #b91c1c)" : "linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))"}}>
+                                            {initials}
+                                            <span className="absolute rounded-full" style={{width:9, height:9, background:dot, border:"2px solid var(--card)", bottom:-1, right:-1, animation: a.logged_in ? "tf-status-breath 2s infinite" : "none"}}/>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[12px] font-bold truncate" style={{color:"var(--foreground)"}}>{a.name || `Agente ${a.number}`}{isMe && <span className="ml-1 text-[9px] font-black" style={{color:"var(--horizon-green)"}}>· TÚ</span>}</div>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider" style={{background:stateInfo.bg, color:stateInfo.color, letterSpacing:"0.05em"}}>{stateInfo.label}</span>
+                                                <span className="text-[10px] font-mono" style={{color:"var(--muted-foreground)"}}>#{a.number}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── COL 4: Colas del agente con RTSP overlay cuando llaman ── */}
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <span className="material-icons-round" style={{fontSize:16, color:"var(--horizon-green)"}}>queue</span>
+                            <span className="text-sm font-black" style={{color:"var(--foreground)"}}>Mis colas</span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black tabular-nums" style={{background:"color-mix(in srgb, var(--horizon-green) 18%, transparent)", color:"var(--horizon-green)"}}>{myQueues.length}</span>
+                    </div>
+                    {!data?.pbx?.queues ? (
+                        // Skeleton loader mientras carga
+                        <>
+                            {[1,2,3].map(i => (
+                                <div key={i} className="relative rounded-2xl overflow-hidden animate-fade-in" style={{aspectRatio:"16/10", background:"#F1F5F9", border:"1px solid #E5E7EB"}}>
+                                    <div className="absolute inset-0" style={{background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.5s infinite"}}/>
+                                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                                        <div className="h-3 rounded" style={{width:"55%", background:"rgba(255,255,255,0.7)", boxShadow:"inset 0 0 0 1px rgba(0,0,0,0.03)"}}/>
+                                        <div className="h-4 rounded-full" style={{width:60, background:"rgba(255,255,255,0.7)"}}/>
+                                    </div>
+                                    <div className="absolute bottom-3 left-3 h-2 rounded" style={{width:"35%", background:"rgba(0,0,0,0.05)"}}/>
+                                </div>
+                            ))}
+                        </>
+                    ) : myQueues.length === 0 ? (
+                        <div className="rounded-xl px-4 py-8 text-center text-xs animate-fade-in" style={{border:"1px solid #E5E7EB", background:"var(--card)", color:"var(--muted-foreground)"}}>
+                            <span className="material-icons-round block mb-1" style={{fontSize:26, opacity:0.4}}>queue</span>
+                            Sin colas asignadas
+                        </div>
+                    ) : null}
+                    {myQueues.map(q => {
+                        const qId = String(q.id || q.extension || q.queue || "");
+                        const hasIncoming = liveCalls.some(c => {
+                            const d = String(c.dest||c.queue||c.destqueue||c.dst||"");
+                            return d === qId;
+                        });
+                        const qm = data?.pbx?.queue_members;
+                        const members = (qm || {})[qId] || (qm || {})[Number(qId)] || [];
+                        if (window._tf_qm_debug !== qId) {
+                            console.log("[MisColas]", qId, "→", members.length, "agentes", "| qm keys:", qm ? Object.keys(qm) : "undefined");
+                            window._tf_qm_debug = qId;
+                        }
+                        const membersReady = members.filter(m => !m.paused && m.status !== 5);
+                        const membersPaused = members.filter(m => m.paused);
+                        const timeout = q.timeout || "—";
+                        const failover = q.failover_to;
+                        const isMe = m => String(m.ext) === String(myExt);
+                        return (
+                            <div key={qId} className="rounded-2xl overflow-hidden transition-all duration-300"
+                                 style={{border: hasIncoming ? "2px solid var(--horizon-green)" : "1px solid #E5E7EB", background:"var(--card)", boxShadow: hasIncoming ? "0 6px 20px color-mix(in srgb, var(--horizon-green) 30%, transparent)" : "0 1px 3px rgba(0,0,0,0.04)", animation: hasIncoming ? "tf-soft-vibrate 0.4s ease-in-out 3" : "none"}}>
+                                {/* Header: nombre + estado */}
+                                <div className="px-3 py-2.5 flex items-center justify-between" style={{borderBottom:"1px solid #F1F5F9", background: hasIncoming ? "color-mix(in srgb, var(--horizon-green) 6%, transparent)" : "transparent"}}>
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-[13px] truncate" style={{color:"var(--foreground)"}}>{q.name || `Cola ${qId}`}</div>
+                                        <div className="text-[10px] font-mono" style={{color:"#94A3B8"}}>#{qId}</div>
+                                    </div>
+                                    {hasIncoming ? (
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest text-white flex items-center gap-1" style={{background:"var(--horizon-green)"}}>
+                                            <span className="rounded-full inline-block" style={{width:4, height:4, background:"#fff", animation:"pulse 0.7s infinite"}}/>ENTRANTE
+                                        </span>
+                                    ) : membersReady.length === 0 ? (
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest" style={{background:"color-mix(in srgb, #ef4444 15%, transparent)", color:"#ef4444"}}>SIN AGENTES</span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest" style={{background:"color-mix(in srgb, var(--horizon-green) 15%, transparent)", color:"var(--horizon-green)"}}>ACTIVA</span>
+                                    )}
+                                </div>
+                                {/* Body: métricas */}
+                                <div className="px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
+                                    <div>
+                                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:"#94A3B8"}}>Agentes</div>
+                                        <div className="font-black text-base tabular-nums" style={{color:membersReady.length > 0 ? "var(--horizon-green)" : "#94A3B8"}}>{membersReady.length}<span className="text-xs font-mono" style={{color:"#94A3B8"}}>/{members.length}</span></div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:"#94A3B8"}}>Timeout</div>
+                                        <div className="font-black text-base tabular-nums" style={{color:"var(--foreground)"}}>{timeout}<span className="text-xs font-mono" style={{color:"#94A3B8"}}>s</span></div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[9px] font-bold uppercase tracking-wider" style={{color:"#94A3B8"}}>Desborde</div>
+                                        <div className="font-black text-sm tabular-nums font-mono" style={{color: failover === "hangup" ? "#94A3B8" : "#a855f7"}}>{failover ? (failover === "hangup" ? "—" : `→${failover}`) : "—"}</div>
+                                    </div>
+                                </div>
+                                {/* Miembros (avatares mini) */}
+                                {members.length > 0 && (
+                                    <div className="px-3 py-2 flex items-center gap-1.5 flex-wrap" style={{background:"#FAFBFB", borderTop:"1px solid #F1F5F9"}}>
+                                        {members.slice(0,8).map((m,i) => {
+                                            const dotCol = m.paused ? "#f59e0b" : m.status===1 ? "var(--horizon-green)" : m.status===2 || m.status===3 ? "#ef4444" : m.status===6 ? "#3b82f6" : "#94A3B8";
+                                            const label = m.paused ? "En pausa" : m.status===1 ? "Disponible" : m.status===2 ? "En llamada" : m.status===3 ? "Ocupado" : m.status===6 ? "Ringing" : "No disponible";
+                                            return (
+                                                <div key={i} className="relative flex items-center gap-1 px-1.5 py-0.5 rounded" title={`${m.name || m.ext} — ${label}`} style={{background: isMe(m) ? "color-mix(in srgb, var(--horizon-green) 20%, transparent)" : "transparent", border: isMe(m) ? "1px solid var(--horizon-green)" : "1px solid transparent"}}>
+                                                    <span className="rounded-full" style={{width:6, height:6, background:dotCol, boxShadow:m.status===1?`0 0 6px ${dotCol}`:"none", animation: m.status===6 ? "pulse 0.7s infinite" : "none"}}/>
+                                                    <span className="text-[10px] font-mono" style={{color:"var(--muted-foreground)"}}>{m.ext}</span>
+                                                </div>
+                                            );
+                                        })}
+                                        {members.length > 8 && (
+                                            <span className="text-[9px] font-mono" style={{color:"#94A3B8"}}>+{members.length - 8}</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
+                        );
+                    })}
+                </div>
             </div>
 
-            {/* ═══ Dialog: seleccionar pausa ═══ */}
-            <Dialog open={showPauseModal} onOpenChange={setShowPauseModal}>
+            {/* ═══ Dialogs (pausa + logout) ═══ */}
+            {/* Modal detalle de llamada */}
+            {showCallDetail && ReactDOM.createPortal(
+                <div className="fixed inset-0 flex items-center justify-center animate-fade-in" style={{zIndex:9998, background:"rgba(15,25,20,0.35)", backdropFilter:"blur(8px)", pointerEvents:"auto"}} onClick={()=>setShowCallDetail(null)}>
+                    <div className="relative rounded-2xl overflow-hidden max-w-md w-full mx-4" style={{background:"#FFFFFF", boxShadow:"0 30px 80px rgba(0,0,0,0.25)", pointerEvents:"auto"}} onClick={e=>e.stopPropagation()}>
+                        {(() => {
+                            const c = showCallDetail;
+                            const isAnswered = c.disposition === "ANSWERED";
+                            const isMissed = ["NO ANSWER","FAILED","BUSY"].includes(c.disposition);
+                            const isOutbound = c.src && String(c.src) === String(myExt);
+                            const other = isOutbound ? c.dst : c.src;
+                            const color = isAnswered ? "var(--horizon-green)" : isMissed ? "#ef4444" : "#a855f7";
+                            return (
+                                <>
+                                    <div className="relative px-6 pt-6 pb-4 text-center overflow-hidden" style={{background:`color-mix(in srgb, ${color} 6%, #FFFFFF)`}}>
+                                        {/* Foto RTSP del contacto si tiene ext registrado */}
+                                        <div className="mx-auto relative" style={{width:96, height:96, borderRadius:20, overflow:"visible"}}>
+                                            <div style={{width:"100%", height:"100%", borderRadius:20, overflow:"hidden", border:`3px solid ${color}`, boxShadow:`0 10px 24px color-mix(in srgb, ${color} 30%, transparent)`}}>
+                                                <ClientSnapshotAvatar ext={other} fallback={String(other||"?").slice(0,2).toUpperCase()}/>
+                                            </div>
+                                            {/* Badge cámara */}
+                                            <div className="absolute rounded-full flex items-center justify-center text-white" style={{width:24, height:24, right:-4, bottom:-4, background:color, boxShadow:"0 3px 8px rgba(0,0,0,0.15)", zIndex:2}}>
+                                                <span className="material-icons-round" style={{fontSize:14}}>videocam</span>
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-xl mt-3" style={{color:"var(--foreground)"}}>{c.cnam || other}</div>
+                                        <div className="font-mono text-sm mt-1 flex items-center justify-center gap-1" style={{color:"#64748B"}}>
+                                            <span className="material-icons-round" style={{fontSize:14, color}}>{isOutbound?"call_made":"call_received"}</span>
+                                            {other}
+                                        </div>
+                                        <div className="inline-block mt-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" style={{background:`color-mix(in srgb, ${color} 18%, transparent)`, color}}>
+                                            {isAnswered ? (isOutbound?"Saliente":"Contestada") : isMissed ? "Perdida" : (isOutbound?"Saliente":"Entrante")}
+                                        </div>
+                                    </div>
+                                    <div className="px-6 py-4 space-y-3" style={{borderTop:"1px solid #F1F5F9"}}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-xs font-semibold flex items-center gap-1.5" style={{color:"#64748B"}}><span className="material-icons-round" style={{fontSize:14}}>schedule</span>Fecha y hora</div>
+                                            <div className="font-mono text-sm font-semibold" style={{color:"var(--foreground)"}}>{(c.calldate||"").replace(" "," · ")}</div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-xs font-semibold flex items-center gap-1.5" style={{color:"#64748B"}}><span className="material-icons-round" style={{fontSize:14}}>timer</span>Duración</div>
+                                            <div className="font-mono text-sm font-bold" style={{color:"var(--foreground)"}}>{c.billsec>0 ? `${Math.floor(c.billsec/60)}:${String(c.billsec%60).padStart(2,"0")}` : "—"}</div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-xs font-semibold flex items-center gap-1.5" style={{color:"#64748B"}}><span className="material-icons-round" style={{fontSize:14}}>swap_horiz</span>Ruta</div>
+                                            <div className="text-sm font-semibold" style={{color:"var(--foreground)"}}>{c.src} → {c.dst}</div>
+                                        </div>
+                                        {c.client_name && (
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-xs font-semibold flex items-center gap-1.5" style={{color:"#64748B"}}><span className="material-icons-round" style={{fontSize:14}}>home</span>Cliente</div>
+                                                <div className="text-sm font-bold" style={{color:"#a855f7"}}>{c.client_name}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {c.recordingfile && (
+                                        <div className="px-6 py-3" style={{borderTop:"1px solid #F1F5F9", background:"#FAFBFA"}}>
+                                            <div className="text-[10px] font-black uppercase tracking-widest mb-2" style={{color:"#64748B"}}>Grabación</div>
+                                            <InlineRecordingPlayer file={c.recordingfile} meta={{src:c.src, dst:c.dst, calldate:c.calldate, duration:c.billsec}}/>
+                                        </div>
+                                    )}
+                                    <div className="px-6 py-4 flex justify-end gap-2" style={{borderTop:"1px solid #F1F5F9", background:"#FAFBFA"}}>
+                                        <button onClick={()=>setShowCallDetail(null)} className="px-4 py-2 rounded-lg text-sm font-bold" style={{background:"#FFFFFF", color:"#64748B", border:"1px solid #E5E7EB"}}>Cerrar</button>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>,
+                document.body
+            )}
+                        <Dialog open={showPauseModal} onOpenChange={setShowPauseModal}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <span className="material-icons-round" style={{fontSize:20, color:'var(--warning)'}}>pause_circle</span>
                         Iniciar pausa
                     </DialogTitle>
-                    <DialogDescription>
-                        Seleccioná el motivo. Quedás fuera de las colas hasta que vuelvas.
-                    </DialogDescription>
+                    <DialogDescription>Seleccioná el motivo. Quedás fuera de las colas hasta que vuelvas.</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-2 gap-2 mt-2">
                     {pauseTypes.map(pt => {
                         const c = pt.color || '#f59e0b';
                         return (
                             <button key={pt.code} type="button" onClick={()=>doPause(pt.code)}
-                                    className="rounded-lg border-2 p-3 text-left transition-all hover:shadow-md hover:scale-[1.02]"
-                                    style={{
-                                        borderColor: `color-mix(in srgb, ${c} 40%, var(--border))`,
-                                        background: `color-mix(in srgb, ${c} 6%, var(--card))`
-                                    }}>
+                                    className="rounded-xl p-3 text-left transition-all hover:shadow-md hover:scale-[1.02]"
+                                    style={{border: `1px solid color-mix(in srgb, ${c} 25%, #E5E7EB)`, background: `color-mix(in srgb, ${c} 5%, #FFFFFF)`}}
+                                    onMouseEnter={e=>{ e.currentTarget.style.borderColor = c; e.currentTarget.style.boxShadow = `0 8px 20px color-mix(in srgb, ${c} 22%, transparent)`; }}
+                                    onMouseLeave={e=>{ e.currentTarget.style.borderColor = `color-mix(in srgb, ${c} 25%, #E5E7EB)`; e.currentTarget.style.boxShadow = "none"; }}>
                                 <div className="flex items-center gap-2.5">
-                                    <div className="rounded-lg flex items-center justify-center shrink-0"
-                                         style={{
-                                             width:36, height:36,
-                                             background: `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 65%, #000))`,
-                                             boxShadow: `0 2px 8px color-mix(in srgb, ${c} 30%, transparent)`
-                                         }}>
+                                    <div className="rounded-lg flex items-center justify-center shrink-0" style={{width:36, height:36, background: `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 65%, #000))`}}>
                                         <span className="material-icons-round text-white" style={{fontSize:18}}>{pauseIcon(pt.code)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-bold truncate" style={{color:'var(--foreground)'}}>{pt.label}</div>
-                                        <div className="text-[10px] font-semibold mt-0.5" style={{color:'var(--muted-foreground)'}}>
-                                            Máx {pt.max_duration_min} min · {pt.is_paid ? 'Pagada' : 'No pagada'}
-                                        </div>
+                                        <div className="text-[10px] font-semibold mt-0.5" style={{color:'var(--muted-foreground)'}}>Máx {pt.max_duration_min} min · {pt.is_paid ? 'Pagada' : 'No pagada'}</div>
                                     </div>
                                 </div>
                             </button>
                         );
                     })}
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={()=>setShowPauseModal(false)}>Cancelar</Button>
+                <DialogFooter className="pt-2">
+                    <Button variant="outline" onClick={()=>setShowPauseModal(false)}
+                            className="px-5"
+                            style={{border:"1px solid #E5E7EB", color:"#64748B", fontWeight:600}}>
+                        Cancelar
+                    </Button>
                 </DialogFooter>
             </Dialog>
 
-            {/* ═══ Dialog: confirmar logout ═══ */}
             <Dialog open={confirmLogout} onOpenChange={setConfirmLogout}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <span className="material-icons-round" style={{fontSize:20, color:'var(--destructive)'}}>logout</span>
                         Cerrar sesión
                     </DialogTitle>
-                    <DialogDescription>
-                        Vas a salir de todas las colas activas. Tu sesión actual de {fmtTime(sessionSec)} quedará registrada.
-                    </DialogDescription>
+                    <DialogDescription>Vas a salir de todas las colas activas. Tu sesión actual de {fmtTime(sessionSec)} quedará registrada.</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <Button variant="outline" onClick={()=>setConfirmLogout(false)}>Cancelar</Button>
-                    <Button variant="destructive" onClick={doLogout}>
-                        <span className="material-icons-round mr-1.5" style={{fontSize:14}}>logout</span>
-                        Cerrar sesión
-                    </Button>
+                    <Button variant="destructive" onClick={doLogout}><span className="material-icons-round mr-1.5" style={{fontSize:14}}>logout</span>Cerrar sesión</Button>
                 </DialogFooter>
             </Dialog>
-                            <TeleflowSoftphone user={user}/>
-            </>)}
+
+                        </>)}
 
         </div>
     );
@@ -15728,6 +16259,68 @@ function TFModalPortal({ children }) {
     return ReactDOM.createPortal(children, root);
 }
 
+// ─── SVGs animados para notificaciones Sileo ───
+function AnimatedSileoIcon({ type, color }) {
+    const stroke = color || "currentColor";
+    switch(type) {
+        case "call_in": // teléfono vibrando entrada
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-shake 0.7s ease-in-out infinite", transformOrigin:"center"}}>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                </svg>
+            );
+        case "call_out": // teléfono outgoing (rotado + flecha arriba)
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-pulse 1.4s ease-in-out infinite"}}>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" stroke={stroke} strokeWidth="2" fill="none"/>
+                    <path d="M17 3l4 4M17 3v4M17 3h4" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+            );
+        case "call_ended": // teléfono colgado
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-drop 0.8s ease-out", transformOrigin:"center"}}>
+                    <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" stroke={stroke} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                    <line x1="1" y1="1" x2="23" y2="23" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" style={{animation:"tf-svg-slash 0.4s ease-out"}}/>
+                </svg>
+            );
+        case "login": // user + arrow up
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-rise 0.6s ease-out", transformOrigin:"center"}}>
+                    <circle cx="12" cy="7" r="4" stroke={stroke} strokeWidth="2" fill="none"/>
+                    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke={stroke} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                    <circle cx="18" cy="4" r="3" fill="#22c55e"/>
+                    <path d="M18 6V2M16 3l2-2 2 2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+            );
+        case "logout": // user + arrow down
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-fall 0.6s ease-out", transformOrigin:"center"}}>
+                    <circle cx="12" cy="7" r="4" stroke={stroke} strokeWidth="2" fill="none"/>
+                    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke={stroke} strokeWidth="2" strokeLinecap="round" fill="none"/>
+                    <circle cx="18" cy="4" r="3" fill="#94A3B8"/>
+                    <path d="M18 2v4M16 5l2 2 2-2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+            );
+        case "pause": // pause barras pulsantes amarillas
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-pulse 1.2s ease-in-out infinite"}}>
+                    <circle cx="12" cy="12" r="10" stroke={stroke || "#f59e0b"} strokeWidth="2" fill="none"/>
+                    <rect x="9" y="8" width="2.5" height="8" fill={stroke || "#f59e0b"} rx="1"/>
+                    <rect x="13" y="8" width="2.5" height="8" fill={stroke || "#f59e0b"} rx="1"/>
+                </svg>
+            );
+        case "unpause": // play verde pop
+            return (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{animation:"tf-svg-pop 0.5s cubic-bezier(0.5,-0.5,0.5,1.5)", transformOrigin:"center"}}>
+                    <circle cx="12" cy="12" r="10" stroke={stroke || "#22c55e"} strokeWidth="2" fill="none"/>
+                    <path d="M9 8l7 4-7 4V8z" fill={stroke || "#22c55e"}/>
+                </svg>
+            );
+        default:
+            return null;
+    }
+}
+
 function SileoProvider({ children }) {
     const [notifs, setNotifs] = useState([]);
     const idRef = useRef(0);
@@ -15763,7 +16356,11 @@ function SileoProvider({ children }) {
                 {notifs.map(n => (
                     <div key={n.id} className={`sileo-notif ${n.kind||''} ${n._dismiss?'dismissing':''}`}>
                         <div className="sileo-icon">
-                            <span className="material-icons-round" style={{fontSize:20}}>{n.icon || (n.kind==='call'?'phone_in_talk':(n.kind==='warning'?'warning':(n.kind==='error'?'error':'info')))}</span>
+                            {n.iconAnim ? (
+                                <AnimatedSileoIcon type={n.iconAnim} color={n.iconColor}/>
+                            ) : (
+                                <span className="material-icons-round" style={{fontSize:20}}>{n.icon || (n.kind==='call'?'phone_in_talk':(n.kind==='warning'?'warning':(n.kind==='error'?'error':'info')))}</span>
+                            )}
                         </div>
                         <div className="sileo-body">
                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
@@ -16157,7 +16754,11 @@ function TeleflowSoftphone({ user, onStatusChange }) {
         setCallDuration(0);
         durationTimerRef.current = setInterval(() => setCallDuration(Math.floor((Date.now() - t0) / 1000)), 1000);
     };
-    const stopDurationTimer = () => { if (durationTimerRef.current) clearInterval(durationTimerRef.current); durationTimerRef.current = null; };
+    const stopDurationTimer = () => {
+        if (durationTimerRef.current) clearInterval(durationTimerRef.current); durationTimerRef.current = null;
+        if (qualityTimerRef.current) clearInterval(qualityTimerRef.current); qualityTimerRef.current = null;
+        setCallQuality(null);
+    };
     const fmtDur = s => { const m = Math.floor(s/60); const r = s%60; return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`; };
 
     const accept = () => {
@@ -16165,10 +16766,23 @@ function TeleflowSoftphone({ user, onStatusChange }) {
         callSession.accept({ sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } } });
     };
     const reject = () => { try { callSession?.reject(); } catch(e){} };
-    const hangup = () => { try { callSession?.bye(); } catch(e){} };
+    const hangup = () => {
+        if (!callSession) { setState("registered"); setCallerId(null); stopRingtone(); return; }
+        try {
+            const SS = window.SIP.SessionState;
+            const st = callSession.state;
+            console.log("[softphone] hangup con state:", st);
+            if (st === SS.Established) callSession.bye();
+            else if (st === SS.Establishing) callSession.cancel?.() || callSession.dispose?.();
+            else if (st === SS.Initial) callSession.dispose?.();
+            else if (st === SS.Terminated) { /* ya terminada */ }
+        } catch(e) { console.warn("[softphone] hangup error:", e); }
+        // Cleanup UI inmediato aunque SIP.js aún transicione
+        setTimeout(() => { setState("registered"); setCallSession(null); setCallerId(null); setDstExt(null); stopDurationTimer(); stopRingtone(); }, 100);
+    };
     const call = async () => {
         if (!uaRef.current?.ua || !dialpadTarget || state !== 'registered') return;
-        const target = window.SIP.UserAgent.makeURI(`sip:${dialpadTarget}@${creds.domain}`);
+        const target = window.SIP.UserAgent.makeURI(`sip:${resolvedTarget}@${creds.domain}`);
         const inviter = new window.SIP.Inviter(uaRef.current.ua, target, {
             sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } }
         });
@@ -16326,6 +16940,1297 @@ function TeleflowSoftphone({ user, onStatusChange }) {
                         <div style={{ textAlign: 'center', padding: 8, color: 'var(--destructive)', fontSize: 11 }}>Registro fallido. Verificá config de la ext.</div>
                     )}
                 </div>
+            )}
+        </div>
+    );
+}
+
+function QueueLiveVideo({ ext }) {
+    // Reutiliza rtsp_proxy.php → HLS + snapshot fallback
+    const videoRef = React.useRef(null);
+    const [hlsUrl, setHlsUrl] = React.useState(null);
+    const [err, setErr] = React.useState(false);
+    React.useEffect(() => {
+        if (!ext) return;
+        let cancelled = false;
+        fetch(`api/rtsp_proxy.php?ext=${encodeURIComponent(ext)}`, { credentials:'include' })
+            .then(r => r.json())
+            .then(d => { if (!cancelled) { if (d.status === 'ok' && d.hls_url) setHlsUrl(d.hls_url); else setErr(true); } })
+            .catch(() => { if (!cancelled) setErr(true); });
+        return () => { cancelled = true; };
+    }, [ext]);
+    React.useEffect(() => {
+        if (!hlsUrl || !videoRef.current) return;
+        const video = videoRef.current;
+        const setupHls = () => {
+            if (!window.Hls || !window.Hls.isSupported()) {
+                if (video.canPlayType && video.canPlayType('application/vnd.apple.mpegurl')) { video.src = hlsUrl; return; }
+                setErr(true); return;
+            }
+            const hls = new window.Hls({ lowLatencyMode: true });
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(video);
+            hls.on(window.Hls.Events.ERROR, (_, data) => { if (data.fatal) setErr(true); });
+            video._hls = hls;
+        };
+        if (window.Hls) { setupHls(); }
+        else {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js';
+            s.onload = setupHls;
+            s.onerror = () => setErr(true);
+            document.head.appendChild(s);
+        }
+        return () => { try { if (video._hls) video._hls.destroy(); } catch(e){} };
+    }, [hlsUrl]);
+    if (err || (!hlsUrl && !videoRef.current)) {
+        // Fallback: snapshot estático rotante
+        return <img src={`api/rtsp_snapshot.php?action=list&ext=${encodeURIComponent(ext)}&latest=1&t=${Math.floor(Date.now()/3000)}`} alt="Snapshot" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>{ e.target.style.display='none'; }} />;
+    }
+    return <video ref={videoRef} autoPlay muted playsInline style={{width:'100%', height:'100%', objectFit:'cover', background:'#000'}}/>;
+}
+
+
+// Parser del name del ext SIP: "Guardia Urban XI" → { rol: "Guardia", cliente: "Urban XI" }
+// Convenciones: primera palabra puede ser el rol (Guardia/Recepción/Puesto/etc) y el resto el cliente.
+function parseExtName(name) {
+    if (!name || typeof name !== "string") return { rol: null, cliente: name || null, full: name };
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return { rol: null, cliente: parts[0], full: name };
+    // Detectar rol conocido en primera palabra
+    const rolesConocidos = ["Guardia","Guardias","Recepcion","Recepción","Puesto","Portería","Porteria","Intercom","Bocina","Central","Principal"];
+    if (rolesConocidos.some(r => r.toLowerCase() === parts[0].toLowerCase())) {
+        return { rol: parts[0], cliente: parts.slice(1).join(" "), full: name };
+    }
+    // Sino, cliente es todo el string
+    return { rol: null, cliente: name, full: name };
+}
+
+function ClientSnapshotAvatar({ ext, fallback }) {
+    const [snap, setSnap] = React.useState(null);
+    const [failed, setFailed] = React.useState(false);
+    React.useEffect(() => {
+        if (!ext) return;
+        // 1) Disparar captura fresca (async, no bloqueante)
+        const fd = new FormData(); fd.append("ext", ext);
+        fetch("api/rtsp_snapshot.php?action=capture", { method:"POST", body:fd, credentials:"include" })
+            .then(r=>r.json()).then(j => {
+                if (j.status === "ok" && j.url) setSnap(j.url + "?t=" + Date.now());
+            }).catch(()=>{});
+        // 2) Mientras tanto, mostrar el último ya disponible
+        fetch(`api/rtsp_snapshot.php?action=list&ext=${encodeURIComponent(ext)}`, { credentials:"include" })
+            .then(r=>r.json()).then(j => {
+                if (j.status==="ok" && j.files && j.files.length > 0 && !snap) {
+                    setSnap(j.files[0].url);
+                }
+            }).catch(()=>{});
+    }, [ext]);
+
+    if (failed || !snap) {
+        return (
+            <div className="rounded-2xl flex items-center justify-center text-white font-bold text-xl" style={{width:"100%", height:"100%", background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))"}}>
+                {fallback || "?"}
+            </div>
+        );
+    }
+    return (
+        <img src={snap} onError={()=>setFailed(true)}
+             style={{width:"100%", height:"100%", borderRadius:16, objectFit:"cover", border:"2px solid var(--horizon-green)"}} alt="snapshot"/>
+    );
+}
+
+function ClientDetailPanel({ ext, name, extensionsData, callHistory, onBack }) {
+    // Info del ext desde data.pbx.extensions
+    const extInfo = React.useMemo(() => extensionsData.find(e => String(e.ext||e.extension) === String(ext)) || null, [ext, extensionsData]);
+    const parsed = React.useMemo(() => (typeof parseExtName === "function") ? parseExtName(extInfo?.name || name || ext) : { cliente: name || ext, rol: null }, [extInfo, name, ext]);
+
+    // Historial de llamadas de esta ext
+    const extHistory = React.useMemo(() => callHistory.filter(c => String(c.src) === String(ext) || String(c.dst) === String(ext)).slice(0, 10), [callHistory, ext]);
+    const totalCalls = extHistory.length;
+    const answered = extHistory.filter(c => c.disposition === "ANSWERED").length;
+    const missed = extHistory.filter(c => ["NO ANSWER","FAILED","BUSY"].includes(c.disposition)).length;
+
+    // Aperturas reales (door_events con snapshot RTSP asociado)
+    const [snapshots, setSnapshots] = React.useState([]);
+    React.useEffect(() => {
+        if (!ext) return;
+        fetch(`api/door_dtmf.php?action=list&ext=${encodeURIComponent(ext)}&limit=6`, { credentials:"include" })
+            .then(r=>r.json()).then(j => {
+                if ((j.ok || j.status==="ok") && j.events && j.events.length > 0) {
+                    setSnapshots(j.events.map(e => ({
+                        url: e.snapshot_url,
+                        name: e.snapshot,
+                        timestamp: e.occurred_at ? Math.floor(new Date(e.occurred_at).getTime()/1000) : null,
+                        dtmf: e.dtmf,
+                        actor: e.actor_user
+                    })));
+                } else {
+                    // Fallback: snapshots crudos (RTSP autocaps)
+                    fetch(`api/rtsp_snapshot.php?action=list&ext=${encodeURIComponent(ext)}`, { credentials:"include" })
+                        .then(r=>r.json()).then(j2 => { if (j2.status==="ok") setSnapshots((j2.files||[]).slice(0,6)); }).catch(()=>{});
+                }
+            }).catch(()=>{});
+    }, [ext]);
+
+    // Personas autorizadas — fetch soft (empty si endpoint no existe)
+    const [authorized, setAuthorized] = React.useState([]);
+    React.useEffect(() => {
+        if (!ext) return;
+        fetch(`api/agent.php?action=client_dossier&ext=${encodeURIComponent(ext)}`, { credentials:"include" })
+            .then(r=>r.json()).then(j => { if (j.status==="ok") setAuthorized(j.authorized || []); }).catch(()=>{});
+    }, [ext]);
+
+    return (
+        <div className="h-full flex flex-col rounded-2xl overflow-hidden" style={{border:"1px solid #E5E7EB", background:"var(--card)", boxShadow:"0 4px 20px rgba(0,0,0,0.06)"}}>
+            {/* Header con foto grande + info */}
+            <div className="p-5 flex items-center gap-4 border-b" style={{borderColor:"#F1F5F9", background:"linear-gradient(135deg, color-mix(in srgb, var(--horizon-green) 6%, transparent), transparent)"}}>
+                <div className="relative" style={{width:72, height:72}}>
+                    <ClientSnapshotAvatar ext={ext} fallback={String(parsed.cliente || ext).slice(0,2).toUpperCase()}/>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5" style={{color:"var(--horizon-green)"}}>
+                        <span className="rounded-full inline-block" style={{width:6, height:6, background:"var(--horizon-green)", animation:"tf-status-breath 1.8s infinite"}}/>
+                        Ficha del contacto
+                    </div>
+                    <div className="font-bold text-lg mt-0.5 truncate" style={{color:"var(--foreground)"}}>{parsed.cliente || name || ext}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                        {parsed.rol && <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{background:"color-mix(in srgb, var(--horizon-green) 15%, transparent)", color:"var(--horizon-green)"}}>{parsed.rol}</span>}
+                        <span className="text-[11px] font-mono" style={{color:"#64748B"}}>#{ext}</span>
+                    </div>
+                </div>
+                <button onClick={onBack} title="Cerrar ficha" className="rounded-full w-8 h-8 flex items-center justify-center transition-all hover:bg-slate-100" style={{color:"#64748B", border:"1px solid #E5E7EB"}}>
+                    <span className="material-icons-round" style={{fontSize:16}}>close</span>
+                </button>
+            </div>
+
+            {/* Stats mini */}
+            <div className="grid grid-cols-3 gap-3 px-5 py-3 border-b" style={{borderColor:"#F1F5F9", background:"#FAFBFB"}}>
+                {[["Llamadas", totalCalls, "#64748B", "call"],["Atendidas", answered, "var(--horizon-green)", "call_received"],["Perdidas", missed, "#ef4444", "call_missed"]].map(([l,n,c,ic]) => (
+                    <div key={l} className="text-center">
+                        <div className="text-[9px] uppercase font-bold tracking-widest" style={{color:"#94A3B8"}}>
+                            <span className="material-icons-round align-middle mr-1" style={{fontSize:11, color:c}}>{ic}</span>{l}
+                        </div>
+                        <div className="font-bold text-xl mt-0.5 tabular-nums" style={{color:c}}>{n}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Body scroll con secciones */}
+            <div className="flex-1 overflow-auto p-5 space-y-5">
+
+                {/* Personas autorizadas */}
+                <div>
+                    <div className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 mb-2" style={{color:"#64748B"}}>
+                        <span className="material-icons-round" style={{fontSize:13}}>groups</span>Personas autorizadas
+                    </div>
+                    {authorized.length === 0 ? (
+                        <div className="rounded-lg px-3 py-4 text-center text-xs" style={{background:"#FAFBFB", border:"1px dashed #E5E7EB", color:"#94A3B8"}}>
+                            Sin personas registradas
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {authorized.map((p,i)=>(
+                                <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg" style={{background:"#FAFBFB", border:"1px solid #F1F5F9"}}>
+                                    <div className="rounded-full w-8 h-8 flex items-center justify-center text-white text-xs font-bold" style={{background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))"}}>
+                                        {String(p.name||"?").slice(0,2).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 text-xs">
+                                        <div className="font-semibold" style={{color:"var(--foreground)"}}>{p.name || p.document || "—"}</div>
+                                        {p.role && <div className="text-[10px]" style={{color:"#64748B"}}>{p.role}</div>}
+                                    </div>
+                                    {p.document && <div className="text-[10px] font-mono" style={{color:"#94A3B8"}}>{p.document}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Últimas aperturas / snapshots */}
+                <div>
+                    <div className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 mb-2" style={{color:"#64748B"}}>
+                        <span className="material-icons-round" style={{fontSize:13}}>door_front</span>Últimas aperturas
+                    </div>
+                    {snapshots.length === 0 ? (
+                        <div className="rounded-lg px-3 py-4 text-center text-xs" style={{background:"#FAFBFB", border:"1px dashed #E5E7EB", color:"#94A3B8"}}>
+                            Sin aperturas recientes
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                            {snapshots.map((f,i)=>{
+                                const url = f.url || `api/rtsp_snapshot.php?action=image&ext=${encodeURIComponent(ext)}&file=${encodeURIComponent(f.name||f.file||f)}`;
+                                const ts = f.timestamp ? new Date(f.timestamp*1000) : (f.date ? new Date(f.date) : null);
+                                const tsLbl = ts ? `${String(ts.getDate()).padStart(2,"0")}/${String(ts.getMonth()+1).padStart(2,"0")} ${String(ts.getHours()).padStart(2,"0")}:${String(ts.getMinutes()).padStart(2,"0")}` : "";
+                                return (
+                                    <div key={i} className="relative rounded-lg overflow-hidden group" style={{aspectRatio:"4/3", border:"1px solid #E5E7EB", background:"#0a0a0a"}}>
+                                        <img src={url} style={{width:"100%", height:"100%", objectFit:"cover"}} alt="snap" onError={e=>{e.target.style.opacity=0.1;}}/>
+                                        {f.dtmf && (
+                                            <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white flex items-center gap-1" style={{background:"#f59e0b", boxShadow:"0 2px 6px rgba(0,0,0,0.4)"}}>
+                                                <span className="material-icons-round" style={{fontSize:9}}>meeting_room</span>
+                                                {f.dtmf}
+                                            </div>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 px-2 py-1 text-[9px] text-white font-mono" style={{background:"linear-gradient(to top, rgba(0,0,0,0.85), transparent)"}}>
+                                            {tsLbl}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Historial reciente */}
+                <div>
+                    <div className="text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 mb-2" style={{color:"#64748B"}}>
+                        <span className="material-icons-round" style={{fontSize:13}}>history</span>Historial reciente
+                    </div>
+                    {extHistory.length === 0 ? (
+                        <div className="rounded-lg px-3 py-4 text-center text-xs" style={{background:"#FAFBFB", border:"1px dashed #E5E7EB", color:"#94A3B8"}}>
+                            Sin llamadas previas
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {extHistory.map((c,i) => {
+                                const isAns = c.disposition === "ANSWERED";
+                                const isMissed = ["NO ANSWER","FAILED","BUSY"].includes(c.disposition);
+                                const col = isAns ? "var(--horizon-green)" : isMissed ? "#ef4444" : "#a855f7";
+                                return (
+                                    <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg" style={{background:"#FAFBFB", border:"1px solid #F1F5F9"}}>
+                                        <div className="rounded-full w-7 h-7 flex items-center justify-center flex-shrink-0" style={{background: `color-mix(in srgb, ${col} 15%, transparent)`}}>
+                                            <span className="material-icons-round" style={{fontSize:13, color:col}}>{isAns?"call_received":isMissed?"call_missed":"call_made"}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[10px] font-bold uppercase tracking-wide" style={{color:col}}>{isAns?"Contestada":isMissed?"Perdida":"Saliente"}</div>
+                                            <div className="text-[10px] font-mono" style={{color:"#94A3B8"}}>{(c.calldate||"").substring(0,16).replace("T"," · ")}</div>
+                                        </div>
+                                        <div className="text-[11px] font-mono tabular-nums" style={{color:"#64748B"}}>{c.billsec>0 ? `${Math.floor(c.billsec/60)}:${String(c.billsec%60).padStart(2,"0")}` : "—"}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TeleflowInlineSoftphone({ user, extensions = [], onIncomingCall }) {
+    /* Softphone inline (dentro del panel agente) — reutiliza SIP.js */
+    const [creds, setCreds] = React.useState(null);
+    const [state, setState] = React.useState("idle");
+    const [error, setError] = React.useState(null);
+    const [dialpadTarget, setDialpadTarget] = React.useState("");
+    const [callSession, setCallSession] = React.useState(null);
+    const [callDuration, setCallDuration] = React.useState(0);
+    const [muted, setMuted] = React.useState(false);
+    const [callerId, setCallerId] = React.useState(null);
+    const [videoOn, setVideoOn] = React.useState(false);
+    const [showSuggest, setShowSuggest] = React.useState(false);
+    const [showDtmf, setShowDtmf] = React.useState(false);
+    const [callQuality, setCallQuality] = React.useState(null); // {rtt, jitter, loss, level:'good'|'ok'|'bad'}
+    const [peerStatus, setPeerStatus] = React.useState(null); // {sip_status, reachable, addr}
+    const [doorFlash, setDoorFlash] = React.useState(false);
+    const ringtoneRef = React.useRef(null);
+
+    // ─── Escuchar cola entrante desde socket.io: si llega join a una cola del agente, ringear el softphone ───
+    React.useEffect(() => {
+        const sock = window._tfSocket;
+        if (!sock || !sock.on) return;
+        const onQueueUpdate = (evt) => {
+            if (evt?.type !== "join") return;
+            // Preventivo: si WSS está inactivo hace >30s, reconectar para asegurar recibir INVITE
+            try {
+                const t = uaRef.current?.ua?.transport;
+                if (t && t.state === window.SIP.TransportState.Disconnected) {
+                    console.log("[softphone] reconectando WSS antes de pickup");
+                    uaRef.current.ua.reconnect?.().then(() => uaRef.current.registerer?.register?.()).catch(()=>{});
+                }
+            } catch(e) {}
+            const caller = evt.callerid || evt.calleridnum || "desconocido";
+            const queue = String(evt.queue || "");
+            // CRÍTICO: solo procesar si la cola es del agente (chequea window._tfAgentQueues seteado en ViewCallCenter)
+            const agentQueues = (window._tfAgentQueues || []).map(String);
+            if (!agentQueues.includes(queue)) {
+                // Silencio — no es cola del agente, no molestar
+                return;
+            }
+            // Dedup 10s
+            const dedupKey = `${queue}::${caller}`;
+            const now = Date.now();
+            window._tfQueueRingDedup = window._tfQueueRingDedup || {};
+            if (window._tfQueueRingDedup[dedupKey] && (now - window._tfQueueRingDedup[dedupKey]) < 10000) return;
+            window._tfQueueRingDedup[dedupKey] = now;
+            console.log("[softphone] 🔔 llamada en MI cola", queue, "desde", caller);
+            // Auto-pickup solo si estoy disponible
+            if (state === "registered" && callerId === null) {
+                const _fd = new FormData(); _fd.append("queue", queue);
+                fetch("api/agent.php?action=pickup_queue", { method:"POST", credentials:"include", body: _fd })
+                    .then(r=>r.json()).then(j=> console.log("[softphone] auto-pickup:", j)).catch(()=>{});
+            }
+            if (window.sileo) window.sileo.push({ kind:"info", icon:"call_received", title:`Cola ${queue}`, msg:`Llamada de ${caller}`, duration:5000 });
+        };
+        const onCallUpdate = (evt) => {
+            // Si la llamada se hangup mientras estoy ringing_in (visual), volver a registered
+            if (evt?.type === "hangup" && state === "ringing_in" && !callSession) {
+                setState("registered"); setCallerId(null);
+                stopRingtone();
+            }
+        };
+        sock.on("queue_update", onQueueUpdate);
+        sock.on("call_update", onCallUpdate);
+        return () => {
+            sock.off?.("queue_update", onQueueUpdate);
+            sock.off?.("call_update", onCallUpdate);
+        };
+    }, [state, callSession]);
+
+    // Detener ringtone (helper)
+    const stopRingtone = () => {
+        try {
+            if (ringtoneRef.current) {
+                clearInterval(ringtoneRef.current.interval);
+                ringtoneRef.current.osc1.stop();
+                ringtoneRef.current.osc2.stop();
+                ringtoneRef.current.ctx.close();
+                ringtoneRef.current = null;
+            }
+        } catch(_){}
+    };
+
+    // Al establecerse llamada real O terminar, apagar ringtone
+    React.useEffect(() => {
+        if (state === "in_call" || state === "registered") stopRingtone();
+    }, [state]);
+    // Poll cada 15s el estado del peer para mostrarlo en la UI (UNREACHABLE es la principal causa de "no recibe llamadas")
+    React.useEffect(() => {
+        if (!creds?.ext) return;
+        const check = () => fetch(`api/agent.php?action=peer_status&ext=${creds.ext}`, { credentials:"include" })
+            .then(r=>r.json()).then(j => { if (j.status==="ok") setPeerStatus(j); }).catch(()=>{});
+        check();
+        const t = setInterval(check, 15000);
+        return () => clearInterval(t);
+    }, [creds?.ext]);
+    const callRef = React.useRef(null);
+    // Listener para tf-agent-dial (botón Rellamar en tabla Mis llamadas)
+    // useEffect para actualizar callRef.current cada render (call es una closure local)
+    React.useEffect(() => { callRef.current = call; });
+    React.useEffect(() => {
+        const onDial = (e) => {
+            const ext = e?.detail?.ext;
+            if (!ext) return;
+            setDialpadTarget(String(ext));
+            // esperar a que dialpadTarget entre en la clausura del proximo render
+            setTimeout(() => { try { callRef.current && callRef.current(); } catch(err){ console.warn("[tf-agent-dial] call fail:", err); } }, 260);
+        };
+        window.addEventListener("tf-agent-dial", onDial);
+        return () => window.removeEventListener("tf-agent-dial", onDial);
+    }, []);
+    const qualityTimerRef = React.useRef(null);
+    const [showSettings, setShowSettings] = React.useState(false);
+    const [audioDevices, setAudioDevices] = React.useState({ inputs:[], outputs:[] });
+    const [selectedMic, setSelectedMic] = React.useState(() => { try { return localStorage.getItem('tf_soft_mic') || 'default'; } catch(e){return 'default';} });
+    const [selectedSpeaker, setSelectedSpeaker] = React.useState(() => { try { return localStorage.getItem('tf_soft_speaker') || 'default'; } catch(e){return 'default';} });
+    const [volume, setVolume] = React.useState(() => { try { return parseFloat(localStorage.getItem('tf_soft_vol') || '1'); } catch(e){return 1;} });
+    // Enumerate audio devices al abrir settings
+    React.useEffect(() => {
+        if (!showSettings || !navigator.mediaDevices?.enumerateDevices) return;
+        navigator.mediaDevices.enumerateDevices().then(devs => {
+            setAudioDevices({
+                inputs:  devs.filter(d => d.kind === 'audioinput').map(d => ({ id:d.deviceId, label:d.label || `Micrófono ${d.deviceId.slice(0,6)}` })),
+                outputs: devs.filter(d => d.kind === 'audiooutput').map(d => ({ id:d.deviceId, label:d.label || `Altavoz ${d.deviceId.slice(0,6)}` })),
+            });
+        }).catch(()=>{});
+    }, [showSettings]);
+
+    // Aplicar volumen + sinkId (output device) al audio de la llamada
+    React.useEffect(() => {
+        if (!audioRef.current) return;
+        audioRef.current.volume = volume;
+        try { localStorage.setItem('tf_soft_vol', String(volume)); } catch(e) {}
+        if (selectedSpeaker && selectedSpeaker !== 'default' && audioRef.current.setSinkId) {
+            audioRef.current.setSinkId(selectedSpeaker).catch(()=>{});
+        }
+    }, [volume, selectedSpeaker]);
+
+    const videoRef = React.useRef(null);
+    const localStreamRef = React.useRef(null);
+    const uaRef = React.useRef(null);
+    const audioRef = React.useRef(null);
+    const remoteVideoRef = React.useRef(null);
+    const durationTimerRef = React.useRef(null);
+    const [hasRemoteVideo, setHasRemoteVideo] = React.useState(false);
+    const [dstExt, setDstExt] = React.useState(null);
+    const isSecureCtx = typeof window !== "undefined" && (window.isSecureContext || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+    React.useEffect(() => {
+        if (user?.role !== "agent") return;
+        fetch("api/agent.php?action=softphone_creds", { credentials: "include" })
+            .then(r => r.json()).then(j => {
+                if (j.status === "ok") setCreds(j);
+                else setError(j.message || "Sin credenciales SIP");
+            }).catch(() => setError("Error de red"));
+    }, [user?.role]);
+
+    React.useEffect(() => {
+        if (!creds || !creds.ws_ready || !window.SIP) return;
+        // Si ya hay un UA activo, NO recrear (evita race con el UA en curso).
+        // El return del useEffect maneja el unregister al desmontar.
+        if (uaRef.current?.ua) return;
+        setState("registering");
+        try {
+            // ═══ Configuración RFC-compliant para calidad telefónica profesional ═══
+            //
+            // RFC 3261 SIP base · RFC 6337 SDP · RFC 4028 Session Timers · RFC 5626 SIP Outbound
+            // RFC 5763/5764 DTLS-SRTP · RFC 6544 ICE TCP · RFC 5389 STUN · RFC 5766 TURN
+            // RFC 7675 Consent Freshness · RFC 8829 JSEP · RFC 3960 Early Media
+            //
+            const ua = new window.SIP.UserAgent({
+                uri: window.SIP.UserAgent.makeURI(`sip:${creds.ext}@${creds.domain}`),
+                transportOptions: {
+                    server: creds.wss_url,
+                    traceSip: false,
+                    keepAliveInterval: 30,           // RFC 6223 — CRLF keepalive c/30s
+                    keepAliveDebounce: 10,           // no spam si hay traffic
+                    reconnectionAttempts: 999,        // reconectar siempre
+                    reconnectionDelay: 4,             // backoff base 4s (exponencial hasta 32s)
+                    connectionTimeout: 15,            // 15s handshake timeout
+                },
+                authorizationUsername: creds.ext,
+                authorizationPassword: creds.secret,
+                displayName: user?.name || `Agente ${creds.ext}`,
+                userAgentString: `TeleflowSoftphone/1.0 SIP.js/0.20.0`,
+                logBuiltinEnabled: false,
+                logLevel: "log",  // más verbose para debug OPTIONS handling
+                // Auto-registration (mejor que Registerer manual — SIP.js maneja re-register al reconnect)
+                // Usamos Registerer explícito abajo para tener más control sobre state
+                contactName: creds.ext,
+                contactTransport: "wss",
+                // Session config con delegate para incoming
+                sessionDescriptionHandlerFactoryOptions: {
+                    // ── Codecs preferidos: Opus (RFC 6716) primero, luego G.711 μ/A-law ──
+                    // SIP.js negociará automáticamente con el otro lado.
+                    iceGatheringTimeout: 3000,       // ICE gathering máx 3s antes de sender offer
+                    peerConnectionOptions: {
+                        rtcConfiguration: {
+                            iceServers: [
+                                { urls: "stun:stun.l.google.com:19302" },
+                                { urls: "stun:stun1.l.google.com:19302" },
+                                { urls: "stun:stun2.l.google.com:19302" },
+                                { urls: "stun:stun.cloudflare.com:3478" }
+                            ],
+                            iceTransportPolicy: "all",
+                            iceCandidatePoolSize: 4,      // pre-gather candidates para calls más rápidas
+                            bundlePolicy: "max-bundle",  // multiplex media sobre single transport
+                            rtcpMuxPolicy: "require",    // RTCP mux (RFC 5761) requerido
+                        }
+                    },
+                    // Constraints media default (accept-side pisa esto en accept())
+                    constraints: {
+                        audio: {
+                            echoCancellation: true,       // AEC
+                            noiseSuppression: true,       // NS
+                            autoGainControl: true,        // AGC
+                            channelCount: 1,               // mono (bandwidth)
+                            sampleRate: { ideal: 48000 }   // Opus 48kHz
+                        },
+                        video: false
+                    }
+                }
+            });
+
+            // ─── Registerer con Session Timers habilitados (RFC 4028) ───
+            const registerer = new window.SIP.Registerer(ua, {
+                expires: 15,                     // 15s TTL — extra agresivo
+                refreshFrequency: 50,            // re-REGISTER al 50% del TTL = cada ~7s (min permitido)
+                extraContactHeaderParams: ["reg-id=1", `+sip.instance="<urn:uuid:${(function(){try{return (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2))}catch(_){return Math.random().toString(36).slice(2)}})()}>"`],
+            });
+            registerer.stateChange.addListener(s => {
+                if (s === window.SIP.RegistererState.Registered) { setState("registered"); setError(null); }
+                else if (s === window.SIP.RegistererState.Unregistered) setState("idle");
+                else if (s === window.SIP.RegistererState.Terminated) { setState("failed"); setError("Registro terminado — reconectando"); }
+            });
+
+            // ─── Transport state — auto-reconnect al perder WS ───
+            ua.transport.stateChange.addListener(state => {
+                if (state === window.SIP.TransportState.Disconnected && !creds.__stopped) {
+                    // Backoff exponencial gestionado por SIP.js con reconnectionAttempts/Delay
+                    setState("registering");
+                    setError("Reconectando…");
+                }
+                if (state === window.SIP.TransportState.Connected) {
+                    // Re-registrar tras reconectar
+                    try { registerer.register(); } catch(_){}
+                }
+            });
+            ua.delegate = {
+                onInvite: (session) => {
+                    console.log("[softphone] 📞 INCOMING INVITE recibida!", session);
+                    const from = session.remoteIdentity?.uri?.user || "?";
+                    const displayName = session.remoteIdentity?.displayName || from;
+                    console.log("[softphone] from:", from, "displayName:", displayName);
+                    setCallerId({ number: from, name: displayName });
+                    setState("ringing_in"); setCallSession(session);
+                    onIncomingCall?.({ number: from });
+                    // Sileo notif de llamada entrante
+                    if (window.sileo) window.sileo.push({ kind:"info", icon:"call_received", title:`Llamada entrante`, msg:`De ${displayName}`, duration:8000 });
+                    session.stateChange.addListener(newState => {
+                        if (newState === window.SIP.SessionState.Established) { setState("in_call"); attachRemoteAudio(session); startDurationTimer(); }
+                        else if (newState === window.SIP.SessionState.Terminated) { setState("registered"); setCallSession(null); setCallerId(null); stopDurationTimer(); }
+                    });
+                }
+            };
+            ua.start().then(() => registerer.register()).catch(e => { setState("failed"); setError("Error conectando: " + e.message); });
+            uaRef.current = { ua, registerer };
+            // Ping activo cada 6s — MUY agresivo para mantener WS vivo
+            const activeKeepalive = setInterval(() => {
+                try {
+                    const t = ua.transport;
+                    if (t?.state === window.SIP.TransportState.Connected) {
+                        // Forzar re-REGISTER — mantiene el registration fresco Y valida el WS
+                        try { registerer.register(); } catch(e) { console.warn("keepalive register fail", e); }
+                    } else if (t?.state === window.SIP.TransportState.Disconnected) {
+                        console.warn("[softphone] WS drop detectado — reconectando");
+                        try { ua.reconnect?.(); } catch(_){}
+                    }
+                } catch(e) {}
+            }, 6000);
+            uaRef.current.activeKeepalive = activeKeepalive;
+            // Monitor de transport WSS — si cae, reconectar automáticamente
+            const transportMon = setInterval(() => {
+                try {
+                    const t = ua.transport;
+                    const tState = t?.state;
+                    if (tState === window.SIP.TransportState.Disconnected) {
+                        console.warn("[softphone] transport WSS caído — reconectando…");
+                        setState("registering");
+                        ua.reconnect?.().then(() => {
+                            console.log("[softphone] transport WSS restaurado");
+                            registerer.register?.();
+                        }).catch(e => console.warn("[softphone] reconnect fail", e));
+                    }
+                } catch(e) { /* ignore */ }
+            }, 8000);
+            uaRef.current.transportMon = transportMon;
+        } catch (e) { setState("failed"); setError("Init failed: " + e.message); }
+        return () => { try { if(uaRef.current?.transportMon) clearInterval(uaRef.current.transportMon); if(uaRef.current?.activeKeepalive) clearInterval(uaRef.current.activeKeepalive); uaRef.current?.registerer?.unregister(); uaRef.current?.ua?.stop(); } catch(e) {} stopDurationTimer(); stopLocalStream(); };
+    }, [creds?.ws_ready, creds?.ext]);
+
+    // La webcam empieza APAGADA — el user la enciende con el botón dedicado
+    // React.useEffect(() => { /* auto-start desactivado */ }, [isSecureCtx, state]);
+
+    const stopLocalStream = () => { try { localStreamRef.current?.getTracks().forEach(t=>t.stop()); } catch(e){} localStreamRef.current = null; };
+    const attachRemoteAudio = (session) => {
+        try {
+            const pc = session?.sessionDescriptionHandler?.peerConnection;
+            if (!pc) return;
+            // Audio
+            if (audioRef.current) {
+                const audioStream = new MediaStream();
+                pc.getReceivers().forEach(r => { if (r.track && r.track.kind === "audio") audioStream.addTrack(r.track); });
+                audioRef.current.srcObject = audioStream;
+                audioRef.current.play().catch(()=>{});
+            }
+            // Video — si el otro lado manda video (intercom SIP con cámara)
+            const videoTracks = [];
+            pc.getReceivers().forEach(r => { if (r.track && r.track.kind === "video") videoTracks.push(r.track); });
+            if (videoTracks.length > 0 && remoteVideoRef.current) {
+                const videoStream = new MediaStream();
+                videoTracks.forEach(t => videoStream.addTrack(t));
+                remoteVideoRef.current.srcObject = videoStream;
+                remoteVideoRef.current.play().catch(()=>{});
+                setHasRemoteVideo(true);
+            } else {
+                setHasRemoteVideo(false);
+            }
+            // Listener para cuando el otro lado agregue video mid-call
+            pc.ontrack = (ev) => {
+                if (ev.track.kind === "video" && remoteVideoRef.current) {
+                    let vs = remoteVideoRef.current.srcObject;
+                    if (!(vs instanceof MediaStream)) { vs = new MediaStream(); remoteVideoRef.current.srcObject = vs; }
+                    vs.addTrack(ev.track);
+                    remoteVideoRef.current.play().catch(()=>{});
+                    setHasRemoteVideo(true);
+                }
+            };
+            // ── Monitor de calidad — poll pc.getStats cada 2s ──
+            if (qualityTimerRef.current) clearInterval(qualityTimerRef.current);
+            let prevPacketsLost = 0, prevPacketsReceived = 0;
+            qualityTimerRef.current = setInterval(async () => {
+                try {
+                    const stats = await pc.getStats();
+                    let rtt = null, jitter = null, loss = null;
+                    stats.forEach(r => {
+                        if (r.type === "inbound-rtp" && r.kind === "audio") {
+                            if (typeof r.jitter === "number") jitter = Math.round(r.jitter * 1000);
+                            if (typeof r.packetsLost === "number" && typeof r.packetsReceived === "number") {
+                                const dLost = r.packetsLost - prevPacketsLost;
+                                const dRec = r.packetsReceived - prevPacketsReceived;
+                                if (dRec > 0) loss = (dLost / (dLost + dRec)) * 100;
+                                prevPacketsLost = r.packetsLost;
+                                prevPacketsReceived = r.packetsReceived;
+                            }
+                        }
+                        if (r.type === "candidate-pair" && r.state === "succeeded" && typeof r.currentRoundTripTime === "number") {
+                            rtt = Math.round(r.currentRoundTripTime * 1000);
+                        }
+                    });
+                    let level = "good";
+                    if ((rtt && rtt > 250) || (loss && loss > 5) || (jitter && jitter > 60)) level = "bad";
+                    else if ((rtt && rtt > 120) || (loss && loss > 2) || (jitter && jitter > 30)) level = "ok";
+                    setCallQuality({ rtt, jitter, loss: loss ? Math.round(loss * 10) / 10 : 0, level });
+                } catch(e) {}
+            }, 2000);
+        } catch(e) {}
+    };
+    const startDurationTimer = () => { const t0 = Date.now(); setCallDuration(0); durationTimerRef.current = setInterval(() => setCallDuration(Math.floor((Date.now()-t0)/1000)), 1000); };
+    const stopDurationTimer = () => { if (durationTimerRef.current) clearInterval(durationTimerRef.current); durationTimerRef.current = null; };
+    const fmtDur = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+    const accept = async () => {
+        // Ring visual de cola (sin INVITE real): hacer pickup via backend AMI Redirect
+        if (!callSession && callerId?.viaQueue) {
+            console.log("[softphone] atendiendo cola", callerId.viaQueue);
+            try {
+                const fd = new FormData(); fd.append("queue", callerId.viaQueue);
+                const rr = await fetch("api/agent.php?action=pickup_queue", { method:"POST", credentials:"include", body:fd });
+                const jj = await rr.json();
+                console.log("[softphone] pickup respuesta:", jj);
+                if (jj.status === "ok") {
+                    if (window.sileo) window.sileo.push({ kind:"info", icon:"call_received", title:"Atendiendo…", msg:"Redirigiendo la llamada de cola al softphone", duration:4000 });
+                } else {
+                    stopRingtone();
+                    setState("registered"); setCallerId(null);
+                    if (window.sileo) window.sileo.push({ kind:"error", icon:"phone_disabled", title:"No se pudo atender", msg: jj.error || "Error", duration:5000 });
+                }
+            } catch(e) {
+                console.warn("[softphone] pickup fail:", e);
+                stopRingtone();
+                setState("registered"); setCallerId(null);
+            }
+            // Timeout de seguridad: si en 6s no llegó la INVITE real, volver a idle
+            setTimeout(() => {
+                if (state === "ringing_in" && !callSession) {
+                    stopRingtone();
+                    setState("registered"); setCallerId(null);
+                }
+            }, 6000);
+            return;
+        }
+        // Camino normal: hay callSession real, accept()
+        callSession?.accept({
+            sessionDescriptionHandlerOptions: {
+                constraints: {
+                    audio: selectedMic && selectedMic !== "default"
+                        ? { deviceId: { exact: selectedMic }, echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+                        : true,
+                    video: isSecureCtx ? { width: { ideal: 640 }, height: { ideal: 480 } } : false
+                }
+            },
+        });
+    };
+    const reject = () => {
+        if (!callSession) { setState("registered"); setCallerId(null); stopRingtone(); return; }
+        try {
+            const SS = window.SIP.SessionState;
+            const st = callSession.state;
+            if (st === SS.Initial || st === SS.Establishing) callSession.reject?.() || callSession.dispose?.();
+            else if (st === SS.Established) callSession.bye();
+        } catch(e) { console.warn("[softphone] reject error:", e); }
+        stopRingtone();
+        setTimeout(() => { setState("registered"); setCallSession(null); setCallerId(null); }, 100);
+    };
+    const hangup = () => {
+        if (!callSession) { setState("registered"); setCallerId(null); setDstExt(null); stopRingtone(); stopDurationTimer(); return; }
+        try {
+            const SS = window.SIP.SessionState;
+            const st = callSession.state;
+            console.log("[softphone] hangup con state:", st);
+            if (st === SS.Established) callSession.bye().catch(e => console.warn("bye fail:", e));
+            else if (st === SS.Establishing) { try { callSession.cancel?.(); } catch(_){}; try { callSession.dispose?.(); } catch(_){} }
+            else if (st === SS.Initial) { try { callSession.dispose?.(); } catch(_){} }
+        } catch(e) { console.warn("[softphone] hangup error:", e); }
+        // Cleanup UI inmediato aunque SIP.js aún transicione
+        setTimeout(() => { setState("registered"); setCallSession(null); setCallerId(null); setDstExt(null); stopDurationTimer(); stopRingtone(); }, 100);
+    };
+    const call = async () => {
+        if (!uaRef.current?.ua || !dialpadTarget) {
+            console.warn("[softphone] call() abortado: ua/target faltante");
+            return;
+        }
+        if (state !== "registered") {
+            console.warn("[softphone] call() abortado: state=", state);
+            return;
+        }
+        // Guard: si hay sesión previa, colgar primero (evita Terminated→Terminated)
+        if (callSession) {
+            try { await callSession.bye?.(); } catch(_){}
+            try { callSession.dispose?.(); } catch(_){}
+            setCallSession(null);
+            await new Promise(r => setTimeout(r, 150));
+        }
+        // Resolver target: si es agent_number (2XX), traducir a ext WebRTC real
+        let resolvedTarget = dialpadTarget;
+        try {
+            const rr = await fetch(`api/agent.php?action=resolve_target&target=${encodeURIComponent(dialpadTarget)}`, { credentials:"include" });
+            const jj = await rr.json();
+            if (jj.status === "ok" && jj.target) {
+                resolvedTarget = jj.target;
+                if (jj.resolved && jj.label) {
+                    console.log("[softphone] resolved:", dialpadTarget, "→", jj.target, "|", jj.label);
+                    if (window.sileo) window.sileo.push({ kind:"info", icon:"call", title:`Llamando a ${jj.label}`, msg:`Ruta: ${dialpadTarget} → ext ${jj.target}`, duration:3000 });
+                }
+            } else if (jj.status === "error") {
+                setError(jj.error || "No se puede resolver el destino");
+                if (window.sileo) window.sileo.push({ kind:"error", icon:"phone_disabled", title:"No se puede llamar", msg: jj.error || "El destino no tiene softphone activo", duration:6000 });
+                return;
+            }
+        } catch(e) {
+            console.warn("[softphone] resolve_target failed, usando target original:", e);
+        }
+        console.log("[softphone] call() → ", resolvedTarget);
+        setDstExt(resolvedTarget);
+        setHasRemoteVideo(false);
+        setError(null);
+        // Auto-activar webcam en paralelo (no bloquea el invite)
+        if (!videoOn && isSecureCtx) {
+            navigator.mediaDevices?.getUserMedia?.({ video: {width:400}, audio: false })
+                .then(st => { if (videoRef.current) { videoRef.current.srcObject = st; localStreamRef.current = st; setVideoOn(true); } })
+                .catch(() => {});
+        }
+        const target = window.SIP.UserAgent.makeURI(`sip:${dialpadTarget}@${creds.domain}`);
+        // SIP.js 0.20.0 — solo constraints en sessionDescriptionHandlerOptions, sin sessionTimersExpires
+        // Video always: pedimos video en constraints (si getUserMedia lo permite, se envía).
+        // El destino negocia — si acepta video, video call; si no, degrada a audio-only.
+        const inviter = new window.SIP.Inviter(uaRef.current.ua, target, {
+            sessionDescriptionHandlerOptions: {
+                constraints: {
+                    audio: selectedMic && selectedMic !== "default"
+                        ? { deviceId: { exact: selectedMic }, echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+                        : true,
+                    video: isSecureCtx ? { width: { ideal: 640 }, height: { ideal: 480 } } : false
+                }
+            },
+            earlyMedia: true,
+        });
+        setCallerId({ number: dialpadTarget, name: dialpadTarget }); setCallSession(inviter); setState("ringing_out");
+        inviter.stateChange.addListener(newState => {
+            console.log("[softphone] inviter state →", newState);
+            if (newState === window.SIP.SessionState.Established) {
+                setState("in_call"); attachRemoteAudio(inviter); startDurationTimer();
+            } else if (newState === window.SIP.SessionState.Terminated) {
+                setState("registered"); setCallSession(null); setCallerId(null); setDstExt(null); stopDurationTimer();
+            }
+        });
+        setCallerId({ number: dialpadTarget, name: dialpadTarget });
+        setCallSession(inviter);
+        setState("ringing_out");
+        try {
+            await inviter.invite();
+            console.log("[softphone] invite() sent OK");
+        } catch(e) {
+            console.error("[softphone] invite() failed:", e);
+            setError("Llamada falló: " + (e?.message || e));
+            setState("registered");
+            setCallSession(null); setCallerId(null); setDstExt(null);
+        }
+    };
+    const toggleMute = () => {
+        try {
+            const pc = callSession?.sessionDescriptionHandler?.peerConnection;
+            const sender = pc?.getSenders?.().find(s => s.track?.kind === "audio");
+            if (sender) { sender.track.enabled = muted; setMuted(!muted); }
+        } catch(e) {}
+    };
+    const sendDtmf = digit => { try { callSession?.sessionDescriptionHandler?.sendDtmf(digit); } catch(e){} };
+
+    if (user?.role !== "agent") return null;
+
+    const stateMeta = {
+        idle:{c:"var(--muted-foreground)", l:"Off"},
+        registering:{c:"#f59e0b", l:"Conectando"},
+        registered:{c:"var(--horizon-green)", l:"Conectado"},
+        ringing_in:{c:"#f59e0b", l:"Entrante"},
+        ringing_out:{c:"#3b82f6", l:"Llamando"},
+        in_call:{c:"#ef4444", l:"En llamada"},
+        failed:{c:"#ef4444", l:"Error"}
+    }[state] || {c:"var(--muted-foreground)", l:state};
+
+    const initials = (user?.name||"?").split(/\s+/).map(x=>x[0]).join("").substring(0,2).toUpperCase();
+
+    return (
+        <div className="flex flex-col gap-3">
+            {/* ── Card Superior — durante llamada muestra VIDEO DEL DISPOSITIVO; sino Webcam / Off ── */}
+            <div className="relative rounded-2xl overflow-hidden transition-all duration-300" style={{border:"1px solid #E5E7EB", aspectRatio:"4/3", background: (state==="ringing_out" || state==="in_call") ? "#0a0a0a" : "#F1F5F9", boxShadow:"0 4px 14px rgba(0,0,0,0.05)"}}>
+                {/* Durante llamada activa: video del dispositivo remoto (WebRTC o RTSP fallback) */}
+                {(state === "ringing_out" || state === "in_call") ? (
+                    <>
+                        <video ref={remoteVideoRef} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"cover", display: hasRemoteVideo ? "block" : "none", filter: doorFlash ? "brightness(1.35) saturate(1.4)" : "none", transition:"filter 0.25s ease", animation: doorFlash ? "tf-door-shake 0.45s 3" : "none"}}/>
+                        {/* Overlay Puerta abierta animado sobre el video */}
+                        {doorFlash && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30" style={{animation:"tf-door-glow 2.6s ease-out"}}>
+                                <div className="absolute inset-0" style={{background:"radial-gradient(circle at center, color-mix(in srgb, #22c55e 45%, transparent) 0%, transparent 70%)", animation:"tf-door-fade 2.6s ease-out"}}/>
+                                <div className="relative flex flex-col items-center gap-3" style={{animation:"tf-door-scale 2.6s ease-out"}}>
+                                    <div className="rounded-full w-20 h-20 flex items-center justify-center" style={{background:"linear-gradient(135deg, #22c55e, #15803d)", boxShadow:"0 0 60px rgba(34,197,94,0.8), inset 0 -3px 0 rgba(0,0,0,0.2)", animation:"tf-door-bounce 0.6s ease-out"}}>
+                                        <span className="material-icons-round text-white" style={{fontSize:44}}>meeting_room</span>
+                                    </div>
+                                    <div className="text-white font-black text-2xl tracking-wider uppercase" style={{textShadow:"0 4px 20px rgba(0,0,0,0.9), 0 0 30px rgba(34,197,94,0.6)", letterSpacing:"0.15em"}}>Puerta abierta</div>
+                                    <div className="text-white/80 font-mono text-xs" style={{textShadow:"0 2px 6px rgba(0,0,0,0.8)"}}>DTMF 9 · Registrado</div>
+                                </div>
+                            </div>
+                        )}
+                        {!hasRemoteVideo && (dstExt || callerId?.number) && (
+                            <QueueLiveVideo ext={dstExt || callerId?.number}/>
+                        )}
+                        {!hasRemoteVideo && !dstExt && !callerId?.number && (
+                            <div className="absolute inset-0 flex items-center justify-center text-white/40">
+                                <span className="material-icons-round" style={{fontSize:48}}>videocam_off</span>
+                            </div>
+                        )}
+                        {/* Overlay info del destino */}
+                        {/* Overlay top del video destino — con badges tipo + calidad */}
+                        <div className="absolute top-0 left-0 right-0 px-3 pt-3 pb-8" style={{background:"linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)"}}>
+                            <div className="flex items-center justify-between gap-2">
+                                {/* Badge tipo video */}
+                                {(hasRemoteVideo || dstExt || callerId?.number) && (
+                                    <div className="px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 backdrop-blur-md" style={{background: hasRemoteVideo ? "rgba(168,85,247,0.35)" : "rgba(59,130,246,0.35)", color:"#fff", border:"1px solid rgba(255,255,255,0.2)"}}>
+                                        <span className="material-icons-round" style={{fontSize:11}}>{hasRemoteVideo ? "videocam" : "stream"}</span>
+                                        {hasRemoteVideo ? "SIP VIDEO" : "RTSP"}
+                                    </div>
+                                )}
+                                {/* Badge calidad */}
+                                {state==="in_call" && callQuality && (
+                                    <div className="px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 backdrop-blur-md" style={{background: callQuality.level==="good" ? "rgba(34,197,94,0.35)" : callQuality.level==="ok" ? "rgba(245,158,11,0.35)" : "rgba(239,68,68,0.4)", color:"#fff", border:`1px solid ${callQuality.level==="good" ? "rgba(74,222,128,0.5)" : callQuality.level==="ok" ? "rgba(251,191,36,0.5)" : "rgba(248,113,113,0.5)"}`}}>
+                                        {[1,2,3].map(bar => (
+                                            <span key={bar} className="inline-block" style={{
+                                                width:3, height: 4+bar*2, borderRadius:1,
+                                                background: (bar <= (callQuality.level==="good"?3:callQuality.level==="ok"?2:1)) ? "#fff" : "rgba(255,255,255,0.35)"
+                                            }}/>
+                                        ))}
+                                        <span className="tabular-nums">{callQuality.rtt ? `${callQuality.rtt}ms` : "—"}</span>
+                                        {callQuality.loss > 0 && <span className="tabular-nums opacity-70">/{callQuality.loss}%</span>}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-2 text-center">
+                                <div className="text-[10px] uppercase font-bold tracking-[0.15em] flex items-center justify-center gap-1.5" style={{color: state==="in_call" ? "#4ade80" : "#93c5fd"}}>
+                                    <span className="rounded-full inline-block" style={{width:6, height:6, background: state==="in_call" ? "#22c55e" : "#60a5fa", animation: state==="in_call" ? "tf-status-breath 1.8s infinite" : "tf-svg-pulse 0.9s infinite", boxShadow: state==="in_call" ? "0 0 12px #22c55e" : "0 0 12px #60a5fa"}}/>
+                                    {state==="in_call" ? "Video del contacto" : "Video del destino"}
+                                </div>
+                                <div className="font-bold text-base text-white mt-1 truncate" style={{textShadow:"0 2px 8px rgba(0,0,0,0.6)"}}>{callerId?.name || callerId?.number || dstExt}</div>
+                            </div>
+                        </div>
+                        {/* Overlay bottom del video destino — botón abrir puerta DTMF */}
+                        {state==="in_call" && (
+                            <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-center gap-2" style={{background:"linear-gradient(to top, rgba(0,0,0,0.7), transparent)"}}>
+                                <button onClick={()=>{
+                                        sendDtmf("9");
+                                        try {
+                                            const fd = new FormData();
+                                            fd.append("ext", dialpadTarget || dstExt || "");
+                                            fd.append("dtmf", "9");
+                                            fetch("api/door_dtmf.php?action=log", { method:"POST", body:fd, credentials:"include" });
+                                        } catch(_) {}
+                                        setDoorFlash(true);
+                                        setTimeout(() => setDoorFlash(false), 2600);
+                                    }} title="Abrir puerta (DTMF 9) + registrar apertura"
+                                        className="rounded-full px-4 py-2 flex items-center gap-2 text-white font-bold text-xs transition-all hover:scale-105"
+                                        style={{background:"linear-gradient(135deg, #f59e0b, #b45309)", boxShadow:"0 6px 18px rgba(245,158,11,0.5), inset 0 -2px 0 rgba(0,0,0,0.15)", letterSpacing:"0.05em"}}>
+                                    <span className="material-icons-round" style={{fontSize:16}}>meeting_room</span>
+                                    Abrir puerta
+                                </button>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        {/* Skeleton mientras conecta el softphone */}
+                        {(state === "registering" || state === "idle" || !creds) && (
+                            <div className="absolute inset-0 animate-fade-in" style={{background:"linear-gradient(90deg, #F1F5F9 25%, #E5E7EB 50%, #F1F5F9 75%)", backgroundSize:"200% 100%", animation:"tf-shimmer 1.5s infinite"}}>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                    <div className="rounded-full" style={{width:82, height:82, background:"rgba(255,255,255,0.6)"}}/>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="h-3 rounded" style={{width:120, background:"rgba(255,255,255,0.7)"}}/>
+                                        <div className="h-2 rounded" style={{width:80, background:"rgba(0,0,0,0.05)"}}/>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <div className="rounded-full" style={{width:5, height:5, background:"var(--horizon-green)", animation:"tf-dot-bounce 1.2s infinite"}}/>
+                                        <div className="rounded-full" style={{width:5, height:5, background:"var(--horizon-green)", animation:"tf-dot-bounce 1.2s 0.15s infinite"}}/>
+                                        <div className="rounded-full" style={{width:5, height:5, background:"var(--horizon-green)", animation:"tf-dot-bounce 1.2s 0.3s infinite"}}/>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <video ref={videoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display: videoOn ? "block" : "none"}}/>
+                        {!videoOn && state !== "registering" && state !== "idle" && creds && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center animate-fade-in" style={{color:"#64748B"}}>
+                                <div className="rounded-full flex items-center justify-center text-white font-bold shadow-lg" style={{width:88, height:88, background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 60%, #000))", fontSize:32, boxShadow:"0 10px 25px color-mix(in srgb, var(--horizon-green) 25%, transparent)"}}>{initials}</div>
+                                <div className="mt-3 text-xs font-semibold flex items-center gap-1.5"><span className="material-icons-round" style={{fontSize:14}}>videocam_off</span>Cámara desactivada</div>
+                            </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-3" style={{background:"linear-gradient(to top, rgba(0,0,0,0.85), transparent 90%)"}}>
+                            <div>
+                                <div className="text-white font-black text-base leading-tight">{user?.name || "Agente"}</div>
+                                <div className="text-white/80 font-mono text-[11px] mt-0.5">Interno {creds?.ext || "—"}</div>
+                            </div>
+                        </div>
+                        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold" style={{background:"rgba(0,0,0,0.6)", color:"#fff", backdropFilter:"blur(6px)"}}>
+                            <span className="rounded-full w-1.5 h-1.5" style={{background:stateMeta.c, animation: state==="registering"?"pulse 1s infinite":"none"}}/>
+                            {stateMeta.l}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Botón manual: Reconectar softphone (oculto) */}
+
+
+            {/* Warning HTTPS si aplica */}
+            {!isSecureCtx && (
+                <div className="rounded-lg px-3 py-2 text-[10px] leading-tight" style={{background:"color-mix(in srgb, var(--destructive) 12%, transparent)", color:"var(--destructive)", border:"1px solid color-mix(in srgb, var(--destructive) 35%, transparent)"}}>
+                    <b>WebRTC</b> requiere HTTPS. Accedé por <a href={"https://hzn-flow.horizonseguridad.com" + (typeof window!=="undefined"?window.location.pathname+window.location.search:"/")} className="underline font-bold">hzn-flow.horizonseguridad.com</a>
+                </div>
+            )}
+            {error && isSecureCtx && (
+                <div className="rounded-lg px-3 py-2 text-[10px] font-semibold" style={{background:"color-mix(in srgb, var(--destructive) 12%, transparent)", color:"var(--destructive)"}}>{error}</div>
+            )}
+
+            {/* ── Ringing in — pantalla entrante pro ── */}
+            {state==="ringing_in" && callerId && (
+                <div className="rounded-3xl p-6 text-center relative overflow-hidden" style={{background:"linear-gradient(135deg, var(--horizon-green) 0%, color-mix(in srgb, var(--horizon-green) 40%, #000) 100%)", animation:"tf-soft-vibrate 0.6s ease-in-out infinite", boxShadow:"0 12px 40px rgba(17,179,40,0.35)"}}>
+                    <div className="text-[10px] uppercase font-black tracking-widest text-white/80 flex items-center justify-center gap-1.5">
+                        <span className="material-icons-round" style={{fontSize:12, animation:"tf-status-shake 0.6s infinite"}}>ring_volume</span>
+                        Llamada entrante
+                    </div>
+                    <div className="relative mx-auto mt-4 mb-3" style={{width:100, height:100}}>
+                        <div className="absolute inset-0 rounded-full" style={{background:"rgba(255,255,255,0.2)", animation:"pulse-ring 1.2s ease-out infinite", color:"#fbbf24"}}/>
+                        <div className="absolute inset-0 rounded-full flex items-center justify-center text-white font-black text-3xl" style={{background:"linear-gradient(135deg, #fff, rgba(255,255,255,0.85))", color:"var(--horizon-green)", boxShadow:"inset 0 -3px 0 rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3)"}}>
+                            {String(callerId.name || callerId.number || "?").slice(0,2).toUpperCase()}
+                        </div>
+                    </div>
+                    <div className="font-black text-lg text-white truncate px-2" style={{textShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>{callerId.name || callerId.number}</div>
+                    {callerId.name && callerId.number && callerId.name !== callerId.number && (
+                        <div className="font-mono text-[11px] text-white/70 mt-0.5">{callerId.number}</div>
+                    )}
+                    <div className="flex gap-4 mt-5 justify-center items-center">
+                        <button onClick={reject} title="Rechazar"
+                                className="rounded-full w-14 h-14 flex items-center justify-center text-white transition-all hover:scale-110"
+                                style={{background:"linear-gradient(135deg, #ef4444, #991b1b)", boxShadow:"0 6px 20px rgba(239,68,68,0.5), inset 0 -3px 0 rgba(0,0,0,0.2)"}}>
+                            <span className="material-icons-round" style={{fontSize:24, transform:"rotate(135deg)"}}>call</span>
+                        </button>
+                        <button onClick={accept} title="Aceptar"
+                                className="rounded-full w-16 h-16 flex items-center justify-center text-white transition-all hover:scale-110"
+                                style={{background:"linear-gradient(135deg, #22c55e, #14532d)", boxShadow:"0 8px 24px rgba(34,197,94,0.55), inset 0 -3px 0 rgba(0,0,0,0.2)", animation:"pulse-ring 1.6s infinite", color:"#22c55e"}}>
+                            <span className="material-icons-round text-white" style={{fontSize:28}}>call</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Llamada activa (ringing_out || in_call) — WEBCAM AGENTE full-bleed con controles overlay ── */}
+            {(state==="in_call" || state==="ringing_out") && (
+                <div className="relative rounded-2xl overflow-hidden transition-all duration-300" style={{aspectRatio:"3/4", background: videoOn ? "#0a0a0a" : "#F1F5F9", border:"1px solid #E5E7EB", boxShadow:"0 4px 20px rgba(0,0,0,0.08)"}}>
+                    {/* Webcam agente en vivo (full-bleed) */}
+                    <video ref={videoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display: videoOn ? "block" : "none"}}/>
+                    {/* Placeholder cuando webcam apagada */}
+                    {!videoOn && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{background:"linear-gradient(135deg, #F1F5F9 0%, #E8F5EA 100%)"}}>
+                            <div className="relative" style={{width:96, height:96}}>
+                                {state==="ringing_out" && (<>
+                                    <div className="absolute inset-0 rounded-full" style={{background:"color-mix(in srgb, var(--horizon-green) 25%, transparent)", animation:"pulse-ring 1.6s ease-out infinite", color:"var(--horizon-green)"}}/>
+                                    <div className="absolute inset-0 rounded-full" style={{background:"color-mix(in srgb, var(--horizon-green) 18%, transparent)", animation:"pulse-ring 1.6s ease-out 0.6s infinite", color:"var(--horizon-green)"}}/>
+                                </>)}
+                                <div className="absolute inset-0 rounded-full flex items-center justify-center text-white font-bold shadow-2xl" style={{background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))", fontSize:32, boxShadow:"0 12px 30px color-mix(in srgb, var(--horizon-green) 35%, transparent)"}}>
+                                    {initials}
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-semibold tracking-wide" style={{color:"#64748B"}}>Activá la cámara con el botón de video</div>
+                        </div>
+                    )}
+
+                    {/* Overlay top: badge en llamada + timer */}
+                    <div className="absolute top-0 left-0 right-0 px-4 pt-4 pb-8 text-center" style={{background:"linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)"}}>
+                        <div className="text-[10px] uppercase font-bold tracking-[0.15em] flex items-center justify-center gap-1.5" style={{color: state==="in_call" ? "#4ade80" : "#93c5fd"}}>
+                            <span className="rounded-full inline-block" style={{width:7, height:7, background: state==="in_call" ? "#22c55e" : "#60a5fa", animation: state==="in_call" ? "tf-status-breath 1.8s infinite" : "tf-svg-pulse 0.9s infinite", boxShadow: state==="in_call" ? "0 0 12px #22c55e" : "0 0 12px #60a5fa"}}/>
+                            {state==="in_call" ? "En llamada" : "Llamando…"}
+                        </div>
+                        <div className="font-bold text-lg text-white mt-1.5 truncate" style={{textShadow:"0 2px 8px rgba(0,0,0,0.6)", letterSpacing:"-0.01em"}}>{callerId?.name || callerId?.number || dstExt}</div>
+                        {state==="in_call" && (
+                            <div className="font-mono font-bold text-lg text-white mt-1 tabular-nums" style={{textShadow:"0 2px 8px rgba(0,0,0,0.7)", letterSpacing:"0.05em"}}>{fmtDur(callDuration)}</div>
+                        )}
+                        {state==="ringing_out" && (
+                            <div className="flex items-center justify-center gap-1 mt-2">
+                                <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s infinite"}}/>
+                                <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s 0.15s infinite"}}/>
+                                <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s 0.3s infinite"}}/>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Overlay bottom: controles */}
+                    <div className="absolute bottom-0 left-0 right-0 p-3" style={{background:"linear-gradient(to top, rgba(0,0,0,0.75), transparent)"}}>
+                        <div className="flex gap-2.5 justify-center">
+                            {state==="ringing_out" && (<>
+                                <button onClick={()=>{ if(videoOn){stopLocalStream(); if(videoRef.current) videoRef.current.srcObject=null; setVideoOn(false);} else { navigator.mediaDevices?.getUserMedia?.({video:{width:400}, audio:false}).then(st=>{if(videoRef.current){videoRef.current.srcObject=st; localStreamRef.current=st; setVideoOn(true);}}).catch(()=>{}); } }}
+                                        title={videoOn?"Apagar cámara":"Encender cámara"}
+                                        className="rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110"
+                                        style={{background: videoOn?"rgba(59,130,246,0.3)":"rgba(255,255,255,0.18)", color:"#fff", backdropFilter:"blur(8px)", boxShadow: videoOn?"inset 0 0 0 1px rgba(59,130,246,0.6)":"inset 0 0 0 1px rgba(255,255,255,0.25)"}}>
+                                    <span className="material-icons-round" style={{fontSize:20}}>{videoOn?"videocam":"videocam_off"}</span>
+                                </button>
+                                <button onClick={hangup} title="Cancelar llamada"
+                                        className="rounded-full w-14 h-14 flex items-center justify-center text-white transition-all hover:scale-110"
+                                        style={{background:"linear-gradient(135deg, #ef4444, #991b1b)", boxShadow:"0 8px 22px rgba(239,68,68,0.55), inset 0 -3px 0 rgba(0,0,0,0.2)", animation:"tf-status-breath 1.4s infinite"}}>
+                                    <span className="material-icons-round" style={{fontSize:24, transform:"rotate(135deg)"}}>call</span>
+                                </button>
+                                <button onClick={toggleMute} title={muted?"Reactivar mic":"Silenciar mic"}
+                                        className="rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110"
+                                        style={{background: muted?"#f59e0b":"rgba(255,255,255,0.18)", color:"#fff", boxShadow: muted?"0 4px 12px rgba(245,158,11,0.5)":"inset 0 0 0 1px rgba(255,255,255,0.25)", backdropFilter:"blur(8px)"}}>
+                                    <span className="material-icons-round" style={{fontSize:20}}>{muted?"mic_off":"mic"}</span>
+                                </button>
+                            </>)}
+                            {state==="in_call" && (<>
+                            <button onClick={toggleMute} title={muted?"Reactivar mic":"Silenciar mic"}
+                                    className="rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110"
+                                    style={{background: muted?"#f59e0b":"rgba(255,255,255,0.18)", color:"#fff", boxShadow: muted?"0 4px 12px rgba(245,158,11,0.5)":"inset 0 0 0 1px rgba(255,255,255,0.25)", backdropFilter:"blur(8px)"}}>
+                                <span className="material-icons-round" style={{fontSize:20}}>{muted?"mic_off":"mic"}</span>
+                            </button>
+                            <button onClick={()=>{ if(videoOn){stopLocalStream(); if(videoRef.current) videoRef.current.srcObject=null; setVideoOn(false);} else { navigator.mediaDevices?.getUserMedia?.({video:{width:400}, audio:false}).then(st=>{if(videoRef.current){videoRef.current.srcObject=st; localStreamRef.current=st; setVideoOn(true);}}).catch(()=>{}); } }}
+                                    title={videoOn?"Apagar cámara":"Encender cámara"}
+                                    className="rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110"
+                                    style={{background: videoOn?"rgba(59,130,246,0.3)":"rgba(255,255,255,0.18)", color:"#fff", backdropFilter:"blur(8px)", boxShadow: videoOn?"inset 0 0 0 1px rgba(59,130,246,0.6)":"inset 0 0 0 1px rgba(255,255,255,0.25)"}}>
+                                <span className="material-icons-round" style={{fontSize:20}}>{videoOn?"videocam":"videocam_off"}</span>
+                            </button>
+                            <button onClick={hangup} title="Colgar"
+                                    className="rounded-full w-14 h-14 flex items-center justify-center text-white transition-all hover:scale-110"
+                                    style={{background:"linear-gradient(135deg, #ef4444, #991b1b)", boxShadow:"0 8px 22px rgba(239,68,68,0.55), inset 0 -3px 0 rgba(0,0,0,0.2)"}}>
+                                <span className="material-icons-round" style={{fontSize:24, transform:"rotate(135deg)"}}>call</span>
+                            </button>
+                            <button onClick={()=>setShowDtmf(v=>!v)} title="Teclado DTMF"
+                                    className="rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110"
+                                    style={{background: showDtmf?"rgba(168,85,247,0.3)":"rgba(255,255,255,0.18)", color:"#fff", backdropFilter:"blur(8px)", boxShadow: showDtmf?"inset 0 0 0 1px rgba(168,85,247,0.6)":"inset 0 0 0 1px rgba(255,255,255,0.25)"}}>
+                                <span className="material-icons-round" style={{fontSize:20}}>dialpad</span>
+                            </button>
+                            </>)}
+                        </div>
+                        {/* DTMF collapsible */}
+                        {showDtmf && (
+                            <div className="grid grid-cols-3 gap-1.5 mt-3">
+                                {["1","2","3","4","5","6","7","8","9","*","0","#"].map(d => (
+                                    <button key={d} onClick={()=>sendDtmf(d)}
+                                            className="rounded-md py-2 text-sm font-black text-white transition-all hover:scale-105"
+                                            style={{background:"rgba(255,255,255,0.12)", backdropFilter:"blur(4px)", boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.18)"}}
+                                            onMouseDown={e=>{e.currentTarget.style.background="rgba(34,197,94,0.4)";}}
+                                            onMouseUp={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";}}
+                                            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";}}>
+                                        {d}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Ringing out separado — DESHABILITADO (ahora la webcam abajo maneja ambos states) ── */}
+            {false && state==="ringing_out" && (
+                <div className="relative rounded-2xl overflow-hidden animate-fade-in" style={{aspectRatio:"4/5", background:"#0f1419", border:"1px solid #E5E7EB", boxShadow:"0 8px 30px rgba(0,0,0,0.15)"}}>
+                    {/* Skeleton shimmer background */}
+                    <div className="absolute inset-0" style={{background:"linear-gradient(135deg, rgba(30,64,175,0.25) 0%, rgba(15,20,25,0.9) 60%, rgba(0,0,0,0.95) 100%)"}}/>
+                    <div className="absolute inset-0" style={{background:"linear-gradient(120deg, transparent 30%, rgba(59,130,246,0.15) 50%, transparent 70%)", backgroundSize:"200% 100%", animation:"tf-shimmer 3s ease-in-out infinite"}}/>
+
+                    {/* Centro: avatar pulsante grande */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                        <div className="relative" style={{width:110, height:110}}>
+                            <div className="absolute inset-0 rounded-full" style={{background:"rgba(96,165,250,0.25)", animation:"pulse-ring 1.8s ease-out infinite", color:"#60a5fa"}}/>
+                            <div className="absolute inset-0 rounded-full" style={{background:"rgba(96,165,250,0.18)", animation:"pulse-ring 1.8s ease-out 0.6s infinite", color:"#60a5fa"}}/>
+                            <div className="absolute inset-0 rounded-full flex items-center justify-center text-white font-bold" style={{fontSize:36, background:"linear-gradient(135deg, #3b82f6, #1d4ed8)", boxShadow:"inset 0 -3px 0 rgba(0,0,0,0.2), 0 12px 30px rgba(59,130,246,0.5)"}}>
+                                {String(callerId?.number||"?").slice(0,2).toUpperCase()}
+                            </div>
+                        </div>
+                        <div className="font-mono font-bold text-white text-center" style={{fontSize:26, letterSpacing:"0.04em", textShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>{callerId?.number}</div>
+                    </div>
+
+                    {/* Overlay top — badge Llamando + dots */}
+                    <div className="absolute top-0 left-0 right-0 p-3 flex items-center justify-between" style={{background:"linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)"}}>
+                        <div className="flex items-center gap-1.5">
+                            <span className="rounded-full" style={{width:6, height:6, background:"#60a5fa", animation:"tf-status-breath 1.6s infinite"}}/>
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-white/90">Llamando</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s infinite"}}/>
+                            <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s 0.15s infinite"}}/>
+                            <span className="rounded-full inline-block" style={{width:5, height:5, background:"#60a5fa", animation:"tf-dot-bounce 1.2s 0.3s infinite"}}/>
+                        </div>
+                    </div>
+
+                    {/* Overlay bottom — botón cancelar */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center" style={{background:"linear-gradient(to top, rgba(0,0,0,0.6), transparent)"}}>
+                        <button onClick={hangup} title="Cancelar llamada"
+                                className="rounded-full flex items-center justify-center text-white transition-all hover:scale-110"
+                                style={{width:60, height:60, background:"linear-gradient(135deg, #ef4444, #b91c1c)", boxShadow:"0 10px 28px rgba(239,68,68,0.5), inset 0 -3px 0 rgba(0,0,0,0.2)"}}>
+                            <span className="material-icons-round" style={{fontSize:26, transform:"rotate(135deg)"}}>call</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Buscador + Dialpad (solo en registered) ── */}
+            {(state==="registered" || state==="idle" || state==="registering" || state==="failed") && (
+                <div className="rounded-2xl p-4 animate-fade-in" style={{border:"1px solid #F1F5F9", background:"var(--card)", boxShadow:"0 4px 20px rgba(0,0,0,0.05)"}}>
+                    <div className="relative mb-3">
+                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2" style={{fontSize:16, color:"var(--horizon-green)"}}>search</span>
+                        <input type="text" value={dialpadTarget}
+                            onChange={e => { setDialpadTarget(e.target.value); setShowSuggest(true); }}
+                            onFocus={e=>{setShowSuggest(true); e.target.style.borderColor="var(--horizon-green)"; e.target.style.boxShadow="0 0 0 4px color-mix(in srgb, var(--horizon-green) 15%, transparent)";}}
+                            onBlur={e=>{setTimeout(()=>setShowSuggest(false), 150); e.target.style.borderColor="#E5E7EB"; e.target.style.boxShadow="none";}}
+                            onKeyDown={e => { if (e.key === "Enter") { setShowSuggest(false); call(); } }}
+                            placeholder="Buscar o marcar…"
+                            className="w-full pl-11 pr-11 py-3 rounded-xl border-0 text-center transition-all outline-none tabular-nums"
+                            style={{border:"1.5px solid #E5E7EB", background:"#FAFBFB", color:"var(--foreground)", fontWeight:700, fontSize: dialpadTarget && /^[0-9*#+]+$/.test(dialpadTarget) ? 22 : 14, letterSpacing: dialpadTarget && /^[0-9*#+]+$/.test(dialpadTarget) ? "0.08em" : "normal", fontFamily: dialpadTarget && /^[0-9*#+]+$/.test(dialpadTarget) ? "JetBrains Mono, ui-monospace, monospace" : "inherit"}}/>
+                        <button type="button" onClick={()=>setShowSettings(true)} title="Configurar audio"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-md w-7 h-7 transition-all"
+                                style={{color:"var(--muted-foreground)", background:"transparent"}}
+                                onMouseEnter={e=>{e.currentTarget.style.background="color-mix(in srgb, var(--horizon-green) 12%, transparent)"; e.currentTarget.style.color="var(--horizon-green)";}}
+                                onMouseLeave={e=>{e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--muted-foreground)";}}>
+                            <span className="material-icons-round" style={{fontSize:16}}>tune</span>
+                        </button>
+                        {showSuggest && dialpadTarget && (() => {
+                            const q = dialpadTarget.toLowerCase();
+                            const matches = (extensions||[]).filter(e => {
+                                const ext = String(e.ext ?? e.extension ?? "").toLowerCase();
+                                const nm  = String(e.name ?? e.callerid ?? "").toLowerCase();
+                                if (!ext) return false;
+                                return ext.includes(q) || nm.includes(q);
+                            }).slice(0, 6);
+                            if (matches.length === 0) return null;
+                            return (
+                                <div className="absolute left-0 right-0 top-full mt-1 rounded-lg border shadow-xl overflow-hidden z-50" style={{borderColor:"var(--border)", background:"var(--card)"}}>
+                                    {matches.map(e => {
+                                        const ext = String(e.ext ?? e.extension ?? "");
+                                        const nm  = e.name || e.callerid || `Interno ${ext}`;
+                                        return (
+                                        <button key={ext} type="button"
+                                                onMouseDown={ev => { ev.preventDefault(); setDialpadTarget(ext); setShowSuggest(false); }}
+                                                className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-muted transition-colors">
+                                            <div className="rounded-md flex items-center justify-center font-black text-white text-[10px] shrink-0" style={{width:26, height:26, background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))"}}>{ext.slice(-2)}</div>
+                                            <div className="flex-1 min-w-0">
+                                                {(() => {
+                                                    const parsed = parseExtName(nm);
+                                                    return (
+                                                        <>
+                                                            <div className="text-xs font-bold truncate" style={{color:"var(--foreground)"}}>{parsed.cliente || nm}</div>
+                                                            <div className="text-[10px] font-mono flex items-center gap-1" style={{color:"var(--muted-foreground)"}}>
+                                                                {parsed.rol && <span className="px-1 py-0.5 rounded text-[9px] font-bold" style={{background:"color-mix(in srgb, var(--horizon-green) 12%, transparent)", color:"var(--horizon-green)"}}>{parsed.rol}</span>}
+                                                                #{ext}{e.status ? ` · ${e.status}` : ""}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                            <span className="material-icons-round" style={{fontSize:16, color:"var(--muted-foreground)"}}>call</span>
+                                        </button>
+                                    );})}
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 py-3">
+                        {[["1",""],["2","ABC"],["3","DEF"],["4","GHI"],["5","JKL"],["6","MNO"],["7","PQRS"],["8","TUV"],["9","WXYZ"],["*"," "],["0","+"],["#"," "]].map(([d,sub]) => (
+                            <button key={d} onClick={()=> setDialpadTarget(t => t + d)}
+                                    className="rounded-full w-14 h-14 mx-auto flex flex-col items-center justify-center transition-all"
+                                    style={{background:"var(--card)", color:"var(--foreground)", boxShadow:"0 1px 3px rgba(0,0,0,0.08), inset 0 0 0 1px var(--border)"}}
+                                    onMouseEnter={e=>{e.currentTarget.style.background="color-mix(in srgb, var(--horizon-green) 10%, var(--card))"; e.currentTarget.style.boxShadow="0 4px 12px color-mix(in srgb, var(--horizon-green) 25%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--horizon-green) 55%, var(--border))"; e.currentTarget.style.transform="translateY(-1px)";}}
+                                    onMouseLeave={e=>{e.currentTarget.style.background="var(--card)"; e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,0.08), inset 0 0 0 1px var(--border)"; e.currentTarget.style.transform="translateY(0)";}}>
+                                <span className="text-xl font-black leading-none">{d}</span>
+                                {sub && <span className="text-[9px] tracking-widest uppercase mt-0.5" style={{color:"var(--muted-foreground)"}}>{sub}</span>}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex gap-3 justify-center pt-3 pb-1">
+                        <button title={videoOn?"Apagar cámara":"Encender cámara"}
+                                onClick={()=>{ if(videoOn){stopLocalStream(); if(videoRef.current) videoRef.current.srcObject=null; setVideoOn(false);} else { navigator.mediaDevices?.getUserMedia?.({video:{width:400}, audio:false}).then(st=>{if(videoRef.current){videoRef.current.srcObject=st; localStreamRef.current=st; setVideoOn(true);}}).catch(()=>{}); } }}
+                                className="rounded-full w-14 h-14 flex items-center justify-center transition-all hover:scale-110"
+                                style={{background: videoOn ? "linear-gradient(135deg, #3b82f6, #1d4ed8)" : "color-mix(in srgb, #3b82f6 10%, var(--card))", color: videoOn ? "#fff" : "#3b82f6", boxShadow: videoOn ? "0 6px 18px rgba(59,130,246,0.45), inset 0 -2px 0 rgba(0,0,0,0.15)" : "0 2px 6px rgba(0,0,0,0.06), inset 0 0 0 1.5px color-mix(in srgb, #3b82f6 25%, transparent)"}}>
+                            <span className="material-icons-round" style={{fontSize:22}}>{videoOn?"videocam":"videocam_off"}</span>
+                        </button>
+                        <button onClick={call} disabled={!dialpadTarget || state !== "registered"}
+                                title="Llamar"
+                                className="rounded-full w-14 h-14 flex items-center justify-center text-white transition-all hover:scale-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 60%, #000))", boxShadow:"0 6px 18px color-mix(in srgb, var(--horizon-green) 45%, transparent), inset 0 -2px 0 rgba(0,0,0,0.15)"}}>
+                            <span className="material-icons-round" style={{fontSize:26}}>call</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <audio ref={audioRef} autoPlay style={{display:"none"}}/>
+
+            {/* Modal Settings — audio input/output + volumen */}
+            {showSettings && ReactDOM.createPortal(
+                <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:9999}}>
+                    <div className="fixed inset-0" style={{background:"rgba(0,0,0,0.55)", backdropFilter:"blur(4px)"}} onClick={()=>setShowSettings(false)}/>
+                    <div className="relative w-full mx-4 rounded-2xl border overflow-hidden" style={{maxWidth:440, background:"var(--card)", borderColor:"var(--border)", boxShadow:"0 25px 60px rgba(0,0,0,0.4)"}} onClick={e=>e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b" style={{borderColor:"var(--border)"}}>
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-lg flex items-center justify-center" style={{width:36, height:36, background:"linear-gradient(135deg, var(--horizon-green), color-mix(in srgb, var(--horizon-green) 55%, #000))", boxShadow:"0 3px 10px color-mix(in srgb, var(--horizon-green) 35%, transparent)"}}>
+                                    <span className="material-icons-round text-white" style={{fontSize:20}}>tune</span>
+                                </div>
+                                <div>
+                                    <div className="font-black text-sm" style={{color:"var(--foreground)"}}>Configuración de audio</div>
+                                    <div className="text-[10px] font-semibold" style={{color:"var(--muted-foreground)"}}>Micrófono, salida y volumen</div>
+                                </div>
+                            </div>
+                            <button onClick={()=>setShowSettings(false)} className="rounded-md w-8 h-8 flex items-center justify-center hover:bg-muted" style={{color:"var(--muted-foreground)"}}>
+                                <span className="material-icons-round" style={{fontSize:18}}>close</span>
+                            </button>
+                        </div>
+                        <div className="px-5 py-4 space-y-4">
+                            <div>
+                                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest mb-1.5" style={{color:"var(--muted-foreground)"}}>
+                                    <span className="material-icons-round" style={{fontSize:14, color:"var(--horizon-green)"}}>mic</span>Micrófono
+                                </label>
+                                <select value={selectedMic} onChange={e=>{setSelectedMic(e.target.value); try{localStorage.setItem("tf_soft_mic", e.target.value)}catch(_){}}}
+                                        className="w-full px-3 py-2 rounded-lg border text-sm outline-none focus:border-[var(--horizon-green)]"
+                                        style={{borderColor:"var(--border)", background:"var(--card)", color:"var(--foreground)"}}>
+                                    <option value="default">Predeterminado del sistema</option>
+                                    {audioDevices.inputs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest mb-1.5" style={{color:"var(--muted-foreground)"}}>
+                                    <span className="material-icons-round" style={{fontSize:14, color:"var(--horizon-green)"}}>volume_up</span>Salida de audio
+                                </label>
+                                <select value={selectedSpeaker} onChange={e=>{setSelectedSpeaker(e.target.value); try{localStorage.setItem("tf_soft_speaker", e.target.value)}catch(_){}}}
+                                        className="w-full px-3 py-2 rounded-lg border text-sm outline-none focus:border-[var(--horizon-green)]"
+                                        style={{borderColor:"var(--border)", background:"var(--card)", color:"var(--foreground)"}}>
+                                    <option value="default">Predeterminado del sistema</option>
+                                    {audioDevices.outputs.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                                </select>
+                                {audioDevices.outputs.length === 0 && (
+                                    <div className="mt-1.5 text-[10px] flex items-center gap-1" style={{color:"var(--muted-foreground)"}}>
+                                        <span className="material-icons-round" style={{fontSize:11}}>info</span>
+                                        Autorizá el micrófono una vez para ver los dispositivos disponibles.
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest mb-1.5" style={{color:"var(--muted-foreground)"}}>
+                                    <span className="material-icons-round" style={{fontSize:14, color:"var(--horizon-green)"}}>graphic_eq</span>Volumen — {Math.round(volume*100)}%
+                                </label>
+                                <input type="range" min="0" max="1" step="0.05" value={volume} onChange={e=>setVolume(parseFloat(e.target.value))}
+                                       className="w-full" style={{accentColor:"var(--horizon-green)"}}/>
+                            </div>
+                        </div>
+                        <div className="px-5 py-3 border-t flex justify-end gap-2" style={{borderColor:"var(--border)", background:"color-mix(in srgb, var(--muted) 20%, var(--card))"}}>
+                            <button onClick={()=>setShowSettings(false)}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:brightness-110"
+                                    style={{background:"var(--horizon-green)", boxShadow:"0 4px 12px color-mix(in srgb, var(--horizon-green) 35%, transparent)"}}>
+                                Guardar y cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
@@ -16807,20 +18712,28 @@ function App() {
         return () => window.removeEventListener('tf-open-report', h);
     }, []);
     const [user, setUser] = useState(() => {
-        const u = localStorage.getItem('tf_user');
-        return (u && u !== 'null') ? u : null;
+        // Hidratación optimista desde localStorage (evita logout al F5).
+        // La key correcta es 'tf_user_cache' donde el load() persiste el objeto completo.
+        try {
+            const raw = localStorage.getItem('tf_user_cache');
+            if (!raw || raw === 'null') return null;
+            const u = JSON.parse(raw);
+            // Sanity check: si es objeto con shape esperada, restaurar
+            if (u && typeof u === 'object' && u.role) return u;
+            return null;
+        } catch(e) { return null; }
     }); 
     const [view, setView] = useState(() => localStorage.getItem('tf_view') || 'dashboard');
     const [data, setData] = useState({ pbx:{ extensions:[], recordings:[], calls:[], queues:[] }, system:{} });
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tf_collapsed') === '1');
     const [darkMode, setDarkMode] = useState(() => {
-        // DEFAULT LIGHT para todos. Solo dark si el user lo eligio explicitamente (tf_dark_user_choice=1)
+        // FORCE LIGHT en TODAS las rutas — retirar cualquier residuo dark
         try {
-            const userChose = localStorage.getItem("tf_dark_user_choice");
-            if (userChose === "1") return true;   // eligio dark
-            if (userChose === "0") return false;  // eligio light
-            return false;                          // default LIGHT
-        } catch(e) { return false; }
+            localStorage.removeItem("tf_dark");
+            localStorage.removeItem("tf_dark_user_choice");
+            localStorage.setItem("theme", "light");
+        } catch(e){}
+        return false;
     });
     const [toast, setToast] = useState(null);
     const [activeCalls, setActiveCalls] = useState(0);
@@ -16831,20 +18744,18 @@ function App() {
     useEffect(() => { localStorage.setItem('tf_view', view); }, [view]);
     useEffect(() => { localStorage.setItem('tf_collapsed', collapsed ? '1' : '0'); }, [collapsed]);
     useEffect(() => {
-        try {
-            localStorage.setItem('tf_dark', darkMode ? '1' : '0');
-            localStorage.setItem('tf_dark_user_choice', darkMode ? '1' : '0');
-        } catch(e){}
+        // NO persistir dark — siempre light
+        try { localStorage.setItem('theme', 'light'); } catch(e){}
     }, [darkMode]);
 
     // Dark/light toggle — sincroniza ambos sistemas: legacy (body) + shadcn (html)
     useEffect(()=>{
+        // SIEMPRE LIGHT en todas las rutas
         const html = document.documentElement;
         const body = document.body;
-        html.classList.toggle('dark', darkMode);
-        html.classList.toggle('light', !darkMode);
-        body.classList.toggle('dark', darkMode);
-        body.classList.toggle('light', !darkMode);
+        html.classList.remove('dark');
+        html.classList.add('light');
+        if (body) { body.classList.remove('dark'); body.classList.add('light'); }
     },[darkMode]);
 
     // Toast helper
@@ -16855,6 +18766,24 @@ function App() {
 
     // Load data
     const load = useCallback(async () => {
+        // TF_AGENT_ONLY o cache agente → endpoint focalizado (agent_data).
+        const cachedUser = (() => { try { return JSON.parse(localStorage.getItem('tf_user_cache') || 'null'); } catch(e) { return null; } })();
+        // isAgentContext depende SOLO del shell HTML (window.__TF_AGENT_ONLY__ seteado por /agentes/index.php)
+        const isAgentContext = (typeof window !== "undefined" && window.__TF_AGENT_ONLY__ === true);
+        if (!isAgentContext && cachedUser?.role === 'agent') {
+            try { localStorage.removeItem('tf_user_cache'); localStorage.removeItem('tf_user'); } catch(e){}
+        }
+        if (isAgentContext) {
+            try {
+                const r = await fetch('api/agent.php?action=agent_data', { credentials: 'include' });
+                if (r.status === 401) { setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(e){}; return; }
+                const j = await r.json();
+                if (j?.status === 'ok' && j.pbx) {
+                    setData(d => ({ ...(d||{}), pbx: { ...(d?.pbx||{}), extensions: j.pbx.extensions, queues: j.pbx.queues, agents: j.pbx.agents || [], queue_members: j.pbx.queue_members || {} } }));
+                }
+            } catch(e) {}
+            return;
+        }
         try {
             const res = await fetch('api/index.php?action=get_full_data', { credentials: 'include' });
             // HORIZON: handle 403/503 graciously
@@ -16885,6 +18814,11 @@ function App() {
                     else if (typeof u === 'object' && u && !u.name && !u.agent_name) {
                         u = { name: u.tf_user || u.username || 'admin', role: u.role || 'admin' };
                     }
+                    // FIX [object Object]: asegurar u.name string. Si fue objeto en algún rerun,
+                    // extraer un string sensato o forzar el default del rol.
+                    if (u && typeof u.name !== 'string') {
+                        u.name = u.name?.name || u.name?.agent_name || u.agent?.agent_name || (u.role === 'agent' ? 'Agente' : 'admin');
+                    }
                     setUser(u);
                     try { localStorage.setItem('tf_user_cache', JSON.stringify(u)); } catch(e) {}
                 }
@@ -16892,17 +18826,21 @@ function App() {
         } catch(e) {}
     }, []);
 
-    // Check session on mount
+    // Check session on mount + poll cada 8s SOLO si hay user (sino cae al login)
     useEffect(()=>{
+        if (!user) return; // sin user, no polling — evita 401 loop
         load();
-        const t = setInterval(load, 8000); // 8s polling — socket realtime hace el resto
+        const t = setInterval(load, 8000);
         return () => clearInterval(t);
-    }, [load]);
+    }, [load, user]);
 
     // HORIZON: Realtime via Socket.io — actualiza data.pbx.extensions y live_calls sin esperar polling
     useEffect(() => {
         if (!user || typeof io === 'undefined') return;
-        const socketUrl = window.location.protocol + '//' + window.location.hostname + ':3001';
+        // En HTTPS (hzn-flow.horizonseguridad.com) usamos mismo origen para atravesar el proxy;
+        // en LAN por IP mantenemos hostname + :3001 directo al hub.
+        const isProxied = window.location.hostname.indexOf('hzn-flow') === 0 || window.location.protocol === 'https:';
+        const socketUrl = isProxied ? window.location.origin : (window.location.protocol + '//' + window.location.hostname + ':3001');
         const socket = io(socketUrl, { path: '/teleflow-socket', transports: ['polling','websocket'], upgrade: true, reconnection: true });
         window._tfSocket = socket;
         socket.on('connect', () => console.log('[realtime] connected'));
@@ -17012,15 +18950,18 @@ function App() {
         socket.on('agent_login', (ev) => {
             console.log('[realtime] agent_login', ev);
             window.dispatchEvent(new CustomEvent('tf-queues-refresh'));
-            if (window.sileo && user?.role !== 'agent') {
-                window.sileo.push({ kind:'info', icon:'login', title:'Agente logueado', msg: `#${ev.agent} en ext ${ev.ext} (${(ev.queues||'').split(',').length} colas)`, duration: 4000 });
+            if (window.sileo) {
+                // Los propios agentes también reciben notifs de compañeros que entran/salen
+                const isSelf = user?.role === 'agent' && String(user?.agent?.number) === String(ev.agent);
+                if (!isSelf) window.sileo.push({ kind:'success', iconAnim:'login', iconColor:'#22c55e', title: user?.role==='agent'?'Compañero conectado':'Agente logueado', msg: `#${ev.agent} en ext ${ev.ext} (${(ev.queues||'').split(',').length} colas)`, duration: 4000 });
             }
         });
         socket.on('agent_logout', (ev) => {
             console.log('[realtime] agent_logout', ev);
             window.dispatchEvent(new CustomEvent('tf-queues-refresh'));
-            if (window.sileo && user?.role !== 'agent') {
-                window.sileo.push({ kind:'info', icon:'logout', title:'Agente desconectado', msg: `Ext ${ev.ext} salió de ${(ev.queues||'').split(',').length} colas`, duration: 4000 });
+            if (window.sileo) {
+                const isSelf = user?.role === 'agent' && String(user?.agent?.number) === String(ev.agent);
+                if (!isSelf) window.sileo.push({ kind:'info', iconAnim:'logout', iconColor:'#94A3B8', title: user?.role==='agent'?'Compañero desconectado':'Agente desconectado', msg: `Ext ${ev.ext} salió de ${(ev.queues||'').split(',').length} colas`, duration: 4000 });
             }
         });
         socket.on('tf-realtime-refresh', (ev) => {
@@ -17074,7 +19015,99 @@ function App() {
     },[]);
     */
 
-    if (user === null) return (<><Login onLogin={u => { setUser(u); if (u.role === 'agent') setView('callcenter'); load(); }} /></>);
+    // ═══ MODO SUPERVISOR (/supervisor/) — short-circuit ═══
+    const TF_SUPERVISOR_ONLY = typeof window !== "undefined" && window.__TF_SUPERVISOR_ONLY__ === true;
+    useEffect(() => {
+        if (!TF_SUPERVISOR_ONLY || !user) return;
+        // Solo admins pueden ser supervisores (por ahora — a futuro rol dedicado)
+        if (user.role !== 'admin') {
+            try { localStorage.removeItem('tf_user_cache'); } catch(_){}
+            fetch('/api/index.php?action=logout', { credentials:'include' }).catch(()=>{});
+            setUser(null);
+        }
+    }, [TF_SUPERVISOR_ONLY, user?.role]);
+    if (TF_SUPERVISOR_ONLY) {
+        if (user === null) return (<><Login adminOnly={true} onLogin={u => {
+            if (u.role !== 'admin') return;
+            try { localStorage.setItem('tf_user_cache', JSON.stringify(u)); } catch(_){}
+            setUser(u); setView('hotdesking'); load();
+        }} /></>);
+        return (
+            <div id="app" className="tfshell">
+                <main className="main-content">
+                    <div className="main-scroll">
+                        <ViewHotdesking data={data} toast={showToast}/>
+                    </div>
+                </main>
+                {toast && (
+                    <div className="toast-container">
+                        <div className={`toast toast-${toast.type || 'info'}`}>
+                            <span className="material-icons-round">{toast.type==='success'?'check_circle':toast.type==='error'?'error':'info'}</span>
+                            {toast.msg}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // ═══ MODO AGENTE PURO (/agentes/) — short-circuit ═══
+    // El shell /agentes/index.php setea window.__TF_AGENT_ONLY__ = true.
+    // En ese modo: solo LoginAgent + ViewCallCenter. Sin admin, sin views admin, sin polling.
+    const TF_AGENT_ONLY = typeof window !== "undefined" && window.__TF_AGENT_ONLY__ === true;
+    // Auto-logout si en /agentes/ hay sesión admin (cache o server)
+    useEffect(() => {
+        if (!TF_AGENT_ONLY || !user) return;
+        if (user.role !== 'agent') {
+            try { localStorage.removeItem('tf_user_cache'); } catch(_){}
+            fetch('/api/index.php?action=logout', { credentials:'include' }).catch(()=>{});
+            setUser(null);
+        }
+    }, [TF_AGENT_ONLY, user?.role]);
+
+    // Forzar tema LIGHT SIEMPRE en /agentes/ — el panel del agente es siempre light-mode.
+    // Corre en cada render/mount para pisar cualquier setting dark heredado.
+    useEffect(() => {
+        if (!TF_AGENT_ONLY) return;
+        const applyLight = () => {
+            const html = document.documentElement;
+            html.classList.remove('dark'); html.classList.add('light');
+            try {
+                document.body.classList.remove('dark'); document.body.classList.add('light');
+                localStorage.setItem('tf_dark_user_choice', 'light');
+            } catch(_) {}
+            if (typeof setDarkMode === 'function') { try { setDarkMode(false); } catch(_){} }
+        };
+        applyLight();
+        // También correr cuando cambia el darkMode state (por si el user hace toggle)
+        return () => {};
+    }, [TF_AGENT_ONLY, darkMode]);
+    if (TF_AGENT_ONLY) {
+        if (user === null || user?.role !== 'agent') return (<><Login agentOnly={true} onLogin={u => {
+            if (u.role !== 'agent') { return; }
+            try { localStorage.setItem('tf_user_cache', JSON.stringify(u)); } catch(_){}
+            setUser(u); setView('callcenter');
+        }} /></>);
+        return (
+            <div id="app" className="tfshell">
+                <main className="main-content">
+                    <div className="main-scroll">
+                        <ViewCallCenter user={user} data={data} onLogout={() => { setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(_){} }} />
+                    </div>
+                </main>
+                {toast && (
+                    <div className="toast-container">
+                        <div className={`toast toast-${toast.type || 'info'}`}>
+                            <span className="material-icons-round">{toast.type==='success'?'check_circle':toast.type==='error'?'error':'info'}</span>
+                            {toast.msg}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    if (user === null) return (<><Login adminOnly={true} onLogin={u => { setUser(u); if (u.role === 'agent') { window.location.href = '/agentes/'; return; } load(); }} /></>);
 
     const renderView = () => {
         switch(view) {
@@ -17100,6 +19133,7 @@ function App() {
 
     return (
         <div id="app" className="tfshell">
+            {user?.role !== "agent" && (
             <TopBarMenu
                 view={view} setView={setView} user={user}
                 onLogout={async () => { await fetch('api/index.php?action=logout', { credentials: 'include' }); setUser(null); try{localStorage.removeItem('tf_user_cache')}catch(e){} }}
@@ -17108,9 +19142,10 @@ function App() {
                 activeCalls={data?.pbx?.live_calls?.length || 0}
                 setVivoFilter={setVivoFilter}
             />
+            )}
             <main className="main-content">
                 <div className="main-scroll">
-                    <PageHeader view={view} />
+                    {user?.role !== "agent" && <PageHeader view={view} />}
                     {renderView()}
                 </div>
                 <AssignCallModal open={!!assignCall} call={assignCall} onClose={()=>setAssignCall(null)} queues={data?.pbx?.queues||[]} extensions={data?.pbx?.extensions||[]} toast={showToast} />
