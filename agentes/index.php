@@ -125,6 +125,11 @@ if (file_exists($admin_path)) {
     </script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <?php
+    // F2.6 fix: cargar CDNs SÓLO en modo legacy. En modo bundle Vite, evitamos
+    // dos copias de React (que causaba error #321 con zustand.useSyncExternalStore).
+    $__legacy_cdns = (isset($_GET['legacy']) && $_GET['legacy'] === '1') || !is_file(__DIR__.'/../assets/app.build.js');
+    if ($__legacy_cdns): ?>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
@@ -134,6 +139,7 @@ if (file_exists($admin_path)) {
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5/dist/hls.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class', theme: { extend: {} } };</script>
+    <?php endif; ?>
     <!-- CSS reusado del panel admin (tokens shadcn, Horizon palette, keyframes) -->
     <style>
         <?php echo $admin_css; ?>

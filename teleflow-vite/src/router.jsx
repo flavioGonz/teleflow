@@ -1,4 +1,4 @@
-// src/router.jsx — F2.6: agrega CDR / Clients / IVR.
+// src/router.jsx — F2.6: agrega CDR / Clients / IVR + future flags v7.
 import React, { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./AppShell.jsx";
@@ -26,9 +26,12 @@ function Loading() {
   );
 }
 
+// v7 future flags para silenciar warnings y opt-in al comportamiento nuevo
+const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true };
+
 export function AppRouter() {
   return (
-    <HashRouter>
+    <HashRouter future={routerFuture}>
       <AppShell>
         <Suspense fallback={<Loading />}>
           <Routes>
