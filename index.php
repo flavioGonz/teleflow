@@ -1,8 +1,14 @@
 <?php
 // HORIZON: anti-cache para que el browser siempre traiga la última versión del JSX
-header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private');
 header('Pragma: no-cache');
 header('Expires: 0');
+// Fix: purga forzada de SW/cache cliente cuando el usuario entra a ?build=1 por primera vez.
+// Sin esto, el SW cacheado del legacy sirve el HTML viejo con CDN de React → error #321.
+if (isset($_GET['build']) && $_GET['build'] === '1' && !isset($_COOKIE['tf_build_purged'])) {
+    header('Clear-Site-Data: "cache", "storage"');
+    setcookie('tf_build_purged', '1', ['path'=>'/', 'samesite'=>'Lax', 'expires'=>time()+86400*30]);
+}
 ?>
 
 <!DOCTYPE html>
@@ -1472,6 +1478,30 @@ header('Expires: 0');
 </head>
 <body>
 <div id="root"></div>
+    <?php if (isset($_GET['build']) && $_GET['build'] === '1'): ?>
+    <script>
+        // Kill-switch anti-React-CDN-cacheado (solo en modo ?build=1).
+        (function() {
+            var reactCached = typeof window.React !== "undefined" && typeof window.ReactDOM !== "undefined";
+            if (reactCached && !location.search.includes("purged=1")) {
+                console.warn("[tf] React CDN cacheado detectado — purgando SW+cache y recargando");
+                try {
+                    if ("serviceWorker" in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(function(regs){
+                            regs.forEach(function(r){ r.unregister(); });
+                            if (window.caches) return caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); });
+                        }).then(function(){
+                            var sep = location.search ? "&" : "?";
+                            location.replace(location.pathname + location.search + sep + "purged=1" + location.hash);
+                        }).catch(function(){ location.reload(true); });
+                        return;
+                    }
+                } catch(e) {}
+                location.reload(true);
+            }
+        })();
+    </script>
+    <?php endif; ?>
 <div id="tf-modal-root" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;"></div>
 <script src="sw.js"></script>
 <?php
