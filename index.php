@@ -6,13 +6,12 @@ header('Expires: 0');
 ?>
 
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#11B328" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0a0a0d" media="(prefers-color-scheme: dark)">
-    <meta name="color-scheme" content="light dark">
+    <meta name="color-scheme" content="light only">
     <title>Teleflow Horizon · PBX Control</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="icon-192.svg">
@@ -855,6 +854,48 @@ header('Expires: 0');
             60% { transform: translateX(-1.4px) rotate(-0.6deg); }
             80% { transform: translateX(1.4px) rotate(0.6deg); }
         }
+        
+        @keyframes tf-svg-shake {
+            0%,100% { transform: rotate(0deg); }
+            25% { transform: rotate(-15deg); }
+            75% { transform: rotate(15deg); }
+        }
+        @keyframes tf-svg-pulse {
+            0%,100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+        @keyframes tf-svg-drop {
+            0% { transform: translateY(-4px) rotate(0deg); }
+            100% { transform: translateY(0) rotate(35deg); }
+        }
+        @keyframes tf-svg-slash {
+            0% { stroke-dasharray: 0 40; }
+            100% { stroke-dasharray: 40 0; }
+        }
+        @keyframes tf-svg-rise {
+            0% { transform: translateY(4px); opacity: 0.5; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes tf-svg-fall {
+            0% { transform: translateY(-4px); opacity: 0.5; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes tf-svg-pop {
+            0% { transform: scale(0.4); }
+            60% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        @keyframes tf-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        @keyframes tf-soft-vibrate {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-1px, 0.5px); }
+            40% { transform: translate(1px, -0.5px); }
+            60% { transform: translate(-0.5px, 1px); }
+            80% { transform: translate(0.5px, -1px); }
+        }
         @keyframes tf-status-shake {
             0%, 100% { transform: rotate(0deg) scale(1); }
             25% { transform: rotate(-8deg) scale(1.05); }
@@ -1426,7 +1467,16 @@ header('Expires: 0');
 <div id="root"></div>
 <div id="tf-modal-root" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;"></div>
 <script src="sw.js"></script>
+<?php
+// Fase 0 refactor: feature flag para bundle nuevo (Vite build)
+// ?build=1 → carga el bundle ES-module optimizado (parallel Vite pipeline)
+// default   → carga el legacy app.jsx via Babel Standalone
+$__use_build = isset($_GET['build']) && $_GET['build'] === '1';
+if ($__use_build && is_file(__DIR__.'/assets/app.build.js')): ?>
+<script type="module" src="assets/app.build.js?v=<?php echo filemtime(__DIR__.'/assets/app.build.js'); ?>"></script>
+<?php else: ?>
 <script type="text/babel" data-presets="react" src="assets/app.jsx?v=<?php echo @file_get_contents(__DIR__.'/sw.js') ? preg_replace('/.*teleflow-cache-(v\d+).*/s', '$1', file_get_contents(__DIR__.'/sw.js')) : time(); ?>"></script>
+<?php endif; ?>
 
 </body>
 </html>
