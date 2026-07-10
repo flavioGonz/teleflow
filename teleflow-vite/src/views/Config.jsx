@@ -1,22 +1,24 @@
-// src/views/Config.jsx — F2.8: layout de configuración con 6 sub-tabs.
+// src/views/Config.jsx — F2.8 + F178: layout de configuración con 7 sub-tabs.
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { HORIZON } from "@lib/theme.js";
 import { useSettings } from "../stores/settings.js";
 
-const Branding  = lazy(() => import("./config/Branding.jsx"));
-const Softphone = lazy(() => import("./config/Softphone.jsx"));
-const Agents    = lazy(() => import("./config/Agents.jsx"));
-const SSL       = lazy(() => import("./config/SSL.jsx"));
-const Changelog = lazy(() => import("./config/Changelog.jsx"));
-const PBX       = lazy(() => import("./config/PBX.jsx"));
+const Branding        = lazy(() => import("./config/Branding.jsx"));
+const Softphone       = lazy(() => import("./config/Softphone.jsx"));
+const Agents          = lazy(() => import("./config/Agents.jsx"));
+const AgentQueuePref  = lazy(() => import("./config/AgentQueuePref.jsx"));
+const SSL             = lazy(() => import("./config/SSL.jsx"));
+const Changelog       = lazy(() => import("./config/Changelog.jsx"));
+const PBX             = lazy(() => import("./config/PBX.jsx"));
 
 const TABS = [
-  { id: "branding",  label: "Branding",     comp: Branding },
-  { id: "softphone", label: "Softphone",    comp: Softphone },
-  { id: "agents",    label: "Agentes",      comp: Agents },
-  { id: "pbx",       label: "PBX",          comp: PBX },
-  { id: "ssl",       label: "SSL / Cert",   comp: SSL },
-  { id: "changelog", label: "Changelog",    comp: Changelog },
+  { id: "branding",   label: "Branding",         comp: Branding },
+  { id: "softphone",  label: "Softphone",        comp: Softphone },
+  { id: "agents",     label: "Agentes",          comp: Agents },
+  { id: "agent_queue",label: "Colas x Agente",   comp: AgentQueuePref },
+  { id: "pbx",        label: "PBX",              comp: PBX },
+  { id: "ssl",        label: "SSL / Cert",       comp: SSL },
+  { id: "changelog",  label: "Changelog",        comp: Changelog },
 ];
 
 export default function Config() {
