@@ -4,13 +4,28 @@ import path from "path";
 
 // FASE 0: build a un STAGING (dist/). Un script `deploy.sh` (con sudo) lo copia
 // como /var/www/teleflow/assets/app.build.js (NOMBRE DIFERENTE, no pisa app.jsx).
-// El bundle nuevo se activa vía feature flag ?build=1.
 //
 // base: "/assets/" — el bundle se sirve desde /assets/ pero se carga desde /agentes/
 // o desde /. Sin este base, los dynamic imports resuelven contra la URL del HTML → 404.
+//
+// resolve.dedupe: fuerza UNA SOLA COPIA de react/react-dom en el bundle. Sin esto,
+// zustand puede terminar con su propia copia embebida distinta a la del shell →
+// useSyncExternalStore falla con #321.
 export default defineConfig({
   base: "/assets/",
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@":           path.resolve(__dirname, "src"),
+      "@lib":        path.resolve(__dirname, "src/lib"),
+      "@views":      path.resolve(__dirname, "src/views"),
+      "@components": path.resolve(__dirname, "src/components")
+    },
+    dedupe: ["react", "react-dom"]
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-dom/client", "react-router-dom", "zustand"]
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
@@ -22,14 +37,6 @@ export default defineConfig({
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: "chunks/[name]-[hash][extname]"
       }
-    }
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-      "@lib": path.resolve(__dirname, "src/lib"),
-      "@views": path.resolve(__dirname, "src/views"),
-      "@components": path.resolve(__dirname, "src/components")
     }
   }
 });
