@@ -69,6 +69,12 @@ header('Expires: 0');
             } catch(e) {}
         })();
     </script>
+    <?php
+    // Fix: cargar CDNs SOLO en modo legacy. En modo bundle Vite, evitamos
+    // dos copias de React (que causaba error #321 con zustand.useSyncExternalStore).
+    // Nota: mismo patron aplicado al shell /agentes/index.php.
+    $__admin_legacy_cdns = !(isset($_GET['build']) && $_GET['build'] === '1' && is_file(__DIR__.'/assets/app.build.js'));
+    if ($__admin_legacy_cdns): ?>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
@@ -83,6 +89,7 @@ header('Expires: 0');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/style.css">
     <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.20.0/sip.min.js"></script>
+    <?php endif; ?>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <!-- HORIZON: Tailwind CDN + shadcn tokens (migración progresiva A1) -->
     <script src="https://cdn.tailwindcss.com"></script>
